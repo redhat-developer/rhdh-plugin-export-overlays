@@ -1,0 +1,5 @@
+# Disable Lightspeed/IA sidecar — chart 2.0-90-CI uses intelligentAssistant.enabled
+# (global.lightspeed is ignored). Default enabled:true starts lightspeed-core with
+# --synthesized-config-output which CrashLoops. See RHDHBUGS-3145.
+intelligentAssistant:
+  enabled: false

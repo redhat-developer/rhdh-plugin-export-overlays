@@ -1003,3 +1003,22 @@ export function validateFrontendBundle(
     error: allProblems.length ? allProblems.join("; ") : null,
   };
 }
+
+/**
+ * The `scalprum.name` a bundle's package.json declares, or undefined.
+ *
+ * An rhdh-cli 2.1 export keeps this field but ships no dist-scalprum/, so it is the
+ * only place an MF-only bundle still carries the legacy name its metadata keys were
+ * written against (RHIDP-17311).
+ */
+export function declaredScalprumName(pluginPath: string): string | undefined {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(join(pluginPath, "package.json"), "utf8"),
+    ) as { scalprum?: { name?: unknown } };
+    const name = pkg.scalprum?.name;
+    return typeof name === "string" && name !== "" ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}

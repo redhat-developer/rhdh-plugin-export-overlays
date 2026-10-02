@@ -381,7 +381,7 @@ test("collectWorkspaceRefs returns keys only for the packages it included", () =
   assert.deepEqual(
     collectWorkspaceRefs(root, "mixed", { support: "community" })
       .frontendConfigKeys,
-    [{ key: "scope.comm", source: "comm.yaml" }],
+    [{ key: "scope.comm", source: "comm.yaml", packageName: "@scope/comm" }],
   );
   assert.deepEqual(
     collectWorkspaceRefs(root, "mixed").frontendConfigKeys.map((k) => k.key),
@@ -407,4 +407,122 @@ test("a package bundled in the RHDH image contributes no keys", () => {
     "b.yaml": `spec:\n  packageName: "@scope/real"\n  dynamicArtifact: ${OCI_REF}\n`,
   });
   assert.deepEqual(collectWorkspaceRefs(root, "local").frontendConfigKeys, []);
+});
+
+// ---------------------------------------------------------------------------
+// Cross-tier hosts (RHIDP-17310)
+// ---------------------------------------------------------------------------
+function pkgYaml(name: string, role: string, support: string, image: string) {
+  return (
+    `spec:\n  packageName: "${name}"\n  support: ${support}\n` +
+    `  backstage:\n    role: ${role}\n` +
+    `  dynamicArtifact: oci://ghcr.io/example/${image}:tag\n`
+  );
+}
+
+function scorecardLike(root: string): string {
+  return makeWorkspace(root, "sc", {
+    "backend.yaml": pkgYaml(
+      "@x/plugin-sc-backend",
+      "backend-plugin",
+      "tech-preview",
+      "sc-backend",
+    ),
+    "module.yaml": pkgYaml(
+      "@x/plugin-sc-backend-module-catalog",
+      "backend-plugin-module",
+      "dev-preview",
+      "sc-module",
+    ),
+    "other.yaml": pkgYaml(
+      "@x/plugin-unrelated-backend",
+      "backend-plugin",
+      "tech-preview",
+      "unrelated",
+    ),
+  });
+}
+
+test("a module's host from another tier is installed alongside it", () => {
+  // scorecard's dev-preview modules attach to the tech-preview scorecard-backend;
+  // booted alone they fail on a missing extension point.
+  const root = scorecardLike(freshRepo());
+  const { refs, hosts, outOfScope } = collectWorkspaceRefs(root, "sc", {
+    support: "dev-preview",
+  });
+  assert.deepEqual(refs, [
+    "oci://ghcr.io/example/sc-module:tag",
+    "oci://ghcr.io/example/sc-backend:tag",
+  ]);
+  assert.deepEqual(hosts, ["@x/plugin-sc-backend"]);
+  // Still counted out of scope, though it is installed and booted in this run.
+  assert.equal(outOfScope, 2);
+});
+
+test("an unrelated backend plugin from another tier is not pulled in", () => {
+  const root = scorecardLike(freshRepo());
+  const { refs } = collectWorkspaceRefs(root, "sc", {
+    support: "dev-preview",
+  });
+  assert.equal(refs.includes("oci://ghcr.io/example/unrelated:tag"), false);
+});
+
+test("the host's own tier adds no hosts", () => {
+  const root = scorecardLike(freshRepo());
+  const { hosts } = collectWorkspaceRefs(root, "sc", {
+    support: "tech-preview",
+  });
+  assert.deepEqual(hosts, []);
+});
+
+test("an excluded host is not installed", () => {
+  const root = scorecardLike(freshRepo());
+  const exclusions = parseExclusions(
+    "# TODO(RHIDP-1): test\ninstall ^@x/plugin-sc-backend$\n",
+    "test-excludes.txt",
+  );
+  const { hosts, excluded } = collectWorkspaceRefs(root, "sc", {
+    support: "dev-preview",
+    installExcluded: excluderFor(exclusions, "install"),
+  });
+  assert.deepEqual(hosts, []);
+  // The module now boots without its host; the report must say why.
+  assert.deepEqual(
+    excluded.map((e) => e.packageName),
+    ["@x/plugin-sc-backend"],
+  );
+});
+
+test("an excluded module pulls in no host", () => {
+  // The module is not installed, so nothing in the run needs its host.
+  const root = makeWorkspace(freshRepo(), "sc2", {
+    "backend.yaml": pkgYaml(
+      "@x/plugin-sc-backend",
+      "backend-plugin",
+      "tech-preview",
+      "sc-backend",
+    ),
+    "module.yaml": pkgYaml(
+      "@x/plugin-sc-backend-module-catalog",
+      "backend-plugin-module",
+      "dev-preview",
+      "sc-module",
+    ),
+    "peer.yaml": pkgYaml(
+      "@x/plugin-peer-backend",
+      "backend-plugin",
+      "dev-preview",
+      "peer",
+    ),
+  });
+  const exclusions = parseExclusions(
+    "# TODO(RHIDP-1): test\ninstall ^@x/plugin-sc-backend-module-catalog$\n",
+    "test-excludes.txt",
+  );
+  const { refs, hosts } = collectWorkspaceRefs(root, "sc2", {
+    support: "dev-preview",
+    installExcluded: excluderFor(exclusions, "install"),
+  });
+  assert.deepEqual(refs, ["oci://ghcr.io/example/peer:tag"]);
+  assert.deepEqual(hosts, []);
 });

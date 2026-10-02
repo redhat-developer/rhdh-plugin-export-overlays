@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
+  declaredScalprumName,
   validateBackendBundle,
   validateFrontendBundle,
   type PluginEntry,
@@ -1070,4 +1071,30 @@ test("a backend bundle with the supported schema passes and reports its property
   assert.equal(configSchema.declared, true);
   assert.equal(configSchema.files[0].state, "ok");
   assert.equal(configSchema.files[0].propertyCount, 1);
+});
+
+test("declaredScalprumName reads a non-empty scalprum.name, else undefined", () => {
+  const withName = (pkg: string) => {
+    const dir = tempDir(join(tmpdir(), "scalprum-name-"));
+    writeFileSync(join(dir, "package.json"), pkg);
+    return dir;
+  };
+  assert.equal(
+    declaredScalprumName(withName('{"scalprum":{"name":"a.b"}}')),
+    "a.b",
+  );
+  assert.equal(
+    declaredScalprumName(withName('{"scalprum":{"name":""}}')),
+    undefined,
+  );
+  assert.equal(
+    declaredScalprumName(withName('{"scalprum":{"name":1}}')),
+    undefined,
+  );
+  assert.equal(declaredScalprumName(withName("{}")), undefined);
+  assert.equal(declaredScalprumName(withName("not json")), undefined);
+  assert.equal(
+    declaredScalprumName(tempDir(join(tmpdir(), "scalprum-none-"))),
+    undefined,
+  );
 });

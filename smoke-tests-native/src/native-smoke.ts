@@ -53,22 +53,34 @@
  * when it appears after the script path, exiting 9 if the file is missing.)
  */
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { setTimeout } from "node:timers/promises";
-import { parseArgs } from "node:util";
+import { parseArgs, promisify } from "node:util";
 import { createRequire } from "node:module";
 import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
 import catalogPlugin from "@backstage/plugin-catalog-backend";
 import scaffolderPlugin from "@backstage/plugin-scaffolder-backend";
 import searchPlugin from "@backstage/plugin-search-backend";
+import authPlugin from "@backstage/plugin-auth-backend";
+import notificationsPlugin from "@backstage/plugin-notifications-backend";
+import eventsPlugin from "@backstage/plugin-events-backend";
+import {
+  createServiceFactory,
+  type BackendFeature,
+} from "@backstage/backend-plugin-api";
+// A real dependency, not just a source for one ServiceRef: the extensions plugins
+// require() this package at load time, so a locally declared ref with the same id lets
+// them start but not load (RHIDP-17310).
+import { dynamicPluginsServiceRef } from "@backstage/backend-dynamic-feature-service";
 import type { JsonObject } from "@backstage/types";
 import {
   discoverPlugins,
+  declaredScalprumName,
   loadBackendPlugins,
   validateBackendBundle,
   validateFrontendBundle,
@@ -78,17 +90,25 @@ import {
 } from "./loader";
 import {
   bundleNamesAreComplete,
+  bootFeatureList,
   computeStatus,
   describeConfigKeyMismatch,
   describeInstallShortfall,
+  configKeysNotApplicable,
   describeNfsShortfall,
+  expandFeatureLoaders,
+  featureTargets,
   findConfigKeyMismatches,
+  missingHostPluginIds,
   partitionBootable,
   type ShortfallOptions,
 } from "./harness-logic";
-import { patchModuleResolution } from "./module-resolution";
+import {
+  patchDynamicPackageJsonResolution,
+  patchModuleResolution,
+} from "./module-resolution";
 import { resolveContained } from "./paths";
-import { errorMessage } from "./util";
+import { errorMessage, isRecord, lastErrorLine } from "./util";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
 import {
@@ -102,6 +122,7 @@ import {
   type BackendBundleInfo,
   type BackendStartResult,
   type CatalogIndexInfo,
+  type ConfigKeyMismatch,
   type FrontendBundleInfo,
   type Report,
   type WorkspaceInfo,
@@ -113,7 +134,14 @@ import {
   writeDynamicPluginsConfig,
   type ConfiguredFrontendKey,
 } from "./workspace";
-import { readCatalogIndexRefs, writeCatalogIndexConfig } from "./catalog-index";
+import {
+  partitionResolvable,
+  pluginPathProblem,
+  probeCandidates,
+  readCatalogIndexRefs,
+  writeCatalogIndexConfig,
+  type ProbeResult,
+} from "./catalog-index";
 
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // This harness's own node_modules — extracted plugins resolve @backstage/* against it.
@@ -127,6 +155,13 @@ const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
 // costing three pulls per workspace.
 const INSTALL_ATTEMPTS = 3;
 const INSTALL_RETRY_BASE_MS = 2000;
+
+// A manifest fetch is one small request; a registry that has not answered in this long
+// is not going to, and the retry in partitionResolvable covers a slow moment. Kept short
+// because it multiplies: 2 candidates x 3 attempts per ref during an outage, and the
+// job's 60-minute limit cancels the run rather than failing it.
+const PROBE_TIMEOUT_MS = 30_000;
+const execFileAsync = promisify(execFile);
 
 // Resolve the CLI's bin to an absolute path and invoke it with the absolute Node
 // binary (process.execPath), so the executable is never looked up via PATH (Sonar
@@ -150,10 +185,87 @@ const CLI_BIN = join(
 // loaded at all, so a wiring failure in one shipped as "installed, artifact valid".
 const coreFeatures = [catalogPlugin, scaffolderPlugin, searchPlugin];
 
+// Host plugins booted only when a loaded module attaches to them and nothing else in the
+// run provides them (RHIDP-17310). Not core features: notifications ships as a dynamic
+// plugin too, and a second copy of a plugin id fails startup. auth and events are
+// static in RHDH and never exported, so in practice they are always added when one of
+// their modules loads.
+const HOST_FALLBACKS = new Map<string, BackendFeature>([
+  ["auth", authPlugin],
+  ["events", eventsPlugin],
+  ["notifications", notificationsPlugin],
+]);
+// `core.dynamicplugins`, which RHDH's backend provides through
+// @backstage/backend-dynamic-feature-service and the extensions plugins depend on. The
+// harness loads plugins itself, so there is no manager to expose: this reports none,
+// which is enough for a plugin to start (RHIDP-17310).
+const emptyDynamicPluginsService = createServiceFactory({
+  service: dynamicPluginsServiceRef,
+  deps: {},
+  factory: () => ({
+    plugins: () => [],
+    backendPlugins: () => [],
+    frontendPlugins: () => [],
+    getScannedPackage: () => {
+      throw new Error("no scanned packages in the native smoke harness");
+    },
+  }),
+});
+
+const CORE_PLUGIN_IDS = coreFeatures.flatMap((f) =>
+  featureTargets(f).map((t) => t.pluginId),
+);
+
 // execFileSync (args array, no shell) so workspace names / OCI refs can never be
 // interpolated into a shell command as this grows beyond a single fixed plugin.
 function run(file: string, args: string[]): string {
   return execFileSync(file, args, { encoding: "utf-8", stdio: "pipe" }).trim();
+}
+
+// Ask the registry for a ref's manifest and run the plugin-path check on it — the two
+// things the install CLI does first, and aborts on, for every package. `--raw` fetches
+// only the manifest, so ~100 of these cost seconds. Found on PATH exactly as the
+// install CLI finds it; there is no bundled copy to point at. Each candidate is tried
+// in turn, the way the CLI falls back from the productized registry to quay.
+async function probeRegistry(ref: string): Promise<ProbeResult> {
+  const candidates = probeCandidates(ref);
+  const errors: string[] = [];
+  for (const image of candidates) {
+    try {
+      const { stdout: manifest } = await execFileAsync(
+        "skopeo",
+        ["inspect", "--raw", `docker://${image}`],
+        { timeout: PROBE_TIMEOUT_MS },
+      );
+      const problem = pluginPathProblem(ref, manifest);
+      return problem
+        ? { ok: false, error: problem, retry: false }
+        : { ok: true };
+    } catch (err) {
+      // Name each image only when there were two, and keep both reasons: the primary
+      // registry's answer matters as much as the fallback's. With one, the ref already
+      // says which image it was.
+      const error = probeErrorLine(err);
+      errors.push(candidates.length > 1 ? `${image}: ${error}` : error);
+    }
+  }
+  return { ok: false, error: errors.join("; ") };
+}
+
+// One skopeo failure as one line of the report entry.
+function probeErrorLine(err: unknown): string {
+  if (!isRecord(err)) return lastErrorLine(err);
+  // No skopeo at all says nothing about any ref. Recorded per ref it would read as
+  // every package in the index being broken, so it fails the run as what it is.
+  if (err.code === "ENOENT") {
+    throw new Error(
+      "skopeo not found on PATH: probing catalog index refs needs it, as the install CLI does",
+      { cause: err },
+    );
+  }
+  // A kill leaves stderr empty and a message that only echoes the command line.
+  if (err.killed) return `no answer within ${PROBE_TIMEOUT_MS / 1000}s`;
+  return lastErrorLine(err);
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
@@ -188,7 +300,7 @@ async function materializeWorkspaceConfig(
   support: string | undefined,
   exclusions: Exclusion[],
 ): Promise<MaterializedSource> {
-  const { refs, skipped, excluded, outOfScope, frontendConfigKeys } =
+  const { refs, skipped, excluded, outOfScope, frontendConfigKeys, hosts } =
     collectWorkspaceRefs(REPO_ROOT, workspace, {
       support,
       installExcluded: excluderFor(exclusions, "install"),
@@ -209,6 +321,7 @@ async function materializeWorkspaceConfig(
       skippedMetadata: skipped,
       support,
       outOfScope: support ? outOfScope : undefined,
+      hosts: hosts.length ? hosts : undefined,
     },
     excluded,
   };
@@ -229,19 +342,27 @@ async function materializeCatalogIndexConfig(
       `declared (${enabledInIndex} enabled by default, ${inImage.length} bundled in ` +
       `the RHDH image, ${excluded.length} excluded)`,
   );
-  const path = await writeCatalogIndexConfig(refs, destDir);
+  const { resolvable, unresolved } = await partitionResolvable(
+    refs,
+    probeRegistry,
+  );
+  for (const { ref, error } of unresolved) {
+    console.error(`✗ not installable, left out: ${ref}\n  ${error}`);
+  }
+  const path = await writeCatalogIndexConfig(resolvable, destDir);
   return {
     path,
-    refCount: refs.length,
+    refCount: resolvable.length,
     // Deduplicated, so a lower bound: workspaces/cost-management/metadata/* already
     // point two packages at one ref, and without allowExtra that would fail a healthy run.
     shortfall: { subject: "catalog index", allowExtra: true },
     catalogIndex: {
       source: indexPath,
       declared,
-      refCount: refs.length,
+      refCount: resolvable.length,
       inImage: inImage.length,
       enabledInIndex,
+      unresolved,
     },
     excluded,
   };
@@ -283,6 +404,9 @@ async function materializeSource(
   }
 }
 
+/** The source's provenance blocks, which an error report keeps. */
+type ReportProvenance = Pick<Report, "workspace" | "catalogIndex">;
+
 // Any failure — bad args, install CLI crash, boot error before the report is built —
 // still produces a results.json (status: error), so a consumer never reads a stale
 // "pass" or finds no report at all.
@@ -290,10 +414,16 @@ async function writeErrorReport(
   out: string,
   cliVersion: string,
   message: string,
+  provenance: ReportProvenance = {},
 ): Promise<void> {
   const report: Report = {
     schemaVersion: REPORT_SCHEMA_VERSION,
     cliVersion,
+    // Still true when a later step throws. The refs already refused are what the job
+    // summary and the triage issue list first; `workspace.hosts` names the refs from
+    // another tier this run installed, which the install CLI can abort on as well.
+    workspace: provenance.workspace,
+    catalogIndex: provenance.catalogIndex,
     backend: {
       total: 0,
       loaded: 0,
@@ -512,6 +642,28 @@ async function extractPlugins(
   }
 }
 
+// No CLI run for an empty config. In catalog-index mode that is every declared ref
+// unresolved: the report still fails the run on them, there is just nothing to install.
+async function installSource(
+  root: string,
+  materialized: MaterializedSource,
+): Promise<void> {
+  if (materialized.refCount === 0) return;
+  await extractPlugins(root, materialized.path);
+}
+
+// An unresolved ref is a package that could not be installed at all, which is what
+// fail-install already means — just caught before the CLI instead of after.
+function installFailed(
+  installShortfall: string | null,
+  materialized: MaterializedSource,
+): boolean {
+  return (
+    Boolean(installShortfall) ||
+    (materialized.catalogIndex?.unresolved.length ?? 0) > 0
+  );
+}
+
 // Boot the loaded backend features in-process to confirm they integrate.
 async function startBackend(
   loaded: LoadedPlugin[],
@@ -520,23 +672,43 @@ async function startBackend(
   // No backend plugins (e.g. a frontend-only workspace) — boot wasn't attempted, not a
   // failure. Flag it so results.json doesn't read like the backend crashed.
   if (loaded.length === 0) return { ok: true, skipped: true };
+  // Outside the try: a boot that fails on an injected host must still say it was there.
+  let hostPlugins: string[] = [];
   try {
     // Inject a root config (dummy values for plugins that validate config at boot,
     // overridden by the caller's --app-config layer when provided).
     const config = buildMergedConfig(loaded, appConfig);
+    // Loaders first — see expandFeatureLoaders.
+    const expanded = await expandFeatureLoaders(loaded.map((p) => p.feature));
+    hostPlugins = missingHostPluginIds(
+      expanded.features.flatMap((f) => featureTargets(f)),
+      CORE_PLUGIN_IDS,
+    ).filter((id) => HOST_FALLBACKS.has(id));
+    if (hostPlugins.length > 0) {
+      console.log(
+        `▶ host plugin(s) added for loaded modules: ${hostPlugins.join(", ")}`,
+      );
+    }
     const backend = await startTestBackend({
-      features: [
-        ...coreFeatures,
-        ...loaded.map((p) => p.feature),
-        mockServices.rootConfig.factory({ data: config }),
-      ],
+      features: bootFeatureList(expanded, {
+        head: [
+          ...coreFeatures,
+          emptyDynamicPluginsService,
+          ...hostPlugins.flatMap((id) => HOST_FALLBACKS.get(id) ?? []),
+        ],
+        tail: [mockServices.rootConfig.factory({ data: config })],
+      }),
     });
     await backend.stop();
-    return { ok: true };
+    return {
+      ok: true,
+      hostPlugins: hostPlugins.length ? hostPlugins : undefined,
+    };
   } catch (err) {
     return {
       ok: false,
       error: errorMessage(err),
+      hostPlugins: hostPlugins.length ? hostPlugins : undefined,
     };
   }
 }
@@ -596,6 +768,49 @@ function validateFrontends(frontend: PluginEntry[]): {
   return { valid, errors, bundles };
 }
 
+// Cross-check the workspace's dynamicPlugins.frontend keys against the installed bundle
+// names, logging what it finds. Both results are undefined when the check did not run:
+// outside workspace mode (no metadata to read keys from) or when the set of names cannot
+// be trusted (see bundleNamesAreComplete). Undefined, not [], which is the same
+// distinction the other modes make: "not checked here" is not "checked and clean".
+function checkFrontendConfigKeys(
+  configured: ConfiguredFrontendKey[] | undefined,
+  namesComplete: boolean,
+  installed: PluginEntry[],
+  bundles: FrontendBundleInfo[],
+): {
+  configKeyMismatches?: ConfigKeyMismatch[];
+  configKeysNotApplicableHere?: string[];
+} {
+  if (!configured || !namesComplete) return {};
+  // Frontend bundles that ship no dist-scalprum/ — see configKeysNotApplicable.
+  const mfOnlyNames = new Set(
+    bundles.filter((b) => !b.scalprum).map((b) => b.name),
+  );
+  const mfOnlyPlugins = installed.filter((p) => mfOnlyNames.has(p.name));
+  const configKeysNotApplicableHere = configKeysNotApplicable(configured, {
+    npmNames: mfOnlyPlugins.map((p) => p.name),
+    scalprumNames: mfOnlyPlugins.flatMap(
+      (p) => declaredScalprumName(p.path) ?? [],
+    ),
+  });
+  const configKeyMismatches = findConfigKeyMismatches(
+    configured,
+    bundles.flatMap((b) => (b.scalprum?.name ? [b.scalprum.name] : [])),
+    configKeysNotApplicableHere,
+  );
+  for (const mismatch of configKeyMismatches) {
+    console.error(`✗ ${describeConfigKeyMismatch(mismatch)}`);
+  }
+  if (configKeysNotApplicableHere.length) {
+    console.warn(
+      `⚠ dynamicPlugins.frontend key(s) configure MF-only bundles, which RHDH's ` +
+        `NFS app does not read — not checked: ${configKeysNotApplicableHere.join(", ")}`,
+    );
+  }
+  return { configKeyMismatches, configKeysNotApplicableHere };
+}
+
 async function main(): Promise<number> {
   const inputs = parseCliInputs();
   if (!inputs.out) {
@@ -616,6 +831,9 @@ async function main(): Promise<number> {
   // Declared outside the try so the catch/finally can see them even if setup fails.
   let cliVersion = "unknown";
   let tempDir: string | undefined;
+  // Outside too, so a failure after materializing keeps what it established — see
+  // writeErrorReport.
+  let provenance: ReportProvenance = {};
 
   try {
     // Everything fallible lives in the try, so any failure still writes a results.json
@@ -634,7 +852,11 @@ async function main(): Promise<number> {
       tempDir,
       inputs,
     );
-    await extractPlugins(root, materialized.path);
+    provenance = {
+      workspace: materialized.workspace,
+      catalogIndex: materialized.catalogIndex,
+    };
+    await installSource(root, materialized);
 
     const manifest = discoverPlugins(root);
     console.log(
@@ -656,6 +878,9 @@ async function main(): Promise<number> {
 
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
+    // What RHDH's dynamic plugin loader does for resolvePackagePath() — see
+    // dynamicPackageJsonPath.
+    patchDynamicPackageJsonResolution(manifest.backend);
 
     const { skipped, excluded, bootable } = partitionBootable(
       manifest.backend,
@@ -676,23 +901,13 @@ async function main(): Promise<number> {
     const start = await startBackend(loaded, appConfig);
     const backendBundles = validateBackends(manifest.backend);
     const frontend = validateFrontends(manifest.frontend);
-    // Skipped rather than run on a set of names it cannot trust — see
-    // bundleNamesAreComplete. Undefined, not [], which is the same distinction the other
-    // modes make: "not checked here" is not "checked and clean".
-    // Workspace mode only: the others have no metadata to read keys from.
-    const configKeyMismatches =
-      materialized.frontendConfigKeys &&
-      bundleNamesAreComplete(installShortfall, frontend.errors)
-        ? findConfigKeyMismatches(
-            materialized.frontendConfigKeys,
-            frontend.bundles.flatMap((b) =>
-              b.scalprum?.name ? [b.scalprum.name] : [],
-            ),
-          )
-        : undefined;
-    for (const mismatch of configKeyMismatches ?? []) {
-      console.error(`✗ ${describeConfigKeyMismatch(mismatch)}`);
-    }
+    const { configKeyMismatches, configKeysNotApplicableHere } =
+      checkFrontendConfigKeys(
+        materialized.frontendConfigKeys,
+        bundleNamesAreComplete(installShortfall, frontend.errors),
+        manifest.frontend,
+        frontend.bundles,
+      );
     for (const { plugin, error } of backendBundles.errors) {
       console.error(`✗ backend '${plugin.name}': ${error}`);
     }
@@ -718,10 +933,11 @@ async function main(): Promise<number> {
         errors: frontend.errors,
         bundles: frontend.bundles,
         configKeyMismatches,
+        configKeysNotApplicable: configKeysNotApplicableHere,
       },
       exclusions: [...materialized.excluded, ...excluded],
       installShortfall: installShortfall ?? undefined,
-      status: installShortfall
+      status: installFailed(installShortfall, materialized)
         ? "fail-install"
         : computeStatus(
             loadErrors,
@@ -744,8 +960,8 @@ async function main(): Promise<number> {
     );
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
-    // e.g. the install CLI failing on a bad OCI ref — see writeErrorReport.
-    await writeErrorReport(out, cliVersion, errorMessage(err));
+    // e.g. the install CLI failing on a ref the probe let through — see writeErrorReport.
+    await writeErrorReport(out, cliVersion, errorMessage(err), provenance);
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });
