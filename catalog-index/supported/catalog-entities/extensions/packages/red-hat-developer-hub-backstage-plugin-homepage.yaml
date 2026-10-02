@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-homepage'
-  # Tag: bs_1.54.6__1.18.0
+  # Tag: bs_1.54.9__1.18.0
   dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:596e334ab052308b17a5bcebe235161f4efd558e05c72a3122af37bfb6ab403a"
   version: 1.18.0
   backstage:
@@ -130,3 +130,4 @@ spec:
         #       ref: rhdh-entity-section
         #     - id: template-list
         #       ref: rhdh-template-section
+
