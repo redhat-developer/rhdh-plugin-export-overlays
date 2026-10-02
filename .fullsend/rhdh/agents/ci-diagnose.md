@@ -384,7 +384,6 @@ request-changes. `pre_existing` is reported with any `related_prs` instead
 </details>
 
 ---
-<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. For bot-authored PRs, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR or tracking issue when one already exists. A maintainer can take over any time with `/fs-fix <instruction>`, or stop auto-fix with `/fs-fix-stop` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":["appConfigExamples coverage","ci/prow/e2e-ocp-helm"]} -->
 ```
 
@@ -517,8 +516,8 @@ classification).
   findings — that is the built-in bot→fix on-ramp; you do not signal it with
   a comment marker. Keep the human-visible prose diagnostic: do NOT add
   per-check "run `/fs-fix`" prompts and do NOT tailor the prose by PR author.
-  The single footer line already explains the automatic hand-off and the
-  human controls; anything more is duplication.
+  The post-script appends a footer that explains the automatic hand-off
+  and the human controls; do not duplicate it in the diagnosis body.
 - **Trace inspection is mandatory for Prow UI failures** — the
   `/e2e-failure-analysis` skill runs it as part of its methodology; do not
   classify a UI failure before it returns.

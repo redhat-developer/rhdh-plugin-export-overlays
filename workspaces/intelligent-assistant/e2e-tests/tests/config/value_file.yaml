@@ -6,7 +6,7 @@ intelligentAssistant:
   enabled: true
   # Chart default injects RHEC intelligent-assistant plugins. 1.11 catalog renamed
   # that plugin to intelligent-assistant, so inherit fails. Empty list keeps
-  # the LCS sidecar and uses IA from tests/config/dynamic-plugins.yaml.
+  # the LCS sidecar and uses IA from tests/config/dynamic-plugins-mcp.yaml.
   plugins: []
   # Use the same secret e2e applies via rhdh-secrets.yaml (includes VLLM_* keys).
   existingSecret: rhdh-secrets
@@ -15,3 +15,41 @@ intelligentAssistant:
       # Required in OpenShift so LCS binds correctly in the pod network namespace.
       - name: SERVICE_HOST
         value: "0.0.0.0"
+
+# Rendered into the chart app-config (loaded last at runtime), so keep MCP auth
+# + server definitions here to avoid array-merge overrides. Mirror changes in
+# app-config-rhdh.yaml (e2e-test-utils config injection path).
+appConfig:
+  backend:
+    actions:
+      pluginSources:
+        - software-catalog-mcp-extras
+        - techdocs-mcp-extras
+        - scaffolder-mcp-extras
+    auth:
+      externalAccess:
+        - type: legacy
+          options:
+            secret: ${BACKEND_SECRET}
+            subject: legacy-default-config
+        - type: static
+          options:
+            token: ${MCP_TOKEN}
+            subject: mcp-clients
+      keys:
+        - secret: ${BACKEND_SECRET}
+  mcpActions:
+    namespacedToolNames: false
+  intelligent-assistant:
+    notebooks:
+      enabled: true
+      queryDefaults:
+        model: ${NOTEBOOK_DEFAULT_MODEL}
+        provider_id: ${NOTEBOOK_PROVIDER}
+    servicePort: 8080
+    mcpServers:
+      - name: mcp-integration-tools
+        token: ${MCP_TOKEN}
+      - name: mcp-token-required-tools
+      - name: mcp-observability-tools
+        token: ${MCP_TOKEN}

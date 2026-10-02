@@ -26,7 +26,10 @@ function loaded(dirName: string): LoadedPlugin {
 test("buildMergedConfig always supplies the core keys plugins read", () => {
   const merged = buildMergedConfig([]);
   assert.deepEqual(merged.app, { baseUrl: "http://localhost:3000" });
-  assert.deepEqual(merged.backend, { baseUrl: "http://localhost:7007" });
+  assert.deepEqual(merged.backend, {
+    baseUrl: "http://localhost:7007",
+    database: { client: "better-sqlite3", connection: ":memory:" },
+  });
 });
 
 test("buildMergedConfig merges the dummies of every loaded plugin", () => {
