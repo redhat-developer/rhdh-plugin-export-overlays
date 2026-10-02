@@ -22,10 +22,18 @@ function isNightlyMode(): boolean {
   return process.env.JOB_NAME?.includes("periodic-") ?? false;
 }
 
+function isMcpNightlyDisabled(): boolean {
+  return (
+    process.env.DISABLE_MCP_NIGHTLY === "true" ||
+    process.env.DISABLE_MCP_NIGHTLY === "1"
+  );
+}
+
 function dynamicPluginsFile(): string {
-  return isNightlyMode()
-    ? "tests/config/dynamic-plugins-nightly.yaml"
-    : "tests/config/dynamic-plugins.yaml";
+  if (isNightlyMode() && isMcpNightlyDisabled()) {
+    return "tests/config/dynamic-plugins-nightly.yaml";
+  }
+  return "tests/config/dynamic-plugins-mcp.yaml";
 }
 
 function lightspeedDeployConfig() {
@@ -266,7 +274,21 @@ export async function ensureLightspeedDeployment(
       /* fresh install */
     }
 
-    await rhdh.deploy();
+    // A transient lightspeed-core ErrImagePull fails the whole serial file.
+    // The next suite already recovers by deleting the deployment and deploying again.
+    try {
+      await rhdh.deploy();
+    } catch (error) {
+      console.warn(
+        `RHDH deploy failed (${error instanceof Error ? error.message : String(error)}); retrying once`,
+      );
+      try {
+        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+      } catch {
+        /* deployment may already be gone */
+      }
+      await rhdh.deploy();
+    }
     await patchOpenAiAllowedModels(rhdh);
   });
 }
