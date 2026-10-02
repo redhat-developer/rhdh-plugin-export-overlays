@@ -74,3 +74,26 @@ export async function groupHasRelation(
       .map((r: { targetRef: string }) => r.targetRef.split("/")[1]) ?? [];
   return names.includes(relatedName);
 }
+
+export async function userHasAnnotation(
+  baseUrl: string,
+  token: string,
+  userName: string,
+  annotationKey: string,
+  expectedValue: string,
+): Promise<boolean> {
+  try {
+    const entity = await CatalogApiHelper.getEntity(
+      baseUrl,
+      token,
+      "user",
+      userName,
+    );
+    const annotations = (
+      entity as { metadata?: { annotations?: Record<string, string> } }
+    ).metadata?.annotations;
+    return annotations?.[annotationKey] === expectedValue;
+  } catch {
+    return false;
+  }
+}
