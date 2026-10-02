@@ -56,15 +56,21 @@ export type PolicySpec = {
   effect: string;
 };
 
+export type PermissionMappingEntry = {
+  name: string;
+  action: "read" | "update";
+};
+
 export type WorkflowConditionSpec = {
-  permissionMapping: Array<"read" | "update">;
+  // REST API requires {name, action} — plain action strings are rejected (RBAC #9809).
+  permissionMapping: PermissionMappingEntry[];
   workflowIds: string[];
 };
 
 type RoleConditionRecord = {
   id?: number | string;
   roleEntityRef?: string;
-  permissionMapping?: string[];
+  permissionMapping?: Array<string | PermissionMappingEntry>;
   conditions?: RoleConditionCriteria;
 };
 
@@ -99,12 +105,18 @@ export function greetingWorkflowConditions(
   readEffect: "allow" | "deny",
   useEffect: "allow" | "deny",
 ): WorkflowConditionSpec[] {
-  const permissionMapping: Array<"read" | "update"> = [];
+  const permissionMapping: PermissionMappingEntry[] = [];
   if (readEffect === "allow") {
-    permissionMapping.push("read");
+    permissionMapping.push({
+      name: "orchestrator.workflow",
+      action: "read",
+    });
   }
   if (useEffect === "allow") {
-    permissionMapping.push("update");
+    permissionMapping.push({
+      name: "orchestrator.workflow.use",
+      action: "update",
+    });
   }
   if (permissionMapping.length === 0) {
     return [];
@@ -155,15 +167,34 @@ function collectWorkflowIds(
   return nested.flatMap((item) => collectWorkflowIds(item));
 }
 
+function normalizePermissionMappingEntry(
+  entry: string | PermissionMappingEntry,
+): { name?: string; action: string } {
+  if (typeof entry === "string") {
+    return { action: entry };
+  }
+  return { name: entry.name, action: entry.action };
+}
+
 function conditionMatchesSpec(
   actual: RoleConditionRecord,
   expected: WorkflowConditionSpec,
 ): boolean {
-  const mapping = actual.permissionMapping ?? [];
-  if (
-    mapping.length !== expected.permissionMapping.length ||
-    !expected.permissionMapping.every((action) => mapping.includes(action))
-  ) {
+  const mapping = (actual.permissionMapping ?? []).map(
+    normalizePermissionMappingEntry,
+  );
+  if (mapping.length !== expected.permissionMapping.length) {
+    return false;
+  }
+  const mappingMatches = expected.permissionMapping.every((expectedEntry) =>
+    mapping.some(
+      (actualEntry) =>
+        actualEntry.action === expectedEntry.action &&
+        (actualEntry.name === undefined ||
+          actualEntry.name === expectedEntry.name),
+    ),
+  );
+  if (!mappingMatches) {
     return false;
   }
   const workflowIds = collectWorkflowIds(actual.conditions);

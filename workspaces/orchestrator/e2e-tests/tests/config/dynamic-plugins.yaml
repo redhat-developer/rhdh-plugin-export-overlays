@@ -2,15 +2,63 @@
 # so that keycloak auth works. Use the overlay OCI pin — quay.io/rhdh
 # {{inherit}} resolves to a private tag (2.0.0--0.4.0) that CI cannot pull.
 # Orchestrator plugins are also disabled by default and must be enabled.
+#
+# Temporary: disable Loki module until CI MinIO/Loki install works
+# (MinIO ImagePullBackOff on quay.io/minio/minio). Re-enable by setting
+# enabled: true, uncommenting workflowLogProvider in app-config-rhdh.yaml,
+# and restoring configureOrchestratorLoki() in orchestrator.spec.ts.
+#
+# Frontend pluginConfig must be explicit here to override metadata injection:
+# the metadata mountPoints include an `if.anyOf: [IsOrchestratorCatalogTabAvailable]`
+# predicate that is not exported from `module: Legacy`, leaving the entity tab
+# card empty. The explicit config below omits the predicate so the card always
+# renders on the Workflows entity tab (the entityTab itself is unconditional).
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.52.0__0.4.0
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator
     enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-orchestrator:
+            # Legacy exports require `module: Legacy` — they are not available on the default module.
+            translationResources:
+              - importName: orchestratorTranslations
+                module: Legacy
+                ref: orchestratorTranslationRef
+            appIcons:
+              - importName: OrchestratorIcon
+                name: orchestratorIcon
+                module: Legacy
+            dynamicRoutes:
+              - importName: OrchestratorPage
+                module: Legacy
+                menuItem:
+                  icon: orchestratorIcon
+                  text: Orchestrator
+                  textKey: menuItem.orchestrator
+                path: /orchestrator
+            menuItems:
+              orchestrator:
+                parent: default.admin
+                icon: orchestratorIcon
+            entityTabs:
+              - path: /workflows
+                title: Workflows
+                titleKey: catalog.entityPage.workflows.title
+                mountPoint: entity.page.workflows
+            mountPoints:
+              - mountPoint: entity.page.workflows/cards
+                importName: OrchestratorCatalogTab
+                module: Legacy
+                config:
+                  layout:
+                    gridColumn: 1 / -1
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-dynamic
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki-dynamic
-    enabled: true
+    enabled: false
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator-dynamic
