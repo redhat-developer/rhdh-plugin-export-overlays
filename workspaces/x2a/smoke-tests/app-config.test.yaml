@@ -1,0 +1,53 @@
+# Smoke-test overrides for the x2a workspace.
+#
+# The x2a-backend and x2a-mcp-extras plugins register a "x2a-kubernetes"
+# service that creates a @kubernetes/client-node KubeConfig at startup.
+# When no KUBECONFIG file and no in-cluster token exist, the library falls
+# back to http://localhost:8080 and then rejects the HTTP URL with:
+#
+#   "HTTP protocol is not allowed when skipTLSVerify is not set or false"
+#
+# By pointing KUBECONFIG (set in test.env) at this file, the client-node
+# library parses the kubeconfig keys below instead of falling back to HTTP.
+# The Backstage config reader ignores the kubeconfig keys, and client-node
+# ignores the Backstage keys, so the same file serves both purposes.
+
+# -- Backstage app-config keys (read by RHDH) --
+x2a:
+  kubernetes:
+    # Not consumed by the current plugin, but documents the intent: the
+    # smoke-test cluster stub uses insecure-skip-tls-verify.
+    skipTLSVerify: true
+
+# -- kubeconfig keys (read by @kubernetes/client-node via KUBECONFIG) --
+# The smoke-test container has no Kubernetes API. The exec credential helper
+# starts a tiny local HTTP server before returning a token. The server answers
+# the list-pods request used by x2a's startup health check with an empty
+# PodList, allowing the plugin to initialize without a real cluster.
+apiVersion: v1
+kind: Config
+clusters:
+  - cluster:
+      server: http://127.0.0.1:9443
+      insecure-skip-tls-verify: true
+    name: smoke-test
+contexts:
+  - context:
+      cluster: smoke-test
+      user: smoke-test
+      namespace: smoke-test-namespace
+    name: smoke-test
+current-context: smoke-test
+users:
+  - name: smoke-test
+    user:
+      exec:
+        apiVersion: client.authentication.k8s.io/v1beta1
+        command: node
+        args:
+          - -e
+          - >-
+            const{spawn}=require('child_process'),net=require('net');const
+            script="require('http').createServer((req,res)=>{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({apiVersion:'v1',kind:'PodList',items:[]}))}).listen(9443,'127.0.0.1')";
+            try{spawn(process.execPath,['-e',script],{detached:true,stdio:'ignore'}).unref()}catch{}
+            const ready=()=>{const s=net.connect(9443,'127.0.0.1',()=>{s.destroy();process.stdout.write(JSON.stringify({apiVersion:'client.authentication.k8s.io/v1beta1',kind:'ExecCredential',status:{token:'smoke-test-token'}}))});s.on('error',()=>setTimeout(ready,10))};ready()
