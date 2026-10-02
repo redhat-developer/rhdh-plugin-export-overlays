@@ -84,7 +84,15 @@ in `workspaces/<name>/metadata/*.yaml`, which the other modes have no equivalent
 field is **absent** rather than `[]` there, because "not checked here" and "checked and
 clean" must not read the same.
 
-Two things keep it from crying wolf:
+Three things keep it from crying wolf:
+
+- **Keys that configure an MF-only bundle are set aside** (`frontend.configKeysNotApplicable`,
+  RHIDP-17311). An rhdh-cli 2.1 export ships module federation only, with no
+  `dist-scalprum/`, and main's NFS-only `packages/app` no longer reads
+  `dynamicPlugins.frontend`, so there is no Scalprum name to hold such a key to. A key is
+  set aside when the package whose metadata configures it installed MF-only (by npm name, or
+  its `-dynamic` export), or when it equals the `scalprum.name` an MF-only bundle's
+  package.json still declares. A key tied to neither still fails.
 
 - **The keys come from the packages actually installed**, not from the workspace's metadata
   at large. `collectWorkspaceRefs` returns them alongside the refs for exactly this reason:
@@ -124,37 +132,19 @@ else a backend bundle must satisfy, which is why the backend record carries this
 nothing more.
 
 The consumer is `gatherDynamicPluginsSchemas` in
-`@backstage/backend-dynamic-feature-service`, and **RHDH overrides its locator**
-(`rhdh:packages/backend/src/index.ts`):
+`@backstage/backend-dynamic-feature-service`. RHDH's locator returns the same supported
+path for every dynamic plugin role:
 
 ```ts
-schemaLocator(pluginPackage) {
-  const platform = PackageRoles.getRoleInfo(pluginPackage.manifest.backstage.role).platform;
-  return path.join(platform === "node" ? "dist" : "dist-scalprum", "configSchema.json");
+schemaLocator() {
+  return "dist/.config-schema.json";
 },
 ```
 
-The locator is keyed on the package's **role**, so which file matters depends on the half:
-`getRoleInfo("frontend-plugin").platform` is `"web"`, while both backend roles are `"node"`
-(verified by executing `@backstage/cli-node`, not inferred). Neither is
-`dist/.config-schema.json`, which is only the upstream default. The export writes one file
-per consumer, which is why there are two:
-
-| Role                                       | RHDH reads                        | Upstream default reads     |
-| ------------------------------------------ | --------------------------------- | -------------------------- |
-| `frontend-plugin`                          | `dist-scalprum/configSchema.json` | `dist/.config-schema.json` |
-| `backend-plugin` / `backend-plugin-module` | `dist/configSchema.json`          | `dist/.config-schema.json` |
-
-Note how close the backend row is: RHDH's file and the upstream default are **siblings in
-`dist/`, differing only by filename**. A check written against `.config-schema.json` — the
-name that appears in the gatherer's own default locator — passes an artifact whose config
-RHDH drops in silence.
-
-Only RHDH's path is failed on, and it is checked **whether or not its directory exists** —
-its absence is the fault. Gating it on the directory left an NFS-only bundle, which ships no
-`dist-scalprum/` at all, passing while RHDH dropped its config in silence. The upstream copy
-is reported with `consumer: "upstream-default"` and never failed: rejecting an artifact over
-a file this platform ignores would be a false positive.
+`dist/.config-schema.json` is therefore the only schema path the harness validates for
+frontend, backend, and backend-module artifacts. It is checked **whether or not its
+directory exists**: its absence is the fault. Legacy `dist/configSchema.json` and
+`dist-scalprum/configSchema.json` files do not satisfy the artifact contract.
 
 The gatherer drops a schema in four ways, which is what the states below mirror:
 
@@ -200,12 +190,10 @@ Failing on an empty schema alone would accuse 32 packages of a bug they do not h
 messages keep "declares no configuration" and "declares configuration and shipped no
 schema" apart.
 
-The backend half splits the same way, and the gate matters just as much there. Over all 107
-published backend artifacts this repo lists — every tier, `backend-plugin` and
-`backend-plugin-module` — 54 declare `configSchema` and all 54 ship a usable
-`dist/configSchema.json`; of the 53 that declare nothing, 40 ship `{}` and 13 ship a
-non-empty schema contributed entirely by dependencies. So the check finds nothing today,
-and it would have accused 40 packages had it failed on the empty schema alone.
+The backend half follows the same declaration rule. Only packages that declare
+`configSchema` fail for a missing, empty, unreadable, or invalid
+`dist/.config-schema.json`; a package that declares no configuration is reported but does
+not fail the check.
 
 #### Module-federation manifest (`frontend.bundles[].mf`)
 
@@ -329,6 +317,16 @@ Two deliberate differences from feeding the index straight to the install CLI:
 no artifact to pull. `results.json` records the split in `catalogIndex`
 (`declared` / `refCount` / `inImage` / `enabledInIndex`), so a pass cannot hide that most
 of the index was never installed.
+
+Every remaining ref is probed first with `skopeo inspect --raw` (up to 3 attempts, 8 refs
+at a time, falling back from `registry.access.redhat.com/rhdh/` to `quay.io/rhdh/` as the
+install CLI does), and its manifest gets the same plugin-path check the install CLI runs.
+A ref the CLI would refuse (missing from the registry, an `io.backstage.dynamic-packages`
+annotation that names no plugin, or one naming several with no `!plugin-path` selector) is
+left out of the install and listed in `catalogIndex.unresolved`, and the run ends
+`fail-install`. Without this, the install CLI aborts on the first such ref and the run
+validates none of the other packages. The `next` index spent most of September 2026 in
+that state, one broken ref after another.
 
 Exclusions for this mode live in `catalog-index-sanity-excludes.txt` and are written
 against the **OCI image name** (`backstage-community-plugin-quay`), because a catalog index
@@ -539,6 +537,38 @@ from RHDH PR #4967) extends `Module._nodeModulePaths` to append `HARNESS_NODE_MO
 before any plugin is `require`d. This is why the package uses `nodeLinker: node-modules`
 (`.yarnrc.yml`) rather than Yarn PnP — the patch needs a real `node_modules` directory to
 point at.
+
+The harness also reproduces the parts of RHDH's backend loader that plugins depend on
+(RHIDP-17310). Without them it reported load and boot failures RHDH does not have:
+
+- **`<pkg>/package.json` → `<pkg>-dynamic`.** `resolvePackagePath()` requires a plugin's
+  package.json by its non-dynamic name. RHDH's `CommonJSModuleLoader`
+  (`@backstage/backend-dynamic-feature-service`) redirects that request, coming from
+  `backend-plugin-api`, to the installed `-dynamic` plugin;
+  `patchDynamicPackageJsonResolution()` applies the same rule. Every plugin with a
+  database (adoption-insights, bulk-import, notifications, scorecard, announcements…)
+  failed to load without it.
+- **Host plugins RHDH ships statically.** When a loaded module attaches to a plugin id
+  nothing in the run provides, the harness adds a static copy for `auth`, `events` and
+  `notifications` (`backendStart.hostPlugins`). Auth provider and webhook modules
+  otherwise fail on a missing extension point. The static notifications copy brings
+  `@backstage/plugin-notifications-node` and `-common` into the harness's `node_modules`,
+  which RHDH's backend does not ship. An exported plugin that imports them without
+  embedding them now resolves them here and would fail in RHDH, so this harness no longer
+  catches that case.
+- **`core.dynamicplugins`.** The extensions plugins depend on it; the harness provides an
+  empty implementation, since it loads plugins itself and has no manager to expose.
+- **Feature loaders are expanded before boot.** `startTestBackend` adds a placeholder
+  plugin for each module whose plugin it cannot see, and a plugin behind a loader (e.g.
+  scorecard-backend) is invisible to it, so the real one collided with the placeholder.
+- **Hosts from another tier.** In a `--support` run, an out-of-scope backend plugin named
+  `<x>` is installed when an in-scope module is named `<x>-module-*`
+  (`workspace.hosts`). Scorecard's dev-preview modules attach to its tech-preview backend.
+  The host is loaded and booted like any other ref, so a defect in it fails this run too.
+  Workspace mode does not probe refs the way catalog-index mode does, so a host the
+  install CLI refuses aborts the whole install; the `status: error` report still carries
+  `workspace.hosts`, so it shows that an out-of-tier ref was part of it.
+  `workspace.hosts` lists npm package names; `backendStart.hostPlugins` lists plugin ids.
 
 ## Benchmark: native vs Docker (real run)
 

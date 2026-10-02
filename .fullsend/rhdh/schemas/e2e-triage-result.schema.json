@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "e2e-triage-result.schema.json",
   "title": "E2E Triage Agent Result",
-  "description": "Structured output from the e2e-triage agent. Classifies nightly E2E failures per workspace and emits issue directives.",
+  "description": "Structured output from the e2e-triage agent. Each entry is one root CAUSE (which may affect one or several workspaces); the agent groups and authors the issue body itself. The merge script only collects entries.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["target_branch", "workspaces"],
+  "required": ["target_branch", "issues"],
   "properties": {
     "target_branch": {
       "type": "string",
@@ -13,54 +13,61 @@
       "maxLength": 128,
       "description": "Branch the nightly ran against (e.g., main, release-1.10)."
     },
-    "workspaces": {
+    "issues": {
       "type": "array",
       "minItems": 1,
       "maxItems": 50,
-      "items": { "$ref": "#/$defs/workspace_classification" }
+      "items": { "$ref": "#/$defs/issue_entry" },
+      "description": "One entry per distinct root cause. A cause affecting several workspaces is a single entry (umbrella) — the agent authors one deduplicated body."
     },
     "summary": {
       "type": "string",
       "maxLength": 4096,
-      "description": "Human-readable summary of all classifications."
+      "description": "Human-readable summary of all classifications (log/context only)."
     }
   },
   "$defs": {
-    "workspace_classification": {
+    "issue_entry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["workspace", "fix_category", "tests", "root_cause", "root_cause_slug"],
+      "required": ["affected_workspaces", "fix_category", "tests", "root_cause", "root_cause_slug"],
       "properties": {
-        "workspace": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128,
-          "description": "Workspace name (e.g., argocd, orchestrator, backstage)."
+        "affected_workspaces": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Workspace name(s) this cause affects. One = single-workspace issue; several = umbrella. Used for tracking lines and the summary."
         },
         "fix_category": {
           "type": "string",
-          "enum": ["infra_flake", "test_fix", "product_bug", "environment"],
-          "description": "Dominant classification for failures in this workspace."
+          "enum": ["infra_flake", "test_fix", "product_bug", "environment", "upstream_test_utils"],
+          "description": "Classification for this cause (one category per cause)."
         },
         "tests": {
           "type": "array",
           "minItems": 1,
           "maxItems": 200,
           "items": { "$ref": "#/$defs/failed_test" },
-          "description": "Failed tests in this workspace."
+          "description": "Failed tests across all affected workspaces for this cause."
         },
         "root_cause": {
           "type": "string",
           "minLength": 1,
           "maxLength": 4096,
-          "description": "Summary of the root cause covering all failures in this workspace."
+          "description": "The shared failure mechanism for this cause. Shown in the maintainer summary."
         },
         "root_cause_slug": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
           "minLength": 2,
           "maxLength": 64,
-          "description": "Slug identifying the root cause (e.g., oci-resolution, route-wait). Used for dedup and umbrella issue titles."
+          "description": "Stable kebab-case identifier for this cause (e.g., oci-resolution, route-wait). Grouping hint and cross-run dedup anchor — keep it stable per cause across nights; split it when causes genuinely differ."
         },
         "issue": { "$ref": "#/$defs/issue_directive" }
       }
@@ -70,6 +77,12 @@
       "additionalProperties": false,
       "required": ["name", "error"],
       "properties": {
+        "workspace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Workspace the test belongs to. Optional for single-workspace causes; set it on umbrella entries so tests can be attributed."
+        },
         "name": {
           "type": "string",
           "minLength": 1,
@@ -113,7 +126,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 16384,
-          "description": "Issue body or comment body."
+          "description": "Fully authored issue or comment body. For umbrellas the agent writes the shared root cause and remediation ONCE, then a failed-tests table per affected workspace — no repetition."
         },
         "cycle_ready_to_code": {
           "type": "boolean",

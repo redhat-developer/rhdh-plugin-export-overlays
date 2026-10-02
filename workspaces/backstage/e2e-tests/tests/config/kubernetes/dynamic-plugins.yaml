@@ -1,8 +1,8 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-community-plugin-rbac
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-    disabled: false
+    enabled: true
     pluginConfig:
       kubernetes:
         serviceLocatorMethod:
@@ -16,7 +16,7 @@ plugins:
                 skipTLSVerify: true
                 serviceAccountToken: ${K8S_CLUSTER_TOKEN}
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
-    disabled: false
+    enabled: true
   # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
     enabled: false

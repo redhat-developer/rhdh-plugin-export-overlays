@@ -1,7 +1,14 @@
-upstream:
-  # Run the hub as the namespace default SA so the in-cluster token matches RBAC
-  serviceAccount:
-    create: false
-    name: default
-  commonLabels:
-    backstage.io/kubernetes-id: developer-hub
+# Disable Lightspeed/IA sidecar — chart 2.0-90-CI uses intelligentAssistant.enabled
+# (global.lightspeed is ignored). Default enabled:true starts lightspeed-core with
+# --synthesized-config-output which CrashLoops. See RHDHBUGS-3145.
+intelligentAssistant:
+  enabled: false
+
+# Run the hub as the namespace default SA so the in-cluster token matches RBAC.
+# Chart 2.y ignores upstream.* for these keys — keep at root so the Tekton tab
+# condition (commonLabels) and operator RBAC (default SA) apply.
+serviceAccount:
+  create: false
+  name: default
+commonLabels:
+  backstage.io/kubernetes-id: developer-hub

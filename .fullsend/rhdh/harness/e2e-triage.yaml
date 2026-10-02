@@ -2,7 +2,8 @@
 # harness/e2e-triage.yaml — E2E nightly triage agent.
 #
 # Flow: sandbox (agent) → post_script
-#   agent       : analyzes nightly failures, classifies per workspace, emits issue directives
+#   agent       : analyzes nightly failures, groups them by root cause across
+#                 workspaces, authors one issue per cause, emits issue directives
 #   post_script : executes issue directives (create/comment), comments on trigger issue
 #
 # The triage agent does NOT modify code, push branches, or create PRs.
@@ -12,6 +13,16 @@ agent: rhdh/agents/e2e-triage.md
 model: opus
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 policy: rhdh/policies/e2e-triage.yaml
+
+# The SSRF pre-tool hook resolves DNS itself before allowing an outbound
+# request; the sandbox relies on an L7 egress proxy for real resolution, so
+# that in-sandbox lookup can fail even for hosts the network policy already
+# allowlists. On DNS failure the hook only defers to the proxy if the host
+# is also listed here — otherwise it fails closed (fullsend #6582/#6586).
+# Mirror every host in policies/e2e-triage.yaml's prow_artifacts block.
+security:
+  sandbox_hooks:
+    ssrf_egress_allowlist: "storage.googleapis.com:443,prow.ci.openshift.org:443,gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com:443"
 
 role: triage
 slug: fullsend-ai-triage

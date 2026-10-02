@@ -21,10 +21,7 @@ export async function selectChatModel(
     return;
   }
 
-  const menuitem = page.getByRole("menuitem", {
-    name: modelName,
-    exact: true,
-  });
+  const menuitem = page.getByRole("menuitem", { name: modelName });
   if (!(await menuitem.isVisible())) {
     await dropdown.click();
   }
@@ -33,16 +30,33 @@ export async function selectChatModel(
 }
 
 export async function openChatbot(page: Page): Promise<void> {
-  await page
-    .getByRole("button", { name: "Open intelligent assistant" })
-    .click();
+  const chatbot = page.getByLabel("Chatbot", { exact: true });
+  if (await chatbot.isVisible().catch(() => false)) {
+    return;
+  }
+
+  const closeFab = page.getByRole("button", {
+    name: "Close intelligent assistant",
+  });
+  if (!(await closeFab.isVisible().catch(() => false))) {
+    await page
+      .getByRole("button", { name: "Open intelligent assistant" })
+      .click();
+  }
+  await expect(chatbot).toBeVisible({ timeout: 30_000 });
+}
+
+function chatbotHeaderOptions(page: Page) {
+  return page
+    .locator(".pf-chatbot__header")
+    .getByRole("button", { name: "Options" });
 }
 
 export async function selectDisplayMode(
   page: Page,
   mode: DisplayMode,
 ): Promise<void> {
-  await page.getByRole("button", { name: "Options" }).click();
+  await chatbotHeaderOptions(page).click();
   await page.getByRole("menuitem", { name: mode }).click();
 }
 
@@ -69,6 +83,14 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
+  // Fresh deployments can briefly show only a global progress bar before shell content.
+  const initialLoading = page.getByRole("progressbar").first();
+  await initialLoading
+    .waitFor({ state: "hidden", timeout: 30_000 })
+    .catch(() => {
+      /* no-op */
+    });
+
   // Overlay/dock leave catalog page content in place. Fullscreen replaces it.
   // Do not use the sidebar Catalog link: NFS fullscreen keeps RHDH nav visible
   // while covering only the main page. Homepage is disabled in this workspace.
@@ -101,11 +123,11 @@ export async function openChatbotFullscreenWithModel(
 
 export async function expectChatbotControlsVisible(page: Page): Promise<void> {
   await expect(page.locator(".pf-chatbot__header")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Options" })).toBeVisible();
+  await expect(chatbotHeaderOptions(page)).toBeVisible();
 }
 
 export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Options" }).click();
+  await chatbotHeaderOptions(page).click();
   const settingsMenu = page
     .getByRole("menu")
     .filter({
@@ -124,10 +146,13 @@ export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
 
   for (const name of [
     "Disable pinned chats Pinned chats are currently enabled",
-    "MCP settings",
+    "Disable saved prompts Saved prompts are currently enabled",
+    "MCP and Prompt Settings",
   ]) {
     await expect(page.getByRole("menuitem", { name })).toBeVisible();
   }
+
+  await page.keyboard.press("Escape");
 }
 
 export async function expectChatInputAreaVisible(page: Page): Promise<void> {
@@ -139,6 +164,15 @@ export async function expectChatInputAreaVisible(page: Page): Promise<void> {
 }
 
 export async function expectEmptyChatHistory(page: Page): Promise<void> {
+  await expect(
+    page.getByRole("heading", { name: /Saved prompts/ }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".lightspeed-saved-prompts-group")
+      .getByRole("menuitem", { name: "No saved prompts yet" }),
+  ).toBeVisible();
+
   for (const { name, exact } of [
     { name: "Pinned chats" },
     { name: "Chats", exact: true },

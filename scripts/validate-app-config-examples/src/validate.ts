@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /*
  * Copyright (c) Red Hat, Inc.
  *
@@ -30,8 +31,8 @@ import {
   isMetadataPath,
   packageCoordinates,
   type Status,
-} from "./metadata.js";
-import { byCodepoint } from "./json.js";
+} from "./metadata.ts";
+import { byCodepoint } from "./json.ts";
 import {
   SchemaResolver,
   findUndeclaredKeys,
@@ -39,7 +40,7 @@ import {
   type SchemaOutcome,
   type SchemaRequest,
   type SchemaSource,
-} from "./schema.js";
+} from "./schema.ts";
 
 export type Row = {
   status: Status;
@@ -142,17 +143,14 @@ export async function main(
     : await collectAllMetadata(repoRoot);
 
   if (values.since && paths.length === 0) {
-    write(
-      "No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n",
-    );
+    write("No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n");
     return 0;
   }
 
   // Undeclared keys are found by comparing a strict schema against the lenient
   // one, so the schema layer has to be running for this to mean anything.
   const checkUndeclared = values["check-undeclared-keys"] ?? false;
-  const checkSchemasFlag =
-    (values["check-schemas"] ?? false) || checkUndeclared;
+  const checkSchemasFlag = (values["check-schemas"] ?? false) || checkUndeclared;
 
   const resolver = new SchemaResolver();
   const rows: Row[] = [];
@@ -195,13 +193,7 @@ export async function main(
     await resolver.cleanup();
   }
 
-  printReport(
-    rows,
-    tally,
-    { checked: checkSchemasFlag, undeclared },
-    write,
-    writeError,
-  );
+  printReport(rows, tally, { checked: checkSchemasFlag, undeclared }, write, writeError);
   return exitCodeFor(rows);
 }
 
@@ -315,9 +307,7 @@ function recordPackageOutcome(
 ): void {
   if (outcome.kind === "no-schema") {
     tally.noSchema += 1;
-    row.notes.push(
-      `${packageName} declares no configSchema — nothing to validate against`,
-    );
+    row.notes.push(`${packageName} declares no configSchema — nothing to validate against`);
     return;
   }
 
@@ -334,12 +324,7 @@ function recordPackageOutcome(
 }
 
 /** Annotates a row with one example's schema errors. */
-function recordMismatch(
-  row: Row,
-  title: string,
-  errors: string[],
-  warnOnly: boolean,
-): void {
+function recordMismatch(row: Row, title: string, errors: string[], warnOnly: boolean): void {
   if (!warnOnly) {
     row.status = "FAIL";
     // Without this the row keeps the structural verdict and prints
@@ -375,10 +360,7 @@ function isInvokedDirectly(): boolean {
  * which files does this run look at — rather than in metadata.ts, which is
  * about what a document means.
  */
-async function changedMetadataPaths(
-  since: string,
-  repoRoot: string,
-): Promise<string[]> {
+async function changedMetadataPaths(since: string, repoRoot: string): Promise<string[]> {
   const { stdout } = await execFileAsync(
     "git",
     ["diff", "--name-only", "--diff-filter=ACMR", `${since}...HEAD`],
@@ -388,7 +370,7 @@ async function changedMetadataPaths(
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line !== "" && isMetadataPath(line))
-    .sort(byCodepoint);
+    .toSorted(byCodepoint);
 }
 
 /**
@@ -401,10 +383,7 @@ async function changedMetadataPaths(
  */
 const patchesByWorkspace = new Map<string, Promise<string[]>>();
 
-async function workspacePatches(
-  repoRoot: string,
-  metadataPath: string,
-): Promise<string[]> {
+async function workspacePatches(repoRoot: string, metadataPath: string): Promise<string[]> {
   const workspace = metadataPath.split("/")[1];
   if (!workspace) {
     return [];
@@ -420,17 +399,14 @@ async function workspacePatches(
   return pending;
 }
 
-async function globPatches(
-  repoRoot: string,
-  workspace: string,
-): Promise<string[]> {
+async function globPatches(repoRoot: string, workspace: string): Promise<string[]> {
   const found: string[] = [];
   for await (const entry of glob(`workspaces/${workspace}/patches/*.patch`, {
     cwd: repoRoot,
   })) {
     found.push(join(repoRoot, entry));
   }
-  return found.sort(byCodepoint);
+  return found.toSorted(byCodepoint);
 }
 
 async function collectAllMetadata(repoRoot: string): Promise<string[]> {
@@ -440,7 +416,7 @@ async function collectAllMetadata(repoRoot: string): Promise<string[]> {
   })) {
     found.push(entry);
   }
-  return found.sort(byCodepoint);
+  return found.toSorted(byCodepoint);
 }
 
 /** The run's exit code: 1 when any row failed, 0 otherwise. */
@@ -456,10 +432,7 @@ export function printReport(
   writeError: (text: string) => void,
 ): void {
   const { checked: checkedSchemas, undeclared } = schemas;
-  const statusWidth = Math.max(
-    "STATUS".length,
-    ...rows.map((row) => row.status.length),
-  );
+  const statusWidth = Math.max("STATUS".length, ...rows.map((row) => row.status.length));
 
   write(`${"STATUS".padEnd(statusWidth)}  FILE\n`);
   write(`${"-".repeat(statusWidth + RULE_PADDING)}\n`);
