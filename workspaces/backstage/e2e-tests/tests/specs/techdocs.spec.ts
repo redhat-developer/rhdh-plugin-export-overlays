@@ -4,7 +4,7 @@ import { expect, Page, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 const TECHDOCS_WRAPPER_DIST_NAMES: string[] = [
   "backstage-plugin-techdocs",
   "backstage-plugin-techdocs-backend-dynamic",
-  "backstage-plugin-techdocs-module-addons-contrib"
+  "backstage-plugin-techdocs-module-addons-contrib",
 ];
 
 const REPORT_ISSUE_POLL_TIMEOUT_MS = 30_000;
