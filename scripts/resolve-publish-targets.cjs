@@ -23,6 +23,22 @@ const {
   failedWorkspaceOf,
 } = require("./e2e-comment.cjs");
 
+// Retries a function call with exponential backoff on transient failures (5xx
+// responses or network errors).  Matches the retry pattern already used in
+// scripts/upload-coverage.sh.
+async function withRetry(fn, { maxAttempts = 3, baseDelay = 1000 } = {}) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxAttempts || (err.status && err.status < 500)) throw err;
+      await new Promise((r) =>
+        setTimeout(r, baseDelay * Math.pow(2, attempt - 1)),
+      );
+    }
+  }
+}
+
 // Refusals worth telling someone about. `not-a-pass` is deliberately absent:
 // most of the bot's comments on a PR are failures or reruns, so warning on
 // those would bury the two that mean the comment's format has drifted.
@@ -94,11 +110,13 @@ async function collectPullRequestTargets({ github, context, core, pr, targets })
     // sequence: green run, another commit, merge with no re-run.
     let headCommittedAt = null;
     try {
-      const { data: head } = await github.rest.repos.getCommit({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        ref: pr.head.sha,
-      });
+      const { data: head } = await withRetry(() =>
+        github.rest.repos.getCommit({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          ref: pr.head.sha,
+        }),
+      );
       headCommittedAt = Date.parse(
         head.commit?.committer?.date ?? head.commit?.author?.date ?? "",
       );
@@ -232,12 +250,13 @@ async function resolvePublishTargets({ github, context, core }) {
     return [{ workspace, coverageUrl }];
   }
 
-  const { data: prs } =
-    await github.rest.repos.listPullRequestsAssociatedWithCommit({
+  const { data: prs } = await withRetry(() =>
+    github.rest.repos.listPullRequestsAssociatedWithCommit({
       owner: context.repo.owner,
       repo: context.repo.repo,
       commit_sha: context.sha,
-    });
+    }),
+  );
 
   // Only merged: a PR that merely contains this commit has not had its coverage
   // accepted into main, and an open PR's numbers describe code that may never
