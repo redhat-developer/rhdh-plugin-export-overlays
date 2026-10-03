@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-jenkins"
   # Tag: bs_1.54.6__0.34.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins@sha256:4fca25baa155252eb50f4feff432c0af4e177362e8732bca5204c8cc4eabe01b"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins@sha256:06854a18cfe3ad356eaea8c87ce3463684005ae89e0b934d970713f9fc60a735"
   version: 0.34.0
   backstage:
     role: frontend-plugin
