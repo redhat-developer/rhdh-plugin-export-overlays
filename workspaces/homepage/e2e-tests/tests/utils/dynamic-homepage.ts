@@ -303,8 +303,10 @@ export class DynamicHomePagePo {
 
     if (await this.saveButton().isVisible()) {
       await this.saveButton().click();
+      await this.saveButton().waitFor({ state: "hidden", timeout: 10_000 });
     } else if (await this.cancelButton().isVisible()) {
       await this.cancelButton().click();
+      await this.cancelButton().waitFor({ state: "hidden", timeout: 10_000 });
     }
     await expect(this.editButton()).toBeVisible({ timeout: 10_000 });
   }
