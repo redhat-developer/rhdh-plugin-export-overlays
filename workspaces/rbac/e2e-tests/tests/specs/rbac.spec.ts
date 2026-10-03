@@ -89,8 +89,9 @@ test.describe("RBAC plugin", () => {
       uiHelper,
     }) => {
       await uiHelper.goToPageUrl("/");
-      await uiHelper.clickButton("Administration");
-      const rbacLink = page.getByRole("link", { name: "RBAC" });
+      const rbacLink = page
+        .getByRole("navigation", { name: "sidebar nav" })
+        .getByRole("link", { name: "RBAC" });
       await expect(rbacLink).toBeVisible();
       await rbacLink.click();
       await uiHelper.verifyHeading("RBAC");
@@ -307,9 +308,7 @@ test.describe("RBAC plugin", () => {
 
     test("Administration side nav does not show RBAC plugin", async ({
       page,
-      uiHelper,
     }) => {
-      await uiHelper.openSidebarButton("Administration");
       // Check specifically for RBAC link in sidebar navigation, not anywhere on the page
       const rbacNavLink = page
         .getByRole("navigation", { name: "sidebar nav" })
@@ -583,14 +582,14 @@ test.describe("RBAC plugin", () => {
 
     test("conditional-manager no longer sees RBAC in the sidebar after access is revoked", async ({
       page,
-      uiHelper,
       loginHelper,
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalManager);
 
-      await uiHelper.openSidebarButton("Administration");
-      const dropdownMenuLocator = page.getByText("RBAC");
-      await expect(dropdownMenuLocator).toBeHidden();
+      const rbacNavLink = page
+        .getByRole("navigation", { name: "sidebar nav" })
+        .getByRole("link", { name: "RBAC" });
+      await expect(rbacNavLink).toHaveCount(0);
     });
   });
 
