@@ -48,20 +48,31 @@ test.describe("RBAC plugin", () => {
   }
 
   test.beforeAll(async ({ rhdh, browser }) => {
-    const rbacConfigmapPath = WorkspacePaths.resolve(
-      "tests/config/rbac-configmap.yaml",
-    );
+    // createUsersAndGroups() must run on every beforeAll invocation (outside
+    // runOnce) because Keycloak user passwords are generated with
+    // crypto.randomUUID() at module-load time. When a worker restarts after a
+    // test failure, the module reloads with new passwords; this call deletes
+    // the old Keycloak users and recreates them with the current passwords.
     await createUsersAndGroups();
-    const namespace = rhdh.deploymentConfig.namespace;
-    await $`kubectl apply -f ${rbacConfigmapPath} -n ${namespace}`;
 
-    await rhdh.configure({
-      auth: "keycloak",
-      appConfig: "tests/config/app-config-rhdh.yaml",
-      valueFile: "tests/config/values.yaml",
-    });
-    await rhdh.deploy();
-    await rhdh.waitUntilReady();
+    await test.runOnce(
+      `rbac-setup-${rhdh.deploymentConfig.namespace}`,
+      async () => {
+        const rbacConfigmapPath = WorkspacePaths.resolve(
+          "tests/config/rbac-configmap.yaml",
+        );
+        const namespace = rhdh.deploymentConfig.namespace;
+        await $`kubectl apply -f ${rbacConfigmapPath} -n ${namespace}`;
+
+        await rhdh.configure({
+          auth: "keycloak",
+          appConfig: "tests/config/app-config-rhdh.yaml",
+          valueFile: "tests/config/values.yaml",
+        });
+        await rhdh.deploy();
+        await rhdh.waitUntilReady();
+      },
+    );
 
     // `beforeAll` does not receive a `page` fixture, so a temporary browser
     // context is created solely to perform the admin login and extract the
