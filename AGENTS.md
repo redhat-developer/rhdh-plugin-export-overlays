@@ -141,6 +141,24 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Support-Level Promotion Consistency
+
+Plugins in this repo have parent-child relationships — for example, `@backstage/plugin-notifications-backend-module-email` is a module of the `@backstage/plugin-notifications` plugin family. When a PR changes the support level of a plugin (e.g., from `tech-preview` to `generally-available`), the reviewer must check whether related plugins in the same family have consistent support levels.
+
+**Why this matters for this repo:** Support levels appear in three places: `spec.support` in workspace metadata (`workspaces/*/metadata/*.yaml`), `spec.support.level` in catalog entity YAMLs (`catalog-entities/extensions/plugins/*.yaml`), and the `support` field in `default.packages.yaml`. Promoting a child module to GA while its parent plugin remains at tech-preview is a logical inconsistency — the child cannot be generally available if the parent it depends on is not. The same applies in reverse: demoting a parent without demoting its children leaves orphaned GA modules on an unsupported base.
+
+**Review criteria for support-level changes:**
+
+When reviewing a PR that modifies `support` or `level` fields in metadata YAMLs, `default.packages.yaml`, or catalog entity YAMLs:
+
+1. **Identify the plugin family by name prefix.** Plugins in the same family share a common package name prefix. For example, all packages matching `@backstage/plugin-notifications*` belong to the notifications family. The prefix is typically everything up to and including the base plugin name, before `-backend`, `-module-*`, or other suffixes.
+2. **Check `default.packages.yaml` and workspace metadata for related packages.** Search for the name prefix across `default.packages.yaml` and `workspaces/*/metadata/*.yaml` to find the parent plugin, backend plugin, and any modules or sub-plugins in the same family. Compare their current support levels.
+3. **Flag promotions that leave the parent behind.** If the PR promotes a module or sub-plugin (e.g., `-backend-module-email`) but the parent plugin (e.g., `plugin-notifications`) and backend plugin (e.g., `plugin-notifications-backend`) remain at a lower support level, flag the inconsistency and request clarification before approving. A child module should not be at a higher support level than its parent.
+4. **Flag demotions that leave children behind.** If the PR demotes a parent plugin but does not also demote its child modules, flag the inconsistency. Child modules inherit the dependency on their parent — demoting the parent without demoting the children leaves them on an unsupported base.
+5. **Verify consistency across all three locations.** Support levels must be consistent across workspace metadata (`spec.support`), catalog entities (`spec.support.level`), and `default.packages.yaml` (`support`). If the PR updates one location but not the others, flag the omission.
+
+**Do not approve support-level changes without checking cross-plugin consistency.** A PR that changes the support level of a single plugin in a family is not complete until the reviewer has verified that the change is intentional in the context of the entire family. When in doubt, request clarification from the PR author — this is a product-level decision that requires human judgment, exactly as a human reviewer would handle it.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
