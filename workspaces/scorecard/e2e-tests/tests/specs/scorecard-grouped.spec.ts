@@ -7,6 +7,11 @@ import {
   type ScorecardHelpers,
 } from "../utils/setup";
 
+test.skip(
+  !!process.env.E2E_NIGHTLY_MODE,
+  "scorecard OCI image missing dynamic-packages annotation (quay.io)",
+);
+
 test.describe.serial("Scorecard Grouped Metrics", () => {
   let context: BrowserContext | undefined;
   let page: Page;
