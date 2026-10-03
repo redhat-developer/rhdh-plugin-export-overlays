@@ -104,8 +104,6 @@ test.describe("Keycloak LDAP auth provider", () => {
     }).toPass({ timeout: 120_000, intervals: [10_000] });
 
     await expectProfile(page, uiHelper, "User 1 One");
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
     await loginHelper.signOut();
   });
 });
