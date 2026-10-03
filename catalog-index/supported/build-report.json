@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.1-bs_1.54.6-38b7a41",
+    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.1-bs_1.54.6-6aed1ec",
     "last-successful-publish": "38b7a41edebe4d9ddfa31a6401a3e7b055776661"
   },
   "plugins": {
@@ -884,7 +884,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage-backend' resolved to bs_1.54.6__0.5.0 after bs_1.54.6__0.6.0 was not found \u2014 the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage-backend' resolved to bs_1.54.6__0.5.0 after bs_1.54.6__0.6.0 was not found — the index ships an older build"
           ]
         }
       },
@@ -915,7 +915,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage' resolved to bs_1.54.6__1.18.0 after bs_1.54.6__3.0.0 was not found \u2014 the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage' resolved to bs_1.54.6__1.18.0 after bs_1.54.6__3.0.0 was not found — the index ships an older build"
           ]
         }
       },
