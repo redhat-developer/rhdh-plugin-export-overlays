@@ -492,6 +492,19 @@ After changes, run from the workspace's e2e-tests directory:
     npx eslint <changed-files>
     npx prettier --check <changed-files>
 
+### Deployment mode validation
+When fixing a nightly E2E failure, verify that any `rhdh.configure()` options
+or framework features used in the fix are effective in nightly mode. The Plugin
+Metadata Resolution table documents which features operate in which modes.
+
+In particular, options that modify auto-generated plugin configurations (e.g.,
+`disablePlugins`) only take effect in PR mode (when `GIT_PR_NUMBER` is set) and
+are silently ignored in nightly and local dev modes. A fix that relies on a
+PR-mode-only feature will not resolve the nightly failure.
+
+When the triage issue's remediation suggests a configure() option, cross-check
+it against the Plugin Metadata Resolution table before implementing.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
