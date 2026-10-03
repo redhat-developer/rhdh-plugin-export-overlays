@@ -485,6 +485,19 @@ of fixing the test:
 
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
+### Fixing tests (test_fix classification)
+When the issue says `fix_category: test_fix`, update test assertions to use
+correct values rather than skipping tests. Skipping reduces test coverage
+and defers the real fix. Specifically:
+
+- If test assertions reference stale catalog data (wrong plugin names,
+  missing support tiers, wrong authors), find the correct values from the
+  deployed catalog or workspace metadata and update the assertions.
+- Only use `test.skip` as a last resort when the correct replacement value
+  cannot be determined from available data.
+- This guidance applies to both triage remediation steps (when generating
+  the issue) and code agent implementation (when creating the fix PR).
+
 ### Verification
 After changes, run from the workspace's e2e-tests directory:
 
