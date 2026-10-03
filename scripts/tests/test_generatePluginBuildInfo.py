@@ -627,6 +627,21 @@ class TestFallbackRebuildCta:
         assert "./build/ci/update-index.sh" in out
 
 
+class TestRecordImageMetadataReport:
+    def test_flags_missing_dynamic_packages_annotation(self, tmp_path):
+        report = BuildReport(str(tmp_path / "report.json"))
+        data = {
+            "plugin-a": {
+                "digest": "sha256:abc",
+                "registryReference": "quay.io/rhdh/plugin-a:1.10--1.0.0",
+            }
+        }
+        generatePluginBuildInfo._record_image_metadata_report(report, data)
+        stage = report.get_stage("plugin-a", "image-metadata-fetch")
+        assert stage is not None
+        assert stage.get("missing_dynamic_packages_annotation") is True
+
+
 class TestRhdhBranchAndVersion:
     """Unit tests for midstream → rhdh branch mapping and version fetch."""
 

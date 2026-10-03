@@ -73,6 +73,9 @@ VALIDATION_JSON=""
 SANITY_CHECK=0
 DEBUG_FLAG=""
 DEBUG=0
+STRICT=0
+ALLOW_WARNINGS=()
+PREVIOUS_INDEX_REF=""
 
 usage() {
     cat <<'USAGE'
@@ -89,6 +92,7 @@ Usage:
         [-cr|--community-registry BASE] \
         [--validate-mode report|gate|off] \
         [--validate-allowlist PATH] [--validation-json PATH] \
+        [--strict] [--allow-warnings RULE] [--previous-index-ref REF] \
         [--sanity-check] \
         [--debug] \
         [-h|--help]
@@ -118,6 +122,21 @@ Arguments:
        --validate-allowlist    Ticketed exceptions file for Step 5
                                (default: scripts/catalog-index-validation-allowlist.txt)
        --validation-json       Write the Step 5 findings as JSON to this path (optional).
+       --strict                Treat validation warnings as errors and fail the build.
+                               Passed through to validateCatalogIndex.py. On
+                               release-* the workflow sets this with --validate-mode gate.
+       --allow-warnings        Keep this warning rule non-fatal even under --strict.
+                               Repeatable. Passed through to validateCatalogIndex.py.
+                               The generate-catalog-index workflow uses this for a
+                               release-* emergency rollback (version-regression only).
+       --previous-index-ref    OCI ref or local DPDY/dir/index.json for version-regression.
+                               OCI refs are extracted with extractCatalogIndex.sh
+                               into a directory (DPDY + index.json) before Step 5
+                               (the validator itself does not use the network).
+                               A missing extractor toolchain (skopeo/jq/tar) or a
+                               copy/auth/network failure fails the build. A confirmed
+                               missing previous image skips version-regression with
+                               a warning.
        --sanity-check          Step 6, install and boot every package the generated
                                index declares, via smoke-tests-native. Off by default:
                                it pulls every artifact and needs Node 24 + Yarn 4, which
@@ -179,6 +198,18 @@ while [[ "$#" -gt 0 ]]; do
         SANITY_CHECK=1
         shift 1
         ;;
+    '--strict')
+        STRICT=1
+        shift 1
+        ;;
+    '--allow-warnings')
+        ALLOW_WARNINGS+=("$2")
+        shift 2
+        ;;
+    '--previous-index-ref')
+        PREVIOUS_INDEX_REF="$2"
+        shift 2
+        ;;
     '--debug')
         DEBUG=1
         DEBUG_FLAG="--debug"
@@ -224,6 +255,9 @@ if [[ $DEBUG -eq 1 ]]; then
     echo "REPORT_FILE        = ${REPORT_FILE:-<none>}"
     echo "VALIDATE_MODE      = $VALIDATE_MODE"
     echo "SANITY_CHECK       = $SANITY_CHECK"
+    echo "STRICT             = $STRICT"
+    echo "ALLOW_WARNINGS     = ${ALLOW_WARNINGS[*]:-<none>}"
+    echo "PREVIOUS_INDEX_REF = ${PREVIOUS_INDEX_REF:-<none>}"
     echo "#################################"
 fi
 
@@ -402,9 +436,55 @@ else
     if [[ -n "$DEBUG_FLAG" ]]; then
         VALIDATE_ARGS+=("$DEBUG_FLAG")
     fi
+    if [[ "$STRICT" -eq 1 ]]; then
+        VALIDATE_ARGS+=(--strict)
+    fi
+    for rule in "${ALLOW_WARNINGS[@]}"; do
+        VALIDATE_ARGS+=(--allow-warnings "$rule")
+    done
+    if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
+        VALIDATE_ARGS+=(--default-packages-file "$DEFAULT_PACKAGES_FILE")
+    fi
+    PREV_EXTRACTED=""
+    if [[ -n "$PREVIOUS_INDEX_REF" ]]; then
+        PREV_DPDY=""
+        if [[ -f "$PREVIOUS_INDEX_REF" ]]; then
+            PREV_DPDY="$PREVIOUS_INDEX_REF"
+        elif [[ -d "$PREVIOUS_INDEX_REF" ]]; then
+            # Pass the directory so the validator can prefer index.json imageTag
+            # over a digest-only DPDY (the published catalog shape).
+            PREV_DPDY="$PREVIOUS_INDEX_REF"
+        else
+            PREV_DIR="$OUTPUT_DIR/.previous-index"
+            mkdir -p "$PREV_DIR"
+            EXTRACT_RC=0
+            "$SCRIPT_DIR/extractCatalogIndex.sh" "$PREVIOUS_INDEX_REF" "$PREV_DIR" || EXTRACT_RC=$?
+            if [[ "$EXTRACT_RC" -eq 0 ]]; then
+                PREV_EXTRACTED="$PREV_DIR"
+                PREV_DPDY="$PREV_DIR"
+            elif [[ "$EXTRACT_RC" -ge 2 ]]; then
+                # Exit 2 is a missing toolchain (skopeo/jq/tar) or usage error.
+                # Exit 3 is a copy/auth/network failure or an image that exists
+                # but carries neither catalog file. Treating either as "image not
+                # found" would skip version-regression and publish a catalog the
+                # gate never compared.
+                echo -e "${red}[ERROR] Cannot extract previous catalog index from $PREVIOUS_INDEX_REF (extractCatalogIndex.sh exit ${EXTRACT_RC}); version-regression cannot run${norm}" >&2
+                exit 1
+            else
+                echo -e "${yellow}[WARN] Previous catalog index not found at $PREVIOUS_INDEX_REF; skipping version-regression${norm}" >&2
+                PREV_DPDY=""
+            fi
+        fi
+        if [[ -n "$PREV_DPDY" ]]; then
+            VALIDATE_ARGS+=(--previous-index-dpdy "$PREV_DPDY")
+        fi
+    fi
 
     VALIDATE_RC=0
     python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}" || VALIDATE_RC=$?
+    if [[ -n "$PREV_EXTRACTED" ]]; then
+        rm -rf "$PREV_EXTRACTED"
+    fi
 
     # Exit 2 is a USAGE error (a path that escapes the working directory, a missing
     # --registry) — not a finding about the index. Report mode must not swallow it:
@@ -415,8 +495,8 @@ else
     fi
 
     if [[ $VALIDATE_RC -ne 0 ]]; then
-        if [[ "$VALIDATE_MODE" == "gate" ]]; then
-            echo -e "${red}[ERROR] Catalog index validation failed (--validate-mode gate)${norm}" >&2
+        if [[ "$VALIDATE_MODE" == "gate" || "$STRICT" -eq 1 ]]; then
+            echo -e "${red}[ERROR] Catalog index validation failed (--validate-mode ${VALIDATE_MODE})${norm}" >&2
             exit 1
         fi
         # Deliberately not fatal in report mode — see VALIDATE_MODE above. Say so

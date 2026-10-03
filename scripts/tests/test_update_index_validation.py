@@ -11,6 +11,7 @@ and the `catalog-index/` and `plugin_builds/` trees are written directly, as if 
 steps had produced them. Only Step 5 runs for real.
 """
 
+import base64
 import json
 import os
 import subprocess
@@ -29,6 +30,10 @@ REGISTRY = "quay.io/rhdh"
 COMMUNITY_REGISTRY = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 DIGEST = "sha256:" + "a" * 64
 
+
+def encoded_packages(packages):
+    return base64.b64encode(json.dumps(packages).encode()).decode()
+
 # The scripts update-index.sh calls that reach a container registry. Replaced with
 # no-ops so the wiring can be exercised offline.
 STUBBED = ("bootstrapPluginBuilds.py", "generateCatalogIndex.py")
@@ -37,6 +42,8 @@ STUBBED = ("bootstrapPluginBuilds.py", "generateCatalogIndex.py")
 # the fallback-rebuild CTA, so the stub has to satisfy that import as well as being
 # runnable as a script.
 GENERATE_PLUGIN_BUILD_INFO_STUB = """
+import base64
+import json
 import sys
 
 
@@ -46,6 +53,17 @@ def collect_fallback_entries(plugin_builds_dir):
 
 def print_fallback_rebuild_cta(entries):
     pass
+
+
+def decode_dynamic_packages(annotation):
+    if not annotation:
+        return []
+    try:
+        decoded = base64.b64decode("".join(annotation.split()), validate=True)
+        packages = json.loads(decoded)
+    except ValueError:
+        return None
+    return packages if isinstance(packages, list) else None
 
 
 if __name__ == "__main__":
@@ -171,7 +189,29 @@ def run_update_index(root, *args, bindir=None):
     )
 
 
+def write_extract_stub(root, exit_code, stderr_line):
+    """A stand-in for extractCatalogIndex.sh that records the contract, not a pull.
+
+    update-index.sh only cares about the extractor's exit code: 0 hands a
+    directory to Step 5, 1 skips version-regression, >=2 fails the build. The
+    real script's toolchain and layer-walk live in test_extract_catalog_index.py.
+    """
+    dest = root / "scripts" / "extractCatalogIndex.sh"
+    dest.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "%s\\n" "$@" >> "$(dirname "$0")/../extract.calls"\n'
+        f'echo "{stderr_line}" >&2\n'
+        f"exit {exit_code}\n",
+        encoding="utf-8",
+    )
+    dest.chmod(0o755)
+    return dest
+
+
 def resolved(image, digest=DIGEST, **extra):
+    extra.setdefault(
+        "io.backstage.dynamic-packages", encoded_packages([f"@scope/{image}"])
+    )
     return {
         "workspacePath": f"ws/plugins/{image}",
         "registryReference": f"{REGISTRY}/{image}@{digest}",
@@ -266,6 +306,47 @@ class TestValidateMode:
         assert "Invalid --validate-mode: gates" in result.stderr
         assert not (clean_repo / "steps.calls").exists()
 
+    def test_strict_fails_the_build_on_warnings(self, tmp_path):
+        """--strict is passed through to validateCatalogIndex.py (one meaning)."""
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0"),
+            },
+        )
+        result = run_update_index(root, "--strict")
+        assert result.returncode == 1
+        assert "fallback-tag" in result.stdout
+
+    def test_allow_warnings_keeps_named_warnings_non_fatal(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0"),
+            },
+        )
+        result = run_update_index(
+            root, "--strict", "--allow-warnings", "fallback-tag"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "fallback-tag" in result.stdout
+
+    def test_allow_warnings_does_not_drop_other_strict_warnings(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0"),
+            },
+        )
+        result = run_update_index(
+            root, "--strict", "--allow-warnings", "version-regression"
+        )
+        assert result.returncode == 1
+        assert "fallback-tag" in result.stdout
+
 
 class TestValidationOutputs:
     def test_validation_json_is_written(self, broken_repo, tmp_path):
@@ -282,9 +363,14 @@ class TestValidationOutputs:
         assert payload["findings"]
 
     def test_a_custom_allowlist_suppresses_the_finding(self, broken_repo, tmp_path):
+        """A tag-only unresolved package fires both unresolved-image and
+        not-digest-pinned; the allowlist has to name each rule or gate still fails."""
         allowlist = broken_repo / "allowlist.txt"
         allowlist.write_text(
-            "# TODO(RHIDP-1): tracked\nunresolved-image ^plugin-a$\n", encoding="utf-8"
+            "# TODO(RHIDP-1): tracked\n"
+            "unresolved-image ^plugin-a$\n"
+            "not-digest-pinned ^plugin-a$\n",
+            encoding="utf-8",
         )
         result = run_update_index(
             broken_repo,
@@ -323,9 +409,9 @@ class TestPathContainment:
             pytest.param("--validation-json", "/tmp/escaped.json", id="json_absolute"),
             pytest.param("--output-dir", "../elsewhere", id="output_dir_escape"),
             pytest.param("--plugin-builds-dir", "/etc", id="builds_dir_absolute"),
-            pytest.param(
-                "--validate-allowlist", "/etc/passwd", id="allowlist_absolute"
-            ),
+            pytest.param("--validate-allowlist", "/etc/passwd", id="allowlist_absolute"),
+            pytest.param("--report-file", "../escaped.json", id="report_relative_escape"),
+            pytest.param("--report-file", "/tmp/escaped.json", id="report_absolute"),
         ],
     )
     def test_a_path_escaping_the_working_directory_is_refused(
@@ -479,3 +565,122 @@ class TestSanityCheck:
         )
         assert result.returncode == 1
         assert not argv_log.exists(), "yarn should never have been invoked"
+
+
+class TestPreviousIndexRef:
+    """How update-index.sh turns extractCatalogIndex.sh's exit into a build outcome.
+
+    A missing previous image is skip+warn (ADR). A missing extractor toolchain is
+    not: treating it as "not found" would skip version-regression and publish.
+    """
+
+    OCI_REF = "quay.io/rhdh-community/plugin-catalog-index:1.10-bs_1.49.4"
+
+    def test_a_missing_extractor_toolchain_fails_the_build(self, clean_repo):
+        write_extract_stub(
+            clean_repo, 2, "extractCatalogIndex.sh needs skopeo on PATH"
+        )
+        result = run_update_index(
+            clean_repo, "--previous-index-ref", self.OCI_REF, "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression cannot run" in result.stderr
+        assert "skipping version-regression" not in result.stderr
+        assert (clean_repo / "extract.calls").read_text().split()[0] == self.OCI_REF
+
+    def test_a_missing_previous_image_skips_version_regression(self, clean_repo):
+        write_extract_stub(
+            clean_repo, 1, "image not found: quay.io/rhdh-community/plugin-catalog-index"
+        )
+        result = run_update_index(
+            clean_repo, "--previous-index-ref", self.OCI_REF, "--strict"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "skipping version-regression" in result.stderr
+        assert "version-regression cannot run" not in result.stderr
+
+    def test_a_copy_failure_fails_the_build(self, clean_repo):
+        write_extract_stub(clean_repo, 3, "failed to copy: unauthorized")
+        result = run_update_index(
+            clean_repo, "--previous-index-ref", self.OCI_REF, "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression cannot run" in result.stderr
+        assert "skipping version-regression" not in result.stderr
+
+    def test_a_local_previous_dpdy_does_not_call_the_extractor(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[
+                {"package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.4.1"}
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+        )
+        previous = root / "previous-dpdy.yaml"
+        previous.write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.7.12",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        write_extract_stub(root, 2, "extractor should not have been invoked")
+        result = run_update_index(
+            root, "--previous-index-ref", str(previous), "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression" in result.stdout
+        assert not (root / "extract.calls").exists()
+
+    def test_a_local_previous_directory_prefers_index_json_tags(self, tmp_path):
+        """Published layout: digest-only DPDY, tags in index.json imageTag."""
+        root = build_stub_repo(
+            tmp_path,
+            packages=[
+                {
+                    "package": (
+                        f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.4.1@{DIGEST}"
+                    )
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+        )
+        previous = root / "previous-index"
+        previous.mkdir()
+        (previous / "dynamic-plugins.default.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (previous / "index.json").write_text(
+            json.dumps(
+                {
+                    "orchestrator-dynamic": {
+                        "imageTag": "1.10--5.7.12",
+                        "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        write_extract_stub(root, 2, "extractor should not have been invoked")
+        result = run_update_index(
+            root, "--previous-index-ref", str(previous), "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression" in result.stdout
+        assert not (root / "extract.calls").exists()
