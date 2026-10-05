@@ -19,11 +19,12 @@ permission:
 orchestrator:
   dataIndexService:
     url: ${SONATAFLOW_DATA_INDEX_URL}
-  workflowLogProvider:
-    loki:
-      baseUrl: ${LOKI_BASE_URL}
-      token: ${AUTH_TOKEN}
-      rejectUnauthorized: false
+  # TODO: re-enable with configureOrchestratorLoki() when CI Loki/MinIO works.
+  # workflowLogProvider:
+  #   loki:
+  #     baseUrl: ${LOKI_BASE_URL}
+  #     token: ${AUTH_TOKEN}
+  #     rejectUnauthorized: false
 catalog:
   rules:
     - allow: [Template, Component, System, Group, Resource, Location, API, User]
