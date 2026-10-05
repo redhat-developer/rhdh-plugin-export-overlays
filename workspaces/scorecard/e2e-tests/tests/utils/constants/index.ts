@@ -1,2 +1,2 @@
 export * from "./constants";
-export * from "./dora-constants";
+export * from "./metrics-constants";

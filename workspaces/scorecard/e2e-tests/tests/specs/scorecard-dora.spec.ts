@@ -1,26 +1,28 @@
-import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { type CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { type BrowserContext, type Locator } from "@playwright/test";
-import {
-  createScorecardContext,
-  deployRhdh,
-  type ScorecardHelpers,
-} from "../utils/setup";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   DATA_SOURCES_DIALOG_EMPTY_VALUE,
   DATA_SOURCES_DIALOG_UNAVAILABLE_VALUE,
-} from "../utils/constants/constants";
-import { DORA_ENTITY, DORA_METRICS } from "../utils/constants/dora-constants";
+  DORA_METRICS,
+} from "../utils/constants";
+import {
+  createScorecardContext,
+  deployRhdh,
+  type AggregatedScorecardHelpers,
+  type ScorecardHelpers,
+} from "../utils/setup";
 import type { ScorecardMetric } from "../utils/types";
+import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 
 test.describe.serial("Scorecard DORA Tests", () => {
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
+  let aggregated: AggregatedScorecardHelpers;
 
   async function openDoraEntityScorecard(): Promise<void> {
     await catalog.go();
-    await catalog.goToByName(DORA_ENTITY);
+    await catalog.goToByName("dora-scorecard");
     await scorecard.openTab();
   }
 
@@ -31,7 +33,7 @@ test.describe.serial("Scorecard DORA Tests", () => {
     });
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
-    ({ context, catalog, scorecard } = await createScorecardContext(
+    ({ context, catalog, scorecard, aggregated } = await createScorecardContext(
       browser,
       rhdh.rhdhUrl,
     ));
@@ -45,18 +47,9 @@ test.describe.serial("Scorecard DORA Tests", () => {
     await openDoraEntityScorecard();
 
     for (const metric of DORA_METRICS) {
-      // Title, description and the elite/medium/low threshold legend.
-      await scorecard.validateScorecardAriaFor(metric);
-    }
-  });
-
-  test("Verify aggregated scorecards are displayed for all 4 DORA metrics", async () => {
-    await scorecard.navigateToHome();
-
-    for (const metric of DORA_METRICS) {
-      await scorecard.expectAggregatedScorecardVisible(
-        metric.aggregationTitle ?? metric.title,
-      );
+      await scorecard.validateScorecardAriaFor(metric, {
+        visualization: "sparkline",
+      });
     }
   });
 
@@ -68,6 +61,45 @@ test.describe.serial("Scorecard DORA Tests", () => {
         expectDoraDatasourcesRows(dialog, metric),
       );
     }
+  });
+
+  test.describe("Aggregated scorecards", () => {
+    test.describe.configure({ retries: 1 });
+
+    test("Verify aggregated scorecards are displayed for all 4 DORA metrics", async () => {
+      await scorecard.navigateToHome();
+
+      for (const metric of DORA_METRICS) {
+        await scorecard.expectAggregatedScorecardVisible(
+          metric.aggregationTitle ?? metric.title,
+        );
+      }
+    });
+
+    test("Aggregated scorecard (DORA Deployment Frequency): View data sources", async () => {
+      const [deploymentFrequencyMetric] = DORA_METRICS;
+
+      await scorecard.expectDataSourcesDialog(
+        deploymentFrequencyMetric,
+        (dialog) =>
+          expectDoraDatasourcesRows(dialog, deploymentFrequencyMetric),
+      );
+    });
+
+    test("Aggregated scorecard (DORA Deployment Frequency): drill-down and table UI", async () => {
+      const [deploymentFrequencyMetric] = DORA_METRICS;
+
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        deploymentFrequencyMetric,
+        "doraDeploymentFrequencyKpi",
+        {
+          showCurrent: true,
+          showThresholdExpressions: true,
+          visualization: "sparkline",
+        },
+      );
+    });
   });
 
   async function expectDoraDatasourcesRows(

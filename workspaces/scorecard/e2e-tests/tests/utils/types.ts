@@ -3,12 +3,12 @@ export type ScorecardMetric = {
   readonly title: string;
   readonly aggregationTitle?: string;
   readonly description: string;
-  readonly thresholdLabels?: readonly string[];
+  readonly thresholds?: readonly ThresholdRule[];
   readonly collectors?: readonly Collector[];
 };
 
 export type ThresholdRule = {
-  readonly key: string;
+  readonly keyLabel: string;
   readonly expression: string;
   readonly color?: string;
 };

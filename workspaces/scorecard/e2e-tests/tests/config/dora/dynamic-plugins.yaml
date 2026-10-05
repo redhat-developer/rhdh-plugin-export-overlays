@@ -69,7 +69,7 @@ plugins:
           doraDeploymentFrequencyKpi:
             title: DORA - Deployment Frequency
             type: average
-            description: Tracks how often code is deployed to production over the past 30 days. Elite performers deploy on demand (multiple times per day).
+            description: Tracks how often code is successfully deployed to production over the past 30 days. Elite performers deploy on demand (multiple times per day).
             metricId: dora.deploymentFrequency
             options:
               thresholds:
