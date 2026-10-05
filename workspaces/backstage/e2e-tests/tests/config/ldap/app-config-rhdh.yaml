@@ -1,0 +1,49 @@
+app:
+  title: RHDH LDAP Auth E2E
+  baseUrl: ${RHDH_BASE_URL}
+
+backend:
+  baseUrl: ${RHDH_BASE_URL}
+  cors:
+    origin: ${RHDH_BASE_URL}
+
+permission:
+  enabled: false
+
+auth:
+  environment: production
+  providers:
+    keycloak:
+      production:
+        clientId: ${AUTH_KEYCLOAK_CLIENT_ID}
+        clientSecret: ${AUTH_KEYCLOAK_CLIENT_SECRET}
+        baseUrl: ${AUTH_KEYCLOAK_BASE_URL}
+        realm: ${AUTH_KEYCLOAK_REALM}
+        prompt: auto
+        signIn:
+          resolvers:
+            - resolver: ldapUuidMatchingAnnotation
+
+catalog:
+  rules:
+    - allow: [User, Group]
+  providers:
+    ldapOrg:
+      default:
+        target: ${LDAP_TARGET_URL}
+        bind:
+          dn: ${LDAP_BIND_DN}
+          secret: ${LDAP_BIND_SECRET}
+        users:
+          - dn: ${LDAP_USERS_DN}
+            options:
+              filter: "(uid=*)"
+              scope: sub
+        groups:
+          - dn: ${LDAP_GROUPS_DN}
+            options:
+              filter: "(objectClass=groupOfNames)"
+              scope: sub
+        schedule:
+          frequency: PT1M
+          timeout: PT1M
