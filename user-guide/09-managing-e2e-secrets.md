@@ -13,7 +13,7 @@ Use the collection ID `rhdh-plugin-export-overlays`. The repository's [e2e-secre
 
 Keep the `VAULT_` prefix and the environment-variable spelling expected by the workspace's tests and configuration. Names without the `VAULT_` prefix after the path prefix are ignored. Global and selected workspace secrets must map to distinct environment variables; duplicate names cause a collision rather than overriding one another.
 
-The workspace selector is already templated in the profile, so adding a secret under an existing workspace path does not require a profile change. Workspace secrets are optional; a workspace with no matching secrets can use the global secrets alone. The profile contains selectors, not secret values.
+The workspace selector is already templated in the profile, so adding a secret under an existing workspace path does not require a profile change. The `global/` selector is required; workspace selectors are optional. A workspace with no matching secrets can use the global secrets alone. The profile contains selectors, not secret values.
 
 ## Running Tests with Secrets
 
