@@ -17,8 +17,8 @@ metadata:
     - software-templates
 spec:
   packageName: "@backstage/plugin-scaffolder-backend-module-gerrit"
-  # Tag: bs_1.54.6__0.2.24
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit@sha256:44880fa8296f81c587deb8d28c163834057f99258b43b81c4934193eabbc0f4b"
+  # Tag: bs_1.54.9__0.2.24
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit@sha256:a3b6e1ff797e94474a5a5db8232f7b7a31abdc40e84a1e729f0efcd35cda756a"
   version: 0.2.24
   backstage:
     role: backend-plugin-module

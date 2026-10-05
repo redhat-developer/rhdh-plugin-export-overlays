@@ -17,8 +17,8 @@ metadata:
     - authentication
 spec:
   packageName: "@backstage/plugin-auth-backend-module-microsoft-provider"
-  # Tag: bs_1.54.6__0.3.18
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:2f96e8b2f1472421e2d8480487f93ffea97d9db7a78f975c4c3766adde8424f5"
+  # Tag: bs_1.54.9__0.3.18
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:fb2c39e22e7cbb1ec07e1ea2f97c19e730a05a1f39d2020ba67d284102574424"
   version: 0.3.18
   backstage:
     role: backend-plugin-module

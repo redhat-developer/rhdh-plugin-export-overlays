@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-azure-devops"
-  # Tag: bs_1.54.6__0.34.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops@sha256:03f7c4cc53fe45899d1fe1be106b1c7794095a6708196f1e27f429c0de0ae39b"
+  # Tag: bs_1.54.9__0.34.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops@sha256:9539a69e16fad3a30654a4c44046a1ef6c66dde33b234cc33d35e0fc62dd0d0e"
   version: 0.34.0
   backstage:
     role: frontend-plugin

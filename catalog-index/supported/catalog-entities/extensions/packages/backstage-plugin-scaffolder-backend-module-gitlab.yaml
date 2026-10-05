@@ -17,8 +17,8 @@ metadata:
     - software-templates
 spec:
   packageName: "@backstage/plugin-scaffolder-backend-module-gitlab"
-  # Tag: bs_1.54.6__0.11.10
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:c7ab0deeec3b79fa09c4d6acba3e27d92ed0867003c3795bccf6fb1997a68035"
+  # Tag: bs_1.54.9__0.11.10
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:7c2e87c9ea915a5971f705258d55f3c746cc2915ae5d5ee526b88922310c2572"
   version: 0.11.10
   backstage:
     role: backend-plugin-module
