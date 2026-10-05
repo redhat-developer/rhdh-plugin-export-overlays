@@ -96,11 +96,17 @@ fi
 
 SELECTED_WORKSPACES=()
 PLAYWRIGHT_ARGS=()
+DRY_RUN_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --secrets)
             SECRETS_ENABLED=true
+            shift
+            ;;
+        --list)
+            DRY_RUN_MODE=true
+            PLAYWRIGHT_ARGS+=("$1")
             shift
             ;;
         -w|--workspace)
@@ -118,7 +124,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" \
+if [[ "$DRY_RUN_MODE" != "true" \
     && "$CI" == "true" \
     && -z "$GIT_PR_NUMBER" \
     && ( "$E2E_NIGHTLY_MODE" == "true" || "$E2E_NIGHTLY_MODE" == "1" || "$JOB_NAME" == *periodic-* ) \
@@ -176,7 +182,7 @@ echo "[INFO] Node $NODE_VERSION | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
     echo "[INFO] Cluster: $(oc whoami --show-server) ($(oc whoami))"
-elif [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" ]]; then
+elif [[ "$DRY_RUN_MODE" != "true" ]]; then
     echo "[ERROR] Not logged into a cluster. Login with 'oc login' first."
     exit 1
 fi
@@ -325,10 +331,10 @@ CONFIGEOF
 GENERATED_FILES+=("playwright.config.ts")
 echo "[INFO] Generated playwright.config.ts (${#E2E_WORKSPACES[@]} workspaces)"
 
-# ── List mode ─────────────────────────────────────────────────────────────────
-# Skip globalSetup and teardown reporter — just list test names.
+# ── Dry-run mode ──────────────────────────────────────────────────────────────
+# Currently enabled by --list: skip globalSetup and teardown reporter.
 
-if [[ "${PLAYWRIGHT_ARGS[0]:-}" == "--list" ]]; then
+if [[ "$DRY_RUN_MODE" == "true" ]]; then
     # Generate a lightweight config that skips setup/teardown
     sed 's/\.\.\.baseConfig,/...baseConfig, globalSetup: undefined, globalTeardown: undefined, reporter: [["list"]],/' \
         playwright.config.ts > playwright.list.config.ts
@@ -336,8 +342,8 @@ if [[ "${PLAYWRIGHT_ARGS[0]:-}" == "--list" ]]; then
 
     echo ""
     echo "Listing tests:"
-    npx playwright test --list --config playwright.list.config.ts \
-        "${PLAYWRIGHT_ARGS[@]:1}" 2>&1 || true
+    npx playwright test --config playwright.list.config.ts \
+        "${PLAYWRIGHT_ARGS[@]}" 2>&1 || true
     exit 0
 fi
 
