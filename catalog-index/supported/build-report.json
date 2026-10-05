@@ -584,7 +584,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f4e2eda771a822b2737df017af7c05f8b56ebb9dd80d4545acf0d0465d3bb5b7"
+          "digest": "sha256:767c2eb2dc8473b39e907ce7353d06c7ce507efd1a8ab40ed714a734684e9b59"
         },
         "dpdy": {
           "status": "pass"
@@ -606,7 +606,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8a82068cf76e58f52162de0bd4319bdd502d59b834aba4ffbdfa8e2540346903"
+          "digest": "sha256:c26e7c6f685599056da2cf87e4e6e3dc9845d07bc09c636d289c3b88ea81fa79"
         },
         "dpdy": {
           "status": "pass"
@@ -628,7 +628,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4caf9034d041c92f37b8f779f65cb7cfc0380ca22603509ef41234723707ff45"
+          "digest": "sha256:49dac2c8d4035eb1edac02d8d2bed61a170c2b46024616b2c61e8d2a58b8e2e8"
         },
         "dpdy": {
           "status": "pass"
@@ -756,14 +756,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.8.8"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2e3efa5c588e797a9aa286d221363d76906605d5deb87625f302aaadd210838c",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__2.8.8",
-          "resolvedTag": "bs_1.49.4__2.9.0"
+          "digest": "sha256:aa39a2abc34e58999bfdd61f97d23b0e9909dc9df702d4bc57dc874d3b9650d5"
         },
         "dpdy": {
           "status": "pass"
@@ -773,7 +770,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed-backend",
-      "version": "2.9.0",
+      "version": "2.8.8",
       "workspace": "lightspeed",
       "overall": "pass"
     },
@@ -781,14 +778,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.8.8"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:25b77f97aca1e62677761a6d30932ad0faba735c0cd3b6a33c24a941a88a3e3f",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__2.8.8",
-          "resolvedTag": "bs_1.49.4__2.9.0"
+          "digest": "sha256:5e2acec5904ed5494726bc95a00533abce9b8f9a3c369324a1ea63142a3f1204"
         },
         "dpdy": {
           "status": "pass"
@@ -798,7 +792,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed",
-      "version": "2.9.0",
+      "version": "2.8.8",
       "workspace": "lightspeed",
       "overall": "pass"
     },
@@ -810,7 +804,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d57b6c796f582916ce58911cbc618cd8fffd854c22429da0b58ae45efa6d9fd7"
+          "digest": "sha256:ad979cde6cfd327e024309e8cd2dda0a119adb5547447603663fdbad116a4c50"
         },
         "dpdy": {
           "status": "pass"
@@ -832,7 +826,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e5fcc2ca395e9682992e733f36580b8538ceaee2772b2d822393704929a34fc4"
+          "digest": "sha256:ad2007da4a26b918fc0440b6fbcc5003184938b3ab4a1cdcfc982306e007245c"
         },
         "dpdy": {
           "status": "pass"
@@ -854,7 +848,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f6e06e395de64cceca3cfc34dac0edc58ef4e0a8cfd89095943957dfeea047d4"
+          "digest": "sha256:803c339cf35a8a35a32f1c4b413a8deae6caad53470ba97d0c1f9b3d9c61cef7"
         },
         "dpdy": {
           "status": "pass"
@@ -876,7 +870,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a1c47fae025f8cda11c72c15c5c0886eccf9010a1120e524f35dab8142b71055"
+          "digest": "sha256:1ef0f82cd54b128fcf1b40e51864872a99011a650f8403bd1d1788fec8e36f4b"
         },
         "dpdy": {
           "status": "pass"
@@ -898,7 +892,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7afb5048d005288b495f92d10c5dc7157dd5518256324ee7afdebddf9b7353b9"
+          "digest": "sha256:43bb90bc551bedb1bf5a920d7c5d9d5875c33036db64d9b7c32bd4f34e68bfad"
         },
         "dpdy": {
           "status": "pass"
