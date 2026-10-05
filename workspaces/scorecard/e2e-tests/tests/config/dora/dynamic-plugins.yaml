@@ -3,7 +3,7 @@
 # deployments and pull requests through the GitHub module's collectors,
 # and incidents through the Jira module's collector. Both modules have to be enabled alongside it.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.6__4.4.1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.9__4.4.1
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -61,7 +61,7 @@ plugins:
                   title: "DORA - Median Time to Restore"
                   props:
                     aggregationId: "dora.medianTimeToRestore"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.6__4.4.1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
     enabled: true
     pluginConfig:
       scorecard:
@@ -147,7 +147,7 @@ plugins:
                     color: error.main
                     icon: scorecardErrorStatusIcon
   # Registers the github:doraDeployments and github:doraDeploymentPullRequests collectors.
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.54.6__4.4.1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.54.9__4.4.1
     enabled: true
     pluginConfig:
       scorecard:
@@ -162,7 +162,7 @@ plugins:
                 initialDelay:
                   seconds: 10
   # Registers the jira:doraIncidents collector.
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.54.6__4.4.1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.54.9__4.4.1
     enabled: true
     pluginConfig:
       jira:
@@ -180,7 +180,7 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 15
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora:bs_1.54.6__0.2.2
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora:bs_1.54.9__0.2.2
     enabled: true
     pluginConfig:
       scorecard:
@@ -241,7 +241,7 @@ plugins:
             dynamicRoutes:
               - path: /
                 importName: DynamicCustomizableHomePage
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.6__0.9.9
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
     enabled: true
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
     enabled: false
