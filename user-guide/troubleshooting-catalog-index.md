@@ -135,11 +135,16 @@ files describe different builds of the same plugin.
 
 #### registry-not-allowed
 
-A reference points at a registry this index is not built against — most often a
-`ghcr.io` (community) reference leaking into a `quay.io/rhdh` (productized) index.
+A selected plugin's OCI reference uses the wrong registry for its support tier.
+`support: community` must use the exact `--community-registry` base; every other
+support tier must use the exact `--registry` base. The policy checks the DPDY,
+`plugin_builds/`, `index.json`, and selected Package entities, and always fails
+`update-index.sh` even when `--validate-mode` is `report` or `off`.
 
-**Fix:** correct the package's support tier so it resolves against the right registry.
-Pass `--community-registry` when the index is meant to carry community-tier packages.
+**Fix:** correct the Package entity's support tier or republish the image to its
+expected registry, then regenerate the index. Pass `--community-registry` for
+community-tier packages when they use a different base; if omitted, community uses
+`--registry`. This finding cannot be allowlisted.
 
 <a id="validation-duplicate-ref"></a>
 

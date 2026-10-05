@@ -75,7 +75,8 @@ RULES: dict[str, Rule] = {
     ),
     "registry-not-allowed": Rule(
         ERROR,
-        "an oci:// ref points at a registry this index is not built against",
+        "a generated OCI reference uses a registry other than the one required "
+        "for its support tier",
     ),
     "unknown-image": Rule(
         ERROR,
@@ -144,6 +145,9 @@ RULES: dict[str, Rule] = {
 
 #: The rules `--no-build-metadata` cannot run, derived rather than listed.
 RULES_NEEDING_BUILDS = sorted(r for r, spec in RULES.items() if spec.needs_builds)
+# Registry policy is a hard gate even when the other rules run in report mode. A
+# ticketed exception must not let a non-product registry into a product index.
+NON_ALLOWLISTABLE_RULES = {"registry-not-allowed"}
 
 OCI_PREFIX = "oci://"
 LOCAL_PREFIX = "./dynamic-plugins/dist/"
@@ -351,6 +355,128 @@ def load_index_json(index_path: Path) -> dict[str, dict] | None:
     return {k: v for k, v in data.items() if isinstance(v, dict)}
 
 
+def load_selected_package_entities(
+    output_dir: Path, selected_images: set[str]
+) -> dict[str, tuple[str, str, Path]]:
+    """Read support and dynamicArtifact for generated Package entities in this index.
+
+    The generator copies every workspace's metadata into packages/, including
+    plugins outside the selected tier. Only entities corresponding to a DPDY,
+    plugin_builds/, or index.json image belong to this registry policy.
+    """
+    entities: dict[str, tuple[str, str, Path]] = {}
+    packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+    for path in sorted(packages_dir.glob("*.yaml")):
+        if path.name == "all.yaml":
+            continue
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as exc:
+            if path.stem in selected_images:
+                raise ValueError(f"Cannot read selected Package entity {path}: {exc}") from exc
+            continue
+        if not isinstance(data, dict) or data.get("kind") != "Package":
+            continue
+        spec = data.get("spec") or {}
+        if not isinstance(spec, dict):
+            continue
+        npm_name = spec.get("packageName")
+        metadata = data.get("metadata") or {}
+        metadata_name = metadata.get("name") if isinstance(metadata, dict) else None
+        if isinstance(npm_name, str) and npm_name:
+            image = npm_to_image_name(npm_name)
+        elif isinstance(metadata_name, str) and metadata_name:
+            image = metadata_name
+        else:
+            image = path.stem
+        if image not in selected_images:
+            continue
+        support = spec.get("support")
+        artifact = spec.get("dynamicArtifact")
+        entities[image] = (
+            support if isinstance(support, str) else "",
+            artifact if isinstance(artifact, str) else "",
+            path,
+        )
+    return entities
+
+
+def check_registry_policy(
+    entries: list[DpdyEntry],
+    index: dict[str, dict] | None,
+    builds: dict[str, dict],
+    package_entities: dict[str, tuple[str, str, Path]],
+    registry: str,
+    community_registry: str,
+) -> list[Finding]:
+    """Require each selected plugin's OCI refs to use its support tier's base.
+
+    Package metadata is the source of the support tier; bootstrap copies it into
+    plugin_builds/ and index.json. Fall back to those copies when validating an
+    extracted index without Package entities or build metadata. Missing support is
+    treated as non-community, so it can never grant access to the community base.
+    """
+    findings: list[Finding] = []
+
+    def expected_for(image: str) -> tuple[str, str]:
+        package = package_entities.get(image)
+        support = package[0] if package else ""
+        if not support:
+            support = builds.get(image, {}).get("support") or ""
+        if not support and index:
+            support = index.get(image, {}).get("support") or ""
+        if not isinstance(support, str):
+            support = ""
+        return (
+            community_registry if support == "community" else registry,
+            support or "unspecified",
+        )
+
+    def check(image: str, value: str, source: str) -> None:
+        expected, support = expected_for(image)
+        oci_value = value if value.startswith(OCI_PREFIX) else f"{OCI_PREFIX}{value}"
+        ref = parse_oci_ref(oci_value)
+        if ref is None:
+            findings.append(
+                Finding(
+                    rule="registry-not-allowed",
+                    message=(
+                        f"'{image}' ({support}) in {source} has an invalid OCI "
+                        f"reference '{value}' (expected {expected})"
+                    ),
+                    image=image,
+                )
+            )
+        elif ref.registry != expected:
+            findings.append(
+                Finding(
+                    rule="registry-not-allowed",
+                    message=(
+                        f"'{image}' ({support}) in {source} references "
+                        f"{ref.registry}; expected {expected}"
+                    ),
+                    image=image,
+                )
+            )
+
+    for entry in entries:
+        if entry.package.startswith(OCI_PREFIX):
+            image = _image_of(entry.package)
+            check(image, entry.package, f"{DPDY_FILENAME} plugins[{entry.position}]")
+
+    for image, build in sorted(builds.items()):
+        check(image, str(build.get("registryReference") or ""), "plugin_builds/")
+
+    for image, entry in sorted((index or {}).items()):
+        check(image, str(entry.get("registryReference") or ""), INDEX_JSON_FILENAME)
+
+    for image, (_, artifact, path) in sorted(package_entities.items()):
+        if artifact.startswith(OCI_PREFIX):
+            check(image, artifact, str(path))
+
+    return findings
+
+
 def parse_allowlist(text: str, file_path: str) -> list[AllowlistEntry]:
     """Parse the allowlist, throwing on the first malformed entry.
 
@@ -402,6 +528,11 @@ def _parse_allowlist_entry(
             f"{file_path}:{line}: unknown rule '{rule}' — expected one of "
             f"{', '.join(sorted(RULES))}"
         )
+    if rule in NON_ALLOWLISTABLE_RULES:
+        raise ValueError(
+            f"{file_path}:{line}: '{rule}' is a mandatory registry policy and "
+            "cannot be allowlisted"
+        )
     if not ticket:
         raise ValueError(
             f"{file_path}:{line}: '{trimmed}' has no tracking ticket — precede it with "
@@ -437,6 +568,9 @@ def apply_allowlist(
     kept: list[Finding] = []
     suppressed: list[tuple[Finding, AllowlistEntry]] = []
     for finding in findings:
+        if finding.rule in NON_ALLOWLISTABLE_RULES:
+            kept.append(finding)
+            continue
         if not finding.image:
             kept.append(finding)
             continue
@@ -458,7 +592,6 @@ def apply_allowlist(
 def check_dpdy(
     entries: list[DpdyEntry],
     builds: dict[str, dict],
-    allowed_registries: set[str],
     has_build_metadata: bool,
 ) -> tuple[list[Finding], dict[str, ParsedRef]]:
     """Validate every dynamic-plugins.default.yaml entry against plugin_builds/.
@@ -506,7 +639,7 @@ def check_dpdy(
 
         by_image[ref.image] = ref
         findings.extend(
-            _check_ref(ref, builds, allowed_registries, has_build_metadata)
+            _check_ref(ref, builds, has_build_metadata)
         )
 
     return findings, by_image
@@ -542,29 +675,15 @@ def _label(finding: "Finding") -> str:
 def _check_ref(
     ref: ParsedRef,
     builds: dict[str, dict],
-    allowed_registries: set[str],
     has_build_metadata: bool,
 ) -> list[Finding]:
-    """The per-ref rules: registry, pinning, then plugin_builds agreement.
+    """The per-ref rules: pinning, then plugin_builds agreement.
 
-    Registry and pinning are properties of the ref itself, so they are emitted before the
-    build lookup and fire identically with or without plugin_builds/. Returning early on
-    `unknown-image` once made the two paths disagree about pinning.
+    Registry policy is checked across every generated artifact separately. Pinning is
+    a property of the ref itself, so it is emitted before the build lookup and fires
+    identically with or without plugin_builds/.
     """
     findings: list[Finding] = []
-
-    if ref.registry not in allowed_registries:
-        findings.append(
-            Finding(
-                rule="registry-not-allowed",
-                message=(
-                    f"'{ref.image}' references {ref.registry}, which is not among the "
-                    f"registries this index is built against "
-                    f"({', '.join(sorted(allowed_registries))})"
-                ),
-                image=ref.image,
-            )
-        )
 
     if not ref.digest:
         findings.append(
@@ -1005,12 +1124,14 @@ def _check_index_entry(
 def validate(
     output_dir: Path,
     plugin_builds_dir: Path,
-    allowed_registries: set[str],
+    registry: str,
     allowlist: list[AllowlistEntry],
     has_build_metadata: bool,
     default_packages_file: Path | None = None,
     previous_index_dpdy: Path | None = None,
     report_file: Path | None = None,
+    community_registry: str | None = None,
+    registry_policy_only: bool = False,
 ) -> ValidationResult:
     """Run every rule and return the surviving findings plus run statistics.
 
@@ -1024,15 +1145,28 @@ def validate(
     builds = load_plugin_builds(plugin_builds_dir) if has_build_metadata else {}
     index = load_index_json(output_dir / INDEX_JSON_FILENAME)
 
-    findings: list[Finding] = []
+    entries = load_dpdy_entries(dpdy_path) if dpdy_path.is_file() else []
+    selected_images = set(builds) | set(index or {})
+    selected_images.update(
+        ref.image for entry in entries
+        if (ref := parse_oci_ref(entry.package)) is not None
+    )
+    package_entities = load_selected_package_entities(output_dir, selected_images)
+    findings = check_registry_policy(
+        entries, index, builds, package_entities,
+        registry, community_registry or registry,
+    )
+    if registry_policy_only:
+        # update-index.sh calls this unconditionally, even when its other rules run
+        # in report/off mode. No allowlist is applied to this result.
+        return ValidationResult(findings=findings)
+
     by_image: dict[str, ParsedRef] = {}
-    entries: list[DpdyEntry] = []
     skipped = [] if has_build_metadata else list(RULES_NEEDING_BUILDS)
 
     if dpdy_path.is_file():
-        entries = load_dpdy_entries(dpdy_path)
         dpdy_findings, by_image = check_dpdy(
-            entries, builds, allowed_registries, has_build_metadata
+            entries, builds, has_build_metadata
         )
         findings.extend(dpdy_findings)
         findings.extend(check_index_json(index, by_image, builds, has_build_metadata))
@@ -1244,6 +1378,7 @@ Usage: python3 validateCatalogIndex.py \\
     [-cr|--community-registry BASE] \\
     [-a|--allowlist FILE] \\
     [--report-file FILE] [--json FILE] [--strict] [--allow-warnings RULE] \\
+    [--registry-policy-only] \\
     [--default-packages-file FILE] \\
     [--previous-index-dpdy FILE] [--list-rules] [--debug]
 
@@ -1292,10 +1427,14 @@ Examples:
         help="Registry base the index is built against (e.g. quay.io/rhdh)",
     )
     parser.add_argument(
-        "-cr", "--community-registry", type=str, metavar="BASE", action="append",
+        "-cr", "--community-registry", type=str, metavar="BASE",
         default=None,
-        help="Additional allowed registry base for community-tier packages. "
-             "Repeatable.",
+        help="Required registry base for community-tier packages (defaults to --registry).",
+    )
+    parser.add_argument(
+        "--registry-policy-only", action="store_true",
+        help="Check only the mandatory per-support-tier registry policy. "
+             "Used by update-index.sh even when other validation is report/off.",
     )
     parser.add_argument(
         "-a", "--allowlist", type=str, metavar="FILE", default=None,
@@ -1388,10 +1527,8 @@ Examples:
     except ValueError as exc:
         log_error(str(exc))
         return 2
-    allowed = {args.registry, *(args.community_registry or [])}
-
     dpdy = output_dir / DPDY_FILENAME
-    if not dpdy.is_file():
+    if not dpdy.is_file() and not args.registry_policy_only:
         # Community tier is generated without a DPDY. plugin_builds/ checks still run
         # so a missing community image fails under --validate-mode gate (RHIDP-15725).
         log_info(
@@ -1400,23 +1537,36 @@ Examples:
         )
 
     log_debug(f"output-dir={output_dir} plugin-builds-dir={plugin_builds_dir}")
-    log_debug(f"allowed registries: {', '.join(sorted(allowed))}")
+    log_debug(
+        f"registry policy: non-community={args.registry} "
+        f"community={args.community_registry or args.registry}"
+    )
 
     try:
-        allowlist = load_allowlist(allowlist_path)
+        allowlist = [] if args.registry_policy_only else load_allowlist(allowlist_path)
         result = validate(
             output_dir,
             plugin_builds_dir,
-            allowed,
+            args.registry,
             allowlist,
             has_build_metadata=not args.no_build_metadata,
             default_packages_file=default_packages_file,
             previous_index_dpdy=previous_index_dpdy,
             report_file=report_file,
+            community_registry=args.community_registry,
+            registry_policy_only=args.registry_policy_only,
         )
     except (ValueError, OSError, yaml.YAMLError) as exc:
         log_error(f"Catalog index validation could not run: {exc}")
         return 1
+
+    if args.registry_policy_only:
+        if result.findings:
+            for finding in result.findings:
+                log_error(_label(finding))
+            return 1
+        log_info("Registry policy passed")
+        return 0
 
     print(render(result))
     return _emit(result, args, json_out, report_file)

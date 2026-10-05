@@ -27,6 +27,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 UPDATE_INDEX = SCRIPTS_DIR / "update-index.sh"
 
 REGISTRY = "quay.io/rhdh"
+RHEC_REGISTRY = "registry.access.redhat.com/rhdh"
 COMMUNITY_REGISTRY = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 DIGEST = "sha256:" + "a" * 64
 
@@ -164,7 +165,7 @@ def python_shim(tmp_path):
     return bindir
 
 
-def run_update_index(root, *args, bindir=None):
+def run_update_index(root, *args, bindir=None, registry=REGISTRY):
     """Run the fixture's update-index.sh with a scrubbed environment.
 
     The fixture's own empty allowlist is passed unless the caller overrides it, so a
@@ -180,7 +181,7 @@ def run_update_index(root, *args, bindir=None):
         "PYTHONPATH": str(SCRIPTS_DIR),
     }
     return subprocess.run(
-        [str(root / "scripts" / "update-index.sh"), "--registry", REGISTRY, *args],
+        [str(root / "scripts" / "update-index.sh"), "--registry", registry, *args],
         env=env,
         cwd=str(root),
         capture_output=True,
@@ -257,17 +258,33 @@ class TestValidationRuns:
         assert "unresolved-image" in result.stdout
 
     def test_the_community_registry_is_passed_through(self, tmp_path):
-        """Without it, every community-tier package reads as registry-not-allowed."""
+        """A community-tier package uses its own configured registry."""
         root = build_stub_repo(
             tmp_path,
             packages=[{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
-            builds={"plugin-a": resolved("plugin-a")},
+            builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
         )
         result = run_update_index(
             root, "--community-registry", COMMUNITY_REGISTRY
         )
         assert result.returncode == 0, result.stderr
         assert "registry-not-allowed" not in result.stdout
+
+    def test_omitting_community_registry_uses_the_primary_registry(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{RHEC_REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{RHEC_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+        )
+        result = run_update_index(root, "--validate-mode", "off", registry=RHEC_REGISTRY)
+        assert result.returncode == 0, result.stderr
+        assert "Registry policy passed" in result.stdout
 
 
 class TestValidateMode:
@@ -294,6 +311,38 @@ class TestValidateMode:
         assert result.returncode == 0, result.stderr
         assert "Skipped (--validate-mode off)" in result.stdout
         assert "unresolved-image" not in result.stdout
+
+    @pytest.mark.parametrize("mode", ["report", "gate", "off"])
+    def test_wrong_registry_always_fails_before_downstream_scrubbing(self, tmp_path, mode):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved(
+                "plugin-a", support="generally-available",
+                registryReference=f"{RHEC_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+        )
+        result = run_update_index(root, "--validate-mode", mode, registry=RHEC_REGISTRY)
+        assert result.returncode == 1
+        assert "registry-not-allowed" in result.stdout
+        assert "plugin-a" in result.stdout
+        assert f"expected {RHEC_REGISTRY}" in result.stdout
+
+    def test_correct_community_registry_passes_the_mandatory_gate(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+        )
+        result = run_update_index(
+            root, "--validate-mode", "off", "--community-registry", COMMUNITY_REGISTRY,
+            registry=RHEC_REGISTRY,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "Registry policy passed" in result.stdout
 
     def test_an_unknown_mode_is_rejected_before_any_work(self, clean_repo):
         """A typo must not silently degrade to the permissive mode.

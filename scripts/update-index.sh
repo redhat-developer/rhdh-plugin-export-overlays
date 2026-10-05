@@ -9,7 +9,7 @@
 #   # Supported index (union of default.packages.yaml + rhdh-supported-packages.txt)
 #   scripts/update-index.sh \
 #     --overlays-dir . \
-#     --registry quay.io/rhdh-community \
+#     --registry quay.io/rhdh \
 #     --output-dir catalog-index/supported \
 #     --plugin-builds-dir plugin_builds/supported \
 #     --packages-file catalog-index/default.packages.yaml \
@@ -23,14 +23,16 @@
 #     --plugin-builds-dir plugin_builds/community \
 #     --packages-file rhdh-community-packages.txt
 #
-#   # Midstream (quay.io/rhdh → registry.access.redhat.com)
+#   # Midstream product index
 #   scripts/update-index.sh \
 #     --overlays-dir /path/to/overlay-repo \
-#     --registry quay.io/rhdh \
+#     --registry registry.access.redhat.com/rhdh \
+#     --community-registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays \
 #     --output-dir /path/to/catalog-index \
 #     --plugin-builds-dir /path/to/plugin_builds \
 #     --packages-file /path/to/catalog-index/default.packages.yaml \
-#     --packages-file /path/to/rhdh-supported-packages.txt
+#     --packages-file /path/to/rhdh-supported-packages.txt \
+#     --validate-mode gate
 #
 #   # Fail the run on a validation error, and additionally install+boot every package
 #   # the generated index declares (needs Node 24, Yarn 4 and registry access)
@@ -57,16 +59,14 @@ blue="\033[1;34m"
 OVERLAYS_DIR="."
 REGISTRY=""
 RHDH_VERSION=""
-COMMUNITY_REGISTRY="ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
+COMMUNITY_REGISTRY=""
 OUTPUT_DIR="catalog-index"
 PLUGIN_BUILDS_DIR="plugin_builds"
 PACKAGES_FILES=()
 REPORT_FILE=""
-# Step 5 (static validation) runs on every generation. It defaults to "report" rather
-# than "gate" deliberately: the check is new, and the indexes it runs against today
-# carry findings nobody has triaged yet (see user-guide/07-plugin-catalog-index.md).
-# Landing it as a hard gate would turn those into a red build for work unrelated to
-# whoever pushed. Flip to "gate" once the standing findings are fixed or allowlisted.
+# The registry policy is always a hard gate. The other Step 5 checks default to
+# "report" because some existing findings still need triage; use "gate" to fail on
+# those too (see user-guide/07-plugin-catalog-index.md).
 VALIDATE_MODE="report"
 VALIDATE_ALLOWLIST=""
 VALIDATION_JSON=""
@@ -108,17 +108,17 @@ Arguments:
   -v,  --rhdh-version          RHDH version for non-ghcr.io tag convention (e.g., 1.5).
                                Required when registry is not ghcr.io.
   -cr, --community-registry    Registry base for community-tier plugins
-                               (default: ghcr.io/redhat-developer/rhdh-plugin-export-overlays)
+                               (default: same as --registry)
   -p,  --packages-file         Package list file (YAML or txt). Can be specified multiple times.
                                Files are unioned. Supports default.packages.yaml (npm names)
                                and txt files with workspace paths (e.g., rhdh-supported-packages.txt).
                                DPDY generation runs only when a file named default.packages.yaml is provided.
        --report-file           Path to build-report.json for tracking generation stages (optional).
-       --validate-mode         Step 5, static validation of the generated index
-                               (no network). One of:
-                                 report (default) — always run, never fail the build
+       --validate-mode         Other Step 5 validation rules (no network). One of:
+                                 report (default) — print findings without failing
                                  gate             — fail on any validation error
-                                 off              — skip validation entirely
+                                 off              — skip the other rules
+                               Registry policy always runs and fails on a mismatch.
        --validate-allowlist    Ticketed exceptions file for Step 5
                                (default: scripts/catalog-index-validation-allowlist.txt)
        --validation-json       Write the Step 5 findings as JSON to this path (optional).
@@ -230,6 +230,12 @@ done
 if [[ -z "$REGISTRY" ]]; then
     echo -e "${red}[ERROR] Missing required argument: --registry${norm}\n" >&2
     usage
+fi
+
+# With no community override, community packages use the same base as every other
+# support tier. This keeps --registry alone sufficient for a single-registry index.
+if [[ -z "$COMMUNITY_REGISTRY" ]]; then
+    COMMUNITY_REGISTRY="$REGISTRY"
 fi
 
 # Rejected here rather than at Step 5: a typo would otherwise be discovered after the
@@ -410,6 +416,23 @@ fi
 ##############################################
 # Step 5: Validate the generated index (static, no network)
 ##############################################
+# This policy is unconditional: report/off only control the other validation
+# findings. A wrong registry must fail before downstream can scrub the ref away.
+echo -e "\n${green}=== Step 5a: Enforce registry policy ===${norm}"
+REGISTRY_POLICY_ARGS=(
+    --output-dir "$OUTPUT_DIR"
+    --plugin-builds-dir "$PLUGIN_BUILDS_DIR"
+    --registry "$REGISTRY"
+    --registry-policy-only
+)
+if [[ "$COMMUNITY_REGISTRY" != "$REGISTRY" ]]; then
+    REGISTRY_POLICY_ARGS+=(--community-registry "$COMMUNITY_REGISTRY")
+fi
+if ! python "$SCRIPT_DIR/validateCatalogIndex.py" "${REGISTRY_POLICY_ARGS[@]}"; then
+    echo -e "${red}[ERROR] Catalog registry policy failed${norm}" >&2
+    exit 1
+fi
+
 if [[ "$VALIDATE_MODE" == "off" ]]; then
     echo -e "\n${blue}=== Step 5: Validation — Skipped (--validate-mode off) ===${norm}"
 else
@@ -419,8 +442,7 @@ else
         --plugin-builds-dir "$PLUGIN_BUILDS_DIR"
         --registry "$REGISTRY"
     )
-    # The supported index legitimately mixes in community-tier packages from a second
-    # registry; without this they would all read as registry-not-allowed.
+    # Community-tier packages use a separate, exact registry base.
     if [[ "$COMMUNITY_REGISTRY" != "$REGISTRY" ]]; then
         VALIDATE_ARGS+=(--community-registry "$COMMUNITY_REGISTRY")
     fi

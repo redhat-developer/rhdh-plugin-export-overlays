@@ -1,6 +1,8 @@
 """Tests for bootstrapPluginBuilds module."""
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -195,3 +197,50 @@ class TestConstructRegistryReference:
             "",
         )
         assert ref.endswith(":1.11--1.5.4")
+        assert "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-bar" in ref
+
+
+class TestCommunityRegistryDefault:
+    def test_omitting_community_registry_uses_ghcr_default(self, tmp_path):
+        overlays = tmp_path / "overlays"
+        metadata_dir = overlays / "workspaces" / "community-plugin" / "metadata"
+        metadata_dir.mkdir(parents=True)
+        (overlays / "versions.json").write_text(
+            json.dumps({"backstage": "1.54.6"}), encoding="utf-8"
+        )
+        (metadata_dir / "plugin-foo.yaml").write_text(
+            "kind: Package\n"
+            "metadata:\n"
+            "  name: plugin-foo\n"
+            "spec:\n"
+            "  packageName: '@backstage-community/plugin-foo'\n"
+            "  version: 1.2.3\n"
+            "  support: community\n",
+            encoding="utf-8",
+        )
+        builds = tmp_path / "plugin_builds"
+        registry = "registry.access.redhat.com/rhdh"
+        script = Path(__file__).resolve().parents[1] / "bootstrapPluginBuilds.py"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--overlays-dir", str(overlays),
+                "--plugin-builds-dir", str(builds),
+                "--registry", registry,
+                "--rhdh-version", "1.10",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stderr
+        build = json.loads(
+            (builds / "community-plugin" / "backstage-community-plugin-foo.json").read_text()
+        )["backstage-community-plugin-foo"]
+        assert build["registryReference"].startswith(
+            "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/"
+            "backstage-community-plugin-foo:"
+        )

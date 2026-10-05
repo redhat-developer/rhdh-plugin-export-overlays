@@ -191,9 +191,9 @@ The final step that produces the catalog index:
 ### Step 5: Validation (`validateCatalogIndex.py`)
 
 A static check of what the previous steps just produced. **No network calls** — it reads
-`dynamic-plugins.default.yaml`, `index.json` and `plugin_builds/` and reports where they
-disagree, so it is cheap enough to run on every generation, upstream and in the midstream
-Konflux pipeline alike.
+`dynamic-plugins.default.yaml`, `index.json`, `plugin_builds/`, and selected Package
+entities and reports where they disagree, so it is cheap enough to run on every
+generation, upstream and in the midstream Konflux pipeline alike.
 
 It exists because the generator is deliberately forgiving: when a plugin's image is not
 found in the registry it logs a warning and carries on, so the index can go out declaring
@@ -209,7 +209,7 @@ that matter most:
 | `dpdy-missing-package` | error    | A `default.packages.yaml` npm name has no matching DPDY entry (identity, not count).                      |
 | `unknown-image`        | error    | An `oci://` ref names an image with no `plugin_builds/` entry — the index and build metadata disagree.     |
 | `digest-mismatch`      | error    | A digest-pinned ref does not match the digest `plugin_builds/` recorded.                                  |
-| `registry-not-allowed` | error    | A ref points at a registry this index is not built against (the `ghcr.io`-into-`quay.io/rhdh` leak).      |
+| `registry-not-allowed` | error    | A selected plugin's OCI ref uses a registry other than `--community-registry` for `support: community`, or `--registry` for every other support tier. The check covers DPDY, `plugin_builds/`, `index.json`, and selected Package entities. |
 | `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
 | `not-digest-pinned`    | error    | A ref carries a tag rather than a digest — the tag points at the manifest list, which lacks `io.backstage.dynamic-packages` (RHDHBUGS-3815). Always fails. |
 | `fallback-tag`         | warning  | The requested build was missing and an older tag was substituted — the index ships a stale build.          |
@@ -217,15 +217,23 @@ that matter most:
 | `version-regression`   | warning  | Plugin version is lower than the previous published catalog index (RHIDP-16252).                           |
 | `index-missing-entry`  | warning  | A resolved package is in the DPDY but absent from `index.json`, so the Extensions UI will not list it.     |
 
-**Modes.** `--validate-mode` controls what a finding does to the build:
+**Modes.** The registry policy is a hard gate after generation, before downstream
+cleanup, regardless of `--validate-mode`. It compares exact registry bases and names
+the plugin, generated file, actual base, and expected base when it fails. The other
+validation findings use `--validate-mode`:
 
-- `report` (**default**) — always runs, prints the findings, never fails the build.
+- `report` (**default**) — prints the other findings without failing the build.
 - `gate` — fails the build on any error.
-- `off` — skips the step.
+- `off` — skips the other rules.
+
+The mode defaults to `report`. `--community-registry` defaults to the value of
+`--registry`; pass it explicitly only when community-tier packages should use another
+registry (such as GHCR).
 
 The overlays `generate-catalog-index` workflow runs with `--validate-mode gate`, so
 errors fail generation and skip OCI publish (RHIDP-15725). The script default remains
-`report` for local and midstream runs until those pipelines opt in.
+`report` for local and midstream runs until those pipelines opt in. Midstream should
+pass `--validate-mode gate` as well if missing or unresolved images must stop generation.
 
 `--strict` (the validator's flag, passed through from `update-index.sh`) treats
 **warnings** as errors. The GitHub workflow sets it on `release-*`. On a release line,
@@ -238,7 +246,7 @@ still fails the build (RHIDP-15725).
 using the same `TODO(TICKET)` discipline as the smoke harness's exclusion files: a
 pattern with no ticket is a parse error, so exceptions get removed rather than
 accumulated. Patterns are matched against the OCI **image name**
-(`backstage-community-plugin-quay`).
+(`backstage-community-plugin-quay`). `registry-not-allowed` cannot be allowlisted.
 
 Findings are also recorded per plugin in `build-report.json` as a `validate` stage, so
 they reach the generated status page. Only errors set that stage to `fail` — a
@@ -251,7 +259,8 @@ a `default.packages.yaml` is among the `--packages-file` arguments. The communit
 is generated with `--packages-file rhdh-community-packages.txt` alone, so it has no DPDY.
 Step 5 still walks `plugin_builds/` for `unresolved-image`, `missing-annotation`, and
 `fallback-tag` so a missing community image fails under `--validate-mode gate`
-(RHIDP-15725). DPDY-only rules do not run.
+(RHIDP-15725). The mandatory registry policy still checks `plugin_builds/` and
+`index.json`; DPDY-only rules do not run.
 
 ### Step 6: Catalog Index Sanity Check (opt-in)
 

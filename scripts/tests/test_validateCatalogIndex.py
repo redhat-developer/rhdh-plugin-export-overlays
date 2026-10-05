@@ -108,7 +108,7 @@ SHIPPED_ALLOWLIST = (
 
 
 def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
-        registries=None, has_build_metadata=True,
+        registry=REGISTRY, community_registry=None, has_build_metadata=True,
         default_packages_file=None, previous_index_dpdy=None, report_file=None):
     output_dir, plugin_builds_dir = write_index(
         tmp_path, packages, builds=builds, index_json=index_json
@@ -116,12 +116,13 @@ def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
     return validate(
         output_dir,
         plugin_builds_dir,
-        registries or {REGISTRY},
+        registry,
         allowlist or [],
         has_build_metadata=has_build_metadata,
         default_packages_file=default_packages_file,
         previous_index_dpdy=previous_index_dpdy,
         report_file=report_file,
+        community_registry=community_registry,
     )
 
 
@@ -384,12 +385,15 @@ class TestRules:
         assert "registry-not-allowed" in rules_of(result)
 
     def test_a_declared_community_registry_is_allowed(self, tmp_path):
-        """The supported index legitimately mixes in community-tier ghcr.io packages."""
+        """The community base is valid only for community-tier packages."""
         result = run(
             tmp_path,
             [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
-            builds={"plugin-a": resolved("plugin-a")},
-            registries={REGISTRY, COMMUNITY_REGISTRY},
+            builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+            community_registry=COMMUNITY_REGISTRY,
         )
         assert "registry-not-allowed" not in rules_of(result)
 
@@ -527,6 +531,7 @@ class TestRules:
             },
         )
         assert "index-ref-mismatch" not in rules_of(result)
+        assert "registry-not-allowed" in rules_of(result)
 
     def test_a_missing_index_json_disables_only_the_index_rules(self, tmp_path):
         result = run(
@@ -1362,8 +1367,122 @@ class TestPolicyRules:
         result = validate(
             output_dir,
             tmp_path / "plugin_builds",
-            {REGISTRY},
+            REGISTRY,
             [],
             has_build_metadata=True,
         )
         assert "unresolved-image" in rules_of(result)
+
+
+class TestRegistryPolicy:
+    def test_registry_base_must_match_exactly(self, tmp_path):
+        rhec = "registry.access.redhat.com/rhdh"
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{rhec}-extra/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved(
+                "plugin-a", registryReference=f"{rhec}/plugin-a@{DIGEST}",
+            )},
+            registry=rhec,
+        )
+        assert "registry-not-allowed" in rules_of(result)
+
+    def test_ga_plugin_cannot_use_the_configured_community_registry(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="generally-available")},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        findings = [f for f in result.findings if f.rule == "registry-not-allowed"]
+        assert len(findings) == 1
+        assert "dynamic-plugins.default.yaml plugins[0]" in findings[0].message
+        assert f"expected {REGISTRY}" in findings[0].message
+
+    def test_community_plugin_cannot_use_the_primary_registry(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="community")},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        assert "registry-not-allowed" in rules_of(result)
+        assert f"expected {COMMUNITY_REGISTRY}" in render(result)
+
+    def test_same_digest_in_index_json_does_not_hide_wrong_registry(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="generally-available")},
+            index_json={"plugin-a": {
+                "registryReference": f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+                "support": "generally-available",
+            }},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        assert "index-ref-mismatch" not in rules_of(result)
+        assert any(f.rule == "registry-not-allowed" and "index.json" in f.message
+                   for f in result.findings)
+
+    def test_index_and_build_entries_outside_dpdy_are_checked(self, tmp_path):
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": resolved(
+                "plugin-a", support="generally-available",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+            index_json={"plugin-b": {
+                "registryReference": f"{COMMUNITY_REGISTRY}/plugin-b@{DIGEST}",
+                "support": "generally-available",
+            }},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        sources = [f.message for f in result.findings if f.rule == "registry-not-allowed"]
+        assert any("plugin-a" in msg and "plugin_builds/" in msg for msg in sources)
+        assert any("plugin-b" in msg and "index.json" in msg for msg in sources)
+
+    def test_selected_package_entity_is_checked_and_unselected_one_is_ignored(self, tmp_path):
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="generally-available")},
+        )
+        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+        packages_dir.mkdir(parents=True)
+        for image in ("plugin-a", "plugin-b"):
+            (packages_dir / f"{image}.yaml").write_text(yaml.safe_dump({
+                "kind": "Package",
+                "metadata": {"name": image},
+                "spec": {
+                    "packageName": image,
+                    "support": "generally-available",
+                    "dynamicArtifact": f"oci://{COMMUNITY_REGISTRY}/{image}@{DIGEST}",
+                },
+            }), encoding="utf-8")
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        policy = [f for f in result.findings if f.rule == "registry-not-allowed"]
+        assert len(policy) == 1
+        assert policy[0].image == "plugin-a"
+        assert "packages/plugin-a.yaml" in policy[0].message
+
+    def test_published_index_uses_index_support_without_build_metadata(self, tmp_path):
+        result = run(
+            tmp_path, [], builds=None,
+            index_json={"plugin-a": {
+                "registryReference": f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+                "support": "community",
+            }},
+            has_build_metadata=False, community_registry=COMMUNITY_REGISTRY,
+        )
+        assert "registry-not-allowed" not in rules_of(result)
+
+    def test_registry_policy_cannot_be_allowlisted(self):
+        with pytest.raises(ValueError, match="cannot be allowlisted"):
+            parse_allowlist(
+                "# TODO(RHIDP-15872): temporary exception\n"
+                "registry-not-allowed ^plugin-a$\n",
+                "allowlist.txt",
+            )
