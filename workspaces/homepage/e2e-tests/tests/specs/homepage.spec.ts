@@ -12,6 +12,7 @@ import {
 
 const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
   "red-hat-developer-hub-backstage-plugin-homepage",
+  "red-hat-developer-hub-backstage-plugin-homepage-backend",
 ];
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
@@ -266,7 +267,7 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.verifyHomePageLoaded({ requireWidgets: false });
       await home.enterEditMode();
       await home.clearAllCardsIfPresent();
-      await home.exitEditMode();
+      await home.exitEditMode(false);
 
       await home.reloginAsKeycloakUser("test1", "test1@123", {
         clearHomeStorage: true,

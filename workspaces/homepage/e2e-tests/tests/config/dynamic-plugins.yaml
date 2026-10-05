@@ -5,9 +5,6 @@
 # homepage.defaultWidgets (homepage-backend) is not supported on NFS yet. NFS tests seed widgets via
 # the UI until then.
 plugins:
-  # Version from workspaces/backstage export: backstage-plugin-home
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
-    enabled: true
   # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage.yaml
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
     enabled: true
