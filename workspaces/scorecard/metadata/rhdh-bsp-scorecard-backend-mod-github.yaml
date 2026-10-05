@@ -1,0 +1,39 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-bsp-scorecard-backend-mod-github
+  namespace: rhdh
+  title: "Scorecard Backend Module for GitHub"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-github
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-github
+  tags:
+    - analytics
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.54.6__4.4.1
+  version: 4.4.1
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - scorecard
+  appConfigExamples:
+    - title: Optional GitHub open-PR scorecard schedule
+      content:
+        scorecard:
+          metricProviders:
+            github:
+              openPRs:
+                schedule:
+                  frequency: { hours: 4 }
+                  timeout: { minutes: 10 }

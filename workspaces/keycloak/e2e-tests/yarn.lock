@@ -284,9 +284,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:2.1.18":
-  version: 2.1.18
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.18"
+"@red-hat-developer-hub/e2e-test-utils@npm:2.1.20":
+  version: 2.1.20
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.20"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
@@ -311,7 +311,7 @@ __metadata:
     "@playwright/test": ^1.57.0
   bin:
     rhdh-e2e-secrets: ./dist/secrets/cli.js
-  checksum: 10/2ab33d338699065f84f28a13b0a6c449234be2924920a59969d05ca76a09432efc3714d6b66c72548641bfd49544ac102ff9a440eb9a2fbdc6a01cb90b4b8467
+  checksum: 10/49066e5c045998adc16b310e75398de0e50514afe649fa405b0d3b728de83c8dd6406ac0f5ee3ae95bbc83ce3e9f4769379f205c2f79ab1054ae80d4b1f05e9b
   languageName: node
   linkType: hard
 
@@ -353,16 +353,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*":
-  version: 25.3.2
-  resolution: "@types/node@npm:25.3.2"
-  dependencies:
-    undici-types: "npm:~7.18.0"
-  checksum: 10/3a7783f0a9508dd8bd3f386e44c062d0d9fe0414fa8983ab203350d1b95db24aad694a54f21b9a0f0a30691ca26c7959c9329e37fea909d35124ec99b6e7b418
-  languageName: node
-  linkType: hard
-
-"@types/node@npm:25.5.2":
+"@types/node@npm:*, @types/node@npm:25.5.2":
   version: 25.5.2
   resolution: "@types/node@npm:25.5.2"
   dependencies:
@@ -692,15 +683,6 @@ __metadata:
   dependencies:
     bare-path: "npm:^3.0.0"
   checksum: 10/aa203d79e2dafdb47a4e3bee398cb7db5c7eabcf0b3adf1e1530a21ac69806d1ca05b3343666e3aeda9fc3568c995272deea8ae3cead77ad00f66a7e415de0ef
-  languageName: node
-  linkType: hard
-
-"brace-expansion@npm:^5.0.2":
-  version: 5.0.4
-  resolution: "brace-expansion@npm:5.0.4"
-  dependencies:
-    balanced-match: "npm:^4.0.2"
-  checksum: 10/cfd57e20d8ded9578149e47ae4d3fff2b2f78d06b54a32a73057bddff65c8e9b930613f0cbcfefedf12dd117151e19d4da16367d5127c54f3bff02d8a4479bb2
   languageName: node
   linkType: hard
 
@@ -1484,7 +1466,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:10.0.1"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.18"
+    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.20"
     "@types/node": "npm:25.5.2"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"
@@ -1596,16 +1578,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimatch@npm:^10.2.2":
-  version: 10.2.4
-  resolution: "minimatch@npm:10.2.4"
-  dependencies:
-    brace-expansion: "npm:^5.0.2"
-  checksum: 10/aea4874e521c55bb60744685bbffe3d152e5460f84efac3ea936e6bbe2ceba7deb93345fec3f9bb17f7b6946776073a64d40ae32bf5f298ad690308121068a1f
-  languageName: node
-  linkType: hard
-
-"minimatch@npm:^10.2.4":
+"minimatch@npm:^10.2.2, minimatch@npm:^10.2.4":
   version: 10.2.5
   resolution: "minimatch@npm:10.2.5"
   dependencies:

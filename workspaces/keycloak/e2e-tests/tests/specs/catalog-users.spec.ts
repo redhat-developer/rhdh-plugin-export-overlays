@@ -74,9 +74,11 @@ test.describe("Test Keycloak plugin", () => {
 
     for (let i = 0; i < backStageUsersCount; i++) {
       const backStageUser = backStageUsersLocator.nth(i);
-      const backStageUserText = await backStageUser.textContent();
+      // Link href is /catalog/.../user/<metadata.name> (= Keycloak username).
+      const href = await backStageUser.getAttribute("href");
+      const entityName = href?.split("/").filter(Boolean).pop();
       const userFound = keycloakUsers.find(
-        (user) => user.username === backStageUserText,
+        (user) => user.username === entityName,
       );
       expect(userFound).not.toBeNull();
 
@@ -102,8 +104,7 @@ async function checkUserDetails(
   uiHelper: UIhelper,
 ) {
   await CatalogUsersPO.visitUserPage(page, keycloakUser.username);
-  const emailLink = CatalogUsersPO.getEmailLink(page);
-  await expect(emailLink).toBeVisible();
+  // NFS User Overview does not render profile.email as a mailto link.
   await uiHelper.verifyText(
     `${keycloakUser.firstName ?? ""} ${keycloakUser.lastName ?? ""}`.trim(),
   );
@@ -113,8 +114,9 @@ async function checkUserDetails(
     keycloakUser.username,
   );
   for (const group of groups) {
-    const groupLink = CatalogUsersPO.getGroupLink(page, group.name);
-    await expect(groupLink).toBeVisible();
+    await expect(
+      CatalogUsersPO.getGroupLink(page, group.name).first(),
+    ).toBeVisible();
   }
 
   await CatalogUsersPO.visitBaseURL(page);

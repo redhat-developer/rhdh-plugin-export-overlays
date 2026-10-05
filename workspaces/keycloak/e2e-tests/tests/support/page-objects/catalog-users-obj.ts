@@ -16,21 +16,20 @@ export class CatalogUsersPO {
       .getByRole("link");
   }
 
-  static getEmailLink(page: Page): Locator {
-    return page.getByRole("link", { name: /@/ });
-  }
-
   static async visitUserPage(page: Page, username: string) {
-    // Click on user link in the table by name
+    // Match by entity URL (metadata.name), not link label text.
     await page
       .getByRole("table")
-      .getByRole("link", { name: new RegExp(username, "i") })
+      .locator(`a[href*="/user/${username}"]`)
       .first()
       .click();
   }
 
   static getGroupLink(page: Page, groupName: string): Locator {
-    return page.getByRole("link", { name: new RegExp(groupName, "i") });
+    // NFS Relations graph may show the name as text rather than a link.
+    return page
+      .getByRole("link", { name: new RegExp(groupName, "i") })
+      .or(page.getByText(groupName, { exact: true }));
   }
 
   static async visitBaseURL(page: Page) {

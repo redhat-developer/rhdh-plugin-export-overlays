@@ -78,9 +78,9 @@ spec:
       ```yaml
       plugins:
         - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
-          disabled: false
+          enabled: true
         - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
-          disabled: false
+          enabled: true
         # …homepage-backend as needed
       ```
 
