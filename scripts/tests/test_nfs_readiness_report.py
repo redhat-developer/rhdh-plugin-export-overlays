@@ -71,9 +71,8 @@ def _repo(tmp_path, packages, tier="community"):
     inference from reaching out to raw.githubusercontent.com.
 
     ``tier`` puts the whole workspace in one tier file, through the script's
-    per-workspace fallback. The report keeps only the supported and community tiers
-    (#3990, RHIDP-16853), so a fixture in neither file would be filtered out before any
-    assertion could see it. ``None`` leaves both files empty, which is the "other" tier.
+    per-workspace fallback. ``None`` leaves both files empty, so packages are classified
+    as ``supportTier: other`` and appear under **Other** in markdown (#4073).
     """
     workspace = "sample"
     # The fallback keys on the text before the first "/", so this must name the workspace.
@@ -221,29 +220,32 @@ class TestMarkdownOutput:
         count silently drops by one and the module's row silently vanishes.
         """
         stdout = _markdown(_repo(tmp_path, MIXED))
-        assert "#### Community (0/2 frontend plugins NFS-ready — 0%)" in stdout
+        assert "#### Community (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
         assert "| @scope/plugin-b | sample |" in stdout
 
     @staticmethod
     def test_supported_packages_get_their_own_table(tmp_path):
         """A supported workspace is counted under its own header and under no other."""
         stdout = _markdown(_repo(tmp_path, MIXED, tier="supported"))
-        assert (
-            "#### Red Hat Supported (GA + Tech Preview) "
-            "(0/2 frontend plugins NFS-ready — 0%)"
-        ) in stdout
+        assert "#### Red Hat Supported (GA + Tech Preview) (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
         assert "#### Community" not in stdout
 
 
-class TestTierFilter:
-    """#3990 (RHIDP-16853): packages in neither tier file are left out of the report."""
+class TestOtherTier:
+    """Workspaces absent from both tier files are classified ``other`` and still reported (#4073)."""
 
     @staticmethod
-    def test_a_package_in_no_tier_file_is_not_reported(tmp_path):
-        """Both outputs read the filtered set, so the package vanishes from each."""
+    def test_a_package_in_no_tier_file_appears_under_other(tmp_path):
+        """JSON and markdown include ``other``; the per-tier block is **Other**, not Community."""
         root = _repo(tmp_path, MIXED, tier=None)
-        assert _classified(root) == {}
+        classified = _classified(root)
+        assert set(classified) == {name for name, _, _ in MIXED}
+        assert all(entry["supportTier"] == "other" for entry in classified.values())
         stdout = _markdown(root)
-        assert "**Frontend plugins:** 0 total" in stdout
-        assert "#### Other" not in stdout
-        assert "@scope/plugin-b" not in stdout
+        assert "**Frontend plugins:** 2 total" in stdout
+        assert "#### Other (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
+        assert "#### Community" not in stdout
+        assert "| @scope/plugin-b | sample |" in stdout

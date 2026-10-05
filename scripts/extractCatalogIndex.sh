@@ -48,7 +48,8 @@ done
 # Confirmed the registry has no such image. Auth, DNS, and transport failures must
 # not match: those are exit 3 so version-regression fails closed instead of skipping.
 image_is_missing() {
-    grep -qiE 'manifest unknown|name unknown|status 404|404 not found|was deleted or has not been created' <<<"$1"
+    local copy_stderr="$1"
+    grep -qiE 'manifest unknown|name unknown|status 404|404 not found|was deleted or has not been created' <<<"$copy_stderr"
 }
 
 workdir="$(mktemp -d)"

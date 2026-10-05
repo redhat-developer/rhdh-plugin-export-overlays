@@ -273,11 +273,13 @@ def render_tier(
     status = report.get("status", "unknown")
 
     if status == "initial":
-        lines.append(f"## {tier_name} Catalog")
-        lines.append("")
-        lines.append("> **Initial build** — No plugins have been published for this branch yet.")
-        lines.append("> This is expected for newly created release branches.")
-        lines.append("")
+        lines.extend([
+            f"## {tier_name} Catalog",
+            "",
+            "> **Initial build** — No plugins have been published for this branch yet.",
+            "> This is expected for newly created release branches.",
+            "",
+        ])
         return lines
 
     failed = {k: v for k, v in plugins.items() if v.get("overall") == "fail"}
@@ -297,14 +299,18 @@ def render_tier(
         if k not in fallback and k not in bs_mismatch and k not in version_regression
     }
 
-    lines.append(f"## {tier_name} Catalog")
-    lines.append("")
+    lines.extend([
+        f"## {tier_name} Catalog",
+        "",
+    ])
 
     if failed:
-        lines.append(f"### Failed ({len(failed)})")
-        lines.append("")
-        lines.append("| Plugin | Package | Version | Failed Stage | Reason |")
-        lines.append("|--------|---------|---------|--------------|--------|")
+        lines.extend([
+            f"### Failed ({len(failed)})",
+            "",
+            "| Plugin | Package | Version | Failed Stage | Reason |",
+            "|--------|---------|---------|--------------|--------|",
+        ])
         for name in sorted(failed):
             p = failed[name]
             ws = p.get("workspace", "")
@@ -323,19 +329,17 @@ def render_tier(
             )
         else:
             lines.append(f"### ⚠️ Backstage Version Mismatch ({len(bs_mismatch)})")
-        lines.append("")
-        lines.append(
+        lines.extend([
+            "",
             "> These plugins are included in the catalog but their workspace targets an older "
             "Backstage minor version than the branch expects. Community (ghcr.io) images use "
-            "the workspace's actual Backstage version in the tag."
-        )
-        lines.append(
+            "the workspace's actual Backstage version in the tag.",
             "> To resolve, try running `/update-commit` on their workspace PR (if it exists) "
-            "or add a `backstage.json` override if no commit exists that updates the version."
-        )
-        lines.append("")
-        lines.append("| Plugin | Package | Workspace | Expected | Found | OCI Reference |")
-        lines.append("|--------|---------|-----------|----------|-------|---------------|")
+            "or add a `backstage.json` override if no commit exists that updates the version.",
+            "",
+            "| Plugin | Package | Workspace | Expected | Found | OCI Reference |",
+            "|--------|---------|-----------|----------|-------|---------------|",
+        ])
         for name in sorted(bs_mismatch):
             p = bs_mismatch[name]
             ws = p.get("workspace", "")
@@ -357,11 +361,13 @@ def render_tier(
             lines.append(f"### ⚠️ [Outdated](#plugin-marked-as-outdated) ({len(fallback)})")
         else:
             lines.append(f"### ⚠️ Outdated ({len(fallback)})")
-        lines.append("")
-        lines.append("> These plugins are using an older published tag because the requested version was not found in the registry.")
-        lines.append("")
-        lines.append("| Plugin | Package | Requested Tag | Resolved Tag | OCI Reference |")
-        lines.append("|--------|---------|---------------|--------------|---------------|")
+        lines.extend([
+            "",
+            "> These plugins are using an older published tag because the requested version was not found in the registry.",
+            "",
+            "| Plugin | Package | Requested Tag | Resolved Tag | OCI Reference |",
+            "|--------|---------|---------------|--------------|---------------|",
+        ])
         for name in sorted(fallback):
             p = fallback[name]
             ws = p.get("workspace", "")
@@ -387,14 +393,14 @@ def render_tier(
             )
         else:
             lines.append(f"### ⚠️ Version regression ({len(version_regression)})")
-        lines.append("")
-        lines.append(
+        lines.extend([
+            "",
             "> These plugins resolved to a lower version than the previous published "
-            "catalog index. On `main` this is a warning; on `release-*` it fails the build."
-        )
-        lines.append("")
-        lines.append("| Plugin | Package | Previous | Current | OCI Reference |")
-        lines.append("|--------|---------|----------|---------|---------------|")
+            "catalog index. On `main` this is a warning; on `release-*` it fails the build.",
+            "",
+            "| Plugin | Package | Previous | Current | OCI Reference |",
+            "|--------|---------|----------|---------|---------------|",
+        ])
         for name in sorted(version_regression):
             p = version_regression[name]
             ws = p.get("workspace", "")
@@ -412,10 +418,12 @@ def render_tier(
         lines.append("")
 
     if passed:
-        lines.append(f"### Passed ({len(passed)})")
-        lines.append("")
-        lines.append("| Plugin | Package | Version | OCI Reference |")
-        lines.append("|--------|---------|---------|---------------|")
+        lines.extend([
+            f"### Passed ({len(passed)})",
+            "",
+            "| Plugin | Package | Version | OCI Reference |",
+            "|--------|---------|---------|---------------|",
+        ])
         for name in sorted(passed):
             p = passed[name]
             ws = p.get("workspace", "")
@@ -497,8 +505,10 @@ def render_status_page(
 
     lines = []
 
-    lines.append(f"# Plugin Catalog Index Status — {source_branch}")
-    lines.append("")
+    lines.extend([
+        f"# Plugin Catalog Index Status — {source_branch}",
+        "",
+    ])
 
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     short_sha = source_commit[:7] if source_commit else ""
@@ -509,8 +519,10 @@ def render_status_page(
     )
     run_link = f"[View run]({workflow_run_url})" if workflow_run_url else ""
 
-    lines.append(f"**Build date:** {build_date}  ")
-    lines.append(f"**Source:** {source_link}  ")
+    lines.extend([
+        f"**Build date:** {build_date}  ",
+        f"**Source:** {source_link}  ",
+    ])
     if backstage_version or rhdh_version:
         version_parts = []
         if backstage_version:
@@ -530,10 +542,12 @@ def render_status_page(
     sup_summary = supported_report.get("summary", {})
     com_summary = community_report.get("summary", {})
 
-    lines.append("## Summary")
-    lines.append("")
-    lines.append("| Tier | Total | Passed | Outdated | BS Mismatch | Failed | Latest Catalog Index Image | Last Successful Publish |")
-    lines.append("|------|-------|--------|----------|-------------|--------|----------------------------|-------------------------|")
+    lines.extend([
+        "## Summary",
+        "",
+        "| Tier | Total | Passed | Outdated | BS Mismatch | Failed | Latest Catalog Index Image | Last Successful Publish |",
+        "|------|-------|--------|----------|-------------|--------|----------------------------|-------------------------|",
+    ])
     if supported_report:
         sup_img = render_catalog_image(supported_report, ghcr_version_ids)
         sup_pub = render_last_publish(supported_report, source_repo)
@@ -555,9 +569,11 @@ def render_status_page(
         lines.extend(render_tier("Community", community_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids))
 
     if troubleshooting_content:
-        lines.append("")
-        lines.append(troubleshooting_content.rstrip())
-        lines.append("")
+        lines.extend([
+            "",
+            troubleshooting_content.rstrip(),
+            "",
+        ])
 
     lines.append("---")
     if workflow_run_url:
