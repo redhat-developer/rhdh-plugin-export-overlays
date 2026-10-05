@@ -1,6 +1,4 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import type { Page } from "@playwright/test";
 
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import { GitLabScaffolderApi } from "../../support/api/gitlab-scaffolder-api.js";
@@ -17,42 +15,14 @@ import {
   writeGitLabScaffolderSharedState,
   type GitLabScaffolderSharedState,
 } from "../../support/gitlab/scaffolder-test-setup.js";
-
-async function waitForScaffolderSuccess(page: Page): Promise<void> {
-  await expect(
-    page.getByRole("button", { name: "Create", exact: true }),
-  ).toBeHidden({ timeout: 120_000 });
-  await expect(
-    page.getByRole("article").getByRole("progressbar").first(),
-  ).toHaveAttribute("aria-valuenow", "100", { timeout: 120_000 });
-  await expect(page.getByRole("article").getByRole("alert")).toHaveCount(0);
-}
-
-async function runScaffolderTemplate(
-  page: Page,
-  uiHelper: UIhelper,
-  templateTitle: string,
-  fillParameters: () => Promise<void>,
-): Promise<void> {
-  await uiHelper.verifyHeading("Templates");
-  await expect(async () => {
-    await uiHelper.clickBtnInCard(templateTitle, "Choose");
-    await expect(
-      page.getByRole("heading", { name: templateTitle, level: 2 }),
-    ).toBeVisible();
-  }).toPass({ timeout: 5000 });
-  await fillParameters();
-  const reviewButton = page.getByRole("button", { name: "Review" });
-  await expect(reviewButton).toBeEnabled();
-  await reviewButton.click();
-  const createButton = page.getByRole("button", {
-    name: "Create",
-    exact: true,
-  });
-  await expect(createButton).toBeVisible();
-  await createButton.click();
-  await waitForScaffolderSuccess(page);
-}
+import {
+  ensureScaffolderState,
+  fillRepositoryLocation,
+  pollUntil,
+  pollUntilDefined,
+  prepareScaffolderCreatePage,
+  runScaffolderTemplate,
+} from "../../support/scaffolder/template-ui.js";
 
 test.describe.serial("GitLab Scaffolder Actions", () => {
   let sharedState: GitLabScaffolderSharedState;
@@ -62,38 +32,18 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     playwrightProjectName = testInfo.project.name;
 
     await bootstrapGitLabScaffolderPreflight();
-
-    await test.runOnce("gitlab-scaffolder-setup", async () => {
-      sharedState = initOrRestoreGitLabScaffolderSharedState(
-        playwrightProjectName,
-      );
-      if (!sharedState.testPrefix) {
-        sharedState.testPrefix = GitLabApiHelper.generateTestPrefix();
-        writeGitLabScaffolderSharedState(playwrightProjectName, sharedState);
-      }
-
-      await deployGitLabScaffolderHub(rhdh);
+    sharedState = await ensureScaffolderState({
+      projectName: playwrightProjectName,
+      runOnceKey: "gitlab-scaffolder-setup",
+      readState: initOrRestoreGitLabScaffolderSharedState,
+      writeState: writeGitLabScaffolderSharedState,
+      generatePrefix: () => GitLabApiHelper.generateTestPrefix(),
+      deploy: () => deployGitLabScaffolderHub(rhdh),
     });
-
-    sharedState = initOrRestoreGitLabScaffolderSharedState(
-      playwrightProjectName,
-    );
   });
 
   test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
-    await loginHelper.loginAsGuest();
-    await uiHelper.goToPageUrl("/create");
-    await uiHelper.dismissQuickstartIfVisible();
-
-    if (testInfo.retry > 0) {
-      console.info(
-        `Attempt ${testInfo.retry + 1} failed, waiting for scaffolder page to be ready before retry...`,
-      );
-      await uiHelper.verifyHeading("Templates");
-      await expect(
-        page.getByRole("button", { name: "Create", exact: true }),
-      ).toBeHidden();
-    }
+    await prepareScaffolderCreatePage(page, loginHelper, uiHelper, testInfo);
   });
 
   test.afterAll(async () => {
@@ -144,10 +94,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
           "Subgroup path",
           names.subgroupPath,
         );
-        await uiHelper.fillTextInputByLabel(
-          "Repository Location",
-          names.repoUrl,
-        );
+        await fillRepositoryLocation(uiHelper, names.repoUrl);
       },
     );
 
@@ -171,13 +118,9 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
       )
       .toBeGreaterThan(0);
 
-    await expect
-      .poll(
-        async () =>
-          GitLabScaffolderApi.getRepositoryFile(projectId, "catalog-info.yaml"),
-        { timeout: 30_000 },
-      )
-      .toBeDefined();
+    await pollUntilDefined(() =>
+      GitLabScaffolderApi.getRepositoryFile(projectId, "catalog-info.yaml"),
+    );
 
     sharedState = {
       testPrefix: sharedState.testPrefix,
@@ -220,25 +163,17 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
           String(state.projectId),
         );
         await uiHelper.fillTextInputByLabel("Issue title", issueTitle);
-        await uiHelper.fillTextInputByLabel(
-          "Repository Location",
-          state.repoUrl,
-        );
+        await fillRepositoryLocation(uiHelper, state.repoUrl);
       },
     );
 
-    await expect
-      .poll(
-        async () => {
-          const issues = await GitLabScaffolderApi.listProjectIssues(
-            state.projectId,
-            editedIssueTitle,
-          );
-          return issues.some((issue) => issue.title === editedIssueTitle);
-        },
-        { timeout: 30_000 },
-      )
-      .toBe(true);
+    await pollUntil(async () => {
+      const issues = await GitLabScaffolderApi.listProjectIssues(
+        state.projectId,
+        editedIssueTitle,
+      );
+      return issues.some((issue) => issue.title === editedIssueTitle);
+    });
   });
 
   test("publish:gitlab:merge-request", async ({ page, uiHelper }) => {
@@ -253,29 +188,23 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
       uiHelper,
       "GitLab merge request E2E",
       async () => {
-        await uiHelper.fillTextInputByLabel(
-          "Repository Location",
-          state.repoUrl,
-        );
+        await fillRepositoryLocation(uiHelper, state.repoUrl);
         await uiHelper.fillTextInputByLabel("Merge request title", mrTitle);
         await uiHelper.fillTextInputByLabel("Source branch name", branchName);
       },
     );
 
-    await expect
-      .poll(
-        async () => {
-          const mergeRequests = await GitLabScaffolderApi.listMergeRequests(
-            state.projectId,
-            branchName,
-          );
-          return mergeRequests.some(
-            (mr) => mr.title === mrTitle && mr.source_branch === branchName,
-          );
-        },
-        { timeout: 30_000 },
-      )
-      .toBe(true);
+    await pollUntil(async () => {
+      const mergeRequests = await GitLabScaffolderApi.listMergeRequests(
+        state.projectId,
+        branchName,
+      );
+      return mergeRequests.some(
+        (mergeRequest) =>
+          mergeRequest.title === mrTitle &&
+          mergeRequest.source_branch === branchName,
+      );
+    });
   });
 
   test("gitlab:user:info", async ({ page, uiHelper }) => {
@@ -289,10 +218,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
       uiHelper,
       "GitLab user info E2E",
       async () => {
-        await uiHelper.fillTextInputByLabel(
-          "Repository Location",
-          state.repoUrl,
-        );
+        await fillRepositoryLocation(uiHelper, state.repoUrl);
       },
     );
 
@@ -315,27 +241,19 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
           "Project ID",
           String(state.projectId),
         );
-        await uiHelper.fillTextInputByLabel(
-          "Repository Location",
-          state.repoUrl,
-        );
+        await fillRepositoryLocation(uiHelper, state.repoUrl);
         await uiHelper.fillTextInputByLabel("Variable key", variableKey);
         await uiHelper.fillTextInputByLabel("Variable value", variableValue);
       },
     );
 
-    await expect
-      .poll(
-        async () => {
-          const variable = await GitLabScaffolderApi.getProjectVariable(
-            state.projectId,
-            variableKey,
-          );
-          return variable?.value === variableValue;
-        },
-        { timeout: 30_000 },
-      )
-      .toBe(true);
+    await pollUntil(async () => {
+      const variable = await GitLabScaffolderApi.getProjectVariable(
+        state.projectId,
+        variableKey,
+      );
+      return variable?.value === variableValue;
+    });
   });
 
   test("gitlab:repo:push", async ({ page, uiHelper }) => {
@@ -350,25 +268,17 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
       uiHelper,
       "GitLab repo push E2E",
       async () => {
-        await uiHelper.fillTextInputByLabel(
-          "Repository Location",
-          state.repoUrl,
-        );
+        await fillRepositoryLocation(uiHelper, state.repoUrl);
         await uiHelper.fillTextInputByLabel("Commit message", commitMessage);
       },
     );
 
-    await expect
-      .poll(
-        async () => {
-          const file = await GitLabScaffolderApi.getRepositoryFile(
-            state.projectId,
-            pushedFilePath,
-          );
-          return file?.file_path === pushedFilePath;
-        },
-        { timeout: 30_000 },
-      )
-      .toBe(true);
+    await pollUntil(async () => {
+      const file = await GitLabScaffolderApi.getRepositoryFile(
+        state.projectId,
+        pushedFilePath,
+      );
+      return file?.file_path === pushedFilePath;
+    });
   });
 });
