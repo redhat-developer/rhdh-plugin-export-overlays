@@ -158,11 +158,19 @@ if [[ -z "$REQUIRED_NODE_VERSION" || "$REQUIRED_NODE_VERSION" == "null" ]]; then
     echo "[ERROR] Could not read the required Node.js version from versions.json."
     exit 1
 fi
-REQUIRED_NODE_SERIES="${REQUIRED_NODE_VERSION%.*}"
-if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_SERIES".* ]]; then
-    echo "[ERROR] Node.js ${NODE_VERSION#v} is not supported; versions.json requires ${REQUIRED_NODE_SERIES}.x."
-    echo "[ERROR] Switch runtimes before running E2E tests, for example: nvm use ${REQUIRED_NODE_VERSION}"
-    exit 1
+IFS=. read -r -a NODE_VERSION_PARTS <<< "${NODE_VERSION#v}"
+IFS=. read -r -a REQUIRED_NODE_VERSION_PARTS <<< "$REQUIRED_NODE_VERSION"
+for index in 0 1 2; do
+    if (( NODE_VERSION_PARTS[index] < REQUIRED_NODE_VERSION_PARTS[index] )); then
+        echo "[ERROR] Node.js ${NODE_VERSION#v} is below the minimum ${REQUIRED_NODE_VERSION} specified in versions.json."
+        echo "[ERROR] Switch runtimes before running E2E tests, for example: nvm use ${REQUIRED_NODE_VERSION}"
+        exit 1
+    elif (( NODE_VERSION_PARTS[index] > REQUIRED_NODE_VERSION_PARTS[index] )); then
+        break
+    fi
+done
+if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_VERSION" ]]; then
+    echo "[WARN] Node.js ${NODE_VERSION#v} is not aligned with versions.json (${REQUIRED_NODE_VERSION}); continuing."
 fi
 echo "[INFO] Node $NODE_VERSION | Yarn $(yarn --version)"
 
