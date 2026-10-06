@@ -34,7 +34,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await bootstrapGitLabScaffolderPreflight();
     sharedState = await ensureScaffolderState({
       projectName: playwrightProjectName,
-      runOnceKey: "gitlab-scaffolder-setup",
+      runOnceKey: `gitlab-scaffolder-setup-${playwrightProjectName}`,
       readState: initOrRestoreGitLabScaffolderSharedState,
       writeState: writeGitLabScaffolderSharedState,
       generatePrefix: () => GitLabApiHelper.generateTestPrefix(),
