@@ -15,8 +15,8 @@ import {
   writeGitLabScaffolderSharedState,
   type GitLabScaffolderSharedState,
 } from "../../support/gitlab/scaffolder-test-setup.js";
+import { ensureScaffolderState } from "../../support/scaffolder/scaffolder-setup.js";
 import {
-  ensureScaffolderState,
   fillRepositoryLocation,
   pollUntil,
   pollUntilDefined,

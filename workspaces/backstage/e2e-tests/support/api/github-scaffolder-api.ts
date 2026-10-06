@@ -174,10 +174,22 @@ export class GitHubScaffolderApi extends GitHubApiHelper {
 
   /**
    * DELETE `/repos/{owner}/{repo}`
-   * Silently succeeds when the repo is already gone (404).
+   * Succeeds when the repo is already gone (404). Other error statuses throw
+   * so cleanup does not look successful.
    */
   static async deleteRepository(owner: string, repo: string): Promise<void> {
-    await this.deleteGitHubRepo(owner, repo);
+    const response = await APIHelper.githubRequest(
+      "DELETE",
+      GITHUB_API_ENDPOINTS.deleteRepo(owner, repo),
+    );
+    const status = response.status();
+    if (response.ok() || status === 404) {
+      return;
+    }
+    const text = await response.text();
+    throw new Error(
+      `GitHub API DELETE ${owner}/${repo} failed: ${status} ${response.statusText()}\n${text}`,
+    );
   }
 
   /** Generate a unique test prefix for GitHub resource names. */

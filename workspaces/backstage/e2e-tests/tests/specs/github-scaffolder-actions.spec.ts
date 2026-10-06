@@ -14,8 +14,8 @@ import {
   writeGitHubScaffolderSharedState,
   type GitHubScaffolderSharedState,
 } from "../../support/github/scaffolder-test-setup.js";
+import { ensureScaffolderState } from "../../support/scaffolder/scaffolder-setup.js";
 import {
-  ensureScaffolderState,
   fillRepositoryLocation,
   pollUntil,
   pollUntilDefined,
@@ -74,30 +74,44 @@ test.describe.serial("GitHub Scaffolder Actions", () => {
       playwrightProjectName,
     );
 
-    if (isGitHubScaffolderCleanupEnabled()) {
-      await runGitHubCleanupSafely(async () => {
-        if (state.repoName) {
-          await GitHubScaffolderApi.deleteRepository(
-            GITHUB_SCAFFOLDER_TEST_ORG,
-            state.repoName,
-          );
-        }
-      });
-    } else if (state.repoName) {
-      console.info(
-        "GitHub scaffolder cleanup skipped (set GITHUB_SCAFFOLDER_CLEANUP=true locally, or run in CI). Preserved resources:",
-      );
-      console.info(`  repoFullName: ${state.repoFullName}`);
-      console.info(`  repoName: ${state.repoName}`);
+    if (!isGitHubScaffolderCleanupEnabled()) {
+      if (state.repoName) {
+        console.info(
+          "GitHub scaffolder cleanup skipped (set GITHUB_SCAFFOLDER_CLEANUP=true locally, or run in CI). Preserved resources:",
+        );
+        console.info(`  repoFullName: ${state.repoFullName}`);
+        console.info(`  repoName: ${state.repoName}`);
+      }
+      deleteGitHubScaffolderSharedState(playwrightProjectName);
+      return;
     }
 
-    deleteGitHubScaffolderSharedState(playwrightProjectName);
+    const deleted = await runGitHubCleanupSafely(async () => {
+      if (state.repoName) {
+        await GitHubScaffolderApi.deleteRepository(
+          GITHUB_SCAFFOLDER_TEST_ORG,
+          state.repoName,
+        );
+      }
+    });
+    // Keep the name on disk when delete fails so the next run can retry.
+    if (deleted) {
+      deleteGitHubScaffolderSharedState(playwrightProjectName);
+    }
   });
 
   test("publish:github with autolinks:create", async ({ page, uiHelper }) => {
     test.setTimeout(180_000);
 
     const names = buildGitHubScaffolderNames(sharedState.testPrefix);
+    sharedState = {
+      testPrefix: sharedState.testPrefix,
+      repoName: names.repoName,
+      repoFullName: names.repoFullName,
+      repoUrl: names.repoUrl,
+      publishCompleted: false,
+    };
+    writeGitHubScaffolderSharedState(playwrightProjectName, sharedState);
 
     await runScaffolderTemplate(
       page,
@@ -138,10 +152,7 @@ test.describe.serial("GitHub Scaffolder Actions", () => {
     });
 
     sharedState = {
-      testPrefix: sharedState.testPrefix,
-      repoName: names.repoName,
-      repoFullName: names.repoFullName,
-      repoUrl: names.repoUrl,
+      ...sharedState,
       publishCompleted: true,
     };
     writeGitHubScaffolderSharedState(playwrightProjectName, sharedState);

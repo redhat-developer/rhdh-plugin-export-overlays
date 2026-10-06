@@ -1,16 +1,12 @@
 import type { Page, TestInfo } from "@playwright/test";
 
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 const SCAFFOLDER_POLL_TIMEOUT_MS = 30_000;
 
 type GuestLoginHelper = {
   loginAsGuest: () => Promise<void>;
-};
-
-type PrefixedScaffolderState = {
-  testPrefix: string;
 };
 
 export async function waitForScaffolderSuccess(page: Page): Promise<void> {
@@ -87,39 +83,4 @@ export async function pollUntilDefined<T>(
   await expect
     .poll(probe, { timeout: SCAFFOLDER_POLL_TIMEOUT_MS })
     .toBeDefined();
-}
-
-/**
- * Creates the per-project scaffolder prefix once, deploys the hub once, and
- * returns the state file contents for this worker.
- */
-export async function ensureScaffolderState<
-  T extends PrefixedScaffolderState,
->(options: {
-  projectName: string;
-  runOnceKey: string;
-  readState: (projectName: string) => T;
-  writeState: (projectName: string, state: T) => void;
-  generatePrefix: () => string;
-  deploy: () => Promise<void>;
-}): Promise<T> {
-  const {
-    projectName,
-    runOnceKey,
-    readState,
-    writeState,
-    generatePrefix,
-    deploy,
-  } = options;
-
-  await test.runOnce(runOnceKey, async () => {
-    const state = readState(projectName);
-    if (!state.testPrefix) {
-      state.testPrefix = generatePrefix();
-      writeState(projectName, state);
-    }
-    await deploy();
-  });
-
-  return readState(projectName);
 }
