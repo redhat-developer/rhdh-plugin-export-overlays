@@ -20,6 +20,8 @@ packages:
     support: "generally-available"
   - package: '@backstage/plugin-techdocs-module-addons-contrib'
     support: "generally-available"
+  - package: '@backstage/plugin-org'
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-adoption-insights'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-adoption-insights-backend'
@@ -104,8 +106,6 @@ packages:
     support: "tech-preview"
   - package: '@backstage/plugin-notifications-backend-module-email'
     support: "tech-preview"
-  - package: '@backstage/plugin-org'
-    support: "generally-available"
   - package: '@backstage/plugin-scaffolder-backend-module-github'
     support: generally-available
   - package: '@backstage/plugin-scaffolder-backend-module-gitlab'
