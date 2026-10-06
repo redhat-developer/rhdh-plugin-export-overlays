@@ -181,6 +181,10 @@ This creates `backstage.json` with the target version and updates all metadata O
 - If the plugin works with RHDH (either via automatic or manual testing), **change the label** to `tested`
 - Once the PR is merged, the final OCI artifact will be published with the tag: `bs_<backstage_version>__<plugin_version>`
 
+## E2E secrets
+
+For local secret loading and this repository's naming conventions, see [09 - Managing E2E Secrets](./user-guide/09-managing-e2e-secrets.md). Authentication and secret lifecycle operations are documented in the [upstream Secrets API](https://redhat-developer.github.io/rhdh-e2e-test-utils/api/secrets.html).
+
 ## E2E coverage anchors
 
 Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH. That coverage reaches this repository's Codecov project (one `e2e-<workspace>` flag per workspace) through a committed snapshot that is seeded to `main` — not by uploading directly from the PR e2e run (see below).
