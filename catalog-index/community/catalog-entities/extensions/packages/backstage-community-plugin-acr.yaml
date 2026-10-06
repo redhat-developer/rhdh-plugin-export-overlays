@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-acr"
   # Tag: bs_1.54.9__1.28.1
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr@sha256:34643f67965c4f41c63a9ebde58164f352852cbb1e5812e67776b31616b5808a"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr@sha256:25e6140b1411157cce5f64913582937eb1c51eb735dc41fdcc2214c484c171a4"
   version: 1.28.1
   backstage:
     role: frontend-plugin

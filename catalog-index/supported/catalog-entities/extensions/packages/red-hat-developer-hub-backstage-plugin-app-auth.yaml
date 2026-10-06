@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-app-auth"
   # Tag: bs_1.54.9__1.2.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:a749fd8aab436551de7fff07a0b01fa3859ae598cf5414f071b5faf01e6cea39"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:389a5df16cfe0546e38fdddc3af1fd86aac006428dfc0716021b288e48fc7a37"
   version: 1.2.0
   backstage:
     role: frontend-plugin
