@@ -29,7 +29,7 @@ plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:1b11d2d8c966cd4e9c42bd8c66cbfb05c29525ceca7c1c60ef20256a0320e902
     enabled: true
   # Tag: bs_1.54.9__1.18.0, Build date: 2026-06-03T21:12:19Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:0f479eb5676940a6016a1af9fe3a084e3124d8cba10d58b4d1d99e78a82f28f5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:29bafd621b1df651cab05b1b323c66684c48ff3b861506159b3eecdad13a97cd
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -74,7 +74,7 @@ plugins:
                     name: Documentation
                     icon: docs
   # Tag: bs_1.54.9__2.2.4, Build date: 2026-05-21T21:24:29Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend@sha256:9090feeb40ad37cc2e145e7de685bf0ff0e556829d74d385e2757bdd965825a5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend@sha256:fb0abc2f33fb9e0c16273406910136a9cc6bed35dca10a8816ec2c9dc4bed90e
     enabled: true
     pluginConfig:
       techdocs:
@@ -84,7 +84,7 @@ plugins:
         publisher:
           type: local
   # Tag: bs_1.54.9__1.1.39, Build date: 2026-06-03T21:19:52Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib@sha256:0441fc48f2e4210016dd45b157c66d110f2282c37172c0dfc713532ab07f9b10
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib@sha256:3a1f89598cd478a139d002677d5d5161ba5d0701ceab614f9f60092569037c91
     enabled: true
     pluginConfig:
       app:
@@ -727,7 +727,7 @@ plugins:
                 timeout:
                   minutes: 15
   # Tag: bs_1.54.9__0.4.15, Build date: 2026-05-21T20:54:16Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:a2593eae57d9c1fe7dd817a97417a361752d7c83963114cc8b591117e92aaa3b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:73f427be0e60856f402b0fd56c3bc06f5edb9689dc351ea921742d5055576e9e
     enabled: false
     pluginConfig:
       events:

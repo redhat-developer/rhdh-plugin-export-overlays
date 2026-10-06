@@ -342,7 +342,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a2593eae57d9c1fe7dd817a97417a361752d7c83963114cc8b591117e92aaa3b"
+          "digest": "sha256:73f427be0e60856f402b0fd56c3bc06f5edb9689dc351ea921742d5055576e9e"
         },
         "validate": {
           "status": "pass",
@@ -374,7 +374,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:aa3388bb97504aeba5acc94010fc60ac2e5bbeebf6ef9ffd07dc7d969885635f"
+          "digest": "sha256:067af1ae617d8c7de26190962e5fa29a118de628bb5c60fe89d019eec8cef616"
         }
       },
       "package": "@backstage/plugin-events-backend-module-gitlab",
@@ -688,7 +688,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9090feeb40ad37cc2e145e7de685bf0ff0e556829d74d385e2757bdd965825a5"
+          "digest": "sha256:fb0abc2f33fb9e0c16273406910136a9cc6bed35dca10a8816ec2c9dc4bed90e"
         },
         "validate": {
           "status": "pass",
@@ -720,7 +720,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0441fc48f2e4210016dd45b157c66d110f2282c37172c0dfc713532ab07f9b10"
+          "digest": "sha256:3a1f89598cd478a139d002677d5d5161ba5d0701ceab614f9f60092569037c91"
         },
         "validate": {
           "status": "pass",
@@ -752,7 +752,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0f479eb5676940a6016a1af9fe3a084e3124d8cba10d58b4d1d99e78a82f28f5"
+          "digest": "sha256:29bafd621b1df651cab05b1b323c66684c48ff3b861506159b3eecdad13a97cd"
         },
         "validate": {
           "status": "pass",
@@ -1661,7 +1661,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
