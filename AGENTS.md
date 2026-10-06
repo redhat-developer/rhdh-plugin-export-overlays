@@ -433,7 +433,25 @@ Nothing is committed — `package.json`, `playwright.config.ts`, `.yarnrc.yml` a
 
 ### Running Tests
 
-Start with the [Local E2E quick start](#local-e2e-quick-start). For workspace execution or local test-utils builds, follow the [local-run documentation](#local-e2e-documentation).
+Start with the [Local E2E quick start](#local-e2e-quick-start). For detailed setup or local test-utils builds, follow the [local-run documentation](#local-e2e-documentation).
+
+**From a workspace (local development):**
+
+```bash
+cd workspaces/tech-radar/e2e-tests
+unset CI                     # clear inherited CI mode for this shell
+yarn install
+npx playwright install chromium
+
+# Choose a test command:
+yarn test                    # required secrets already supplied
+yarn test:secrets            # load secrets from the repository profile
+yarn test --headed           # watch in browser
+yarn test --ui               # Playwright UI mode
+yarn report                  # open last HTML report
+```
+
+Use `test:secrets` instead of `test` when secrets need to be loaded; it accepts the same Playwright options, such as `yarn test:secrets --headed`. Follow the linked local-running guide for optional, non-secret `.env` configuration.
 
 **Test locally with PR-built OCI images:**
 
@@ -455,13 +473,9 @@ The current checkout and `e2e-test-utils` 2.2.1 have these local-run caveats:
 - For nightly reproduction with `CI=false`, also set `E2E_NIGHTLY_MODE=true` and `RELEASE_BRANCH_NAME=main` (or the target release branch). The shared metadata resolver still requires the branch despite the shell preflight accepting its absence.
 - Set `CI` in the launching shell, not workspace `.env` files: those load after Playwright configuration evaluation and can make configuration and cleanup use different values.
 
-For focused development with workspace dependencies already installed, unset `CI` and run directly from a workspace. From the repository root:
+Direct workspace runs normally need no `CI` setting. The workspace example uses `unset CI` once to clear any inherited value for subsequent commands in that shell. For a single command without changing the shell's environment, use `env -u CI yarn test:secrets --headed` from the workspace directory instead.
 
-```bash
-env -u CI yarn --cwd workspaces/tech-radar/e2e-tests test:secrets --headed
-```
-
-Use `test` instead of `test:secrets` when secrets are already supplied. Using `env -u CI` with the root runner restores `CI=true`, so it does not permit focused tests.
+Both forms allow focused tests and retain namespaces for direct workspace runs. The root runner restores `CI=true` when `CI` is unset, so clearing it does not enable local-mode behavior through `run-e2e.sh`.
 
 ### Local Development Gotchas
 
