@@ -125,7 +125,7 @@
   },
   "backstage-plugin-auth-backend-module-github-provider": {
     "workspacePath": "backstage/plugins/auth-backend-module-github-provider",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:7b5b7bc41cdf7065ed61594c48e491b784517582efe9a4cb07ae4fe2b6bf06da",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:98ee6db1ed16b62154b28cdd28a9279dcfdc85e8fd05027b21e088f180722d24",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1hdXRoLWJhY2tlbmQtbW9kdWxlLWdpdGh1Yi1wcm92aWRlciI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tYXV0aC1iYWNrZW5kLW1vZHVsZS1naXRodWItcHJvdmlkZXItZHluYW1pYyIsInZlcnNpb24iOiIwLjUuNiIsImRlc2NyaXB0aW9uIjoiVGhlIGdpdGh1Yi1wcm92aWRlciBiYWNrZW5kIG1vZHVsZSBmb3IgdGhlIGF1dGggcGx1Z2luLiIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4tbW9kdWxlIiwicGx1Z2luSWQiOiJhdXRoIiwicGx1Z2luUGFja2FnZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLWF1dGgtYmFja2VuZCJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vYmFja3N0YWdlL2JhY2tzdGFnZSIsImRpcmVjdG9yeSI6InBsdWdpbnMvYXV0aC1iYWNrZW5kLW1vZHVsZS1naXRodWItcHJvdmlkZXIifSwibGljZW5zZSI6IkFwYWNoZS0yLjAifX1d",
     "imageTag": "bs_1.54.9__0.5.6"
@@ -139,14 +139,14 @@
   },
   "backstage-plugin-auth-backend-module-guest-provider": {
     "workspacePath": "backstage/plugins/auth-backend-module-guest-provider",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:7b33df1634d50a70688f9aa13011dd5723672a742f01ed5edddf73510ad6c61c",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:00cf7195982acc92cfffdfdc031ef61653083c86dd23d0b4c505e9baf9c74c58",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1hdXRoLWJhY2tlbmQtbW9kdWxlLWd1ZXN0LXByb3ZpZGVyIjp7Im5hbWUiOiJAYmFja3N0YWdlL3BsdWdpbi1hdXRoLWJhY2tlbmQtbW9kdWxlLWd1ZXN0LXByb3ZpZGVyLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMC4yLjIyIiwiZGVzY3JpcHRpb24iOiJUaGUgZ3Vlc3QtcHJvdmlkZXIgYmFja2VuZCBtb2R1bGUgZm9yIHRoZSBhdXRoIHBsdWdpbi4iLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoiYXV0aCIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1hdXRoLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL2F1dGgtYmFja2VuZC1tb2R1bGUtZ3Vlc3QtcHJvdmlkZXIifSwibGljZW5zZSI6IkFwYWNoZS0yLjAifX1d",
     "imageTag": "bs_1.54.9__0.2.22"
   },
   "backstage-plugin-auth-backend-module-microsoft-provider": {
     "workspacePath": "backstage/plugins/auth-backend-module-microsoft-provider",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:d41844ccdd5e6dafe8c348e28bad70d298ff3cd3af8722d0b250705636d00c82",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:e00843e35ee86fbd76df322f7780122c7cf1a5f6e960dc1e619c9402a31d8743",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1hdXRoLWJhY2tlbmQtbW9kdWxlLW1pY3Jvc29mdC1wcm92aWRlciI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tYXV0aC1iYWNrZW5kLW1vZHVsZS1taWNyb3NvZnQtcHJvdmlkZXItZHluYW1pYyIsInZlcnNpb24iOiIwLjMuMTgiLCJkZXNjcmlwdGlvbiI6IlRoZSBtaWNyb3NvZnQtcHJvdmlkZXIgYmFja2VuZCBtb2R1bGUgZm9yIHRoZSBhdXRoIHBsdWdpbi4iLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoiYXV0aCIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1hdXRoLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL2F1dGgtYmFja2VuZC1tb2R1bGUtbWljcm9zb2Z0LXByb3ZpZGVyIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
     "imageTag": "bs_1.54.9__0.3.18"
