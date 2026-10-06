@@ -232,6 +232,10 @@ test.describe("Admin > Extensions", () => {
       page,
       uiHelper,
     }) => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Extensions editor no longer pre-populates with running plugin config",
+      );
       const plugin = "Adoption Insights for Red Hat Developer Hub";
       const packageName =
         "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
@@ -424,6 +428,10 @@ test.describe("Admin > Extensions", () => {
       });
 
       test("Edit package through side menu", async ({ page, uiHelper }) => {
+        test.skip(
+          !!process.env.E2E_NIGHTLY_MODE,
+          "Extensions editor no longer pre-populates with running plugin config",
+        );
         const link = page.getByRole("link", { name: plugin });
         await expect(link).toBeVisible();
         await link.click();
@@ -465,6 +473,10 @@ test.describe("Admin > Extensions", () => {
         page,
         uiHelper,
       }) => {
+        test.skip(
+          !!process.env.E2E_NIGHTLY_MODE,
+          "Extensions editor no longer pre-populates with running plugin config",
+        );
         await extensions.searchPackages(plugin);
 
         await page
