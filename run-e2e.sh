@@ -84,14 +84,6 @@ E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
 # Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
 E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
 
-if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
-    CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
-    rm -rf "$CLONE_DIR"
-    git clone --depth 1 --branch "${E2E_TEST_UTILS_GIT_REF#*#}" \
-        "https://github.com/${E2E_TEST_UTILS_GIT_REF%%#*}.git" "$CLONE_DIR"
-    E2E_TEST_UTILS_PATH="$CLONE_DIR"
-fi
-
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
 SELECTED_WORKSPACES=()
@@ -157,7 +149,6 @@ for bin in node yarn jq; do
     command -v "$bin" &>/dev/null || { echo "[ERROR] Missing: $bin"; exit 1; }
 done
 
-corepack enable 2>/dev/null || true
 NODE_VERSION="$(node --version)"
 REQUIRED_NODE_VERSION="$(jq -r '.node' versions.json)"
 if [[ -z "$REQUIRED_NODE_VERSION" || "$REQUIRED_NODE_VERSION" == "null" ]]; then
@@ -178,6 +169,35 @@ done
 if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_VERSION" ]]; then
     echo "[WARN] Node.js ${NODE_VERSION#v} is not aligned with versions.json (${REQUIRED_NODE_VERSION}); continuing."
 fi
+
+# Validate local secrets before dependency setup; --list never reads secrets.
+if [[ "$SECRETS_ENABLED" == "true" && "$DRY_RUN_MODE" != "true" ]]; then
+    if ! command -v bw &>/dev/null; then
+        echo "[ERROR] --secrets requires the Bitwarden Password Manager CLI (bw) on PATH."
+        echo "[HINT] Install the CLI and add it to PATH: https://bitwarden.com/help/cli/"
+        exit 1
+    fi
+    if [[ ! "${BW_SESSION:-}" =~ [^[:space:]] ]]; then
+        echo "[ERROR] --secrets requires a nonempty, exported BW_SESSION."
+        echo "[HINT] Run 'bw login' if needed, then unlock and export a session in this shell:"
+        echo "[HINT] BW_SESSION=\"\$(env -u BW_CLEANEXIT bw unlock --raw)\" && export BW_SESSION"
+        exit 1
+    fi
+    # BW_CLEANEXIT would turn a locked/unauthenticated result into exit code 0.
+    if ! (
+        unset BW_CLEANEXIT
+        bw unlock --check --nointeraction </dev/null >/dev/null 2>&1
+    ); then
+        echo "[ERROR] Bitwarden session check failed."
+        echo "[HINT] Run 'bw status'. If unauthenticated, run 'bw login'; then unlock and export a fresh session:"
+        echo "[HINT] BW_SESSION=\"\$(env -u BW_CLEANEXIT bw unlock --raw)\" && export BW_SESSION"
+        echo "[HINT] For CLI diagnostics: env -u BW_CLEANEXIT bw unlock --check --nointeraction"
+        exit 1
+    fi
+    echo "[INFO] Bitwarden session is unlocked."
+fi
+
+corepack enable 2>/dev/null || true
 echo "[INFO] Node $NODE_VERSION | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
@@ -220,6 +240,13 @@ fi
 
 # ── Install dependencies (yarn workspaces) ────────────────────────────────────
 
+if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
+    CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
+    rm -rf "$CLONE_DIR"
+    git clone --depth 1 --branch "${E2E_TEST_UTILS_GIT_REF#*#}" \
+        "https://github.com/${E2E_TEST_UTILS_GIT_REF%%#*}.git" "$CLONE_DIR"
+    E2E_TEST_UTILS_PATH="$CLONE_DIR"
+fi
 
 WORKSPACE_PATHS=$(printf ', "workspaces/%s/e2e-tests"' "${E2E_WORKSPACES[@]}")
 WORKSPACE_PATHS="[${WORKSPACE_PATHS:2}]"

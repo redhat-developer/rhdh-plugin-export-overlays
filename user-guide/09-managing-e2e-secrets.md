@@ -36,6 +36,25 @@ yarn --cwd workspaces/backstage/e2e-tests test:secrets
 
 Both entry points use the shared profile and the `rhdh-e2e-secrets` executable supplied by the workspace's `@red-hat-developer-hub/e2e-test-utils` dependency. Additional Playwright arguments can be appended to either command.
 
+### Early Bitwarden Checks and Recovery
+
+Before dependency setup, `run-e2e.sh --secrets` checks that `bw` is on `PATH`, `BW_SESSION` is exported and nonempty, and `bw unlock --check --nointeraction` succeeds. It reports failures with recovery hints and exits without installing dependencies or browsers. `--list` bypasses these checks even when `--secrets` is present. Workspace `test:secrets` commands retain the shared tool's session validation before reading secrets.
+
+| Failure | Next step |
+|---------|-----------|
+| `bw` is missing | Install the [Bitwarden Password Manager CLI](https://bitwarden.com/help/cli/) and ensure `bw` is on `PATH`. |
+| `BW_SESSION` is missing, empty, or whitespace-only | Unlock the CLI vault and export the returned session in the shell that launches the tests. |
+| Bitwarden session check fails | Run `bw status`. If `unauthenticated`, run `bw login`; if `locked` or the session is stale, unlock and export a fresh session. |
+| The check still fails | Run `env -u BW_CLEANEXIT bw unlock --check --nointeraction` to see the CLI diagnostics, resolve the reported problem, and retry. |
+
+To refresh the session after logging in if needed:
+
+```bash
+BW_SESSION="$(env -u BW_CLEANEXIT bw unlock --raw)" && export BW_SESSION
+```
+
+`env -u BW_CLEANEXIT` prevents Bitwarden's clean-exit setting from hiding failures. The assignment followed by `&& export` preserves an unlock failure instead of hiding it behind `export`'s exit status. The runner only checks readiness; it does not log in or unlock the vault interactively. For full setup instructions, follow the upstream documentation linked above.
+
 ## Creating, Rotating, and Removing Secrets
 
 Follow the [upstream mutation procedures](https://redhat-developer.github.io/rhdh-e2e-test-utils/api/secrets.html#mutations), using `--collection rhdh-plugin-export-overlays` and a secret path from the table above. The shared tool manages the paired Bitwarden and Google Secret Manager values.
