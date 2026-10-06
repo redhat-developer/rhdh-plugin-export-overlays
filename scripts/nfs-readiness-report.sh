@@ -32,7 +32,10 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 OUTPUT_JSON=false
 OUTPUT_MARKDOWN=false
-USE_OCI=false
+USE_OCI=true # always use OCI otherwise can't determine status
+orange="\033[38;5;208m"
+red="\033[38;5;160m"
+reset="\033[0m"
 
 for arg in "$@"; do
   case "$arg" in
@@ -194,13 +197,22 @@ RESULTS_FILE="$TMPDIR_WORK/results.jsonl"
 touch "$RESULTS_FILE"
 WORKDIR="$TMPDIR_WORK/oci"
 
+cnt=0
+tot=0
 for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
+  (( tot = tot + 1))
+done
+for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
+  (( cnt = cnt + 1 ))
   [[ -f "$yaml_file" ]] || continue
 
   workspace=$(echo "$yaml_file" | sed "s|$REPO_ROOT/workspaces/||;s|/metadata/.*||")
   package_name=$(grep "packageName:" "$yaml_file" | head -1 | sed "s/.*packageName: *['\"]*//" | sed "s/['\"].*//")
   role=$(grep "role:" "$yaml_file" | head -1 | sed 's/.*role: *//' | tr -d '[:space:]')
   oci_ref=$(grep "dynamicArtifact:" "$yaml_file" | head -1 | sed "s/.*dynamicArtifact: *//" | sed 's|^"||;s|"$||' | sed "s|^oci://||" | sed 's|!.*||')
+  
+  # direct this to console error output
+  echo "[$cnt/$tot] $oci_ref" 1>&2
 
   [[ -z "$package_name" ]] && continue
 
@@ -283,6 +295,15 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     mkdir -p "$subdir"
 
     features_json="{}"
+    if ! oras copy "$oci_ref" --to-oci-layout "$subdir/layout" >/dev/null 2>&1; then
+      # replace bs_x.y.z__ with next__
+      # shellcheck disable=SC2001
+      next_ref=$(echo "$oci_ref" | sed "s/bs_[0-9]\+\.[0-9]\+\.[0-9]\+__/next__/")
+      echo "[$cnt/$tot] ${orange}[WARN] $oci_ref not found!${reset}" >&2
+      echo "[$cnt/$tot] ${orange}[WARN] $next_ref${reset}" >&2
+      oci_ref="$next_ref"
+      status="unknown"
+    fi
     if oras copy "$oci_ref" --to-oci-layout "$subdir/layout" >/dev/null 2>&1; then
       manifest_digest=$(jq -r '.manifests[0].digest' "$subdir/layout/index.json" | sed 's/sha256://')
       layer_digests=$(jq -r '.layers[].digest' "$subdir/layout/blobs/sha256/$manifest_digest" | sed 's/sha256://')
@@ -305,7 +326,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
       fi
       status=$(classify_features "$features_json")
     else
-      echo "Warning: failed to pull $oci_ref" >&2
+      echo "[$cnt/$tot] ${red}[ERROR] $oci_ref not found!${reset}" >&2
       status="unknown"
     fi
     rm -rf "$subdir"
@@ -335,9 +356,13 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
       features: $features
     }' >> "$RESULTS_FILE"
 done
+echo 
 
 # Convert JSONL to JSON array; keep only supported and community tiers
-RESULTS=$(jq -s '[.[] | select(.supportTier == "supported" or .supportTier == "community")]' "$RESULTS_FILE")
+# to include supported and community:
+# RESULTS=$(jq -s '[.[] | select(.supportTier == "supported" or .supportTier == "community")]' "$RESULTS_FILE")
+# to include everything - supported, community, and other:
+RESULTS=$(jq -s '[.[]]' "$RESULTS_FILE")
 
 if [[ "$OUTPUT_JSON" == "true" ]]; then
   echo "$RESULTS" | jq .
@@ -353,7 +378,7 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
   unknown=$(echo "$RESULTS" | jq '[.[] | select(.status == "unknown")] | length')
   backend_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "backend-only")] | length')
 
-  cat <<EOF
+  cat <<EOF > /tmp/nfs-readiness-report.summary.txt
 ## NFS Readiness Report
 
 **Generated:** $(date -u '+%Y-%m-%d %H:%M UTC')
@@ -368,6 +393,10 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 | :red_circle: no-features | $no_features | \`backstage.features\` field absent or empty in OCI artifact |
 | :white_circle: unknown | $unknown | Could not determine status (no \`--oci\` flag or pull failed) |
 | — backend-only | $backend_only | Backend plugin (not applicable) |
+EOF
+cat /tmp/nfs-readiness-report.summary.txt
+
+cat <<EOF
 
 **Frontend plugins:** $total_frontend total — **$nfs_ready** NFS-ready ($(( total_frontend > 0 ? nfs_ready * 100 / total_frontend : 0 ))%)
 
@@ -375,12 +404,11 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 
 EOF
 
-  # do not show the "other" tier as we don't care about unsupported plugins
-  for tier in supported community; do # other
+  for tier in supported community other; do
     case "$tier" in
       supported) tier_label="Red Hat Supported (GA + Tech Preview)" ;;
       community) tier_label="Community" ;;
-      # other)     tier_label="Other" ;;
+      other)     tier_label="Other" ;;
       *)         tier_label="$tier" ;;
     esac
     tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .frontend)] | length')
@@ -389,14 +417,28 @@ EOF
     [[ "$tier_frontend" -eq 0 ]] && continue
 
     pct=$(( tier_frontend > 0 ? tier_ready * 100 / tier_frontend : 0 ))
-    echo "#### $tier_label ($tier_ready/$tier_frontend frontend plugins NFS-ready — $pct%)"
+    echo "#### $tier_label ($pct%)"
+    echo ""
+    echo "<details>"
+    echo "<summary>$tier_ready/$tier_frontend frontend plugins NFS-ready</summary>"
+
     echo ""
     echo "| Plugin | Workspace | Status | Features |"
     echo "|--------|-----------|--------|----------|"
 
+    # Worst status first (no-features → … → nfs-ready), then workspace/package
     echo "$RESULTS" | jq -r --arg t "$tier" '
       [.[] | select(.supportTier == $t and .frontend)]
-      | sort_by(.status, .workspace, .packageName)
+      | sort_by(
+          (if .status == "no-features" then 0
+           elif .status == "unknown" then 1
+           elif .status == "legacy-only" then 2
+           elif .status == "mixed" then 3
+           elif .status == "nfs-ready" then 4
+           else 5 end),
+          .workspace,
+          .packageName
+        )
       | .[]
       | {
           pkg: .packageName,
@@ -414,6 +456,8 @@ EOF
     ' 2>/dev/null || true
 
     echo ""
+    echo "</details>"
+    echo ""
   done
 
   # Non-frontend (backend-only) summary
@@ -425,8 +469,17 @@ EOF
   echo "| Plugin | Workspace | Tier |"
   echo "|--------|-----------|------|"
   echo "$RESULTS" | jq -r '
-    .[] | select(.status == "backend-only") |
-    "| \(.packageName) | \(.workspace) | \(.supportTier) |"
+    [.[] | select(.status == "backend-only")]
+    | sort_by(
+        (if .supportTier == "supported" then 0
+         elif .supportTier == "community" then 1
+         elif .supportTier == "other" then 2
+         else 3 end),
+        .workspace,
+        .packageName
+      )
+    | .[]
+    | "| \(.packageName) | \(.workspace) | \(.supportTier) |"
   ' 2>/dev/null || true
   echo ""
   echo "</details>"
