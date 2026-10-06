@@ -814,14 +814,14 @@ plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:fe96d8174b83ea489d392076f9b98cc0466b2e5d6b58ac19626182472f19df53
     enabled: false
   # Tag: bs_1.54.9__0.0.34, Build date: 2026-06-03T21:12:06Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:093499242f54fd1bfd6ee91a9d050752e8c15113b77f7629ba988d33a701dfbe
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:20f23f886f80146b0503bc936b4303ea9f03b9277c35d3942dccd6850d5a37f2
     enabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
           backstage.plugin-signals: {}
   # Tag: bs_1.54.9__0.3.18, Build date: 2026-05-21T21:25:10Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:501d58ed43a685de0c2f66353c9886d76b128bc7d88361561010aba2cd7f54ac
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:aff04762120fe3d320b871011b22c4539da6ab7567fcbd47cfba1d4d00135a4a
     enabled: false
   # Tag: bs_1.54.9__9.1.1, Build date: 2026-06-03T21:22:55Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:8495091a269cbf1cca7829a9fcc6a70b3c6430765b26a687966e55bac879653e
