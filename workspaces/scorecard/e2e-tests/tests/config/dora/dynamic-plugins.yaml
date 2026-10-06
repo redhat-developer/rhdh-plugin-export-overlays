@@ -33,34 +33,34 @@ plugins:
                 importName: ScorecardHomepageCard
                 module: Legacy
                 config:
-                  id: "scorecard-dora.deploymentFrequency"
+                  id: "scorecard-doraDeploymentFrequencyKpi"
                   title: "DORA - Deployment Frequency"
                   props:
-                    aggregationId: "dora.deploymentFrequency"
+                    aggregationId: "doraDeploymentFrequencyKpi"
               - mountPoint: home.page/cards
                 importName: ScorecardHomepageCard
                 module: Legacy
                 config:
-                  id: "scorecard-dora.medianLeadTimeForChanges"
-                  title: "DORA - Median Lead Time for Changes"
+                  id: "scorecard-doraMedianLeadTimeForChangesKpi"
+                  title: "DORA - Lead Time for Changes"
                   props:
-                    aggregationId: "dora.medianLeadTimeForChanges"
+                    aggregationId: "doraMedianLeadTimeForChangesKpi"
               - mountPoint: home.page/cards
                 importName: ScorecardHomepageCard
                 module: Legacy
                 config:
-                  id: "scorecard-dora.changeFailureRate"
+                  id: "scorecard-doraChangeFailureRateKpi"
                   title: "DORA - Change Failure Rate"
                   props:
-                    aggregationId: "dora.changeFailureRate"
+                    aggregationId: "doraChangeFailureRateKpi"
               - mountPoint: home.page/cards
                 importName: ScorecardHomepageCard
                 module: Legacy
                 config:
-                  id: "scorecard-dora.medianTimeToRestore"
+                  id: "scorecard-doraMedianTimeToRestoreKpi"
                   title: "DORA - Median Time to Restore"
                   props:
-                    aggregationId: "dora.medianTimeToRestore"
+                    aggregationId: "doraMedianTimeToRestoreKpi"
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
     enabled: true
     pluginConfig:
