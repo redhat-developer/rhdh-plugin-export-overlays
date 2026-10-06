@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Discover or install OpenShift cluster logging (Loki) for orchestrator-backend-module-loki.
-# Object storage uses in-cluster MinIO (S3-compatible). Prints the Loki base URL on stdout.
+# Object storage uses in-cluster SeaweedFS (S3-compatible, `weed mini`). Prints the Loki base URL on stdout.
 #
 # Discovery (when logging-loki route already exists):
 #   https://$LOKI_HOST/api/logs/v1/application/
@@ -14,16 +14,15 @@
 #   LOKI_OPERATOR_WAIT_TIMEOUT  Operator CSV wait (default: 1800)
 #   LOKI_SIZE                   LokiStack size (default: 1x.demo — lightest; use 1x.extra-small+ for prod-like)
 #   LOKI_STORAGE_CLASS          Block storage class (default: cluster default SC)
-#   LOKI_MINIO_NAME             MinIO service name (default: minio)
-#   LOKI_MINIO_BUCKET           Bucket for Loki (default: logging-loki)
-#   LOKI_MINIO_REGION           Placeholder region for Loki secret (default: us-east-1)
-#   LOKI_MINIO_ACCESS_KEY       MinIO access key (default: e2e-loki-minio)
-#   LOKI_MINIO_SECRET_KEY       MinIO secret key (default: e2e-loki-minio-secret)
-#   LOKI_MINIO_STORAGE_SIZE     MinIO PVC size (default: 10Gi)
-#   LOKI_MINIO_IMAGE            MinIO server image
-#   LOKI_MINIO_MC_IMAGE            MinIO client image for bucket bootstrap
-#   LOKI_MINIO_USE_PVC            Use PVC for MinIO data (default: false = emptyDir, ROSA-friendly)
-#   LOKI_MINIO_ROLLOUT_TIMEOUT    MinIO deployment wait (default: 600)
+#   LOKI_SEAWEEDFS_NAME             SeaweedFS service name (default: seaweedfs)
+#   LOKI_SEAWEEDFS_BUCKET           Bucket for Loki, created by SeaweedFS on startup (default: logging-loki)
+#   LOKI_SEAWEEDFS_REGION           Placeholder region for Loki secret (default: us-east-1)
+#   LOKI_SEAWEEDFS_ACCESS_KEY       S3 access key (default: e2e-loki-seaweedfs)
+#   LOKI_SEAWEEDFS_SECRET_KEY       S3 secret key (default: e2e-loki-seaweedfs-secret)
+#   LOKI_SEAWEEDFS_STORAGE_SIZE     SeaweedFS PVC size (default: 10Gi)
+#   LOKI_SEAWEEDFS_IMAGE            SeaweedFS image (all-in-one `weed mini`)
+#   LOKI_SEAWEEDFS_USE_PVC          Use PVC for SeaweedFS data (default: false = emptyDir, ROSA-friendly)
+#   LOKI_SEAWEEDFS_ROLLOUT_TIMEOUT  SeaweedFS deployment wait (default: 600)
 #   LOKI_DISCOVER_ONLY          If true/1, skip install and fail when route is missing
 #
 set -euo pipefail
@@ -39,18 +38,18 @@ LOKI_SIZE="${LOKI_SIZE:-1x.demo}"
 LOKI_SECRET_NAME="${LOKI_SECRET_NAME:-logging-loki-s3}"
 LOKI_OPERATORS_NS="${LOKI_OPERATORS_NS:-openshift-operators-redhat}"
 
-MINIO_NAME="${LOKI_MINIO_NAME:-minio}"
-MINIO_BUCKET="${LOKI_MINIO_BUCKET:-logging-loki}"
-MINIO_REGION="${LOKI_MINIO_REGION:-us-east-1}"
-MINIO_ACCESS_KEY="${LOKI_MINIO_ACCESS_KEY:-e2e-loki-minio}"
-MINIO_SECRET_KEY="${LOKI_MINIO_SECRET_KEY:-e2e-loki-minio-secret}"
-MINIO_STORAGE_SIZE="${LOKI_MINIO_STORAGE_SIZE:-10Gi}"
-MINIO_IMAGE="${LOKI_MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z}"
-MINIO_MC_IMAGE="${LOKI_MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2024-11-21T17-21-54Z}"
-MINIO_ROLLOUT_TIMEOUT="${LOKI_MINIO_ROLLOUT_TIMEOUT:-600}"
+SEAWEEDFS_NAME="${LOKI_SEAWEEDFS_NAME:-seaweedfs}"
+SEAWEEDFS_BUCKET="${LOKI_SEAWEEDFS_BUCKET:-logging-loki}"
+SEAWEEDFS_REGION="${LOKI_SEAWEEDFS_REGION:-us-east-1}"
+SEAWEEDFS_ACCESS_KEY="${LOKI_SEAWEEDFS_ACCESS_KEY:-e2e-loki-seaweedfs}"
+SEAWEEDFS_SECRET_KEY="${LOKI_SEAWEEDFS_SECRET_KEY:-e2e-loki-seaweedfs-secret}"
+SEAWEEDFS_STORAGE_SIZE="${LOKI_SEAWEEDFS_STORAGE_SIZE:-10Gi}"
+SEAWEEDFS_IMAGE="${LOKI_SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:4.48}"
+SEAWEEDFS_ROLLOUT_TIMEOUT="${LOKI_SEAWEEDFS_ROLLOUT_TIMEOUT:-600}"
 # emptyDir avoids PVC + SCC uid range issues on ROSA restricted-v2
-MINIO_USE_PVC="${LOKI_MINIO_USE_PVC:-false}"
-MINIO_ENDPOINT="http://${MINIO_NAME}.${LOKI_NS}.svc:9000"
+SEAWEEDFS_USE_PVC="${LOKI_SEAWEEDFS_USE_PVC:-false}"
+SEAWEEDFS_S3_PORT=8333
+SEAWEEDFS_ENDPOINT="http://${SEAWEEDFS_NAME}.${LOKI_NS}.svc:${SEAWEEDFS_S3_PORT}"
 
 log() {
   echo "[install-orchestrator-loki] $*" >&2
@@ -331,26 +330,26 @@ EOF
     "${OPERATOR_WAIT_TIMEOUT}"
 }
 
-install_minio() {
-  local storage_class volume_block minio_data_volume
+install_seaweedfs() {
+  local storage_class volume_block seaweedfs_data_volume
 
-  if oc get deployment "${MINIO_NAME}" -n "${LOKI_NS}" &>/dev/null \
-    && oc rollout status "deployment/${MINIO_NAME}" -n "${LOKI_NS}" --timeout=30s &>/dev/null; then
-    log "MinIO deployment already ready in ${LOKI_NS}"
-    ensure_minio_bucket
+  if oc get deployment "${SEAWEEDFS_NAME}" -n "${LOKI_NS}" &>/dev/null \
+    && oc rollout status "deployment/${SEAWEEDFS_NAME}" -n "${LOKI_NS}" --timeout=30s &>/dev/null; then
+    log "SeaweedFS deployment already ready in ${LOKI_NS}"
+    ensure_seaweedfs_bucket
     return 0
   fi
 
-  # Replace a failed deployment (e.g. old runAsUser:1000 spec blocked by restricted-v2 SCC)
-  if oc get deployment "${MINIO_NAME}" -n "${LOKI_NS}" &>/dev/null; then
-    log "Replacing existing MinIO deployment in ${LOKI_NS}..."
-    oc delete deployment "${MINIO_NAME}" -n "${LOKI_NS}" --wait=true
+  # Replace a deployment that exists but never rolled out (e.g. a stale spec rejected by the restricted-v2 SCC)
+  if oc get deployment "${SEAWEEDFS_NAME}" -n "${LOKI_NS}" &>/dev/null; then
+    log "Replacing existing SeaweedFS deployment in ${LOKI_NS}..."
+    oc delete deployment "${SEAWEEDFS_NAME}" -n "${LOKI_NS}" --wait=true
   fi
 
-  if [[ "${MINIO_USE_PVC}" == "true" ]]; then
+  if [[ "${SEAWEEDFS_USE_PVC}" == "true" ]]; then
     storage_class="${LOKI_STORAGE_CLASS:-$(get_default_storage_class)}"
     [[ -n "${storage_class}" ]] || {
-      log "ERROR: Could not determine storageClassName for MinIO PVC"
+      log "ERROR: Could not determine storageClassName for SeaweedFS PVC"
       return 1
     }
     volume_block="
@@ -358,41 +357,41 @@ install_minio() {
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: ${MINIO_NAME}-data
+  name: ${SEAWEEDFS_NAME}-data
   namespace: ${LOKI_NS}
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: ${MINIO_STORAGE_SIZE}
+      storage: ${SEAWEEDFS_STORAGE_SIZE}
   storageClassName: ${storage_class}"
-    minio_data_volume="
+    seaweedfs_data_volume="
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: ${MINIO_NAME}-data"
-    log "Ensuring in-cluster MinIO (${MINIO_NAME}) with PVC (${MINIO_STORAGE_SIZE}, ${storage_class})..."
+            claimName: ${SEAWEEDFS_NAME}-data"
+    log "Ensuring in-cluster SeaweedFS (${SEAWEEDFS_NAME}) with PVC (${SEAWEEDFS_STORAGE_SIZE}, ${storage_class})..."
   else
-    oc delete pvc "${MINIO_NAME}-data" -n "${LOKI_NS}" --ignore-not-found --wait=false
+    oc delete pvc "${SEAWEEDFS_NAME}-data" -n "${LOKI_NS}" --ignore-not-found --wait=false
     volume_block=""
-    minio_data_volume="
+    seaweedfs_data_volume="
       volumes:
         - name: data
           emptyDir: {}"
-    log "Ensuring in-cluster MinIO (${MINIO_NAME}) with emptyDir (ROSA-compatible)..."
+    log "Ensuring in-cluster SeaweedFS (${SEAWEEDFS_NAME}) with emptyDir (ROSA-compatible)..."
   fi
 
   oc apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
-  name: ${MINIO_NAME}-credentials
+  name: ${SEAWEEDFS_NAME}-credentials
   namespace: ${LOKI_NS}
 type: Opaque
 stringData:
-  rootUser: ${MINIO_ACCESS_KEY}
-  rootPassword: ${MINIO_SECRET_KEY}
+  accessKey: ${SEAWEEDFS_ACCESS_KEY}
+  secretKey: ${SEAWEEDFS_SECRET_KEY}
 EOF
 
   if [[ -n "${volume_block}" ]]; then
@@ -400,60 +399,68 @@ EOF
 }"
   fi
 
+  # weed mini runs master, volume server, filer and the S3 gateway in one process.
+  # AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY seed the S3 credentials and S3_BUCKET
+  # creates the Loki bucket on startup, so no separate bucket bootstrap is needed.
+  # WebDAV, the Admin UI and telemetry are not used by the e2e tests.
   oc apply -f - <<EOF
 apiVersion: v1
 kind: Service
 metadata:
-  name: ${MINIO_NAME}
+  name: ${SEAWEEDFS_NAME}
   namespace: ${LOKI_NS}
   labels:
-    app: ${MINIO_NAME}
+    app: ${SEAWEEDFS_NAME}
 spec:
   ports:
-    - name: api
-      port: 9000
-      targetPort: 9000
+    - name: s3
+      port: ${SEAWEEDFS_S3_PORT}
+      targetPort: ${SEAWEEDFS_S3_PORT}
   selector:
-    app: ${MINIO_NAME}
+    app: ${SEAWEEDFS_NAME}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${MINIO_NAME}
+  name: ${SEAWEEDFS_NAME}
   namespace: ${LOKI_NS}
   labels:
-    app: ${MINIO_NAME}
+    app: ${SEAWEEDFS_NAME}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ${MINIO_NAME}
+      app: ${SEAWEEDFS_NAME}
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: ${MINIO_NAME}
+        app: ${SEAWEEDFS_NAME}
     spec:
       containers:
-        - name: minio
-          image: ${MINIO_IMAGE}
+        - name: seaweedfs
+          image: ${SEAWEEDFS_IMAGE}
           args:
-            - server
-            - /data
-            - --console-address
-            - ":9090"
+            - mini
+            - -dir=/data
+            - -s3.port=${SEAWEEDFS_S3_PORT}
+            - -webdav=false
+            - -admin.ui=false
+            - -master.telemetry=false
           env:
-            - name: MINIO_ROOT_USER
+            - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
+                  name: ${SEAWEEDFS_NAME}-credentials
+                  key: accessKey
+            - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootPassword
+                  name: ${SEAWEEDFS_NAME}-credentials
+                  key: secretKey
+            - name: S3_BUCKET
+              value: ${SEAWEEDFS_BUCKET}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -461,105 +468,69 @@ spec:
                 - ALL
             runAsNonRoot: true
           ports:
-            - containerPort: 9000
-              name: api
-            - containerPort: 9090
-              name: console
+            - containerPort: ${SEAWEEDFS_S3_PORT}
+              name: s3
           readinessProbe:
             httpGet:
-              path: /minio/health/ready
-              port: 9000
+              path: /status
+              port: ${SEAWEEDFS_S3_PORT}
             initialDelaySeconds: 5
             periodSeconds: 10
           volumeMounts:
             - name: data
               mountPath: /data
-${minio_data_volume}
+${seaweedfs_data_volume}
 EOF
 
-  log "Waiting for MinIO deployment (timeout ${MINIO_ROLLOUT_TIMEOUT}s)..."
-  if ! oc rollout status "deployment/${MINIO_NAME}" -n "${LOKI_NS}" --timeout="${MINIO_ROLLOUT_TIMEOUT}s"; then
-    log "ERROR: MinIO rollout failed"
-    if [[ "${MINIO_USE_PVC}" == "true" ]]; then
-      log "Hint: on ROSA, PVC + restricted-v2 often blocks MinIO — try LOKI_MINIO_USE_PVC=false (emptyDir)"
+  log "Waiting for SeaweedFS deployment (timeout ${SEAWEEDFS_ROLLOUT_TIMEOUT}s)..."
+  if ! oc rollout status "deployment/${SEAWEEDFS_NAME}" -n "${LOKI_NS}" --timeout="${SEAWEEDFS_ROLLOUT_TIMEOUT}s"; then
+    log "ERROR: SeaweedFS rollout failed"
+    if [[ "${SEAWEEDFS_USE_PVC}" == "true" ]]; then
+      log "Hint: on ROSA, PVC + restricted-v2 often blocks SeaweedFS — try LOKI_SEAWEEDFS_USE_PVC=false (emptyDir)"
     fi
-    oc describe deployment,rs,pod -n "${LOKI_NS}" -l "app=${MINIO_NAME}" >&2 || true
-    oc get events -n "${LOKI_NS}" --field-selector "involvedObject.name=${MINIO_NAME}" 2>/dev/null | tail -15 >&2 || true
+    oc describe deployment,rs,pod -n "${LOKI_NS}" -l "app=${SEAWEEDFS_NAME}" >&2 || true
+    oc logs "deployment/${SEAWEEDFS_NAME}" -n "${LOKI_NS}" --tail=50 >&2 || true
+    oc get events -n "${LOKI_NS}" --field-selector "involvedObject.name=${SEAWEEDFS_NAME}" 2>/dev/null | tail -15 >&2 || true
     return 1
   fi
 
-  ensure_minio_bucket
+  ensure_seaweedfs_bucket
 }
 
-ensure_minio_bucket() {
-  local job_name="${MINIO_NAME}-create-bucket"
-  if [[ "$(oc get job "${job_name}" -n "${LOKI_NS}" \
-    -o jsonpath='{.status.succeeded}' 2>/dev/null || true)" == "1" ]]; then
-    log "MinIO bucket job already succeeded"
-    return 0
-  fi
+seaweedfs_shell() {
+  # Runs a `weed shell` command inside the SeaweedFS pod. It talks to the embedded
+  # master directly, so no S3 credentials or client image are needed.
+  oc exec -i "deployment/${SEAWEEDFS_NAME}" -n "${LOKI_NS}" -- /usr/bin/weed shell <<<"$1"
+}
 
-  local failed_count
-  failed_count="$(oc get job "${job_name}" -n "${LOKI_NS}" \
-    -o jsonpath='{.status.failed}' 2>/dev/null || true)"
-  if [[ -n "${failed_count}" && "${failed_count}" != "0" ]]; then
-    log "MinIO bucket job previously failed; recreating"
-    oc delete job "${job_name}" -n "${LOKI_NS}" --ignore-not-found --wait=true || true
-  fi
+seaweedfs_bucket_exists() {
+  seaweedfs_shell "s3.bucket.list" 2>/dev/null | awk '{print $1}' | grep -qx "${SEAWEEDFS_BUCKET}"
+}
 
-  if ! oc apply -f - <<EOF
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: ${MINIO_NAME}-create-bucket
-  namespace: ${LOKI_NS}
-spec:
-  backoffLimit: 6
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: ${MINIO_MC_IMAGE}
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-          env:
-            - name: MC_CONFIG_DIR
-              value: /tmp/.mc
-            - name: MINIO_ROOT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootPassword
-          command:
-            - /bin/sh
-            - -ec
-            - |
-              mc alias set local ${MINIO_ENDPOINT} "\${MINIO_ROOT_USER}" "\${MINIO_ROOT_PASSWORD}"
-              mc mb --ignore-existing "local/${MINIO_BUCKET}"
-              mc ls local
-EOF
-  then
-    if ! oc get job "${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" &>/dev/null; then
-      log "ERROR: failed to create MinIO bucket job"
-      return 1
+ensure_seaweedfs_bucket() {
+  # weed mini creates S3_BUCKET right after the S3 gateway reports ready (a moment
+  # after the readiness probe passes). Wait for it, and create it ourselves if the
+  # running pod was started without it (e.g. an older deployment with another bucket).
+  local elapsed=0 interval=5 timeout=60
+
+  while ! seaweedfs_bucket_exists; do
+    if (( elapsed >= timeout )); then
+      log "Bucket ${SEAWEEDFS_BUCKET} not present after ${timeout}s; creating it via weed shell..."
+      seaweedfs_shell "s3.bucket.create -name ${SEAWEEDFS_BUCKET}" >&2 || true
+      if ! seaweedfs_bucket_exists; then
+        log "ERROR: could not create SeaweedFS bucket ${SEAWEEDFS_BUCKET}"
+        seaweedfs_shell "s3.bucket.list" >&2 || true
+        oc logs "deployment/${SEAWEEDFS_NAME}" -n "${LOKI_NS}" --tail=50 >&2 || true
+        return 1
+      fi
+      break
     fi
-    log "MinIO bucket job already exists; waiting for the other worker"
-  fi
+    sleep "${interval}"
+    elapsed=$((elapsed + interval))
+    log "Waiting for SeaweedFS bucket ${SEAWEEDFS_BUCKET} (${elapsed}s/${timeout}s)..."
+  done
 
-  log "Waiting for MinIO bucket job..."
-  timeout 180 oc wait "job/${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" \
-    --for=condition=complete --timeout=180s
-  log "MinIO ready at ${MINIO_ENDPOINT}, bucket=${MINIO_BUCKET}"
+  log "SeaweedFS ready at ${SEAWEEDFS_ENDPOINT}, bucket=${SEAWEEDFS_BUCKET}"
 }
 
 create_loki_object_storage_secret() {
@@ -568,13 +539,13 @@ create_loki_object_storage_secret() {
     return 0
   fi
 
-  log "Creating Loki object storage secret ${LOKI_SECRET_NAME} (MinIO endpoint=${MINIO_ENDPOINT})..."
+  log "Creating Loki object storage secret ${LOKI_SECRET_NAME} (SeaweedFS endpoint=${SEAWEEDFS_ENDPOINT})..."
   oc create secret generic "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" \
-    --from-literal=bucketnames="${MINIO_BUCKET}" \
-    --from-literal=endpoint="${MINIO_ENDPOINT}" \
-    --from-literal=access_key_id="${MINIO_ACCESS_KEY}" \
-    --from-literal=access_key_secret="${MINIO_SECRET_KEY}" \
-    --from-literal=region="${MINIO_REGION}" \
+    --from-literal=bucketnames="${SEAWEEDFS_BUCKET}" \
+    --from-literal=endpoint="${SEAWEEDFS_ENDPOINT}" \
+    --from-literal=access_key_id="${SEAWEEDFS_ACCESS_KEY}" \
+    --from-literal=access_key_secret="${SEAWEEDFS_SECRET_KEY}" \
+    --from-literal=region="${SEAWEEDFS_REGION}" \
     --from-literal=forcepathstyle="true"
 }
 
@@ -809,11 +780,11 @@ install_openshift_logging() {
 
   channel="$(resolve_logging_stack_channel)" || return 1
 
-  log "Installing OpenShift Logging (Loki) with in-cluster MinIO..."
+  log "Installing OpenShift Logging (Loki) with in-cluster SeaweedFS..."
   ensure_loki_operators_namespace
   install_loki_operator "${channel}"
   install_cluster_logging_operator "${channel}"
-  install_minio
+  install_seaweedfs
   create_loki_object_storage_secret
   ensure_lokistack
   wait_for_lokistack_ready
