@@ -112,12 +112,9 @@ Add an entry for your new workspace in [`.github/CODEOWNERS`](./.github/CODEOWNE
 
 Sometimes, additional configuration is required in the PR:
 
-- **Frontend plugins** may need:
-   - `app-config.dynamic.yaml` (Eg: [techdocs plugin](./workspaces/backstage/plugins/techdocs/app-config.dynamic.yaml))
-
 - **Any plugin** may need:
    - Overlay source files in an `overlay` directory
-  (e.g., [`api-docs-module-protoc-gen-doc`](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/overlay))
+  (e.g., [`gitlab-backend`](./workspaces/gitlab/packages/gitlab-backend/overlay))
   - Patches (`*.patch`) in the `patches` directory of the workspace folder, to modify the workspace source code before the whole build and packaging process. (Example: [roadie backstage plugins](./workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch))
 
 > **Overlay vs. Patch**
