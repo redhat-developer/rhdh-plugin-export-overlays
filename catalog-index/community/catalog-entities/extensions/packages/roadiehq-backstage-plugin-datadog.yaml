@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@roadiehq/backstage-plugin-datadog"
   # Tag: bs_1.54.9__2.8.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-datadog@sha256:901603b9b96d38267301d0bc3dfc00486af2513c935e323da9c5e868eea81701"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-datadog@sha256:a5b7fe7f7e3b79f29328900942e7a371107bcbc448e6ce58b1d9d76d872bc2e2"
   version: 2.8.0
   backstage:
     role: frontend-plugin
