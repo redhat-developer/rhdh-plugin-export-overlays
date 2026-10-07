@@ -358,11 +358,11 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
 done
 echo 
 
-# Convert JSONL to JSON array; keep only supported and community tiers
-# to include supported and community:
-# RESULTS=$(jq -s '[.[] | select(.supportTier == "supported" or .supportTier == "community")]' "$RESULTS_FILE")
-# to include everything - supported, community, and other:
-RESULTS=$(jq -s '[.[]]' "$RESULTS_FILE")
+# Convert JSONL to JSON array; keep only supported and community tiers.
+# Packages in neither tier file are "other" and stay out of both --json and
+# --markdown (#3990). Including them made the report count plugins the tier
+# files do not list.
+RESULTS=$(jq -s '[.[] | select(.supportTier == "supported" or .supportTier == "community")]' "$RESULTS_FILE")
 
 if [[ "$OUTPUT_JSON" == "true" ]]; then
   echo "$RESULTS" | jq .
@@ -417,7 +417,9 @@ EOF
     [[ "$tier_frontend" -eq 0 ]] && continue
 
     pct=$(( tier_frontend > 0 ? tier_ready * 100 / tier_frontend : 0 ))
-    echo "#### $tier_label ($pct%)"
+    # Count stays on the heading. The <details> block from the HTML tweak still
+    # collapses the table; the summary repeats the same count.
+    echo "#### $tier_label ($tier_ready/$tier_frontend frontend plugins NFS-ready — $pct%)"
     echo ""
     echo "<details>"
     echo "<summary>$tier_ready/$tier_frontend frontend plugins NFS-ready</summary>"
