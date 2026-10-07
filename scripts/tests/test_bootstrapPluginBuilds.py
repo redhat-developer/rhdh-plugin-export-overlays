@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from bootstrapPluginBuilds import (
+    clear_fallback_markers,
     construct_registry_reference,
     get_outdated_workspaces,
     remove_stale_plugin_builds,
@@ -195,3 +196,23 @@ class TestConstructRegistryReference:
             "",
         )
         assert ref.endswith(":1.11--1.5.4")
+
+
+class TestClearFallbackMarkers:
+    def test_drops_fallback_and_requested_tag(self):
+        entry = {
+            "registryReference": "quay.io/rhdh/plugin:2.1.0--2.0.0",
+            "fallback": True,
+            "requestedTag": "2.0.0--1.31.1",
+            "digest": "sha256:abc",
+        }
+        clear_fallback_markers(entry)
+        assert "fallback" not in entry
+        assert "requestedTag" not in entry
+        assert entry["digest"] == "sha256:abc"
+        assert entry["registryReference"].endswith(":2.1.0--2.0.0")
+
+    def test_noop_when_markers_absent(self):
+        entry = {"registryReference": "quay.io/rhdh/plugin:2.2.0--1.0.0"}
+        clear_fallback_markers(entry)
+        assert entry == {"registryReference": "quay.io/rhdh/plugin:2.2.0--1.0.0"}
