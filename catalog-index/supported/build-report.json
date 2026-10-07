@@ -693,7 +693,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-plugin-techdocs-backend' resolved to bs_1.54.9__2.2.4 after bs_1.54.9__2.2.5 was not found — the index ships an older build"
+            "[fallback-tag] 'backstage-plugin-techdocs-backend' resolved to bs_1.54.9__2.2.4 after bs_1.54.9__2.2.5 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1200,7 +1200,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ebc251fd6f51b5c728267b02a3f0cbe11f69c6bc2c365a9cd8d62dd504bd819c"
+          "digest": "sha256:f41ae7edb59762abdedb7ef174ee510f347a0eb415d9a8ba96272255e2e3a988"
         },
         "validate": {
           "status": "pass",
@@ -1232,7 +1232,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e2dfc2f541cdc2517cd9be87729d040d3be7a35c17c256b3cbd3d59cfef204d9"
+          "digest": "sha256:e8991d2997e809eda3b32d0f289c5addbb52355a4c161f9294424f3ed9768852"
         },
         "validate": {
           "status": "pass",
@@ -1264,7 +1264,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0d7e7d59c61e05c8af428c091dd855f80193ba302466f68bb4522310bb1f6c97"
+          "digest": "sha256:9ae444f417f113cc3e9f22a90d20ae1aa4fdb8ac8d0ac8e386ea81c6c2389357"
         },
         "validate": {
           "status": "pass",
@@ -1424,7 +1424,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:fb7626f6f02a9429ada4054f8b5e59bbbbca147dd8fc71adf06c33b9cd113413"
+          "digest": "sha256:6856e5c2d512f301d70cd1515c543f2551bcc0c730f742650f81ee45550a1a03"
         },
         "validate": {
           "status": "pass",
@@ -1456,7 +1456,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:da4199421321deedabf0562e68a176d19399f3126643472a0285820214943ea3"
+          "digest": "sha256:82a78b8d9ec60b9b62451acf819103e6eae758ca4253a4f69a0a24dc495ede9e"
         },
         "validate": {
           "status": "pass",
@@ -1661,7 +1661,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
