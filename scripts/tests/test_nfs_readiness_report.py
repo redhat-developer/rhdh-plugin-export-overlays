@@ -11,7 +11,7 @@ NFS-ready, and the reported total read 75 instead of 80.
 A miscount here is quiet in the worst way: the report still renders, the percentage still
 looks plausible, and nothing fails. These tests pin the classification so the filter
 cannot narrow again without a red test — and they cover all three places that read it
-(the classifier, the summary denominator, and the two per-support-tier tables), because
+(the classifier, the summary denominator, and the per-support-tier tables), because
 the original bug was precisely those places disagreeing.
 
 What these do NOT cover: the ``--oci`` path, and the source-inference path #3284 added for
@@ -71,9 +71,8 @@ def _repo(tmp_path, packages, tier="community"):
     inference from reaching out to raw.githubusercontent.com.
 
     ``tier`` puts the whole workspace in one tier file, through the script's
-    per-workspace fallback. The report keeps only the supported and community tiers
-    (#3990, RHIDP-16853), so a fixture in neither file would be filtered out before any
-    assertion could see it. ``None`` leaves both files empty, which is the "other" tier.
+    per-workspace fallback. ``None`` leaves both files empty, which the report
+    classifies as the "other" tier and still includes.
     """
     workspace = "sample"
     # The fallback keys on the text before the first "/", so this must name the workspace.
@@ -217,33 +216,43 @@ class TestMarkdownOutput:
     def test_the_per_tier_table_counts_and_lists_both_frontend_roles(tmp_path):
         """The per-tier header and table are two more reads of the same classification.
 
-        Nothing else asserts them, and a narrowed filter here is invisible: the header
-        count silently drops by one and the module's row silently vanishes.
+        Nothing else asserts them, and a narrowed filter here is invisible: the
+        summary count silently drops by one and the module's row silently vanishes.
+        The ready-count lives in the collapsible summary; the heading carries the
+        percentage.
         """
         stdout = _markdown(_repo(tmp_path, MIXED))
-        assert "#### Community (0/2 frontend plugins NFS-ready — 0%)" in stdout
+        assert "#### Community (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
         assert "| @scope/plugin-b | sample |" in stdout
 
     @staticmethod
     def test_supported_packages_get_their_own_table(tmp_path):
         """A supported workspace is counted under its own header and under no other."""
         stdout = _markdown(_repo(tmp_path, MIXED, tier="supported"))
-        assert (
-            "#### Red Hat Supported (GA + Tech Preview) "
-            "(0/2 frontend plugins NFS-ready — 0%)"
-        ) in stdout
+        assert "#### Red Hat Supported (GA + Tech Preview) (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
         assert "#### Community" not in stdout
+        assert "#### Other" not in stdout
 
 
-class TestTierFilter:
-    """#3990 (RHIDP-16853): packages in neither tier file are left out of the report."""
+class TestOtherTier:
+    """Packages in neither tier file are reported under the other tier."""
 
     @staticmethod
-    def test_a_package_in_no_tier_file_is_not_reported(tmp_path):
-        """Both outputs read the filtered set, so the package vanishes from each."""
+    def test_a_package_in_no_tier_file_is_reported_as_other(tmp_path):
+        """Both outputs include the package, classified as other."""
         root = _repo(tmp_path, MIXED, tier=None)
-        assert _classified(root) == {}
+        classified = _classified(root)
+        assert set(classified) == {
+            "@scope/plugin-a",
+            "@scope/plugin-b",
+            "@scope/plugin-c",
+            "@scope/plugin-d",
+        }
+        assert {entry["supportTier"] for entry in classified.values()} == {"other"}
         stdout = _markdown(root)
-        assert "**Frontend plugins:** 0 total" in stdout
-        assert "#### Other" not in stdout
-        assert "@scope/plugin-b" not in stdout
+        assert "**Frontend plugins:** 2 total" in stdout
+        assert "#### Other (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
+        assert "| @scope/plugin-b | sample |" in stdout
