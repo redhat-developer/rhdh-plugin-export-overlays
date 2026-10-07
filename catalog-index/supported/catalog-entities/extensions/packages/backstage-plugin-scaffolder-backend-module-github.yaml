@@ -18,11 +18,11 @@ metadata:
 spec:
   packageName: "@backstage/plugin-scaffolder-backend-module-github"
   # Tag: bs_1.54.9__0.9.13
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:d8a622862bac9ab037dbdfb2bcb722c7851ad1d0799d53644b5d6e1e7f0527f6"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:9147f14e424521380fcce0ab5f4c0c29bde090a246858e856aada18ece3ee264"
   version: 0.9.13
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.54.6
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active
