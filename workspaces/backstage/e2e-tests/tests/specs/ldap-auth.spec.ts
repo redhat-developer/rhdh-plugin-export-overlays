@@ -21,6 +21,11 @@ const CATALOG_TOKEN = "ldap-auth-e2e-token";
 test.describe.configure({ mode: "serial" });
 
 test.describe("LDAP auth provider", { tag: "@auth-tests" }, () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   let openldap: OpenLDAPHelper;
   let baseUrl: string;
 

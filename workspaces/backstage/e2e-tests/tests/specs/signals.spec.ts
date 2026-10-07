@@ -23,6 +23,11 @@ const SIGNALS_WRAPPER_DIST_NAMES: string[] = [
  * is covered by the notifications suite (useSignal('notifications')).
  */
 test.describe("Backstage Signals Plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

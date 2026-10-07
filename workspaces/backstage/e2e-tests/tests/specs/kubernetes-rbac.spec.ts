@@ -11,6 +11,11 @@ import { KubernetesPage } from "../../support/pages/kubernetes";
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Kubernetes", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   let kubernetesPage: KubernetesPage;
   let clusterName: string;
 

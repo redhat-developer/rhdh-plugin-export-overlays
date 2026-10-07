@@ -3,6 +3,11 @@ import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { RhdhNotificationsApi } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("Default Global Header", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     // Do not set disablePlugins for global-header: it marks the OCI entry from
     // dynamic-plugins.yaml as disabled: true, so NFS extensions never mount a plugin.

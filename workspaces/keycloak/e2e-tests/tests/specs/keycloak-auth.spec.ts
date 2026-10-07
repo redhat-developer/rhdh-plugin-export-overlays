@@ -35,6 +35,10 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 test.describe("Keycloak auth provider", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(600_000);
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
 
   let rhdhDeployment: RHDHDeployment;
   let keycloakHelper: KeycloakHelper;

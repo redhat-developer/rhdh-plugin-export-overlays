@@ -16,6 +16,11 @@ const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
 test.describe.serial("Dynamic home page customization", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;

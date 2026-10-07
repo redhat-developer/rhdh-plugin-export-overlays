@@ -14,6 +14,11 @@ import {
 import { signInForScaffolderTemplateTests } from "../../support/utils/auth";
 
 test.describe.serial("Bulk Import via Scaffolder Template", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   const repositoryParametersGitHub: RepositoryParameters =
     defaultGitHubRepositoryParameters();
 

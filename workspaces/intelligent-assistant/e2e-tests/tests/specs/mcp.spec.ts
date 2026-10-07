@@ -37,6 +37,10 @@ const MCP_TOOL_RESPONSE_BUTTON =
 
 test.describe("Intelligent Assistant MCP", () => {
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
 
   let context: BrowserContext;
   let page: Page;

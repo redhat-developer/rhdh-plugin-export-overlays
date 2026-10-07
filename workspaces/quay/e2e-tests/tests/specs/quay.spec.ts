@@ -17,6 +17,11 @@ async function openQuayEntityTab(
 }
 
 test.describe("Test Quay.io plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   const quayRepository = "rhdh-community/rhdh";
 
   test.beforeAll(async ({ rhdh }) => {

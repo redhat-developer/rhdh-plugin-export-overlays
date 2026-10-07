@@ -23,6 +23,11 @@ const HOMEPAGE_WRAPPER_DIST_NAME =
 test.describe.configure({ mode: "serial" });
 
 test.describe("GitLab auth and org ingestion", { tag: "@auth-tests" }, () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   let baseUrl: string;
   let oauthHelper: GitLabOAuthHelper;
   let oauthAppId: number | null = null;

@@ -2,6 +2,11 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { KubeClient } from "../../support/utils/kube-client";
 
 test.describe("Test Kubernetes Actions plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   let kubeClient: KubeClient;
   let namespace: string | undefined;
 

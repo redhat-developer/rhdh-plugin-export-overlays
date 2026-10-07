@@ -36,6 +36,10 @@ const SCREEN_CONTEXT_MODES = [
 
 test.describe("Intelligent assistant screen context", () => {
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
 
   let context: BrowserContext;
   let page: Page;

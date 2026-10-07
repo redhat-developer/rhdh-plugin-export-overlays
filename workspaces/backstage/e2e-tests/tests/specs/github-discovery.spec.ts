@@ -7,6 +7,11 @@ const ENTITY_POLL_TIMEOUT_MS = 120_000;
 const ENTITY_POLL_INTERVAL_MS = 3_000;
 
 test.describe("Github Discovery Catalog", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH init container crashes -- missing OCI tag quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8 in catalog-index default plugins",
+  );
+
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {
