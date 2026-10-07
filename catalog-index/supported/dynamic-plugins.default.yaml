@@ -88,7 +88,7 @@ plugins:
           - addon:techdocs/report-issue
           - addon:techdocs/text-size: false
           - addon:techdocs/light-box: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:81f9223aa538e1278a2d831263407dc1d2a6373d50b16f9a9f9c29ddefec605b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:e059719d9055424e916ad53ed70a46ced09fc3c6fc3060495b6a1a8a6b69c3c9
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:5388f1a12b901e80fed04565a1af9292390cd4d101808992788566564ffa8a4c
     enabled: true
@@ -388,7 +388,7 @@ plugins:
                 module: Legacy
                 config:
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:1516950fa6d8a1eb4cbae352d6a822fe3444c4c4b221236d9805120793b7cbf5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:fac23424b34f44da87ba551f90bee079765f43bff30b66ab15d534fd13481d99
     enabled: false
     pluginConfig:
       auth:
@@ -400,7 +400,7 @@ plugins:
               signIn:
                 resolvers:
                   - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider@sha256:b2df8cd82f65040eec659857b45f99fc29d75942d010a3562c043a6015f74167
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider@sha256:4376fc000c2d96f6774814d3d15598a6cd88e8b46fcaf5c39d30d75aefdcf87d
     enabled: false
     pluginConfig:
       auth:
@@ -412,14 +412,14 @@ plugins:
               signIn:
                 resolvers:
                   - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:e068ee1d2b54e8abeb58310c2e9e9de12593043a66426380999be1e8ca9f2ee0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:9db9902bfa7038a72cc81d7a49cb8ea968f9cb56998d30b6d5f50d9b6990dae8
     enabled: false
     pluginConfig:
       auth:
         providers:
           guest:
             dangerouslyAllowOutsideDevelopment: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:8cf781e50f2281406851b23ad413b9c33f5172df24eb57b7832ed232ef8ba418
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:dbada1dfd88481119c1e8d075e3a4865ee6eaa9f360f5d9d15f8deedbf57a261
     enabled: false
     pluginConfig:
       auth:
@@ -432,7 +432,7 @@ plugins:
               signIn:
                 resolvers:
                   - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider@sha256:76afa73bd9b4f69dbcfd998774fffcea6d286f82da10847d56574c2ed8505404
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider@sha256:905ba0c7690548e181f7d1b82301eea608df1b4c569c19e922015239f6ee4cdf
     enabled: false
     pluginConfig:
       auth:
@@ -708,7 +708,7 @@ plugins:
         modules:
           github:
             webhookSecret: ${GITHUB_WEBHOOK_SECRET}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:f5e7669a13214e0cbb46c7585d93d0f3d2c9b6cf7b0d5258a39682783cad561c
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:0c86989dbc185f3c9072b416d7951af9f42d060d0f94b91878b03b8cf1319fef
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -724,7 +724,7 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:f000587bf9d10fdf419a7259ccbe26172ec8609e775b260c04985dab407a6615
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:4c27cb7fa84aa9820f7a1bb0490f70b4f6d61e7c7de993e514f42b3017931fba
     enabled: false
     pluginConfig:
       kubernetes:
@@ -738,7 +738,7 @@ plugins:
                 authProvider: serviceAccount
                 skipTLSVerify: true
                 serviceAccountToken: ${K8S_CLUSTER_TOKEN}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:26c311a47f09e7a6e241ef520741213fc1c24e08f3e4155c2ca9f247ff9506b5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:d8ddabc4da0e58dda957b0364d976c0dfda571932dc94f6276b5748609cf50eb
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -753,12 +753,12 @@ plugins:
                       webNotificationsEnabled: false
                   importName: NotificationsSidebarItem
                 path: /notifications
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:3f2a0bc7fc0a60d8852bfff3d47a2c847ba16c7cb8c6905938778ffa09a5ad67
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:68c0cd07dbe377b6eba5cb47eb6ec5b12bde08c83f9869c850d221108650bd8f
     enabled: false
     pluginConfig:
       notifications:
         concurrencyLimit: 10
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:e688eda396409eea84e963b1cc9e02f0306d579ac4ecda9e568709647256cf5e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:36c21b481c1f190293969f9963a6b1b24f021eee0bc047603cfbbbb544071a83
     enabled: false
     pluginConfig:
       notifications:
