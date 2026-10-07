@@ -637,7 +637,7 @@ def collect_fallback_entries(plugin_builds_dir: Path) -> list[tuple[str, str, st
 
     Returns:
         Sorted list of
-        ``(container_name, have_older_tag, should_have_newer_tag, workspace)``
+        ``(container_name, have_tag, requested_tag, workspace)``
         tuples (e.g. ``('backstage-community-plugin-topology', '1.11--1.5.4',
         '1.11--1.6.0', 'topology')``). ``workspace`` is the ``plugin_builds``
         subdirectory name (used for ``sync-midstream.sh --force-clone``).
@@ -726,7 +726,7 @@ def fetch_rhdh_package_version(rhdh_branch: str | None = None) -> str | None:
 def print_fallback_rebuild_cta(
     fallbacks: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
 ) -> None:
-    """Print a clear rebuild call-to-action for plugins using older published tags.
+    """Print a rebuild call-to-action for plugins that resolved to a fallback tag.
 
     Accepts 3-tuples ``(container, have, want)`` or 4-tuples with ``workspace``.
 
@@ -741,12 +741,12 @@ def print_fallback_rebuild_cta(
     print("\n========")
     log_warn(
         f"Fallback Tags: {Colors.YELLOW}{len(fallbacks)}{Colors.NORM} "
-        f"plugin(s) using older published tags"
+        f"plugin(s) using a published tag other than the one requested"
     )
     print(
-        f"{Colors.YELLOW}ACTION REQUIRED:{Colors.NORM} Publish the newer requested tags "
-        f"so the catalog can stop using older fallbacks:\n"
-        f"  (container, have_older_tag, should_have_newer_tag)"
+        f"{Colors.YELLOW}ACTION REQUIRED:{Colors.NORM} Publish the requested tags "
+        f"so the catalog can stop using fallbacks:\n"
+        f"  (container, have_tag, requested_tag)"
     )
     containers: list[str] = []
     workspaces: set[str] = set()
@@ -1316,7 +1316,10 @@ Examples:
     log_info("\n=== Results ===")
     log_info(f"Updated: {Colors.GREEN}{updated_count}{Colors.NORM} of {total}")
     if fallback_count > 0:
-        log_warn(f"Fallback Tags: {Colors.YELLOW}{fallback_count}{Colors.NORM} plugin(s) using older published tags")
+        log_warn(
+            f"Fallback Tags: {Colors.YELLOW}{fallback_count}{Colors.NORM} "
+            f"plugin(s) using a published tag other than the one requested"
+        )
     if len(missing_refs) > 0:
         log_warn(f"Missing Tags: {Colors.YELLOW}{len(missing_refs)}{Colors.NORM}")
         for ref in missing_refs:
