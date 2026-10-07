@@ -8,14 +8,13 @@ plugins:
             translationResources:
               - importName: rbacTranslations
                 ref: rbacTranslationRef
+            # 2.3.2+ no longer exposes Scalprum Legacy; default module has RbacPage/RbacIcon.
             appIcons:
               - name: rbacIcon
                 importName: RbacIcon
-                module: Legacy
             dynamicRoutes:
               - path: /rbac
                 importName: RbacPage
-                module: Legacy
                 menuItem:
                   icon: rbacIcon
                   text: RBAC
