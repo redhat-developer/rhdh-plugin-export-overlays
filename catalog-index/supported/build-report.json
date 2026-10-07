@@ -276,7 +276,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3b93b4f3d3d22ad363ae3787f8844c6e42a072f872d38f9c08c84c385bedb4c0"
+          "digest": "sha256:8fcf4e0b613c455edf9b82979538c7b4ea38453648d505e260e9219600129f31"
         },
         "dpdy": {
           "status": "pass"
@@ -298,7 +298,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c28932624a154ea612d8542f5756730429ee0f9aa8a81d93bdc2800e9f56399b"
+          "digest": "sha256:adc98ce31b4148f1b32d11739a6dabb5ca7f9ea5e84765797963ac3b0ab72ecc"
         },
         "dpdy": {
           "status": "pass"
@@ -320,7 +320,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:34fb2a7c4174b3278f6e16950348304df460e01f4b7e74f80b86d908202dda9a"
+          "digest": "sha256:bac7d4af4be00305c45bc34102f36d4a5da52985d39a8078b1d2aba6caccf389"
         },
         "dpdy": {
           "status": "pass"
@@ -342,7 +342,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4626daff80e32af218284285958b00435ef4b0ba9d9cd55287259c50e702581f"
+          "digest": "sha256:5d50248ee772759805b384e15b92f78ea84aec6144d102e1422b8c94b90f8c06"
         },
         "dpdy": {
           "status": "pass"
@@ -1048,13 +1048,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ce92cec6423f26b1fc273223e1c9d9864f575e9cda34dc0239ae55e0b310867d"
+          "digest": "sha256:ce92cec6423f26b1fc273223e1c9d9864f575e9cda34dc0239ae55e0b310867d",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__8.13.2",
+          "resolvedTag": "bs_1.54.9__8.13.1"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.9__8.13.1 after bs_1.54.9__8.13.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
@@ -1070,13 +1079,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d2c71f021a01b88f039876031c8e796c1fd57670a6ce73d93b6b6b59f7ee54fc"
+          "digest": "sha256:d2c71f021a01b88f039876031c8e796c1fd57670a6ce73d93b6b6b59f7ee54fc",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__2.2.1",
+          "resolvedTag": "bs_1.54.9__2.2.0"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.9__2.2.0 after bs_1.54.9__2.2.1 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
@@ -1092,13 +1110,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c54c7ac829c7a6bdf00aae60ad59b6ee81b03a842b80ca9959ab80b23eafa5c4"
+          "digest": "sha256:c54c7ac829c7a6bdf00aae60ad59b6ee81b03a842b80ca9959ab80b23eafa5c4",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__6.2.4",
+          "resolvedTag": "bs_1.54.9__6.2.1"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.9__6.2.1 after bs_1.54.9__6.2.4 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",

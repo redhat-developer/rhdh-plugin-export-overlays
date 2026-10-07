@@ -596,7 +596,7 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:c28932624a154ea612d8542f5756730429ee0f9aa8a81d93bdc2800e9f56399b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:adc98ce31b4148f1b32d11739a6dabb5ca7f9ea5e84765797963ac3b0ab72ecc
     enabled: false
     pluginConfig:
       catalog:
@@ -604,7 +604,7 @@ plugins:
           github:
             providerId:
               organization: ${GITHUB_ORG}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:3b93b4f3d3d22ad363ae3787f8844c6e42a072f872d38f9c08c84c385bedb4c0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:8fcf4e0b613c455edf9b82979538c7b4ea38453648d505e260e9219600129f31
     enabled: false
     pluginConfig:
       catalog:
@@ -621,7 +621,7 @@ plugins:
                 seconds: 15
               timeout:
                 minutes: 15
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:4626daff80e32af218284285958b00435ef4b0ba9d9cd55287259c50e702581f
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:5d50248ee772759805b384e15b92f78ea84aec6144d102e1422b8c94b90f8c06
     enabled: false
     pluginConfig:
       catalog:
@@ -637,7 +637,7 @@ plugins:
                   minutes: 3
                 initialDelay:
                   seconds: 15
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:34fb2a7c4174b3278f6e16950348304df460e01f4b7e74f80b86d908202dda9a
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:bac7d4af4be00305c45bc34102f36d4a5da52985d39a8078b1d2aba6caccf389
     enabled: false
     pluginConfig:
       catalog:
