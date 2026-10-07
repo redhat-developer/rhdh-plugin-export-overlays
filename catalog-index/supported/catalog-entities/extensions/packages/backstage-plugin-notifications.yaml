@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage/plugin-notifications"
   # Tag: bs_1.54.9__0.5.20
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:9a5a4e096c33b647b856c1cdbb8b462df2c8608faf3d835d28a4b42099be24f6"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:6f7c55a293d13c5903f642e594350a428a4dddd6bdfbbc8b5808b1490ed4accb"
   version: 0.5.20
   backstage:
     role: frontend-plugin
