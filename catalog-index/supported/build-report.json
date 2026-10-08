@@ -342,7 +342,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b4e42fe7df01c92f635401baac01a5fad05459f18defba7655414420b0bc8b33"
+          "digest": "sha256:704d3d5d785b7f80b92d4070ede959eba4f029bb8c273be30f67fa1aa3e3d9bc"
         },
         "validate": {
           "status": "pass",
@@ -374,7 +374,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0f44d293bb4c4d79d65dd1222936adc8908ee002f64297be903969acdc3f132c"
+          "digest": "sha256:dbaa7d85d963d2548c05ad8e60fac6f26d464c986aef1b20c1fc8bcb58541f25"
         }
       },
       "package": "@backstage/plugin-events-backend-module-gitlab",
@@ -400,7 +400,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:48060d8d41b7e3c61e286632f8c3a7ac527341f4ea366cf7752807c914a88ca2"
+          "digest": "sha256:0bb946ebb6ef1cdc956f1114c12a3240a117fb066fe32e0d7f65e594df518123"
         },
         "validate": {
           "status": "pass",
@@ -432,7 +432,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b079648c8b5fda0fe6680f96fca033e597a1a5492d02ba72657c32535bbcd83b"
+          "digest": "sha256:dd047064a16d798732acf1f863795aec581dcf93ba33bd3d0b5b02513d86b7b1"
         },
         "validate": {
           "status": "pass",
@@ -464,7 +464,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d64bc731b7c1491cdde0c452a646813895a1540e6bd2c3742a7d4273f1a76e2a"
+          "digest": "sha256:ac5d93ec2a75868e2a447f94a72967c5e9a27348770364e0a83b00a0cd247f37"
         },
         "validate": {
           "status": "pass",
@@ -496,7 +496,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1dea1af181207085a49da47ec0df94876a7c07608520f6e2b2b019b763497f50"
+          "digest": "sha256:661c0dbb3a64c3d9f956b6d7bc93a732b6fb5254f7f969689a96cf7ba8e565b8"
         },
         "validate": {
           "status": "pass",
@@ -528,7 +528,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:43e21af3b935949dcbc2e4616fdd0205334f9e3c7b766365f2158e4866ce0ea6"
+          "digest": "sha256:fad6af336825715962caf90e7faed79a3d53862ad14527da0ae3b8a6ec7ea471"
         },
         "validate": {
           "status": "pass",
@@ -560,7 +560,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9147f14e424521380fcce0ab5f4c0c29bde090a246858e856aada18ece3ee264"
+          "digest": "sha256:90ccaf80b94efc77006c7c273093582afe81c8866fd9cec150152f895cf1c89d"
         },
         "validate": {
           "status": "pass",
@@ -592,7 +592,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a13259712d082b2feee621e3bdae7ea0550c6179af292e78f42d70feb45b4602"
+          "digest": "sha256:cd920f40f63bd2c9266d20cf0cd1c76dc3e71a4d4914f9d9851b1ab668e021ea"
         },
         "validate": {
           "status": "pass",
@@ -624,7 +624,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:36d5d2c2d8095a3d34263651f45fd69c197ba861c29523333ec61df932471023"
+          "digest": "sha256:b1bb161c5b6c23a2a1cc0426fb51d7c6b52606a70a741156ef8c9df7c0a4fd8c"
         },
         "validate": {
           "status": "pass",
@@ -656,7 +656,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:010e94e0f2f3295df820fabce8b409e744d2d95d3b70a45297377351b1736b2c"
+          "digest": "sha256:2efff50ac495938951ef58ad418ab535a7a512cc6b32306a46815bf2d1ccfcdc"
         },
         "validate": {
           "status": "pass",
@@ -688,12 +688,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ffae6da8400de65decb1a57baf9e7f379c09c5640d789f89bbdcf8aaae5ca55d"
+          "digest": "sha256:b939c5ba00ff1c22bb21ed41136400c57d6f8f5c1a60cdd573997d4941f8a969"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-plugin-techdocs-backend' resolved to bs_1.54.9__2.2.4 after bs_1.54.9__2.2.5 was not found — the index ships an older build"
+            "[fallback-tag] 'backstage-plugin-techdocs-backend' resolved to bs_1.54.9__2.2.4 after bs_1.54.9__2.2.5 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -720,7 +720,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:be48db007bf361c562be5bd92a992e16b71742e2e3e02830cfe987bbf93dfa07"
+          "digest": "sha256:b1be8ce923d2daa3edb5d1236589e9d99a004a22ba7b6cff15b5bf00fa558253"
         },
         "validate": {
           "status": "pass",
@@ -752,7 +752,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:bc23305fdb5f7540a9edafb72970fa98a3ad548a2333a398216c7a102a9fd077"
+          "digest": "sha256:b6d8c819f06a6fcd8bea16c21ef4e50951ba2661dc7b4aae900fc12305d14e80"
         },
         "validate": {
           "status": "pass",
@@ -1629,7 +1629,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -2094,7 +2094,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:82681a9c02ffe228e5a9c561839079ffaea95b3aaa1a2dff0ed67b18f3657987"
+          "digest": "sha256:2fc43404d2f9b9e2e863f01bb197c45b94717464d1b36773d5d1b7825e267712"
         },
         "dpdy": {
           "status": "pass"
