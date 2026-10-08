@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.2-bs_1.54.9-391c322",
-    "last-successful-publish": "391c322327372bb37abf6291d423f99757fe51e1"
+    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.2-bs_1.54.9-d25d1ca",
+    "last-successful-publish": "d25d1ca76ff8bff794692866cea6131fd53d4ac4"
   },
   "plugins": {
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
@@ -693,7 +693,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-plugin-techdocs-backend' resolved to bs_1.54.9__2.2.4 after bs_1.54.9__2.2.5 was not found \u2014 the index ships an older build"
+            "[fallback-tag] 'backstage-plugin-techdocs-backend' resolved to bs_1.54.9__2.2.4 after bs_1.54.9__2.2.5 was not found — the index ships an older build"
           ]
         }
       },
@@ -1629,7 +1629,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found \u2014 the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.10.1 after bs_1.54.9__1.11.0 was not found — the index ships an older build"
           ]
         }
       },
