@@ -753,9 +753,9 @@ plugins:
             sender: ${EMAIL_SENDER}
             broadcastConfig:
               receiver: users
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:0452c0217f464425fee2ea0b5941d197ef60dd36f14052ebfd0c215fccec63bc
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:cf23e0688b207783f3d408603bc788db07a62e444505cd2f95e4f9d260dec355
     enabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:5942d0a88b304be5a061461d9ef9eb86b4d9ad160103d5e7e275efd4fd624e8d
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:aaa7a5c4c2452b59e051847ac2a1979101dd5dc82104cf3b0bdfadf1c6ca56de
     enabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:3b57302d3ddb75739d42a5498192ce3da726d0195df8ccd47ade673c6ff3ffe4
     enabled: false
