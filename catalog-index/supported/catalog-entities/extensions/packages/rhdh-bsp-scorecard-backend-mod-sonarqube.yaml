@@ -17,9 +17,9 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-sonarqube"
-  # Tag: bs_1.54.9__4.4.1
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube@sha256:ff39cb467e3d2af3a1367d74d9a1be28d146302ee2444c9d9fa688ccd8e13cdd"
-  version: 4.4.1
+  # Tag: bs_1.54.9__4.4.2
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube@sha256:9fd150520dabf3a9e913ac528e63e5e8eb5fcdfe8e6bb23b5025b8131cfd9ca5"
+  version: 4.4.2
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.54.9
