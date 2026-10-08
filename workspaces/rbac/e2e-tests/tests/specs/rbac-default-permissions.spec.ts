@@ -24,7 +24,6 @@ test.describe("Check default RBAC permissions", () => {
         "tests/config/app-config-rhdh-default-permissions-overlay.yaml",
       valueFile: "tests/config/values.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins.yaml",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
     await rhdh.waitUntilReady();

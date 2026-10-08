@@ -59,7 +59,6 @@ test.describe("RBAC plugin", () => {
       auth: "keycloak",
       appConfig: "tests/config/app-config-rhdh.yaml",
       valueFile: "tests/config/values.yaml",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
     await rhdh.waitUntilReady();
