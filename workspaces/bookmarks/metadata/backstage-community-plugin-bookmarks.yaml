@@ -14,11 +14,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-bookmarks"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-bookmarks:bs_1.52.0__0.11.0!backstage-community-plugin-bookmarks
-  version: 0.11.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-bookmarks:bs_1.54.9__0.14.2!backstage-community-plugin-bookmarks
+  version: 0.14.2
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.9
   author: Backstage Community
   support: community
   lifecycle: active
