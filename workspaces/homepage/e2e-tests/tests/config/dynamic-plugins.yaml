@@ -2,15 +2,28 @@
 # Upstream @backstage/plugin-home provides visits APIs (page:home is disabled in
 # app-config-rhdh.yaml). RH homepage owns page:homepage.
 #
-# homepage.defaultWidgets (homepage-backend) is not supported on NFS yet. NFS tests seed widgets via
-# the UI until then.
+# Homepage 3.1.0 hides Edit when defaultWidgets refs match no NFS widget
+# (the page renders the empty state instead of the customizable grid).
+# Refs must be the extension ids, and the list must include every widget the
+# tests add. This pluginConfig replaces the metadata example.
 plugins:
   # Version from workspaces/backstage export: backstage-plugin-home
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.6__0.9.9
     enabled: true
   # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage.yaml
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.6__2.0.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
     enabled: true
   # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage-backend.yaml
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.54.6__0.6.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.54.9__0.6.0
     enabled: true
+    pluginConfig:
+      homepage:
+        defaultWidgets:
+          - id: rhdh-onboarding-section
+            ref: rhdh-onboarding-section
+          - id: rhdh-entity-section
+            ref: rhdh-entity-section
+          - id: recently-visited-card
+            ref: recently-visited-card
+          - id: top-visited-card
+            ref: top-visited-card
