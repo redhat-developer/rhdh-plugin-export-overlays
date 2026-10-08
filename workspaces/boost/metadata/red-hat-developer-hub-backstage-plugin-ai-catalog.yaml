@@ -17,7 +17,7 @@ metadata:
     - ai
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-ai-catalog"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-ai-catalog:bs_1.54.6__1.0.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-ai-catalog:bs_1.54.9__1.0.1
   version: 1.0.1
   backstage:
     role: frontend-plugin

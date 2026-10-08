@@ -8,6 +8,7 @@ from generateCatalogIndex import (
     get_image_name_from_package_yaml,
     get_query_registry_reference,
     is_tag_comment_line,
+    oci_value_matches_plugin,
     parse_image_reference,
     peek_digest_after,
     pop_trailing_tag_comments,
@@ -53,6 +54,37 @@ class TestParseImageReference:
     )
     def test_parse(self, ref, expected):
         assert parse_image_reference(ref) == expected
+
+
+# ---------------------------------------------------------------------------
+# oci_value_matches_plugin
+# ---------------------------------------------------------------------------
+class TestOciValueMatchesPlugin:
+    PLUGIN_NAME = "red-hat-developer-hub-backstage-plugin-foo"
+    ALTERNATIVE = "rhdh-backstage-plugin-foo"
+
+    @pytest.mark.parametrize(
+        "oci_value",
+        [
+            pytest.param(
+                f"quay.io/rhdh/{PLUGIN_NAME}-dynamic:1.0.0",
+                id="dynamic-suffix-on-image-name",
+            ),
+            pytest.param(
+                f"quay.io/rhdh/plugin-image!{ALTERNATIVE}-dynamic",
+                id="dynamic-suffix-on-selector",
+            ),
+        ],
+    )
+    def test_matches_dynamic_suffix_aliases(self, oci_value):
+        assert oci_value_matches_plugin(
+            oci_value,
+            "quay.io/rhdh/current-image@sha256:abc123",
+            self.PLUGIN_NAME,
+            self.ALTERNATIVE,
+            f"{self.PLUGIN_NAME}-dynamic",
+            f"{self.ALTERNATIVE}-dynamic",
+        )
 
 
 # ---------------------------------------------------------------------------
