@@ -79,8 +79,37 @@ def build_stub_repo(tmp_path, packages, builds, index_json=None):
 
     # The stubs append to a call log, so a test can prove a step did NOT run instead of
     # inferring it from an absent banner — the idiom shell_harness.write_stub_cli uses.
+    # update-index.sh deletes --report-file before Step 1. The bootstrap stub stands in
+    # for the real writer: a fresh file whose plugin rows come from plugin_builds/, with
+    # none of the stages the deleted file held.
     calls = root / "steps.calls"
+    (scripts / "bootstrapPluginBuilds.py").write_text(
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        f"Path({str(calls)!r}).open('a').write('bootstrapPluginBuilds.py\\n')\n"
+        "args = sys.argv[1:]\n"
+        "def flag(name, default=None):\n"
+        "    if name in args:\n"
+        "        return args[args.index(name) + 1]\n"
+        "    return default\n"
+        "report_path = flag('--report-file')\n"
+        "if report_path:\n"
+        "    builds = Path(flag('--plugin-builds-dir', 'plugin_builds'))\n"
+        "    plugins = {}\n"
+        "    if builds.is_dir():\n"
+        "        for path in sorted(builds.glob('*/*.json')):\n"
+        "            data = json.loads(path.read_text())\n"
+        "            for name in data:\n"
+        "                plugins[name] = {'stages': {'bootstrap': {'status': 'pass'}}}\n"
+        "    Path(report_path).write_text(\n"
+        "        json.dumps({'metadata': {}, 'plugins': plugins}) + '\\n'\n"
+        "    )\n"
+        "sys.exit(0)\n",
+        encoding="utf-8",
+    )
     for name in STUBBED:
+        if name == "bootstrapPluginBuilds.py":
+            continue
         (scripts / name).write_text(
             "import sys, pathlib\n"
             f"pathlib.Path({str(calls)!r}).open('a').write({name!r} + '\\n')\n"
@@ -163,6 +192,7 @@ def run_update_index(root, *args, bindir=None):
     }
     return subprocess.run(
         [str(root / "scripts" / "update-index.sh"), "--registry", REGISTRY, *args],
+        check=False,
         env=env,
         cwd=str(root),
         capture_output=True,
@@ -223,9 +253,7 @@ class TestValidationRuns:
             packages=[{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
             builds={"plugin-a": resolved("plugin-a")},
         )
-        result = run_update_index(
-            root, "--community-registry", COMMUNITY_REGISTRY
-        )
+        result = run_update_index(root, "--community-registry", COMMUNITY_REGISTRY)
         assert result.returncode == 0, result.stderr
         assert "registry-not-allowed" not in result.stdout
 
@@ -270,9 +298,7 @@ class TestValidateMode:
 class TestValidationOutputs:
     def test_validation_json_is_written(self, broken_repo, tmp_path):
         out = broken_repo / "validation.json"
-        result = run_update_index(
-            broken_repo, "--validation-json", str(out)
-        )
+        result = run_update_index(broken_repo, "--validation-json", str(out))
         assert result.returncode == 0, result.stderr
         # That the RULES fire is test_validateCatalogIndex.py's job. What only this
         # level can show is that --validation-json reaches the script and the file
@@ -307,6 +333,53 @@ class TestValidationOutputs:
         data = json.loads(report.read_text())
         assert data["plugins"]["plugin-a"]["stages"]["validate"]["status"] == "fail"
 
+    def test_a_previous_report_does_not_keep_stale_stages(self, clean_repo):
+        """A renamed stage and a warning from an earlier fetch must not survive.
+
+        BuildReport.set_stage replaces one stage and leaves every other stage in the
+        file. registry-enrich is the old name of image-metadata-fetch, and validate
+        only writes a stage when this run still has a finding — so neither is cleared
+        by a later clean fetch unless the file is removed before bootstrap opens it.
+        """
+        report = clean_repo / "build-report.json"
+        stale_warning = (
+            "[fallback-tag] 'plugin-a' resolved to 2.2.0--1.0.0 after "
+            "2.0.0--1.0.0 was not found — the index ships an older build"
+        )
+        report.write_text(
+            json.dumps(
+                {
+                    "metadata": {},
+                    "plugins": {
+                        "plugin-a": {
+                            "stages": {
+                                "registry-enrich": {
+                                    "status": "pass",
+                                    "fallback": True,
+                                    "requestedTag": "1.11.0--1.0.0",
+                                    "resolvedTag": "1.11.0--0.9.0",
+                                },
+                                "validate": {
+                                    "status": "pass",
+                                    "warnings": [stale_warning],
+                                },
+                            }
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run_update_index(clean_repo, "--report-file", str(report))
+        assert result.returncode == 0, result.stderr
+        text = report.read_text()
+        assert "registry-enrich" not in text
+        assert "1.11.0--1.0.0" not in text
+        assert stale_warning not in text
+        data = json.loads(text)
+        stages = data["plugins"]["plugin-a"]["stages"]
+        assert "validate" not in stages or "warnings" not in stages["validate"]
+
 
 class TestPathContainment:
     """CLI-supplied paths are confined to the working directory.
@@ -319,7 +392,9 @@ class TestPathContainment:
     @pytest.mark.parametrize(
         "flag, value",
         [
-            pytest.param("--validation-json", "../escaped.json", id="json_relative_escape"),
+            pytest.param(
+                "--validation-json", "../escaped.json", id="json_relative_escape"
+            ),
             pytest.param("--validation-json", "/tmp/escaped.json", id="json_absolute"),
             pytest.param("--output-dir", "../elsewhere", id="output_dir_escape"),
             pytest.param("--plugin-builds-dir", "/etc", id="builds_dir_absolute"),
@@ -363,6 +438,7 @@ class TestPathContainment:
                 "--registry",
                 REGISTRY,
             ],
+            check=False,
             env={
                 "PATH": f"{python_shim(clean_repo.parent)}:{os.environ.get('PATH', '')}",
                 "HOME": os.environ.get("HOME", "/tmp"),
@@ -419,9 +495,7 @@ class TestSanityCheck:
                 str(clean_repo / "catalog-index") if output_dir == "ABS" else output_dir
             )
             extra = ["--output-dir", resolved_dir]
-        result = run_update_index(
-            clean_repo, *extra, "--sanity-check", bindir=bindir
-        )
+        result = run_update_index(clean_repo, *extra, "--sanity-check", bindir=bindir)
         assert result.returncode == 0, result.stderr
         args = argv_log.read_text().split("\n")
         assert "--catalog-index" in args, args
@@ -457,15 +531,11 @@ class TestSanityCheck:
         bindir, _ = toolchain_shims(
             tmp_path, node_version=node_version, yarn_version=yarn_version
         )
-        result = run_update_index(
-            clean_repo, "--sanity-check", bindir=bindir
-        )
+        result = run_update_index(clean_repo, "--sanity-check", bindir=bindir)
         assert result.returncode == 1
         assert expected in result.stderr
 
-    def test_gate_mode_stops_before_the_sanity_check_runs(
-        self, broken_repo, tmp_path
-    ):
+    def test_gate_mode_stops_before_the_sanity_check_runs(self, broken_repo, tmp_path):
         """Pulling ~50 artifacts to validate an index already known to be broken is
         wasted time, and the failure that matters is the one already reported."""
         (broken_repo / "smoke-tests-native").mkdir()
