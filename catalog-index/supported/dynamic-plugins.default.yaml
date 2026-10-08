@@ -788,10 +788,10 @@ plugins:
             broadcastConfig:
               receiver: users
   # Tag: bs_1.54.9__0.9.13, Build date: 2026-05-21T21:24:29Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:1fdba79552072e22aca6dc8a5cf40a949d5648687a87533ceaaca2ab814b3afe
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:556d5f2379ffeb1cefed2075f13e806dcbe212a33117b002d2f89953d85c771d
     enabled: false
   # Tag: bs_1.54.9__0.11.10, Build date: 2026-05-21T21:20:59Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:f452a1dec0ebaaa5bef4a7142ca2d3943b1ab622920d0f01c5dad1826fa0a109
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:816e3c63ff4e2327a5ebeae4bfa83bdfee1b22d1a14e136980809d87353bbfec
     enabled: false
   # Tag: bs_1.54.9__0.0.34, Build date: 2026-06-03T21:12:06Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:2a3d9e15bc6de9384a2ab480af9719d4b2392583e1b246da6764fa0dd1612bac
