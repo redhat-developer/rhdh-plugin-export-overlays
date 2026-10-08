@@ -18,8 +18,8 @@ set -euo pipefail
 #   ./run-e2e.sh -w tech-radar --list          # List projects in a workspace
 #   ./run-e2e.sh -w backstage --workers=2      # Combine workspace filter with Playwright args
 #
-#   # Auto-fetch secrets from HashiCorp Vault during global setup
-#   VAULT=1 ./run-e2e.sh -w tech-radar
+#   # Load readable local secrets from Bitwarden for the test process
+#   ./run-e2e.sh --secrets -w tech-radar
 ##
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
@@ -63,6 +63,9 @@ export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
+# Readable local secrets
+SECRETS_ENABLED=false
+
 # Coverage collection (Istanbul) — enabled by default
 #
 # PR checks: auto-publish-pr.yaml builds __coverage images
@@ -81,21 +84,23 @@ E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
 # Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
 E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
 
-if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
-    CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
-    rm -rf "$CLONE_DIR"
-    git clone --depth 1 --branch "${E2E_TEST_UTILS_GIT_REF#*#}" \
-        "https://github.com/${E2E_TEST_UTILS_GIT_REF%%#*}.git" "$CLONE_DIR"
-    E2E_TEST_UTILS_PATH="$CLONE_DIR"
-fi
-
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
 SELECTED_WORKSPACES=()
 PLAYWRIGHT_ARGS=()
+DRY_RUN_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --secrets)
+            SECRETS_ENABLED=true
+            shift
+            ;;
+        --list)
+            DRY_RUN_MODE=true
+            PLAYWRIGHT_ARGS+=("$1")
+            shift
+            ;;
         -w|--workspace)
             SELECTED_WORKSPACES+=("$2")
             shift 2
@@ -110,6 +115,16 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$DRY_RUN_MODE" != "true" \
+    && "$CI" == "true" \
+    && -z "$GIT_PR_NUMBER" \
+    && ( "$E2E_NIGHTLY_MODE" == "true" || "$E2E_NIGHTLY_MODE" == "1" || "$JOB_NAME" == *periodic-* ) \
+    && -z "${RELEASE_BRANCH_NAME:-}" ]]; then
+    echo "[ERROR] RELEASE_BRANCH_NAME is required for CI nightly/periodic runs."
+    echo "[ERROR] Set it to 'main' or the target release branch."
+    exit 1
+fi
 
 # Auto-skip tests tagged @skip-<job-suffix> based on JOB_NAME.
 # (?!-) ensures exact match — @skip-ocp-helm won't match @skip-ocp-helm-nightly.
@@ -134,12 +149,60 @@ for bin in node yarn jq; do
     command -v "$bin" &>/dev/null || { echo "[ERROR] Missing: $bin"; exit 1; }
 done
 
+NODE_VERSION="$(node --version)"
+REQUIRED_NODE_VERSION="$(jq -r '.node' versions.json)"
+if [[ -z "$REQUIRED_NODE_VERSION" || "$REQUIRED_NODE_VERSION" == "null" ]]; then
+    echo "[ERROR] Could not read the required Node.js version from versions.json."
+    exit 1
+fi
+IFS=. read -r -a NODE_VERSION_PARTS <<< "${NODE_VERSION#v}"
+IFS=. read -r -a REQUIRED_NODE_VERSION_PARTS <<< "$REQUIRED_NODE_VERSION"
+for index in 0 1 2; do
+    if (( NODE_VERSION_PARTS[index] < REQUIRED_NODE_VERSION_PARTS[index] )); then
+        echo "[ERROR] Node.js ${NODE_VERSION#v} is below the minimum ${REQUIRED_NODE_VERSION} specified in versions.json."
+        echo "[ERROR] Switch runtimes before running E2E tests, for example: nvm use ${REQUIRED_NODE_VERSION}"
+        exit 1
+    elif (( NODE_VERSION_PARTS[index] > REQUIRED_NODE_VERSION_PARTS[index] )); then
+        break
+    fi
+done
+if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_VERSION" ]]; then
+    echo "[WARN] Node.js ${NODE_VERSION#v} is not aligned with versions.json (${REQUIRED_NODE_VERSION}); continuing."
+fi
+
+# Validate local secrets before dependency setup; --list never reads secrets.
+if [[ "$SECRETS_ENABLED" == "true" && "$DRY_RUN_MODE" != "true" ]]; then
+    if ! command -v bw &>/dev/null; then
+        echo "[ERROR] --secrets requires the Bitwarden Password Manager CLI (bw) on PATH."
+        echo "[HINT] Install the CLI and add it to PATH: https://bitwarden.com/help/cli/"
+        exit 1
+    fi
+    if [[ ! "${BW_SESSION:-}" =~ [^[:space:]] ]]; then
+        echo "[ERROR] --secrets requires a nonempty, exported BW_SESSION."
+        echo "[HINT] Run 'bw login' if needed, then unlock and export a session in this shell:"
+        echo "[HINT] BW_SESSION=\"\$(env -u BW_CLEANEXIT bw unlock --raw)\" && export BW_SESSION"
+        exit 1
+    fi
+    # BW_CLEANEXIT would turn a locked/unauthenticated result into exit code 0.
+    if ! (
+        unset BW_CLEANEXIT
+        bw unlock --check --nointeraction </dev/null >/dev/null 2>&1
+    ); then
+        echo "[ERROR] Bitwarden session check failed."
+        echo "[HINT] Run 'bw status'. If unauthenticated, run 'bw login'; then unlock and export a fresh session:"
+        echo "[HINT] BW_SESSION=\"\$(env -u BW_CLEANEXIT bw unlock --raw)\" && export BW_SESSION"
+        echo "[HINT] For CLI diagnostics: env -u BW_CLEANEXIT bw unlock --check --nointeraction"
+        exit 1
+    fi
+    echo "[INFO] Bitwarden session is unlocked."
+fi
+
 corepack enable 2>/dev/null || true
-echo "[INFO] Node $(node --version) | Yarn $(yarn --version)"
+echo "[INFO] Node $NODE_VERSION | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
     echo "[INFO] Cluster: $(oc whoami --show-server) ($(oc whoami))"
-elif [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" ]]; then
+elif [[ "$DRY_RUN_MODE" != "true" ]]; then
     echo "[ERROR] Not logged into a cluster. Login with 'oc login' first."
     exit 1
 fi
@@ -177,6 +240,13 @@ fi
 
 # ── Install dependencies (yarn workspaces) ────────────────────────────────────
 
+if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
+    CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
+    rm -rf "$CLONE_DIR"
+    git clone --depth 1 --branch "${E2E_TEST_UTILS_GIT_REF#*#}" \
+        "https://github.com/${E2E_TEST_UTILS_GIT_REF%%#*}.git" "$CLONE_DIR"
+    E2E_TEST_UTILS_PATH="$CLONE_DIR"
+fi
 
 WORKSPACE_PATHS=$(printf ', "workspaces/%s/e2e-tests"' "${E2E_WORKSPACES[@]}")
 WORKSPACE_PATHS="[${WORKSPACE_PATHS:2}]"
@@ -288,10 +358,10 @@ CONFIGEOF
 GENERATED_FILES+=("playwright.config.ts")
 echo "[INFO] Generated playwright.config.ts (${#E2E_WORKSPACES[@]} workspaces)"
 
-# ── List mode ─────────────────────────────────────────────────────────────────
-# Skip globalSetup and teardown reporter — just list test names.
+# ── Dry-run mode ──────────────────────────────────────────────────────────────
+# Currently enabled by --list: skip globalSetup and teardown reporter.
 
-if [[ "${PLAYWRIGHT_ARGS[0]:-}" == "--list" ]]; then
+if [[ "$DRY_RUN_MODE" == "true" ]]; then
     # Generate a lightweight config that skips setup/teardown
     sed 's/\.\.\.baseConfig,/...baseConfig, globalSetup: undefined, globalTeardown: undefined, reporter: [["list"]],/' \
         playwright.config.ts > playwright.list.config.ts
@@ -299,8 +369,8 @@ if [[ "${PLAYWRIGHT_ARGS[0]:-}" == "--list" ]]; then
 
     echo ""
     echo "Listing tests:"
-    npx playwright test --list --config playwright.list.config.ts \
-        "${PLAYWRIGHT_ARGS[@]:1}" 2>&1 || true
+    npx playwright test --config playwright.list.config.ts \
+        "${PLAYWRIGHT_ARGS[@]}" 2>&1 || true
     exit 0
 fi
 
@@ -312,7 +382,22 @@ npx playwright install chromium
 
 echo ""
 TEST_EXIT_CODE=0
-npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+if [[ "$SECRETS_ENABLED" == "true" ]]; then
+    SECRETS_EXECUTABLE="$SCRIPT_DIR/node_modules/.bin/rhdh-e2e-secrets"
+    if [[ ! -x "$SECRETS_EXECUTABLE" ]]; then
+        echo "[ERROR] rhdh-e2e-secrets is not installed. Install the pinned e2e-test-utils package first."
+        exit 1
+    fi
+
+    SECRET_ARGS=(exec --profile "$SCRIPT_DIR/e2e-secrets.profile.json")
+    for ws in "${E2E_WORKSPACES[@]}"; do
+        SECRET_ARGS+=(--workspace "$ws")
+    done
+    SECRET_ARGS+=(-- npx playwright test)
+    "$SECRETS_EXECUTABLE" "${SECRET_ARGS[@]}" "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+else
+    npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+fi
 
 # ── Coverage artifacts ───────────────────────────────────────────────────
 # The instrumented plugins emit per-test coverage JSONs (written by the

@@ -585,6 +585,9 @@ class TestFallbackRebuildCta:
         assert "backstage-plugin-kubernetes" in out
         assert "2.0--1.5.4" in out
         assert "2.0--1.6.0" in out
+        assert "(container, have_tag, requested_tag)" in out
+        assert "have_older_tag" not in out
+        assert "should_have_newer_tag" not in out
         # Midstream-only guidance must not appear from the upstream overlays repo.
         assert "sync-midstream.sh" not in out
         assert "generatePipelineRunsForPlugins.sh" not in out

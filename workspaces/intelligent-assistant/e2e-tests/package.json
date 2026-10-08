@@ -15,7 +15,7 @@
     "test:ui": "playwright test --ui",
     "test:ui:serial": "playwright test --ui --workers=1",
     "test:headed": "playwright test --headed",
-    "test:vault": "VAULT=1 playwright test",
+    "test:secrets": "rhdh-e2e-secrets exec --profile ../../../e2e-secrets.profile.json --workspace intelligent-assistant -- playwright test",
     "report": "playwright show-report",
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",

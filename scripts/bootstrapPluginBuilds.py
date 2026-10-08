@@ -163,6 +163,20 @@ def construct_registry_reference(
     return f"{registry_base}/{image_name}:{tag}"
 
 
+def clear_fallback_markers(plugin_entry: dict) -> None:
+    """Drop fallback markers copied from a previous plugin_builds JSON.
+
+    Bootstrap rewrites ``registryReference`` from the current overlay version
+    and RHDH prefix. A stored ``requestedTag`` from an older prefix (for
+    example ``2.0.0--…`` on a 2.1 or 2.2 index) would otherwise survive and
+    be reported as the tag this run still needs. The registry fetch in the
+    same run sets ``fallback`` and ``requestedTag`` again only when the new
+    tag is actually missing.
+    """
+    plugin_entry.pop("fallback", None)
+    plugin_entry.pop("requestedTag", None)
+
+
 def main():
     usage="""
 Usage: python3 bootstrapPluginBuilds.py [--debug] \\
@@ -410,6 +424,7 @@ Examples:
                     plugin_entry['registryReference'] = registry_reference
                 elif 'registryReference' not in plugin_entry:
                     plugin_entry['registryReference'] = ""
+                clear_fallback_markers(plugin_entry)
 
                 new_data = {image_name: plugin_entry}
 
