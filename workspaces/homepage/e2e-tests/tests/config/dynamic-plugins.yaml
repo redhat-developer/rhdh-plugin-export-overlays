@@ -6,7 +6,15 @@
 # (the page renders the empty state instead of the customizable grid).
 # Refs must be the extension ids, and the list must include every widget the
 # tests add. This pluginConfig replaces the metadata example.
+#
+# The RHDH image also ships homepage and homepage-backend. The installer
+# rejects two different homepage.defaultWidgets values, so the image copies
+# are turned off and the PR packages below are the ones that load.
 plugins:
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+    enabled: false
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage-backend:{{inherit}}
+    enabled: false
   # Version from workspaces/backstage export: backstage-plugin-home
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.6__0.9.9
     enabled: true
