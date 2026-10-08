@@ -65,8 +65,7 @@ class Rule(NamedTuple):
 RULES: dict[str, Rule] = {
     "ref-form": Rule(
         ERROR,
-        "a plugins[].package value is neither an oci:// ref nor a "
-        "./dynamic-plugins/dist/ path",
+        "a plugins[].package value is not an oci:// reference",
     ),
     "duplicate-ref": Rule(
         ERROR,
@@ -619,20 +618,12 @@ def check_dpdy(
             continue
         seen_refs[package] = entry.position
 
-        if package.startswith(LOCAL_PREFIX):
-            # Ships inside the RHDH image; there is no artifact to resolve, so none of
-            # the registry rules apply.
-            continue
-
         ref = parse_oci_ref(package)
         if ref is None:
             findings.append(
                 Finding(
                     rule="ref-form",
-                    message=(
-                        f"plugins[{entry.position}]: '{package}' is neither an "
-                        f"{OCI_PREFIX} ref nor a {LOCAL_PREFIX} path"
-                    ),
+                    message=f"plugins[{entry.position}]: '{package}' is not an {OCI_PREFIX} reference",
                 )
             )
             continue
@@ -1195,11 +1186,7 @@ def validate(
 
     kept, suppressed = apply_allowlist(findings, allowlist)
 
-    local_refs = sum(1 for e in entries if e.package.startswith(LOCAL_PREFIX))
-    # Counted from the entries, not from `by_image`: that dict collapses a repeated ref,
-    # the same image at two refs, and drops a malformed one entirely, so using its
-    # length made the rendered summary fail to add up.
-    oci_refs = len(entries) - local_refs
+    oci_refs = sum(1 for entry in entries if parse_oci_ref(entry.package) is not None)
     return ValidationResult(
         findings=kept,
         suppressed=suppressed,
@@ -1207,7 +1194,6 @@ def validate(
             "packages": len(entries),
             "oci_refs": oci_refs,
             "oci_images": len(by_image),
-            "local_refs": local_refs,
             "enabled": sum(1 for e in entries if e.enabled),
             "plugin_builds": len(builds),
             "index_entries": len(index) if index is not None else 0,
@@ -1222,8 +1208,8 @@ def render(result: ValidationResult) -> str:
     stats = result.stats
     lines.append(
         f"{stats.get('packages', 0)} package(s) declared "
-        f"({stats.get('oci_refs', 0)} oci over {stats.get('oci_images', 0)} distinct "
-        f"image(s), {stats.get('local_refs', 0)} in-image, "
+        f"({stats.get('oci_refs', 0)} OCI refs across {stats.get('oci_images', 0)} distinct "
+        f"image(s), "
         f"{stats.get('enabled', 0)} enabled) against "
         f"{stats.get('plugin_builds', 0)} plugin_builds entries and "
         f"{stats.get('index_entries', 0)} index.json entries"

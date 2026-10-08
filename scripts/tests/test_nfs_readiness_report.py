@@ -71,8 +71,8 @@ def _repo(tmp_path, packages, tier="community"):
     inference from reaching out to raw.githubusercontent.com.
 
     ``tier`` puts the whole workspace in one tier file, through the script's
-    per-workspace fallback. ``None`` leaves both files empty, which the report
-    classifies as the "other" tier and still includes.
+    per-workspace fallback. ``None`` leaves both files empty, so packages are classified
+    as ``supportTier: other`` and appear under **Other** in markdown (#4073).
     """
     workspace = "sample"
     # The fallback keys on the text before the first "/", so this must name the workspace.
@@ -237,22 +237,18 @@ class TestMarkdownOutput:
 
 
 class TestOtherTier:
-    """Packages in neither tier file are reported under the other tier."""
+    """Workspaces absent from both tier files are classified ``other`` and still reported (#4073)."""
 
     @staticmethod
-    def test_a_package_in_no_tier_file_is_reported_as_other(tmp_path):
-        """Both outputs include the package, classified as other."""
+    def test_a_package_in_no_tier_file_appears_under_other(tmp_path):
+        """JSON and markdown include ``other``; the per-tier block is **Other**, not Community."""
         root = _repo(tmp_path, MIXED, tier=None)
         classified = _classified(root)
-        assert set(classified) == {
-            "@scope/plugin-a",
-            "@scope/plugin-b",
-            "@scope/plugin-c",
-            "@scope/plugin-d",
-        }
-        assert {entry["supportTier"] for entry in classified.values()} == {"other"}
+        assert set(classified) == {name for name, _, _ in MIXED}
+        assert all(entry["supportTier"] == "other" for entry in classified.values())
         stdout = _markdown(root)
         assert "**Frontend plugins:** 2 total" in stdout
         assert "#### Other (0%)" in stdout
         assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
+        assert "#### Community" not in stdout
         assert "| @scope/plugin-b | sample |" in stdout
