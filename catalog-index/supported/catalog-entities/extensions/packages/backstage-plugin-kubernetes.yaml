@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage/plugin-kubernetes"
   # Tag: bs_1.54.9__0.12.22
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:75e29f72483a88dba1d750fd6d47401e742171984dda51978c598b7ba907e3c7"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:4dc0714ab41496ca9376a928accddb9123f9bbfd2a6557c3f03da70cb83327eb"
   version: 0.12.22
   backstage:
     role: frontend-plugin
