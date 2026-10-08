@@ -584,7 +584,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f9f976a06b41ccbe06e76f22e445addbb8c5def6e314dcfaa4f6eee77bcd56e8"
+          "digest": "sha256:1fdba79552072e22aca6dc8a5cf40a949d5648687a87533ceaaca2ab814b3afe"
         },
         "dpdy": {
           "status": "pass"
@@ -606,7 +606,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a7c74dafaae6c25b947a3a03ae1e57c9f7d80e0d72fe4bc840cc2f89ac31b498"
+          "digest": "sha256:f452a1dec0ebaaa5bef4a7142ca2d3943b1ab622920d0f01c5dad1826fa0a109"
         },
         "dpdy": {
           "status": "pass"
@@ -628,7 +628,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ef9584790d872a648e439d92accf0f2dbc2219debd721b124d2a3fc90aaa7de6"
+          "digest": "sha256:d7489eaeeec1a2855daeb2105cf91db2e95be3262571b2026653fd1e30e9d3ec"
         },
         "dpdy": {
           "status": "pass"
@@ -650,7 +650,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3d5b4fef62029cb93b7217d1ad19a15749999ce2c0a683820556fb2281aeb0d6"
+          "digest": "sha256:2a3d9e15bc6de9384a2ab480af9719d4b2392583e1b246da6764fa0dd1612bac"
         },
         "dpdy": {
           "status": "pass"
@@ -672,7 +672,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c32b1717f1b9947c3a4d57cde6d4d5f9c243eede458ee4fece53ce14f1aa39ad"
+          "digest": "sha256:1dc45771697fe8f8b067cf4dfdba42fcd2b9707b9c450bc433f80b669aa97117"
         },
         "dpdy": {
           "status": "pass"
@@ -716,7 +716,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1c2e5cc533fc5f6a11a6c242fccbbcc4459554c3a4e42ea14cf4ba52f18cf422"
+          "digest": "sha256:dff30013b537d24ffdcc158ce5071f40b4da87391a374cd08e523714861933a3"
         },
         "dpdy": {
           "status": "pass"
@@ -881,7 +881,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage-backend' resolved to bs_1.54.9__0.5.0 after bs_1.54.9__0.6.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage-backend' resolved to bs_1.54.9__0.5.0 after bs_1.54.9__0.6.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -909,7 +909,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage' resolved to bs_1.54.9__1.18.0 after bs_1.54.9__3.0.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage' resolved to bs_1.54.9__1.18.0 after bs_1.54.9__3.0.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -937,7 +937,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.9__5.3.6 after bs_1.54.9__5.3.5 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.9__5.3.6 after bs_1.54.9__5.3.5 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -965,7 +965,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.9__5.3.6 after bs_1.54.9__5.3.5 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.9__5.3.6 after bs_1.54.9__5.3.5 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1059,7 +1059,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.9__8.13.1 after bs_1.54.9__8.13.2 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.9__8.13.1 after bs_1.54.9__8.13.2 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1087,7 +1087,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.9__2.2.0 after bs_1.54.9__2.2.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.9__2.2.0 after bs_1.54.9__2.2.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1115,7 +1115,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.9__6.2.1 after bs_1.54.9__6.2.4 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.9__6.2.1 after bs_1.54.9__6.2.4 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1209,7 +1209,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-community-plugin-rbac' resolved to bs_1.54.9__2.3.1 after bs_1.54.9__2.3.4 was not found — the index ships an older build"
+            "[fallback-tag] 'backstage-community-plugin-rbac' resolved to bs_1.54.9__2.3.1 after bs_1.54.9__2.3.4 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1237,7 +1237,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'roadiehq-scaffolder-backend-module-http-request' resolved to bs_1.54.9__5.9.0 after bs_1.54.9__5.8.0 was not found — the index ships an older build"
+            "[fallback-tag] 'roadiehq-scaffolder-backend-module-http-request' resolved to bs_1.54.9__5.9.0 after bs_1.54.9__5.8.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
