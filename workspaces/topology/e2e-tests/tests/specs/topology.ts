@@ -18,6 +18,31 @@ export function topologyEntityTab(page: Page) {
   return page.getByRole("menuitemradio", { name: "Topology" });
 }
 
+/**
+ * Temporal fix for https://redhat.atlassian.net/browse/RHDHBUGS-3898.
+ * Entity tab links navigate the document instead of routing client-side, so
+ * opening Topology can land on the sign-in page. Same pattern as scorecard.
+ */
+async function ensureSignedIn(page: Page, expectedLocator: Locator) {
+  const signIn = page.getByRole("button", { name: "Sign In", exact: true });
+
+  const signedOut = await Promise.race([
+    signIn
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => true)
+      .catch(() => null),
+    expectedLocator
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => false)
+      .catch(() => null),
+  ]);
+  if (!signedOut) return;
+
+  // Keycloak SSO is still alive — Sign In returns to the Topology tab.
+  await signIn.click();
+  await expect(expectedLocator).toBeVisible({ timeout: 60_000 });
+}
+
 async function downloadAndReadFile(
   page: Page,
   locator: Locator,
@@ -94,6 +119,11 @@ export class Topology {
     await this.uiHelper.clickButtonByLabel("Deployment");
     await expect(topologyEntityTab(this.page)).toBeVisible();
     await topologyEntityTab(this.page).click();
+    // Tab hard-nav can flash sign-in (RHDHBUGS-3898); recover then assert heading.
+    await ensureSignedIn(
+      this.page,
+      this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
+    );
     await this.uiHelper.verifyHeading(BACKSTAGE_JANUS_COMPONENT);
   }
 
