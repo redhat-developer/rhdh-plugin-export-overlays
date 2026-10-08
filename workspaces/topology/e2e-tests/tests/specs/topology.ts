@@ -7,8 +7,12 @@ const BACKSTAGE_JANUS_PATH = `/catalog/default/component/${BACKSTAGE_JANUS_COMPO
 
 /**
  * Locator for the Topology entity tab inside the "Deployment" dropdown.
- * The NFS entity page groups tabs by default — topology falls under the
- * "Deployment" content group (see page:catalog/entity default groups).
+ *
+ * NFS groups entity tabs (see page:catalog/entity default groups). Topology and
+ * Kubernetes both live under the "deployment" group. When more than one group
+ * item is visible, NFS renders a "Deployment" button with menuitemradio
+ * entries; when only one remains (e.g. Kubernetes after Topology is gated),
+ * that item is promoted to a top-level tab instead.
  */
 export function topologyEntityTab(page: Page) {
   return page.getByRole("menuitemradio", { name: "Topology" });
@@ -52,15 +56,29 @@ export class Topology {
   }
 
   /**
-   * Opens the entity page and asserts the Topology tab is hidden when the user
+   * Opens the entity page and asserts Topology is unavailable when the user
    * lacks kubernetes.clusters.read / kubernetes.resources.read (NFS permission gate).
+   *
+   * With Topology gated away, Kubernetes is the sole visible "deployment" group
+   * item, so NFS promotes it to a top-level "Kubernetes" tab (no Deployment
+   * dropdown and no Topology entry).
    */
   async verifyMissingTopologyTab() {
     await this.page.goto(BACKSTAGE_JANUS_PATH);
     await expect(
       this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
     ).toBeVisible({ timeout: 30_000 });
-    await this.uiHelper.clickButtonByLabel("Deployment");
+
+    // Single remaining deployment-group item is promoted to a top-level tab.
+    await expect(
+      this.page.getByRole("link", { name: "Kubernetes", exact: true }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("button", { name: "Deployment" }),
+    ).toBeHidden();
+    await expect(
+      this.page.getByRole("link", { name: "Topology", exact: true }),
+    ).toBeHidden();
     await expect(topologyEntityTab(this.page)).toBeHidden();
   }
 
