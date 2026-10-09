@@ -12,9 +12,9 @@ The version of Backstage that the target platform is built on. Defined in `versi
 
 ```json
 {
-  "backstage": "1.45.3",
-  "node": "22.19.0",
-  "cli": "1.9.1",
+  "backstage": "1.54.9",
+  "node": "24.21.0",
+  "cli": "2.1.2",
   "cliPackage": "@red-hat-developer-hub/cli"
 }
 ```
@@ -28,7 +28,7 @@ The Backstage version your plugin is compatible with:
 ```yaml
 spec:
   backstage:
-    supportedVersions: 1.42.5  # Plugin was built/tested against this version
+    supportedVersions: 1.54.9  # Plugin was built/tested against this version
 ```
 
 ### Source Backstage Version
@@ -37,7 +37,7 @@ The Backstage version the source repository uses:
 
 ```json
 {
-  "repo-backstage-version": "1.45.0"
+  "repo-backstage-version": "1.54.9"
 }
 ```
 
@@ -51,7 +51,7 @@ Your plugin's source Backstage version should be **less than or equal to** the t
 
 ```
 source repo-backstage-version ≤ versions.json backstage
-            1.45.0            ≤      1.45.3     ✅
+            1.54.0            ≤      1.54.9     ✅
 ```
 
 ### Rule 2: Best-Effort Matching
@@ -94,7 +94,7 @@ When any of these signals appear:
 
 ```bash
 cat versions.json | jq '.backstage'
-# "1.45.3"
+# "1.54.9"
 ```
 
 ### Step 2: Find Compatible Plugin Version
@@ -122,7 +122,7 @@ curl -s "https://raw.githubusercontent.com/backstage/community-plugins/@backstag
   "repo": "https://github.com/backstage/community-plugins",
   "repo-ref": "@backstage-community/plugin-your-plugin@1.2.3",
   "repo-flat": false,
-  "repo-backstage-version": "1.45.0"
+  "repo-backstage-version": "1.54.9"
 }
 ```
 
@@ -134,7 +134,7 @@ For each file in `metadata/*.yaml`:
 spec:
   version: 1.2.3                    # Match new plugin version
   backstage:
-    supportedVersions: 1.45.0       # Match source Backstage version
+    supportedVersions: 1.54.9       # Match source Backstage version
 ```
 
 ### Step 6: Verify and Test
@@ -143,7 +143,7 @@ spec:
 # Create PR and trigger build
 git checkout -b update-your-plugin-version
 git add .
-git commit -m "chore: update your-plugin to 1.2.3 (Backstage 1.45.0)"
+git commit -m "chore: update your-plugin to 1.2.3 (Backstage 1.54.9)"
 git push origin update-your-plugin-version
 
 # Open PR, then comment:
@@ -213,10 +213,10 @@ Comment on your workspace PR:
 
 ```json
 {
-  "backstage": "1.45.3",        // Target Backstage version for all plugins
-  "node": "22.19.0",            // Node.js version for builds
-  "cli": "1.9.1",               // CLI tool version
-  "cliPackage": "@red-hat-developer-hub/cli"  // CLI package name
+    "backstage": "1.54.9",
+    "node": "24.21.0",
+    "cli": "2.1.2",
+    "cliPackage": "@red-hat-developer-hub/cli"
 }
 ```
 
@@ -227,7 +227,7 @@ Comment on your workspace PR:
   "repo": "https://github.com/backstage/community-plugins",
   "repo-ref": "@backstage-community/plugin-x@1.2.3",  // Exact version tag
   "repo-flat": false,
-  "repo-backstage-version": "1.45.0"  // Backstage version at this ref
+  "repo-backstage-version": "1.54.9"  // Backstage version at this ref
 }
 ```
 
@@ -238,7 +238,7 @@ spec:
   version: 1.2.3                    # Plugin version (must match source)
   backstage:
     role: backend-plugin            # Plugin role
-    supportedVersions: 1.45.0       # Backstage version compatibility
+    supportedVersions: 1.54.9       # Backstage version compatibility
 ```
 
 ---
