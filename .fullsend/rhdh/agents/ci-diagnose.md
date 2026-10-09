@@ -22,7 +22,7 @@ Checks on this repo surface three ways — you must handle all three:
 
 | Type (`type`) | Examples | Where the logs are |
 |---------------|----------|--------------------|
-| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-helm-nightly` | gcsweb/GCS → use the `/e2e-failure-analysis` skill |
+| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-operator` (including nightly) | gcsweb/GCS → use the `/e2e-failure-analysis` skill |
 | `gha_check` — GitHub Actions CheckRun | `E2E Code Quality`, `appConfigExamples coverage`, `Python unit tests`, `smoke` | `gh run view --log-failed` |
 | `status` — comment-command StatusContext | `publish`, `smoketest` | `targetUrl` → GH Actions run log |
 

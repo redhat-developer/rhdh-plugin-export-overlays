@@ -353,7 +353,9 @@ All files in `tests/config/` are **optional** — only create them when you need
 - `rhdh-secrets.yaml` — Kubernetes Secret manifest for injecting env vars into RHDH
 - `dynamic-plugins.yaml` — Plugin overrides (usually NOT needed — auto-generated from metadata)
 - `value_file.yaml` — Helm chart value overrides
-- `subscription.yaml` — Operator subscription overrides
+- `subscription.yaml` — Operator `Backstage` CR overrides (not an OLM Subscription)
+
+Helm reads `value_file.yaml`; the operator reads `subscription.yaml`. Put shared application settings in `app-config-rhdh.yaml`. Verify flavour names and workload/ConfigMap names against the target operator version; Helm resource names do not carry over automatically.
 
 **Environment variables in RHDH config:** To use an env var in `app-config-rhdh.yaml`, it must first be defined in `rhdh-secrets.yaml`. The flow is:
 
@@ -465,12 +467,12 @@ CI=false GIT_PR_NUMBER=1845 ./run-e2e.sh --secrets -w tech-radar
 
 ### CI behavior for local runs
 
-The current checkout and `e2e-test-utils` 2.2.1 have these local-run caveats:
+The current checkout has these local-run caveats:
 
 - The root runner sets an unset or empty `CI` to `"true"`. Use `CI=true` for automatic namespace cleanup or `CI=false` to retain deployments for debugging.
 - `CI=false` is a nonempty string. It still enables `forbidOnly` and ignores `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true`; it does not fully disable CI behavior.
 - In `backstage`, GitHub-discovery and TechDocs projects use one retry with either string and zero with `CI` unset. GitLab scaffolder resource cleanup defaults to enabled only for `CI=true`; override it independently with `GITLAB_SCAFFOLDER_CLEANUP=true` or `false`.
-- For nightly reproduction with `CI=false`, also set `E2E_NIGHTLY_MODE=true` and `RELEASE_BRANCH_NAME=main` (or the target release branch). The shared metadata resolver still requires the branch despite the shell preflight accepting its absence.
+- For local nightly reproduction, set `E2E_NIGHTLY_MODE=true`; the root runner defaults `RELEASE_BRANCH_NAME` to `main`. Set the branch explicitly for another release, direct workspace runs with a nonempty `CI`, or Prow jobs.
 - Set `CI` in the launching shell, not workspace `.env` files: those load after Playwright configuration evaluation and can make configuration and cleanup use different values.
 
 Direct workspace runs normally need no `CI` setting. The workspace example uses `unset CI` once to clear any inherited value for subsequent commands in that shell. For a single command without changing the shell's environment, use `env -u CI yarn test:secrets --headed` from the workspace directory instead.
@@ -490,13 +492,14 @@ oc delete project <namespace>
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `RHDH_VERSION` | RHDH version to deploy; the root runner sets it, and workspace configuration may override it | Entry-point/config dependent |
+| `RHDH_VERSION` | RHDH version to deploy; workspace configuration may override it | `next` in root runner |
 | `INSTALLATION_METHOD` | `"helm"` or `"operator"` | `"helm"` |
 | `GIT_PR_NUMBER` | PR number — enables PR mode with PR-built OCI images | - |
 | `E2E_NIGHTLY_MODE` | `"true"` or `"1"` — enables nightly mode with released OCI refs | - |
-| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution; required when `CI` is nonempty, including `"false"` | `main` only when `CI` is unset or empty |
+| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution | `main` in local root runs; supplied by Prow jobs |
 | `JOB_NAME` | CI job name; `periodic-` prefix triggers nightly mode | - |
 | `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak in global setup | - |
+| `SKIP_OPERATOR_INSTALLATION` | Reuse an installed operator when `INSTALLATION_METHOD=operator` | Unset (install operator) |
 | `CI` | See [CI behavior for local runs](#ci-behavior-for-local-runs) for cleanup and focused-test behavior | `true` in root runner |
 | `E2E_TEST_UTILS_PATH` | Local e2e-test-utils build path (takes precedence over version) | - |
 | `E2E_TEST_UTILS_VERSION` | Pin e2e-test-utils npm version | `latest` (nightly) |
@@ -511,11 +514,15 @@ oc delete project <namespace>
 
 Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
 
+Operator jobs use `e2e-ocp-operator` / `e2e-ocp-operator-nightly` when enabled in OpenShift CI. Diagnose the installation method from the build log, not the job name alone.
+
 ### Failure Analysis
 
 A Claude Code skill is available at `.claude/skills/` for investigating E2E failures:
 
 - **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison
+
+The same skill is available under `.agents/skills/`; both paths link to `.fullsend/skills/e2e-failure-analysis`. Its architecture reference covers Helm and operator configuration differences.
 
 ## E2E Nightly Fix Conventions
 

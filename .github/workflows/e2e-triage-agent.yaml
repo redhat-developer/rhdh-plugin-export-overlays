@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       prow_url:
-        description: "Prow/GCSWeb URL of a failed run. Leave empty to auto-discover."
+        description: "Failed Helm/operator nightly Prow/GCSWeb URL. Leave empty to discover Helm nightly."
         required: false
         type: string
       branch:

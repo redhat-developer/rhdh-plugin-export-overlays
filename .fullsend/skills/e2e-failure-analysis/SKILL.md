@@ -1,6 +1,6 @@
 ---
 name: e2e-failure-analysis
-description: "Debug and analyze E2E test failures when the user shares a gcsweb URL or asks to investigate a PR check / e2e-ocp-helm failure."
+description: "Debug E2E failures from Prow/gcsweb URLs or PR checks, including Helm and operator runs."
 ---
 
 # E2E Failure Analysis
@@ -24,7 +24,7 @@ echo "ARTIFACTS=${ARTIFACTS}"
 echo "BUILD_LOG=${BUILD_LOG}"
 ```
 
-The script parses both PR check and nightly (periodic) prow/gcsweb URLs, downloads
+The script parses Helm/operator PR check and nightly (periodic) prow/gcsweb URLs, downloads
 artifacts via the public GCS JSON API (no gcloud dependency), and prints the
 `ARTIFACTS` path. Each run re-downloads artifacts fresh (any previous cache for the
 same URL is cleared first).
@@ -50,7 +50,7 @@ This script gives you:
 - `YAML file ... does not exist` — Missing config/secrets file (wrong path or missing `secrets:` in configure())
 - Config dump missing expected sections (e.g., no `integrations:`) — config file not loaded
 - `CrashLoopBackOff` / `ImagePullBackOff` — pod-level failures
-- Failed helm install or pod readiness timeout
+- Failed Helm install, operator installation/reconciliation, or pod readiness timeout
 
 **All failure types proceed to Step 3 (Group and Analyze)**, which delegates to
 `workspace-analysis.md` for the full analysis methodology — including which

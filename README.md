@@ -181,10 +181,17 @@ This creates `backstage.json` with the target version and updates all metadata O
 - If the plugin works with RHDH (either via automatic or manual testing), **change the label** to `tested`
 - Once the PR is merged, the final OCI artifact will be published with the tag: `bs_<backstage_version>__<plugin_version>`
 
-## Local E2E release branch
+## Local E2E runs
 
 The runner defaults to Helm with `RHDH_VERSION=next`. Set `INSTALLATION_METHOD`
 or `RHDH_VERSION` explicitly to override these defaults.
+
+After cluster login and [secret setup](./user-guide/09-managing-e2e-secrets.md#running-tests-with-secrets), run an operator workspace and retain its deployment with:
+
+```bash
+CI=false INSTALLATION_METHOD=operator E2E_NIGHTLY_MODE=true \
+  ./run-e2e.sh --secrets -w quickstart
+```
 
 `run-e2e.sh` defaults `RELEASE_BRANCH_NAME` to `main` for local runs, including
 nightly runs with `CI=false`. Set it explicitly to test another release branch.

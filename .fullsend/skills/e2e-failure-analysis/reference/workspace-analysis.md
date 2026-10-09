@@ -272,7 +272,8 @@ Location: `$(dirname "$ARTIFACTS")/build-log.txt`
 
 The build log covers all projects in one file. Filter by project name to avoid noise
 from other projects. Also check env vars (`GIT_PR_NUMBER`, `E2E_NIGHTLY_MODE`) to
-determine the deployment mode — it affects how plugins are resolved.
+determine the plugin resolution mode, and logged `INSTALLATION_METHOD` or deployment
+`method` to distinguish Helm from operator runs. The job name is only a clue.
 
 ## Analyzing Grouped Workspaces
 
@@ -337,9 +338,26 @@ The project name tells you which log directory to check.
 1. Config Merge: Package defaults → Auth config → Workspace overrides (deep merge)
 2. Secrets: envsubst on rhdh-secrets.yaml only ($VAR → value)
 3. Dynamic Plugins: auto-generate from metadata or use explicit file; resolve OCI URLs
-4. Helm Install: helm upgrade -i
+4. Install: Helm upgrade or apply the operator Backstage CR
 5. Readiness: Pod Ready + HTTP health check → sets RHDH_BASE_URL
 ```
+
+### Installation Methods
+
+Helm consumes `value_file.yaml`; the operator consumes `subscription.yaml`, which
+contains a `Backstage` CR, not the OLM Subscription that installs the operator.
+Shared application settings belong in `app-config-rhdh.yaml`.
+
+For operator setup failures, check the build log for catalog/Subscription/CSV
+installation errors before inspecting Backstage conditions and generated resources.
+Verify flavour names, workload kind/name, ConfigMap names, and container targets
+against the operator version used by the run. Config arrays are replaced during
+test-utils merging, so secret overrides must retain every required container target.
+
+Identify the owner before suggesting a fix: workspace CR/config errors belong here;
+shared deployment logic belongs in test-utils; operator or installer defects belong
+in their upstream repos. Duplicate-plugin rejection alone does not prove an installer
+bug—check whether defaults and user entries were intended to override or be additive.
 
 ### Secret Flow
 

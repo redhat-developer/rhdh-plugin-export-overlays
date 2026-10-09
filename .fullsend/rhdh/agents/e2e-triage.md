@@ -58,7 +58,7 @@ The Prow job name encodes the branch. Extract it:
 JOB_NAME=$(echo "$PROW_URL" | grep -oP '(?<=logs/)[^/]+')
 TARGET_BRANCH=$(echo "$JOB_NAME" \
   | sed 's/^periodic-ci-redhat-developer-rhdh-plugin-export-overlays-//' \
-  | sed 's/-e2e-ocp-helm.*//')
+  | sed -E 's/-e2e-ocp-(helm|operator).*//')
 echo "Target branch: $TARGET_BRANCH"
 ```
 
@@ -128,9 +128,12 @@ workspace, assign a `fix_category`:
 |----------|------|
 | `infra_flake` | Transient infra issue (OCP cluster, network, timing) |
 | `test_fix` | Test code, config, or deployment config needs updating |
-| `product_bug` | Bug in plugin source code (not in this repo) |
+| `product_bug` | Bug in a plugin, operator, or installer (outside this repo) |
 | `environment` | CI env problem (expired creds, missing secrets, quota) |
 | `upstream_test_utils` | Bug in `@red-hat-developer-hub/e2e-test-utils` (fixtures, helpers, deployment logic, page objects) — fix belongs in [rhdh-e2e-test-utils](https://github.com/redhat-developer/rhdh-e2e-test-utils), not this repo |
+
+Use the skill's installation-method guidance to distinguish workspace config
+errors from operator/installer defects.
 
 **Decision guide:**
 - If the test assertion is wrong or outdated → `test_fix`

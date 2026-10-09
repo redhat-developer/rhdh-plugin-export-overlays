@@ -36,7 +36,8 @@ function parseUrl(url: string): ParsedURL | null {
   if (parts.includes("pr-logs")) {
     const i = parts.indexOf("pull") + 1;
     const [pr, job, jid] = [parts[i + 1], parts[i + 2], parts[i + 3]];
-    const sub = job.includes("-main-") ? job.split("-main-").pop()! : "e2e-ocp-helm";
+    const sub = job.match(/-(e2e-ocp-(?:helm|operator)(?:-[a-z0-9-]+)?)$/)?.[1];
+    if (!sub) return null;
     return {
       type: "pr", pr, job_id: jid, subdir: sub,
       gcs: `pr-logs/pull/redhat-developer_rhdh-plugin-export-overlays/${pr}/${job}/${jid}`,
@@ -46,7 +47,8 @@ function parseUrl(url: string): ParsedURL | null {
   if (parts.includes("logs")) {
     const i = parts.indexOf("logs");
     const [job, jid] = [parts[i + 1], parts[i + 2]];
-    const sub = job.includes("-main-") ? job.split("-main-").pop()! : "e2e-ocp-helm-nightly";
+    const sub = job.match(/-(e2e-ocp-(?:helm|operator)(?:-[a-z0-9-]+)?)$/)?.[1];
+    if (!sub) return null;
     return {
       type: "nightly", job_id: jid, subdir: sub,
       gcs: `logs/${job}/${jid}`,
@@ -134,15 +136,26 @@ async function main(): Promise<void> {
 
   const base = path.join("node_modules", ".cache", "e2e-artifacts");
   const cacheDir = path.join(base, info.pr || "nightly", info.job_id);
-  const container = "redhat-developer-rhdh-plugin-export-overlays-ocp-helm";
+  const stepPrefix = `${info.gcs}/artifacts/${info.subdir}/`;
+
+  process.stderr.write("Listing objects...\n");
+  const stepItems = await gcsList(stepPrefix);
+  const steps = [...new Set(
+    stepItems.map((item) => item.name.slice(stepPrefix.length).split("/")[0]),
+  )];
+  const candidates = steps.filter((step) =>
+    /^redhat-developer-rhdh-plugin-export-overlays-ocp-(helm|operator)$/.test(step),
+  );
+  if (candidates.length !== 1) {
+    throw new Error(`Expected one E2E step under ${stepPrefix}, found: ${candidates.join(", ") || "none"}`);
+  }
+  const container = candidates[0];
   const artifactsDir = path.join(cacheDir, container, "artifacts");
+  const gcsSrc = stepPrefix + container;
+  const allItems = stepItems.filter((item) => item.name.startsWith(gcsSrc + "/"));
 
   await fs.rm(cacheDir, { recursive: true, force: true });
 
-  const gcsSrc = `${info.gcs}/artifacts/${info.subdir}/${container}`;
-
-  process.stderr.write("Listing objects...\n");
-  const allItems = await gcsList(gcsSrc + "/");
   const keep = allItems.filter((i) => INCLUDE_RE.test(i.name) || !EXCLUDE_RE.test(i.name));
   const totalMb = keep.reduce((s, i) => s + parseInt(i.size || "0", 10), 0) / 1024 / 1024;
   process.stderr.write(`Downloading ${keep.length}/${allItems.length} files (${totalMb.toFixed(1)} MB)...\n`);
