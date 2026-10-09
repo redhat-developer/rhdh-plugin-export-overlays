@@ -149,7 +149,9 @@ test.describe("TechDocs", () => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
-    const linkLocator = page.getByRole("link", { name: "TechDocs" });
+    const linkLocator = page
+      .getByRole("link", { name: "TechDocs", exact: true })
+      .first();
     await linkLocator.waitFor({ state: "visible" });
     await linkLocator.click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
