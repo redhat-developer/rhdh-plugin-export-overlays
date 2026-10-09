@@ -18,11 +18,11 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github"
   # Tag: bs_1.54.9__4.4.2
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github@sha256:50b1275209d1f3299036da6b6a4ae41c5df877252bc7e9e2c2b7790e4089c78b"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github@sha256:2444b2eccb77acab313b24e7b2fc0d0ae9c072f1ea22c79ba99b19f7c176d3c1"
   version: 4.4.2
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.54.6
+    supportedVersions: 1.54.9
   author: Red Hat
   support: tech-preview
   lifecycle: active

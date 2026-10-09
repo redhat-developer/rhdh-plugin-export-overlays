@@ -18,11 +18,11 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-code-coverage"
   # Tag: bs_1.54.9__0.1.4
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-code-coverage@sha256:d895055aee20dbf5f7dd502e2874b51b198eb7ff2782c52a0d3cff73fc265b89"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-code-coverage@sha256:68801de9e153b2729ec5653e0f8f5acec93809b8c7cd566c835c380046377b8d"
   version: 0.1.4
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.54.6
+    supportedVersions: 1.54.9
   author: Red Hat
   support: dev-preview
   lifecycle: active
