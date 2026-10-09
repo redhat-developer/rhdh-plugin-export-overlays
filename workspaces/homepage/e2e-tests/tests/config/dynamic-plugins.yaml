@@ -2,36 +2,19 @@
 # Upstream @backstage/plugin-home provides visits APIs (page:home is disabled in
 # app-config-rhdh.yaml). RH homepage owns page:homepage.
 #
-# Homepage 3.1.0 hides Edit when defaultWidgets refs match no NFS widget
-# (the page renders the empty state instead of the customizable grid).
-# Refs must be the extension ids, and the list must include every widget the
-# tests add. This pluginConfig replaces the metadata example.
-#
-# The RHDH image also ships homepage and homepage-backend. The installer
-# rejects two different homepage.defaultWidgets values, so the image copies
-# are turned off and the PR packages below are the ones that load.
+# Do not list homepage-backend here. The catalog-index copy sets
+# homepage.defaultWidgets, and a second entry with the same plugin name is
+# merged into this file's package (or rewritten to the PR image) before
+# install. Either way the quay {{inherit}} disable never reaches the
+# installer, the two defaultWidgets values conflict, and the init container
+# exits. homepage.spec.ts disablePlugins appends the quay disable after that
+# rewrite, which only happens when this file does not already contain the
+# backend. With no homepage backend, 3.1.0 does not filter widgets and the
+# customizable grid (Edit) mounts.
 plugins:
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
-    enabled: false
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage-backend:{{inherit}}
-    enabled: false
   # Version from workspaces/backstage export: backstage-plugin-home
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.6__0.9.9
     enabled: true
   # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage.yaml
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
     enabled: true
-  # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage-backend.yaml
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.54.9__0.6.0
-    enabled: true
-    pluginConfig:
-      homepage:
-        defaultWidgets:
-          - id: rhdh-onboarding-section
-            ref: rhdh-onboarding-section
-          - id: rhdh-entity-section
-            ref: rhdh-entity-section
-          - id: recently-visited-card
-            ref: recently-visited-card
-          - id: top-visited-card
-            ref: top-visited-card

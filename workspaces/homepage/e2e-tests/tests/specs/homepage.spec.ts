@@ -10,8 +10,13 @@ import {
   setupKeycloakGroups,
 } from "../utils/dynamic-homepage";
 
+// Backend is listed here and omitted from dynamic-plugins.yaml. disablePlugins
+// appends oci://quay.io/rhdh/<name>:{{inherit}} disabled: true only when that
+// name is not already in the plugin list. A {{inherit}} line in the yaml is
+// merged into the PR package and never disables the catalog-index backend.
 const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
   "red-hat-developer-hub-backstage-plugin-homepage",
+  "red-hat-developer-hub-backstage-plugin-homepage-backend",
 ];
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
