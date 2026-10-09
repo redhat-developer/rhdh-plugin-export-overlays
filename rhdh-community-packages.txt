@@ -19,9 +19,11 @@ scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-serviceno
 scaffolder-backend-module-sonarqube/plugins/scaffolder-backend-module-sonarqube
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-datadog
 
-# 09/29 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
+# 10/01 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
+# https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/4045
+# run ./scripts/nfs-readiness-report.sh --oci --markdown > nfs-readiness-report.md
+# then check for entries with "no-features"; if no longer a problem, can re-enable these
 # roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
-# 09/29 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
 # roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
 
 # confirmed Community @ 11/07 meeting
@@ -48,8 +50,7 @@ nexus-repository-manager/plugins/nexus-repository-manager
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-utils
 
 # confirmed Community @ 12/05 meeting - both Roadie and RH are to be community supported
-# 09/29 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
-# argocd/plugins/argocd
+argocd/plugins/argocd
 argocd/plugins/argocd-backend
 
 # continue to use wrappers in 1.9; moving to Commmunity in 1.10 (per PM/Eng sync meeting 01/12; on 01/28 PM decided to move these in 1.10, not 1.11)
@@ -65,8 +66,7 @@ tekton/plugins/tekton
 acr/plugins/acr
 
 # moved from Supported (GA) to Community Optional Extras - https://redhat.atlassian.net/browse/RHIDP-16069
-# 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
-# apiconnect/plugins/apic-backstage
+apiconnect/plugins/apic-backstage
 # 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
 # dynatrace-dql/plugins/dql
 # dynatrace-dql/plugins/dql-backend
