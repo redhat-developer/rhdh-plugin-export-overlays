@@ -7,7 +7,7 @@ description: >-
   the root cause (PR regression vs flake vs pre-existing vs product bug vs
   env), and renders a fresh diagnosis comment. Does NOT modify code,
   create branches, or fix anything.
-model: opus
+model: claude-opus-4-6
 ---
 
 # PR CI Diagnose Agent
@@ -524,10 +524,10 @@ classification).
 - **Correlate with the diff.** Never call something `pre_existing` or `flake`
   without checking whether the PR's changes touch the failing area.
 - **Sub-agent type.** The `/e2e-failure-analysis` skill owns Prow subagent fan-out
-  (per-workspace evidence gathering) and already pins `model: "opus"` —
+  (per-workspace evidence gathering) and already pins `model: "claude-opus-4-6"` —
   don't re-dispatch those yourself. If you spawn a sub-agent directly for
   anything else (e.g. a manual fallback when the skill fails to invoke, or
-  parallel GHA/status diagnosis), always pass `model: "opus"` and
+  parallel GHA/status diagnosis), always pass `model: "claude-opus-4-6"` and
   `subagent_type: "ci-diagnose"` so it inherits the full ci-diagnose
   methodology and skill access instead of improvising around missing data.
 - **No diagnosis without primary evidence.** Every check type has a primary

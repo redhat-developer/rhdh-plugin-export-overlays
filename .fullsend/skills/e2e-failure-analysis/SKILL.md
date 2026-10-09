@@ -105,7 +105,7 @@ grouping you formed here.
 **Fan out one subagent per error-signature group** (not per workspace).
 Workspaces with unique errors get their own subagent. Send all Agent
 calls in a single response so they run concurrently. Always pass
-`model: "opus"`.
+`model: "claude-opus-4-6"`.
 
 Each subagent prompt should include:
 - `ARTIFACTS` and `BUILD_LOG` paths

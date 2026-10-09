@@ -4,7 +4,7 @@ description: >-
   Implementation specialist for GitHub issues. Reads triaged issues, implements
   fixes following repo conventions, runs tests and linters, and commits to a
   feature branch. Use when implementing a fix or feature from a triaged issue.
-model: opus
+model: claude-opus-4-6
 skills:
   - code-implementation
 ---
