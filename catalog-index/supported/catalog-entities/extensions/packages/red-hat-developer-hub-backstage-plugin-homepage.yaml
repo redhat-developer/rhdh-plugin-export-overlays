@@ -16,12 +16,12 @@ metadata:
   tags: []
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-homepage'
-  # Tag: bs_1.54.9__1.18.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:7cdebea05fe1e7f9f7d93ae70db6e1f4b94d8c4e5f71834414f177be42dfa938"
-  version: 1.18.0
+  # Tag: bs_1.54.9__3.0.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:ddf51ee7af1e537af51f31a716aae95dacaef4848e0b07368729a2015d2b75b2"
+  version: 3.0.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.54.6
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active
@@ -97,12 +97,15 @@ spec:
       content:
         app:
           extensions:
-            - page:home:
+            # Disable community page:home so only RH page:homepage appears as Home.
+            - page:home: false
+            - page:homepage:
                 config:
                   path: /
+                  title: Home
             - api:home/visits: true
             - app-root-element:home/visit-listener: true
-            - home-page-layout:home/dynamic-homepage-layout:
+            - home-page-layout:homepage/dynamic-homepage-layout:
                 config:
                   customizable: true
                   widgetLayout:
