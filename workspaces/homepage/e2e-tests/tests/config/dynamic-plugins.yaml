@@ -1,16 +1,20 @@
 # NFS (Backstage app) dynamic plugins for homepage e2e.
-# Upstream @backstage/plugin-home provides page:home / visits / layout blueprints;
-# the RHDH homepage alpha module extends pluginId "home" and requires this OCI.
+# Upstream @backstage/plugin-home provides visits APIs (page:home is disabled in
+# app-config-rhdh.yaml). RH homepage owns page:homepage.
 #
-# homepage.defaultWidgets (homepage-backend) is not supported on NFS yet. NFS tests seed widgets via
-# the UI until then.
+# Do not list homepage-backend here. The catalog-index copy sets
+# homepage.defaultWidgets, and a second entry with the same plugin name is
+# merged into this file's package (or rewritten to the PR image) before
+# install. Either way the quay {{inherit}} disable never reaches the
+# installer, the two defaultWidgets values conflict, and the init container
+# exits. homepage.spec.ts disablePlugins appends the quay disable after that
+# rewrite, which only happens when this file does not already contain the
+# backend. With no homepage backend, 3.1.0 does not filter widgets and the
+# customizable grid (Edit) mounts.
 plugins:
   # Version from workspaces/backstage export: backstage-plugin-home
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.7
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.6__0.9.9
     enabled: true
   # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage.yaml
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__1.17.1
-    enabled: true
-  # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage-backend.yaml
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.54.9__0.4.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
     enabled: true
