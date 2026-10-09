@@ -7,6 +7,7 @@
 
 import atexit
 import json
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -248,122 +249,70 @@ class WorkspaceMappings:
     stem_to_npm: dict[str, str] = field(default_factory=dict)
 
 
+_SHORTEN_CACHE: dict[str, str] = {}
+
+
+def _shorten_path_segment(segment: str) -> str:
+    """Run build/scripts/shorten-component-name.sh (catalog cwd, or a parent of this file)."""
+    cached = _SHORTEN_CACHE.get(segment)
+    if cached is not None:
+        return cached
+    rel = Path('build') / 'scripts' / 'shorten-component-name.sh'
+    script = None
+    for base in (Path.cwd(), *Path(__file__).resolve().parents):
+        candidate = base / rel
+        if candidate.is_file():
+            script = candidate
+            break
+    if script is None:
+        _SHORTEN_CACHE[segment] = segment
+        return segment
+    completed = subprocess.run(
+        ['bash', str(script), segment],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    shortened = completed.stdout.strip()
+    _SHORTEN_CACHE[segment] = shortened
+    return shortened
+
+
+def _stem_fits_path(stem: str, path: str) -> bool:
+    last = path.rsplit('/', 1)[-1]
+    return stem.endswith(last) or stem.endswith(_shorten_path_segment(last))
+
+
 def _match_workspace_metadata(
     ws_name: str,
     metadata_entries: list[tuple[str, str]],
     plugin_paths: list[str],
 ) -> dict[str, str]:
-    """Match metadata entries to plugin paths within a single workspace.
+    """Map each Package stem to ``{ws}/{plugin path}``.
 
-    Resolves which ``plugins-list.yaml`` path corresponds to each Package
-    entity stem, using a two-pass heuristic:
-
-    **Pass 1 -- Scored matching:**
-    Every (stem, path) pair is scored based on how the path's last segment
-    relates to the stem:
-
-    - Exact match (``stem == last_segment``): highest score
-    - Suffix with dash (``stem.endswith("-" + last_segment)``): medium
-    - Plain suffix (``stem.endswith(last_segment)``): lowest
-
-    Scores are weighted by segment length to prefer longer (more specific)
-    matches. Pairs are then assigned greedily in descending score order,
-    ensuring no stem or path is used twice.
-
-    **Pass 2 -- Process of elimination:**
-    Remaining unmatched stems are resolved against remaining paths via:
-
-    1. Substring matching (``last_segment in stem``)
-    2. 1:1 pairing if the count of unmatched stems equals remaining paths
-
-    Any stems still unmatched fall back to ``"{ws_name}/{stem}"``.
-
-    Args:
-        ws_name: Workspace directory name (e.g., ``"backstage"``).
-        metadata_entries: List of ``(stem, npm_name)`` pairs from Package
-            entity YAMLs in ``workspaces/{ws_name}/metadata/``.
-        plugin_paths: Plugin paths from ``plugins-list.yaml`` (e.g.,
-            ``["plugins/techdocs", "plugins/catalog"]``).
-
-    Returns:
-        Dict mapping each stem to its full workspace path
-        (``"{ws_name}/{plugin_path}"``).
-
-    Example:
-        >>> _match_workspace_metadata(
-        ...     "backstage",
-        ...     [("backstage-community-plugin-techdocs", "@backstage-community/plugin-techdocs")],
-        ...     ["plugins/techdocs"],
-        ... )
-        {"backstage-community-plugin-techdocs": "backstage/plugins/techdocs"}
+    A stem matches when it ends with the path's last segment, or that segment
+    after shorten-component-name.sh. Longer last-segments win. One leftover
+    stem and one leftover path are paired. Anything else uses ``{ws}/{stem}``.
     """
+    leftover = sorted(plugin_paths, key=lambda p: len(p.rsplit('/', 1)[-1]), reverse=True)
     result: dict[str, str] = {}
-
-    if not plugin_paths:
-        for stem, npm_name in metadata_entries:
-            result[stem] = f"{ws_name}/{stem}"
-            log_debug(f"No plugins-list for workspace {ws_name}, using fallback: {ws_name}/{stem}")
+    unmatched: list[str] = []
+    for stem, _npm in metadata_entries:
+        chosen = ''
+        for path in leftover:
+            if _stem_fits_path(stem, path):
+                chosen = path
+                break
+        if chosen:
+            leftover.remove(chosen)
+            result[stem] = f'{ws_name}/{chosen}'
+        else:
+            unmatched.append(stem)
+    if len(unmatched) == 1 and len(leftover) == 1:
+        result[unmatched[0]] = f'{ws_name}/{leftover[0]}'
         return result
-
-    # Pass 1: build scored candidates — (stem, path, score)
-    # Higher score = more specific match. Prefer longest last_segment matches.
-    candidates: list[tuple[str, str, int]] = []
-    for stem, npm_name in metadata_entries:
-        for path in plugin_paths:
-            last_seg = path.split('/')[-1]
-            if stem == last_seg:
-                candidates.append((stem, path, len(last_seg) * 10 + 3))
-            elif stem.endswith('-' + last_seg):
-                candidates.append((stem, path, len(last_seg) * 10 + 2))
-            elif stem.endswith(last_seg):
-                candidates.append((stem, path, len(last_seg) * 10 + 1))
-
-    # Assign greedily by score descending, no duplicates on either side
-    candidates.sort(key=lambda c: -c[2])
-    matched_stems: set[str] = set()
-    matched_paths: set[str] = set()
-    for stem, path, _score in candidates:
-        if stem in matched_stems or path in matched_paths:
-            continue
-        result[stem] = f"{ws_name}/{path}"
-        matched_stems.add(stem)
-        matched_paths.add(path)
-
-    # Pass 2: process of elimination for unmatched
-    unmatched = [(s, n) for s, n in metadata_entries if s not in matched_stems]
-    remaining_paths = [p for p in plugin_paths if p not in matched_paths]
-
-    if unmatched and remaining_paths:
-        # Try substring matching on remaining pairs
-        still_unmatched = []
-        still_available = list(remaining_paths)
-        for stem, npm_name in unmatched:
-            found = False
-            for path in still_available:
-                last_seg = path.split('/')[-1]
-                if last_seg in stem:
-                    result[stem] = f"{ws_name}/{path}"
-                    still_available.remove(path)
-                    log_debug(f"Matched by substring: {stem} -> {path}")
-                    found = True
-                    break
-            if not found:
-                still_unmatched.append((stem, npm_name))
-
-        # Final elimination: pair remaining 1:1 if counts match
-        if len(still_unmatched) == len(still_available):
-            for (stem, npm_name), path in zip(still_unmatched, still_available):
-                result[stem] = f"{ws_name}/{path}"
-                log_debug(f"Matched by elimination: {stem} -> {path}")
-            still_unmatched = []
-
-        unmatched = still_unmatched
-
-    # Fallback for anything truly unmatched
-    for stem, npm_name in unmatched:
-        result[stem] = f"{ws_name}/{stem}"
-        log_debug(f"No plugins-list match for {stem}, using fallback: {ws_name}/{stem}")
-
+    for stem in unmatched:
+        result[stem] = f'{ws_name}/{stem}'
     return result
 
 
