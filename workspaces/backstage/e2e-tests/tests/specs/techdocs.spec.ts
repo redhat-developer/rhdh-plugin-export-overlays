@@ -4,7 +4,6 @@ import { expect, Page, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 const TECHDOCS_WRAPPER_DIST_NAMES: string[] = [
   "backstage-plugin-techdocs",
   "backstage-plugin-techdocs-backend-dynamic",
-  "backstage-plugin-techdocs-module-addons-contrib",
 ];
 
 const REPORT_ISSUE_POLL_TIMEOUT_MS = 30_000;
@@ -125,14 +124,15 @@ test.describe("TechDocs", () => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
-    const linkLocator = page.getByRole("link", { name: "TechDocs" });
+    const linkLocator = page
+      .getByRole("link", { name: "TechDocs", exact: true })
+      .first();
     await linkLocator.waitFor({ state: "visible" });
     await linkLocator.click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
   });
 
-  // Skip for https://redhat.atlassian.net/browse/RHDHBUGS-3664
-  test.skip("Verify that TechDocs Docs page for ReportIssue addon works", async ({
+  test("Verify that TechDocs Docs page for ReportIssue addon works", async ({
     page,
     uiHelper,
   }) => {
@@ -142,15 +142,16 @@ test.describe("TechDocs", () => {
     expect(await pollForReportIssueLink(page)).toBe(true);
   });
 
-  // Skip for https://redhat.atlassian.net/browse/RHDHBUGS-3664
-  test.skip("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
+  test("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
     page,
     uiHelper,
   }) => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
-    const linkLocator = page.getByRole("link", { name: "TechDocs" });
+    const linkLocator = page
+      .getByRole("link", { name: "TechDocs", exact: true })
+      .first();
     await linkLocator.waitFor({ state: "visible" });
     await linkLocator.click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
