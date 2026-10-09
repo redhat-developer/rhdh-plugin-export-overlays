@@ -57,10 +57,14 @@ type LightspeedStackConfig = {
  * RHDH chart 2.1+ (intelligentAssistant) creates
  * `{release}-ia-stack` with data key `lightspeed-stack.yaml`.
  * Older chart 2.0 used `{release}-lightspeed-config` / `config.yaml`.
+ * The operator mounts that key from its generated files ConfigMap.
  */
 async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const ns = rhdh.deploymentConfig.namespace;
-  const cm = "redhat-developer-hub-ia-stack";
+  const isOperator = rhdh.deploymentConfig.method === "operator";
+  const cm = isOperator
+    ? "backstage-files-developer-hub-lightspeed-stack-config"
+    : "redhat-developer-hub-ia-stack";
   const dataKey = "lightspeed-stack.yaml";
   const models = yaml.load(
     fs.readFileSync("tests/config/openai-allowed-models.yaml", "utf8"),
@@ -109,13 +113,19 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const tmp = path.join(os.tmpdir(), `${ns}-lightspeed-stack.yaml`);
   fs.writeFileSync(tmp, yaml.dump(config));
   await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, dataKey);
-  await $`oc rollout restart deployment/redhat-developer-hub -n ${ns}`;
+  const resource = isOperator
+    ? "deployment/backstage-developer-hub"
+    : "deployment/redhat-developer-hub";
+  const podSelector = isOperator
+    ? "rhdh.redhat.com/app=backstage-developer-hub"
+    : "app.kubernetes.io/component=backstage";
+  await $`oc rollout restart ${resource} -n ${ns}`;
   // waitUntilReady() is true while old+new hub pods are both Ready (plus Postgres),
   // which races Keycloak sessions across pods (in-memory session store). Gate on
   // rollout completion and Ready backstage pods before login/tests.
   // lightspeed-core EmptyDir vector stores are also orphaned by a mid-suite swap.
-  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
-  await $`oc wait --for=condition=Ready pod -l app.kubernetes.io/component=backstage -n ${ns} --timeout=300s`;
+  await $`oc rollout status ${resource} -n ${ns} --timeout=300s`;
+  await $`oc wait --for=condition=Ready pod -l ${podSelector} -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
@@ -265,13 +275,19 @@ export async function ensureLightspeedDeployment(
   const ns = rhdh.deploymentConfig.namespace;
   await test.runOnce(`intelligent-assistant-deploy-${ns}`, async () => {
     await rhdh.configure(lightspeedDeployConfig());
+    const resource =
+      rhdh.deploymentConfig.method === "operator"
+        ? "deployment/backstage-developer-hub"
+        : "deployment/redhat-developer-hub";
 
-    // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
-    try {
-      await $`oc get deployment redhat-developer-hub -n ${ns}`;
-      await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
-    } catch {
-      /* fresh install */
+    if (rhdh.deploymentConfig.method === "helm") {
+      // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
+      try {
+        await $`oc get deployment redhat-developer-hub -n ${ns}`;
+        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+      } catch {
+        /* fresh install */
+      }
     }
 
     // A transient lightspeed-core ErrImagePull fails the whole serial file.
@@ -283,7 +299,7 @@ export async function ensureLightspeedDeployment(
         `RHDH deploy failed (${error instanceof Error ? error.message : String(error)}); retrying once`,
       );
       try {
-        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+        await $`oc delete ${resource} -n ${ns} --wait=true`;
       } catch {
         /* deployment may already be gone */
       }

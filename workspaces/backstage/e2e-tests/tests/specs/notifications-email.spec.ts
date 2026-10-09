@@ -105,7 +105,6 @@ test.describe("Notifications email processor", () => {
       process.env.MAILPIT_DENYLIST_EMAIL = TEST2_EMAIL;
 
       await rhdh.configure({
-        valueFile: `${configBase}/value-file.yaml`,
         appConfig: `${configBase}/app-config-rhdh.yaml`,
         dynamicPlugins: `${configBase}/dynamic-plugins.yaml`,
         secrets: `${configBase}/rhdh-secrets.yaml`,

@@ -181,6 +181,17 @@ This creates `backstage.json` with the target version and updates all metadata O
 - If the plugin works with RHDH (either via automatic or manual testing), **change the label** to `tested`
 - Once the PR is merged, the final OCI artifact will be published with the tag: `bs_<backstage_version>__<plugin_version>`
 
+## Local E2E release branch
+
+The runner defaults to Helm with `RHDH_VERSION=next`. Set `INSTALLATION_METHOD`
+or `RHDH_VERSION` explicitly to override these defaults.
+
+`run-e2e.sh` defaults `RELEASE_BRANCH_NAME` to `main` for local runs, including
+nightly runs with `CI=false`. Set it explicitly to test another release branch.
+OpenShift CI runs identified by `JOB_NAME` or `PROW_JOB_ID` use the branch supplied
+by the job; the existing nightly branch check still applies there. When cutting a
+release branch, update the local default in `run-e2e.sh` to that release branch.
+
 ## E2E secrets
 
 For local secret loading and this repository's naming conventions, see [09 - Managing E2E Secrets](./user-guide/09-managing-e2e-secrets.md). Authentication and secret lifecycle operations are documented in the [upstream Secrets API](https://redhat-developer.github.io/rhdh-e2e-test-utils/api/secrets.html).

@@ -50,7 +50,6 @@ test.describe("GitLab auth and org ingestion", { tag: "@auth-tests" }, () => {
           appConfig: APP_CONFIG_PATH,
           secrets: "tests/config/gitlab-auth/rhdh-secrets.yaml",
           dynamicPlugins: "tests/config/gitlab-auth/dynamic-plugins.yaml",
-          valueFile: "tests/config/gitlab-auth/value-file.yaml",
           disablePlugins: [HOMEPAGE_WRAPPER_DIST_NAME],
         });
       },
