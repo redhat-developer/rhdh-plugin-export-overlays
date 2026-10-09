@@ -184,9 +184,8 @@ export class DynamicHomePagePo {
   }
 
   private async signOut(): Promise<void> {
-    await this.page.goto(`${this.baseURL}/settings`);
-    await this.page.getByTestId("user-settings-menu").click();
-    await this.page.getByTestId("sign-out").locator("div").click();
+    await this.page.getByRole("button", { name: "Settings" }).click();
+    await this.page.getByText("sign out").click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for sign-out redirect
     await this.page.waitForTimeout(2000);
   }
@@ -292,18 +291,12 @@ export class DynamicHomePagePo {
       .waitFor({ state: "visible", timeout: 10_000 });
   }
 
-  async exitEditMode(): Promise<void> {
+  async exitEditMode(save = true): Promise<void> {
     await this.dismissAddWidgetDialog();
 
-    // NFS only surfaces Save after a layout dimension change; add/remove alone leaves
-    // Save hidden and Cancel reverts to the last persisted layout.
-    if (!(await this.saveButton().isVisible())) {
-      await this.nudgeLayoutToEnableSave();
-    }
-
-    if (await this.saveButton().isVisible()) {
+    if (save) {
       await this.saveButton().click();
-    } else if (await this.cancelButton().isVisible()) {
+    } else {
       await this.cancelButton().click();
     }
     await expect(this.editButton()).toBeVisible({ timeout: 10_000 });
@@ -313,6 +306,8 @@ export class DynamicHomePagePo {
     const dialog = this.page.getByRole("dialog");
     if (await dialog.isVisible()) {
       await this.page.keyboard.press("Escape");
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for dialog to close
+      await this.page.waitForTimeout(1000);
       await expect(dialog).toBeHidden({ timeout: 5_000 });
     }
   }

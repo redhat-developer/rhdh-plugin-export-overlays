@@ -13,7 +13,7 @@ export class GitHubApiHelper extends APIHelper {
     body?: string | object,
   ): Promise<APIResponse> {
     const response = await this.githubRequest(method, url, body);
-    if (!response.ok) {
+    if (!response.ok()) {
       throw new Error(
         `Failed to ${method} ${url}: ${response.status()} ${response.statusText()}`,
       );
@@ -67,7 +67,7 @@ export class GitHubApiHelper extends APIHelper {
       console.log(`File ${filePath} already deleted or doesn't exist`);
       return;
     }
-    if (!getFileResponse.ok) {
+    if (!getFileResponse.ok()) {
       throw new Error(
         `Failed to get file: ${getFileResponse.status()} ${getFileResponse.statusText()}`,
       );
@@ -108,7 +108,7 @@ export class GitHubApiHelper extends APIHelper {
       `${GITHUB_API_ENDPOINTS.getOrg(org)}/teams/${teamName}`,
     );
 
-    if (!response.ok && response.status() !== 404) {
+    if (!response.ok() && response.status() !== 404) {
       throw new Error(
         `Failed to delete team: ${response.status()} ${response.statusText()}`,
       );
@@ -145,7 +145,7 @@ export class GitHubApiHelper extends APIHelper {
       `${GITHUB_API_ENDPOINTS.getOrg(org)}/teams/${teamName}/memberships/${username}`,
     );
 
-    if (!response.ok && response.status() !== 404) {
+    if (!response.ok() && response.status() !== 404) {
       throw new Error(
         `Failed to remove user from team: ${response.status()} ${response.statusText()}`,
       );
