@@ -271,7 +271,7 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.verifyHomePageLoaded({ requireWidgets: false });
       await home.enterEditMode();
       await home.clearAllCardsIfPresent();
-      await home.exitEditMode();
+      await home.exitEditMode(false);
 
       await home.reloginAsKeycloakUser("test1", "test1@123", {
         clearHomeStorage: true,
