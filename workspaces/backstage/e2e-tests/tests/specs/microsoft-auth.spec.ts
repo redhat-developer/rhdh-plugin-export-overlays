@@ -384,9 +384,9 @@ test.describe(
         process.env.VAULT_DEFAULT_USER_PASSWORD_2!,
       );
       expect(login2).toBe("Login successful");
-      await uiHelper.verifyAlertErrorMessage(
-        NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
-      );
+      await expect(
+        page.getByText(NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE),
+      ).toBeVisible({ timeout: 10_000 });
     });
 
     test("Login with Microsoft emailMatchingUserEntityProfileEmail resolver", async ({
