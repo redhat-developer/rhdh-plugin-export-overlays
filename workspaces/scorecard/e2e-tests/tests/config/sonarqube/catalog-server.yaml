@@ -16,6 +16,7 @@ spec:
       labels:
         app: sonarqube-catalog
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:
