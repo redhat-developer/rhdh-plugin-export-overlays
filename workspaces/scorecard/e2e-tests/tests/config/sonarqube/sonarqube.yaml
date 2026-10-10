@@ -78,6 +78,7 @@ spec:
             requests:
               memory: 1Gi
               cpu: 200m
+              ephemeral-storage: 1Gi
             limits:
               memory: 2Gi
               cpu: "1"
