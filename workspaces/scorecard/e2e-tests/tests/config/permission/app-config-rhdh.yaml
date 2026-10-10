@@ -1,0 +1,32 @@
+catalog:
+  rules:
+    - allow:
+        [
+          API,
+          Component,
+          User,
+          Group,
+          Location,
+          Resource,
+          System,
+          Template,
+          Plugin,
+          Package,
+        ]
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/no-scorecards.yaml
+
+permission:
+  enabled: true
+  rbac:
+    policies-csv-file: "./rbac/rbac-policy.csv"
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - scorecard
+    admin:
+      superUsers:
+        - name: user:default/test1
+      users:
+        - name: user:default/test1
