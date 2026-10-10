@@ -54,6 +54,8 @@ intelligent-assistant:
       model: ${NOTEBOOK_DEFAULT_MODEL}
       provider_id: ${NOTEBOOK_PROVIDER}
   servicePort: 8080
+  screen-context:
+    enabled: true
   prompts:
     - title: Getting Started with Red Hat Developer Hub
       message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?
