@@ -139,35 +139,40 @@ async function waitForRoute(
   k8s: KubernetesClientHelper,
   namespace: string,
 ): Promise<string> {
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    try {
-      return await k8s.getRouteLocation(namespace, "sonarqube");
-    } catch {
-      await sleep(2_000);
-    }
-  }
-  throw new Error("Timed out waiting for the SonarQube route");
+  return pollForValue(
+    Date.now() + 60_000,
+    2_000,
+    async () => {
+      try {
+        return await k8s.getRouteLocation(namespace, "sonarqube");
+      } catch {
+        return undefined;
+      }
+    },
+    "Timed out waiting for the SonarQube route",
+  );
 }
 
 async function waitForSonarUp(baseUrl: string): Promise<void> {
-  const deadline = Date.now() + 300_000;
-  while (Date.now() < deadline) {
-    try {
-      const response = await requestSonar(
-        new URL("/api/system/status", baseUrl),
-        "GET",
-        {},
-      );
-      if (response.statusCode === 200 && readStatus(response.body) === "UP") {
-        return;
+  await pollForValue(
+    Date.now() + 300_000,
+    10_000,
+    async () => {
+      try {
+        const response = await requestSonar(
+          new URL("/api/system/status", baseUrl),
+          "GET",
+          {},
+        );
+        return response.statusCode === 200 && readStatus(response.body) === "UP"
+          ? true
+          : undefined;
+      } catch {
+        return undefined;
       }
-    } catch {
-      // The route can refuse connections until the router sees the pod.
-    }
-    await sleep(10_000);
-  }
-  throw new Error("Timed out waiting for SonarQube to report UP");
+    },
+    "Timed out waiting for SonarQube to report UP",
+  );
 }
 
 async function provisionToken(
@@ -240,7 +245,8 @@ function formHeaders(authorization: string): Record<string, string> {
 }
 
 function basicAuthorization(username: string, password: string): string {
-  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+  const credentials = `${username}:${password}`;
+  return `Basic ${Buffer.from(credentials).toString("base64")}`;
 }
 
 type SonarResponse = {
@@ -344,21 +350,39 @@ function deleteJobIfPresent(namespace: string): void {
 }
 
 async function waitForScanJob(namespace: string): Promise<void> {
-  const deadline = Date.now() + 300_000;
-  while (Date.now() < deadline) {
-    if (jobCondition(namespace, "Complete") === "True") {
-      return;
-    }
-    if (jobCondition(namespace, "Failed") === "True") {
-      throw new Error(
-        `Job sonarqube-scan failed in namespace ${namespace}. Scanner logs were not collected because they can contain the token.`,
-      );
-    }
-    await sleep(5_000);
-  }
-  throw new Error(
+  await pollForValue(
+    Date.now() + 300_000,
+    5_000,
+    () => {
+      if (jobCondition(namespace, "Complete") === "True") {
+        return true;
+      }
+      if (jobCondition(namespace, "Failed") === "True") {
+        throw new Error(
+          `Job sonarqube-scan failed in namespace ${namespace}. Scanner logs were not collected because they can contain the token.`,
+        );
+      }
+      return undefined;
+    },
     `Timed out waiting for job sonarqube-scan in namespace ${namespace}`,
   );
+}
+
+async function pollForValue<T>(
+  deadline: number,
+  intervalMs: number,
+  attempt: () => Promise<T | undefined> | T | undefined,
+  timeoutMessage: string,
+): Promise<T> {
+  const value = await attempt();
+  if (value !== undefined) {
+    return value;
+  }
+  if (Date.now() >= deadline) {
+    throw new Error(timeoutMessage);
+  }
+  await sleep(intervalMs);
+  return pollForValue(deadline, intervalMs, attempt, timeoutMessage);
 }
 
 function jobCondition(namespace: string, type: "Complete" | "Failed"): string {
@@ -413,11 +437,13 @@ function readSecretKey(namespace: string, name: string, key: string): string {
 function runOc(args: readonly string[]): string {
   return execFileSync("oc", [...args], {
     encoding: "utf8",
+    /* eslint-disable @typescript-eslint/naming-convention -- environment variable names */
     env: {
-      ...process.env,
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- Sonar requires the PATH environment key
-      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      HOME: process.env.HOME,
+      KUBECONFIG: process.env.KUBECONFIG,
+      PATH: "/usr/bin:/bin",
     },
+    /* eslint-enable @typescript-eslint/naming-convention */
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
 }
