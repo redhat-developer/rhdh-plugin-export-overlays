@@ -413,6 +413,11 @@ function readSecretKey(namespace: string, name: string, key: string): string {
 function runOc(args: readonly string[]): string {
   return execFileSync("oc", [...args], {
     encoding: "utf8",
+    env: {
+      ...process.env,
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Sonar requires the PATH environment key
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
 }

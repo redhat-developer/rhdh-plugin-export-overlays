@@ -13,6 +13,7 @@ spec:
       labels:
         app: sonarqube-scan
     spec:
+      automountServiceAccountToken: false
       restartPolicy: Never
       securityContext:
         runAsNonRoot: true
