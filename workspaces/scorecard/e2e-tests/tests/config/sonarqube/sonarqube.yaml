@@ -18,6 +18,7 @@ spec:
       labels:
         app: sonarqube
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -80,6 +81,7 @@ spec:
             limits:
               memory: 2Gi
               cpu: "1"
+              ephemeral-storage: 2Gi
       volumes:
         - name: data
           emptyDir: {}
