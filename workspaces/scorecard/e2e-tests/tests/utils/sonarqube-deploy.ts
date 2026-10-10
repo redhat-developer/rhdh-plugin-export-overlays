@@ -1,8 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import https from "node:https";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   type KubernetesClientHelper,
@@ -31,12 +29,6 @@ export async function deploySonarQube(
     namespace,
   );
   await k8s.createOrUpdateConfigMap(
-    "sonarqube-catalog-entities",
-    namespace,
-    path.join(sonarqubeDir, "catalog-entities.yaml"),
-    "entities.yaml",
-  );
-  await k8s.createOrUpdateConfigMap(
     "sonarqube-scan-app",
     namespace,
     path.join(sonarqubeDir, "scan/app.js"),
@@ -52,18 +44,6 @@ export async function deploySonarQube(
     path.join(sonarqubeDir, "scan/lcov-low.info"),
   );
 
-  const rendered = writeRenderedCatalog();
-  try {
-    await applyManifest(k8s, rendered.filePath, namespace);
-  } finally {
-    rmSync(rendered.directory, { recursive: true, force: true });
-  }
-
-  await k8s.waitForPodsWithFailureDetection(
-    namespace,
-    "app=sonarqube-catalog",
-    180,
-  );
   await k8s.waitForPodsWithFailureDetection(namespace, "app=sonarqube", 300);
 
   const baseUrl = await waitForRoute(k8s, namespace);
@@ -89,50 +69,6 @@ async function applyManifest(
   namespace: string,
 ): Promise<void> {
   await runQuietUnlessFailure`oc apply --namespace=${namespace} -f ${filePath}`;
-}
-
-function writeRenderedCatalog(): { directory: string; filePath: string } {
-  const image = resolvePythonImage();
-  const source = readFileSync(
-    path.join(sonarqubeDir, "catalog-server.yaml"),
-    "utf8",
-  );
-  if (!source.includes("${PYTHON_IMAGE}")) {
-    throw new Error("Catalog manifest is missing the PYTHON_IMAGE placeholder");
-  }
-  const directory = mkdtempSync(path.join(tmpdir(), "sonarqube-catalog-"));
-  const filePath = path.join(directory, "catalog-server.yaml");
-  writeFileSync(filePath, source.replaceAll("${PYTHON_IMAGE}", image), {
-    mode: 0o600,
-  });
-  return { directory, filePath };
-}
-
-function resolvePythonImage(): string {
-  const tags = runOcOrThrow(
-    [
-      "get",
-      "imagestream",
-      "python",
-      "-n",
-      "openshift",
-      "-o",
-      "jsonpath={.spec.tags[*].name}",
-    ],
-    "Failed to read imagestream openshift/python",
-  );
-  const tag = tags
-    .split(/\s+/)
-    .map((name) => name.trim())
-    .filter((name) => name.endsWith("ubi9"))
-    .sort((left, right) =>
-      left.localeCompare(right, undefined, { numeric: true }),
-    )
-    .at(-1);
-  if (!tag) {
-    throw new Error("No ubi9 tag on imagestream openshift/python");
-  }
-  return `image-registry.openshift-image-registry.svc:5000/openshift/python:${tag}`;
 }
 
 async function waitForRoute(
@@ -435,25 +371,10 @@ function readSecretKey(namespace: string, name: string, key: string): string {
 }
 
 function runOc(args: readonly string[]): string {
-  return execFileSync("oc", [...args], {
+  return execFileSync("/usr/bin/oc", [...args], {
     encoding: "utf8",
-    /* eslint-disable @typescript-eslint/naming-convention -- environment variable names */
-    env: {
-      HOME: process.env.HOME,
-      KUBECONFIG: process.env.KUBECONFIG,
-      PATH: "/usr/bin:/bin",
-    },
-    /* eslint-enable @typescript-eslint/naming-convention */
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
-}
-
-function runOcOrThrow(args: readonly string[], label: string): string {
-  try {
-    return runOc(args);
-  } catch {
-    throw new Error(label);
-  }
 }
 
 function sleep(ms: number): Promise<void> {
