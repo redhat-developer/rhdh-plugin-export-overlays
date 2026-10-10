@@ -180,3 +180,27 @@ export const DORA_METRICS: readonly ScorecardMetric[] = [
     collectors: [JIRA_INCIDENTS_COLLECTOR],
   },
 ] as const;
+
+export const SONARQUBE_METRICS = {
+  qualityGate: {
+    id: "sonarqube.qualityGate",
+    title: "SonarQube Quality Gate Status",
+    description: "Whether the project passes its SonarQube quality gate.",
+  },
+  openIssues: {
+    id: "sonarqube.openIssues",
+    title: "SonarQube Open Issues",
+    description:
+      "Count of open issues (OPEN, CONFIRMED, REOPENED) in SonarQube.",
+  },
+  codeCoverage: {
+    id: "sonarqube.codeCoverage",
+    title: "SonarQube Code Coverage",
+    description: "Overall code coverage percentage in SonarQube.",
+  },
+  securityRating: {
+    id: "sonarqube.securityRating",
+    title: "SonarQube Security Rating",
+    description: "SonarQube security rating.",
+  },
+} as const;

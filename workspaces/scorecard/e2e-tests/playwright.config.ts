@@ -26,5 +26,10 @@ export default defineConfig({
       testMatch: "scorecard-grouped.spec.ts",
       timeout: 10 * 60 * 1000,
     },
+    {
+      name: "scorecard-sonarqube",
+      testMatch: "scorecard-sonarqube.spec.ts",
+      timeout: 20 * 60 * 1000,
+    },
   ],
 });
