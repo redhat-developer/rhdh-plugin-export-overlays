@@ -100,6 +100,13 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
         }
       }
     },
+    async expectSparklineCurrentValue(metric: Pick<ScorecardMetric, "title">) {
+      const value = getScorecardCard(metric).getByTestId(
+        "sparkline-current-value-number",
+      );
+      await expect(value).toBeVisible({ timeout: 90_000 });
+      await expect(value).toHaveText(/^\d+(\.\d+)?$/);
+    },
     async expectScorecardVisible(title: string) {
       await expect(page.getByText(title, { exact: true })).toBeVisible();
     },

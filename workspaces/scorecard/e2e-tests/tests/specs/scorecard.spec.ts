@@ -59,6 +59,19 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
+  test("Weighted status score card shows a percentage for GitHub open PRs", async () => {
+    await scorecard.navigateToHome();
+    await scorecard.addWidget("Scorecard: Open PR health", { exact: true });
+    await scorecard.expectNoProgressBar();
+
+    const card = page
+      .locator('[role="article"]')
+      .filter({ hasText: "Open PR health" });
+    await expect(
+      card.getByTestId("weighted-status-score-card-center-percent"),
+    ).toHaveText(/^\d+(\.\d+)?%$/);
+  });
+
   test.describe("Aggregated scorecard drill-down", () => {
     test.describe.configure({ retries: 1 });
 

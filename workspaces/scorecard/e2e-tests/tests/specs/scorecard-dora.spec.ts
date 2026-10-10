@@ -51,6 +51,11 @@ test.describe.serial("Scorecard DORA Tests", () => {
         visualization: "sparkline",
       });
     }
+
+    // Collector rows in the data-sources dialog always render "--" and "N/A".
+    // The sparkline current value is what shows a collected deployment frequency.
+    const [deploymentFrequencyMetric] = DORA_METRICS;
+    await scorecard.expectSparklineCurrentValue(deploymentFrequencyMetric);
   });
 
   test("Verify View data sources displays correct data for DORA metrics", async () => {
