@@ -2,6 +2,47 @@ import { expect, Locator, Page } from "@playwright/test";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import fs from "fs";
 
+const BACKSTAGE_JANUS_COMPONENT = "backstage-janus";
+const BACKSTAGE_JANUS_PATH = `/catalog/default/component/${BACKSTAGE_JANUS_COMPONENT}`;
+
+/**
+ * Locator for the Topology entity tab inside the "Deployment" dropdown.
+ *
+ * NFS groups entity tabs (see page:catalog/entity default groups). Topology and
+ * Kubernetes both live under the "deployment" group. When more than one group
+ * item is visible, NFS renders a "Deployment" button with menuitemradio
+ * entries; when only one remains (e.g. Kubernetes after Topology is gated),
+ * that item is promoted to a top-level tab instead.
+ */
+export function topologyEntityTab(page: Page) {
+  return page.getByRole("menuitemradio", { name: "Topology" });
+}
+
+/**
+ * Temporal fix for https://redhat.atlassian.net/browse/RHDHBUGS-3898.
+ * Entity tab links navigate the document instead of routing client-side, so
+ * opening Topology can land on the sign-in page. Same pattern as scorecard.
+ */
+async function ensureSignedIn(page: Page, expectedLocator: Locator) {
+  const signIn = page.getByRole("button", { name: "Sign In", exact: true });
+
+  const signedOut = await Promise.race([
+    signIn
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => true)
+      .catch(() => null),
+    expectedLocator
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => false)
+      .catch(() => null),
+  ]);
+  if (!signedOut) return;
+
+  // Keycloak SSO is still alive — Sign In returns to the Topology tab.
+  await signIn.click();
+  await expect(expectedLocator).toBeVisible({ timeout: 60_000 });
+}
+
 async function downloadAndReadFile(
   page: Page,
   locator: Locator,
@@ -39,10 +80,51 @@ export class Topology {
     await this.page.waitForTimeout(1000);
   }
 
+  /**
+   * Opens the entity page and asserts Topology is unavailable when the user
+   * lacks kubernetes.clusters.read / kubernetes.resources.read (NFS permission gate).
+   *
+   * With Topology gated away, Kubernetes is the sole visible "deployment" group
+   * item, so NFS promotes it to a top-level "Kubernetes" tab (no Deployment
+   * dropdown and no Topology entry).
+   */
   async verifyMissingTopologyTab() {
+    await this.page.goto(BACKSTAGE_JANUS_PATH);
+    await expect(
+      this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Single remaining deployment-group item is promoted to a top-level tab.
+    await expect(
+      this.page.getByRole("link", { name: "Kubernetes", exact: true }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("button", { name: "Deployment" }),
+    ).toBeHidden();
     await expect(
       this.page.getByRole("link", { name: "Topology", exact: true }),
     ).toBeHidden();
+    await expect(topologyEntityTab(this.page)).toBeHidden();
+  }
+
+  /**
+   * Navigates to the entity page and selects the Topology view from the
+   * "Deployment" dropdown.
+   */
+  async navigateToTopologyView() {
+    await this.page.goto(BACKSTAGE_JANUS_PATH);
+    await expect(
+      this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
+    ).toBeVisible({ timeout: 30_000 });
+    await this.uiHelper.clickButtonByLabel("Deployment");
+    await expect(topologyEntityTab(this.page)).toBeVisible();
+    await topologyEntityTab(this.page).click();
+    // Tab hard-nav can flash sign-in (RHDHBUGS-3898); recover then assert heading.
+    await ensureSignedIn(
+      this.page,
+      this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
+    );
+    await this.uiHelper.verifyHeading(BACKSTAGE_JANUS_COMPONENT);
   }
 
   async verifyDeployment(name: string) {
