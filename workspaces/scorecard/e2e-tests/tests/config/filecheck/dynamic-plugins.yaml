@@ -49,6 +49,8 @@ plugins:
               options:
                 files:
                   readme: "README.md"
+                  # Not present in janus-qe/overlay-scorecard-plugin-test.
+                  missing: "e2e-absent-file.md"
               schedule:
                 frequency:
                   minutes: 10

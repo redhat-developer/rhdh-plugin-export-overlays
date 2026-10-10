@@ -26,5 +26,10 @@ export default defineConfig({
       testMatch: "scorecard-grouped.spec.ts",
       timeout: 10 * 60 * 1000,
     },
+    {
+      name: "scorecard-permission",
+      testMatch: "scorecard-permission.spec.ts",
+      timeout: 15 * 60 * 1000,
+    },
   ],
 });
