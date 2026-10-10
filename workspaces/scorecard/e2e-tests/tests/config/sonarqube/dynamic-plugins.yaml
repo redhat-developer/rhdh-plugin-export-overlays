@@ -1,0 +1,66 @@
+# Scorecard SonarQube e2e. Enables the scorecard UI, scorecard backend, and the
+# SonarQube backend module. Other scorecard modules are left out.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.9__4.4.1
+    enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-scorecard:
+            translationResources:
+              - importName: scorecardTranslations
+                module: Legacy
+                ref: scorecardTranslationRef
+            entityTabs:
+              - path: "/scorecard"
+                title: Scorecard
+                mountPoint: entity.page.scorecard
+            dynamicRoutes:
+              - path: /scorecard/aggregations/:aggregationId/metrics/:metricId
+                importName: ScorecardPage
+                module: Legacy
+            mountPoints:
+              - mountPoint: entity.page.scorecard/cards
+                importName: EntityScorecardContent
+                module: Legacy
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
+    enabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube:bs_1.54.9__4.4.2
+    enabled: true
+    pluginConfig:
+      scorecard:
+        metricProviders:
+          sonarqube:
+            qualityGate:
+              schedule: &sonarqubeSchedule
+                frequency:
+                  minutes: 10
+                timeout:
+                  minutes: 5
+                initialDelay:
+                  seconds: 20
+            openIssues:
+              schedule: *sonarqubeSchedule
+            securityRating:
+              schedule: *sonarqubeSchedule
+            securityIssues:
+              schedule: *sonarqubeSchedule
+            securityReviewRating:
+              schedule: *sonarqubeSchedule
+            securityHotspots:
+              schedule: *sonarqubeSchedule
+            reliabilityRating:
+              schedule: *sonarqubeSchedule
+            reliabilityIssues:
+              schedule: *sonarqubeSchedule
+            maintainabilityRating:
+              schedule: *sonarqubeSchedule
+            maintainabilityIssues:
+              schedule: *sonarqubeSchedule
+            codeCoverage:
+              schedule: *sonarqubeSchedule
+            codeDuplications:
+              schedule: *sonarqubeSchedule
