@@ -36,6 +36,10 @@ const SCREEN_CONTEXT_MODES = [
 
 test.describe("Intelligent assistant screen context", () => {
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "Intelligent assistant Options menu restructured: MCP settings renamed, saved prompts and screen context items removed",
+  );
 
   let context: BrowserContext;
   let page: Page;

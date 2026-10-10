@@ -37,6 +37,10 @@ const MCP_TOOL_RESPONSE_BUTTON =
 
 test.describe("Intelligent Assistant MCP", () => {
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "Intelligent assistant Options menu restructured: MCP settings renamed, saved prompts and screen context items removed",
+  );
 
   let context: BrowserContext;
   let page: Page;
