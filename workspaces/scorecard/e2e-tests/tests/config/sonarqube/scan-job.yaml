@@ -1,0 +1,88 @@
+# Runs after SonarQube is UP. The cluster pulls this image when the job is created.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sonarqube-scan
+  labels:
+    app: sonarqube-scan
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: sonarqube-scan
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: scanner
+          image: sonarsource/sonar-scanner-cli:5.0.1
+          imagePullPolicy: IfNotPresent
+          workingDir: /tmp
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              sonar-scanner \
+                -Dsonar.projectBaseDir=/usr/src/project \
+                -Dsonar.working.directory=/tmp/scannerwork-demo \
+                -Dsonar.projectKey=demo \
+                -Dsonar.sources=. \
+                -Dsonar.scm.disabled=true \
+                -Dsonar.exclusions=lcov-*.info \
+                -Dsonar.javascript.lcov.reportPaths=lcov-high.info
+              sonar-scanner \
+                -Dsonar.projectBaseDir=/usr/src/project \
+                -Dsonar.working.directory=/tmp/scannerwork-low \
+                -Dsonar.projectKey=demo-low \
+                -Dsonar.sources=. \
+                -Dsonar.scm.disabled=true \
+                -Dsonar.exclusions=lcov-*.info \
+                -Dsonar.javascript.lcov.reportPaths=lcov-low.info
+          env:
+            - name: HOME
+              value: /tmp
+            - name: SONAR_HOST_URL
+              value: http://sonarqube:9000
+            - name: SONAR_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sonarqube-e2e-token
+                  key: token
+            - name: SONAR_LOGIN
+              valueFrom:
+                secretKeyRef:
+                  name: sonarqube-e2e-token
+                  key: token
+          volumeMounts:
+            - name: sources
+              mountPath: /usr/src/project
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              cpu: 500m
+      volumes:
+        - name: sources
+          projected:
+            sources:
+              - configMap:
+                  name: sonarqube-scan-app
+              - configMap:
+                  name: sonarqube-scan-lcov-high
+              - configMap:
+                  name: sonarqube-scan-lcov-low

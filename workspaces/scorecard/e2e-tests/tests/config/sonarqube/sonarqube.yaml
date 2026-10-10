@@ -1,0 +1,121 @@
+# Disposable SonarQube 10.6 Community for the scorecard e2e project.
+# Embedded H2 (no JDBC, no Postgres). No privileged init containers.
+# emptyDir replaces the image data dirs so an arbitrary OpenShift UID can write them.
+# The image tag is assumed to be pullable by the cluster; this file does not pull it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarqube
+  labels:
+    app: sonarqube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonarqube
+  template:
+    metadata:
+      labels:
+        app: sonarqube
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sonarqube
+          image: sonarqube:10.6-community
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 9000
+          env:
+            - name: SONAR_ES_BOOTSTRAP_CHECKS_DISABLE
+              value: "true"
+            - name: SONAR_SEARCH_JAVAADDITIONALOPTS
+              value: "-Dnode.store.allow_mmap=false"
+            - name: SONAR_WEB_JAVAOPTS
+              value: "-Xmx512m -Xms128m"
+            - name: SONAR_CE_JAVAOPTS
+              value: "-Xmx512m -Xms128m"
+            - name: SONAR_SEARCH_JAVAOPTS
+              value: "-Xmx512m -Xms512m"
+          volumeMounts:
+            - name: data
+              mountPath: /opt/sonarqube/data
+            - name: extensions
+              mountPath: /opt/sonarqube/extensions
+            - name: logs
+              mountPath: /opt/sonarqube/logs
+            - name: temp
+              mountPath: /opt/sonarqube/temp
+          startupProbe:
+            httpGet:
+              path: /api/system/status
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/system/status
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/system/status
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 200m
+            limits:
+              memory: 2Gi
+              cpu: "1"
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: extensions
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+        - name: temp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarqube
+  labels:
+    app: sonarqube
+spec:
+  ports:
+    - name: http
+      port: 9000
+      targetPort: http
+  selector:
+    app: sonarqube
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: sonarqube
+  labels:
+    app: sonarqube
+spec:
+  to:
+    kind: Service
+    name: sonarqube
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
