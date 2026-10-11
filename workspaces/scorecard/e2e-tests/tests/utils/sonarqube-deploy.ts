@@ -278,9 +278,10 @@ function deleteJobIfPresent(namespace: string): void {
       namespace,
       "--ignore-not-found",
     ]);
-  } catch {
+  } catch (error) {
     throw new Error(
       `Failed to delete job sonarqube-scan in namespace ${namespace}`,
+      { cause: error },
     );
   }
 }
@@ -371,7 +372,7 @@ function readSecretKey(namespace: string, name: string, key: string): string {
 }
 
 function runOc(args: readonly string[]): string {
-  return execFileSync("/usr/bin/oc", [...args], {
+  return execFileSync("oc", [...args], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
