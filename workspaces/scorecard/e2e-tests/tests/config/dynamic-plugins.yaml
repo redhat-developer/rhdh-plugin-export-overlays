@@ -47,17 +47,17 @@ plugins:
                 importName: ScorecardHomepageCard
                 module: Legacy
                 config:
-                  id: "scorecard-githubOpenPrsWeightedKpi"
-                  title: "Open PR health"
+                  id: "scorecard-openPrsWeightedKpi"
+                  title: "GitHub open PRs (weighted health)"
                   props:
-                    aggregationId: "githubOpenPrsWeightedKpi"
+                    aggregationId: "openPrsWeightedKpi"
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
     enabled: true
     pluginConfig:
       scorecard:
         aggregationKPIs:
-          githubOpenPrsWeightedKpi:
-            title: Open PR health
+          openPrsWeightedKpi:
+            title: GitHub open PRs (weighted health)
             description: Weighted health of GitHub open pull requests.
             metricId: github.openPRs
             type: weightedStatusScore
