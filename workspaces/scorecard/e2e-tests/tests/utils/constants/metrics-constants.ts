@@ -46,6 +46,12 @@ export const FILECHECK_METRICS: Record<string, ScorecardMetric> = {
     description: "Checks whether the license file exists in the repository.",
     thresholds: FILECHECK_THRESHOLDS,
   },
+  missing: {
+    id: "filecheck.missing",
+    title: "File check: missing",
+    description: "Checks whether the missing file exists in the repository.",
+    thresholds: FILECHECK_THRESHOLDS,
+  },
 } as const;
 
 export const SCORECARD_METRICS: ScorecardMetric[] = [

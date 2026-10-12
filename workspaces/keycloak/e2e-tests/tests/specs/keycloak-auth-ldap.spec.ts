@@ -82,7 +82,6 @@ test.describe("Keycloak LDAP auth provider", () => {
       appConfig: `${KEYCLOAK_AUTH_CONFIG_DIR}/app-config-rhdh-ldap.yaml`,
       dynamicPlugins: `${KEYCLOAK_AUTH_CONFIG_DIR}/dynamic-plugins-ldap.yaml`,
       secrets: `${KEYCLOAK_AUTH_CONFIG_DIR}/rhdh-secrets.yaml`,
-      valueFile: `${KEYCLOAK_AUTH_CONFIG_DIR}/value-file.yaml`,
     });
     await rhdh.deploy();
   });

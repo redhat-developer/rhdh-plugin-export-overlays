@@ -1,8 +1,0 @@
-appConfig:
-  backend:
-    auth:
-      externalAccess:
-        - type: static
-          options:
-            token: microsoft-e2e-token
-            subject: microsoft-auth-e2e

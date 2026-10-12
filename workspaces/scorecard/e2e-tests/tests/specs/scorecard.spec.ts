@@ -59,6 +59,19 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
+  test("Weighted status score card shows a percentage for GitHub open PRs", async () => {
+    await scorecard.navigateToHome();
+    await scorecard.expectNoProgressBar();
+
+    // The home.page mount already places this card. Its title contains
+    // "GitHub open PRs", so the setup test selects cards by exact title.
+    const card = page.getByTestId("scorecard-homepage-card-openPrsWeightedKpi");
+    await expect(card).toBeVisible({ timeout: 90_000 });
+    await expect(
+      card.getByTestId("weighted-status-score-card-center-percent"),
+    ).toHaveText(/^\d+(\.\d+)?%$/);
+  });
+
   test.describe("Aggregated scorecard drill-down", () => {
     test.describe.configure({ retries: 1 });
 
