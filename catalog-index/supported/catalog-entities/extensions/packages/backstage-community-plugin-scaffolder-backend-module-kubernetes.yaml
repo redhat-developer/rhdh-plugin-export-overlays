@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-kubernetes"
   # Tag: bs_1.54.9__2.21.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:370bd24230e4d837d227ee4d6c2feee762157cceb89b5717ccac3a91354d4cb3"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:c60af00257801e1c5023970b59e36a379e0cade43a2735cd6c84c0eba08c8856"
   version: 2.21.0
   backstage:
     role: backend-plugin-module
