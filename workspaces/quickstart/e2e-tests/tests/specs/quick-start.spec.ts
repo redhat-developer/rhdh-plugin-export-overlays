@@ -46,6 +46,7 @@ test.describe("Test Quick Start plugin", () => {
     await expect(page).toHaveURL("/extensions");
 
     await uiHelper.clickButtonByText("Set up Intelligent Assistant");
+    await page.waitForTimeout(500);
     await uiHelper.verifyTextVisible(
       "Connect Intelligent Assistant to a supported large language model",
     );
