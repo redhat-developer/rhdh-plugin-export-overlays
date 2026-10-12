@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-topology'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:bs_1.54.9__3.0.6!backstage-community-plugin-topology
-  version: 3.0.6
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:bs_1.54.9__3.0.7!backstage-community-plugin-topology
+  version: 3.0.7
   backstage:
     role: frontend-plugin
     supportedVersions: 1.54.9
