@@ -629,6 +629,18 @@ class TestFallbackRebuildCta:
         assert "sync-midstream.sh --force-clone 'topology' --yes" in out
         assert "./build/ci/update-index.sh" in out
 
+    def test_cta_uses_release_version_without_next_on_release_branch(self, capsys):
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="release-2.1"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.1.0") as fetch_version, \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [("backstage-community-plugin-topology", "2.1.0--1.5.4", "2.1.0--1.6.0", "topology")]
+            )
+        out = capsys.readouterr().out
+        assert "-p 'backstage-community-plugin-topology' -v 2.1.0" in out
+        assert "--next" not in out
+        fetch_version.assert_called_once_with("release-2.1")
+
 
 class TestRhdhBranchAndVersion:
     """Unit tests for midstream → rhdh branch mapping and version fetch."""
@@ -637,6 +649,8 @@ class TestRhdhBranchAndVersion:
         "midstream, expected",
         [
             ("main", "main"),
+            ("release-2.1", "release-2.1"),
+            ("release-1.10", "release-1.10"),
             ("rhdh-1.10-rhel-9", "release-1.10"),
             ("rhdh-1.9-rhel-9", "release-1.9"),
             ("feature/foo", "main"),
