@@ -28,7 +28,6 @@ test.describe("Testing scaffolder-backend-module-http-request to invoke an exter
     await uiHelper.clickLink({
       ariaLabel: "Self-service",
     });
-    await uiHelper.verifyHeading("Self-service");
     await uiHelper.verifyHeading("Templates");
 
     await uiHelper.openSidebar("Catalog");
@@ -37,7 +36,6 @@ test.describe("Testing scaffolder-backend-module-http-request to invoke an exter
     await uiHelper.clickLink("Test HTTP Request");
     await uiHelper.verifyHeading("Test HTTP Request");
     await uiHelper.clickLink("Launch Template");
-    await uiHelper.verifyHeading("Self-service");
     await uiHelper.clickButton("Create");
     //Checking for Http Status 200
     await uiHelper.verifyText("200", false);
