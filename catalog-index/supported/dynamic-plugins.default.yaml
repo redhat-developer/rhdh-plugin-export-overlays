@@ -51,7 +51,7 @@ plugins:
           - addon:techdocs/report-issue
           - addon:techdocs/text-size: false
           - addon:techdocs/light-box: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:3614fb4313611f7a05d577b8cf48970c3f9835d91a2738c95e52be4ccd83818e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:2121f3cf47f215315620a672bb37d1939fbafc6d9ccf2a9ec7d54843eba2f226
     enabled: true
   # Tag: bs_1.54.9__1.0.4, Build date: 2026-06-03T21:17:56Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:978c473be44380123ade225b85203cd7c467d9f51b320248181f4831a03639b7
@@ -560,7 +560,7 @@ plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:efcf72d88dc0df00c0ae84f003d51c9014e794c77dd605cb0d18e41411fdc592
     enabled: false
   # Tag: bs_1.54.9__0.21.10, Build date: 2026-05-21T21:07:46Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:8f4acce6a05cae3480f367d8992aff1bb0c33cd80571568e992d9cb6fb90bdc4
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:44396b752b10700b287b7a39e960c96108f69e44f69c52e8526bd3fc5455d97a
     enabled: false
     pluginConfig:
       kubernetes:
@@ -575,7 +575,7 @@ plugins:
                 skipTLSVerify: true
                 serviceAccountToken: ${K8S_CLUSTER_TOKEN}
   # Tag: bs_1.54.9__0.5.20, Build date: 2026-06-03T21:14:02Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:7347dafa28a3e34f3cb14a5c25af4f7bd252854b57100b93f5cc8ad1c629b263
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:6dde218f6c0f5a9eac94918fad73f5af5be76d68e85960e2853a39f0276a3d1a
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -591,13 +591,13 @@ plugins:
                   importName: NotificationsSidebarItem
                 path: /notifications
   # Tag: bs_1.54.9__0.6.8, Build date: 2026-05-21T21:01:27Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:1186d245234fc7cef84ba37a93533f7e23ba5f2994fd062da07b607527b859b9
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:c9334335cb3c18c7ef249ecc8ed6375efecef8378ea1e846e83b69a4c4462f72
     enabled: false
     pluginConfig:
       notifications:
         concurrencyLimit: 10
   # Tag: bs_1.54.9__0.3.24, Build date: 2026-05-21T21:16:42Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:5d8469f82bc0bba02280f38bae87c96e3d70f7451147e9f5708b91bea4f6251e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:f2ef9dbb8e04888baafacf086393570318c87efc2bac9870fd9d12d5a54d3410
     enabled: false
     pluginConfig:
       notifications:
