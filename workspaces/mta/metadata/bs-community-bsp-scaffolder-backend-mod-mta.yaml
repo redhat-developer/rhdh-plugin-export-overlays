@@ -1,9 +1,9 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-community-backstage-plugin-mta-backend
+  name: bs-community-bsp-scaffolder-backend-mod-mta
   namespace: rhdh
-  title: MTA Backend
+  title: MTA Scaffolder Backend Module
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,21 +15,14 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/mta
   tags: []
 spec:
-  packageName: "@backstage-community/backstage-plugin-mta-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-mta-backend:bs_1.49.4__0.5.3
-  version: 0.5.3
+  packageName: "@backstage-community/backstage-plugin-scaffolder-backend-module-mta"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-scaffolder-backend-module-mta:bs_1.49.4__0.5.1
+  version: 0.5.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.49.4
   author: Backstage Community
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Minimal starter
-      content:
-        mta:
-          url: ${MTA_URL}
-          providerAuth:
-            realm: ${MTA_AUTH_REALM}
-            clientID: ${MTA_AUTH_CLIENT_ID}
-            secret: ${MTA_AUTH_CLIENT_SECRET}
+  appConfigNotRequired: true
+  appConfigExamples: []
