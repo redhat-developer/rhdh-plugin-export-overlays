@@ -26,24 +26,6 @@ spec:
   lifecycle: active
   partOf:
     - topology
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-topology:
-              translationResources:
-                - importName: topologyTranslations
-                  ref: topologyTranslationRef
-                  module: Alpha
-              mountPoints:
-                - mountPoint: entity.page.topology/cards
-                  importName: TopologyPage
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                      height: 75vh
-                    if:
-                      anyOf:
-                        - hasAnnotation: backstage.io/kubernetes-id
-                        - hasAnnotation: backstage.io/kubernetes-namespace
+  appConfigNotRequired: true
+  appConfigExamples: []
+

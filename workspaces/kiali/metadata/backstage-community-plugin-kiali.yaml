@@ -27,25 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - kiali
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-kiali:
-              appIcons:
-                - importName: KialiIcon
-                  name: kialiIcon
-              dynamicRoutes:
-                - importName: KialiPage
-                  menuItem:
-                    icon: kialiIcon
-                    text: Kiali
-                  path: /kiali
-              mountPoints:
-                - config:
-                    if:
-                      anyOf:
-                        - hasAnnotation: backstage.io/kubernetes-namespace
-                  importName: EntityKialiContent
-                  mountPoint: entity.page.kiali/cards
+  appConfigNotRequired: true
+  appConfigExamples: []

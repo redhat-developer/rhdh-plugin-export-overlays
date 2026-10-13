@@ -26,18 +26,6 @@ spec:
   lifecycle: active
   partOf:
     - jira
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            roadiehq.backstage-plugin-jira:
-              mountPoints:
-                - mountPoint: entity.page.issues/cards
-                  importName: EntityJiraOverviewCard
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isJiraAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []
+

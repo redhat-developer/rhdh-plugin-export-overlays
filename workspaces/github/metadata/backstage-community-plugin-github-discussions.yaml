@@ -26,12 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - github-discussions
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-github-discussions:
-              mountPoints:
-                - mountPoint: search.page.results
-                  importName: GithubDiscussionsSearchResultListItem
+  appConfigNotRequired: true
+  appConfigExamples: []
