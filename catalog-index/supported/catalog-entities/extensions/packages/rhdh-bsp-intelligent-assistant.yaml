@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-intelligent-assistant"
   # Tag: bs_1.54.9__5.3.7
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:3a8b31a861790bb1469608227fa407e37a11ad88620bbd676be99aef2aa8f821"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:2490d0b74a4290b8406c121b6805115f40c79532a5004d3809e78ed7b64102e6"
   version: 5.3.7
   backstage:
     role: frontend-plugin
@@ -36,3 +36,32 @@ spec:
           prompts:
             - title: 'Getting Started with Red Hat Developer Hub'
               message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-intelligent-assistant:
+              translationResources:
+                - importName: lightspeedTranslations
+                  module: Alpha
+                  ref: intelligentAssistantTranslationRef
+              dynamicRoutes:
+                - path: /intelligent-assistant
+                  importName: LightspeedPage
+                  module: Legacy
+              mountPoints:
+                - mountPoint: application/listener
+                  importName: LightspeedFAB
+                  module: Legacy
+                - mountPoint: application/provider
+                  importName: LightspeedDrawerProvider
+                  module: Legacy
+                - mountPoint: application/internal/drawer-state
+                  importName: LightspeedDrawerStateExposer
+                  module: Legacy
+                  config:
+                    id: intelligent-assistant
+                - mountPoint: application/internal/drawer-content
+                  importName: LightspeedChatContainer
+                  module: Legacy
+                  config:
+                    id: intelligent-assistant
+                    priority: 100
