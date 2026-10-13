@@ -4,39 +4,6 @@
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.9__4.4.1
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-scorecard:
-            # Legacy exports require `module: Legacy` — they are not available on the default module.
-            translationResources:
-              - importName: scorecardTranslations
-                module: Legacy
-                ref: scorecardTranslationRef
-            entityTabs:
-              - path: "/scorecard"
-                title: Scorecard
-                mountPoint: entity.page.scorecard
-            dynamicRoutes:
-              - path: /scorecard/aggregations/:aggregationId/metrics/:metricId
-                importName: ScorecardPage
-                module: Legacy
-            mountPoints:
-              - mountPoint: entity.page.scorecard/cards
-                importName: EntityScorecardContent
-                module: Legacy
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-              - mountPoint: home.page/cards
-                importName: ScorecardHomepageCard
-                module: Legacy
-                config:
-                  id: "scorecard-filecheck.readme"
-                  title: "README file exists"
-                  description: "Checks if the README file exists in the repository"
-                  props:
-                    aggregationId: "filecheck.readme"
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.54.9__1.1.3
@@ -60,12 +27,5 @@ plugins:
                   seconds: 120
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-homepage:
-            dynamicRoutes:
-              - path: /
-                importName: DynamicCustomizableHomePage
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
     enabled: true
