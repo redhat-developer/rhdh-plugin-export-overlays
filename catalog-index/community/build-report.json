@@ -1,8 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.1-bs_1.54.9-d3d5653",
-    "last-successful-publish": "d3d565343af6fb8c8ad99aa887a40b8baaefff99"
-  },
+  "metadata": {},
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -166,7 +163,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1209083bdc361606c42c20fc9284da0157b7915b544314d61d574b148ea80fb9"
+          "digest": "sha256:841257e45cbcb86e2e0e756fb1967f6fe0f9071650894d14c928f7d8a629d42d"
         },
         "dpdy": {
           "status": "skip"
@@ -188,7 +185,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:46c1cc90d49c12c81e8774d817c326524e7c3a31e13a7796566cadd94a98dbfd"
+          "digest": "sha256:c3256510f943b07d93e645e6e8e78bb3849e8ab6bf29271d5428bcc18630e759"
         },
         "dpdy": {
           "status": "skip"
@@ -210,7 +207,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:abb9838aee8c5b26a3c47663c8a3ad01df3758f4666d7c3f405cf7a0ba05bd99"
+          "digest": "sha256:9247977bf101d40956cc5a03576fd58b0a2bbf46043bd59ef3818de8c47d31e9"
         },
         "dpdy": {
           "status": "skip"
@@ -232,7 +229,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cd13b889f3d11ececd9584f2cff13a3c097ed9920dd69df050e21e054b5d0a70"
+          "digest": "sha256:e16e7caad7eaf75b79342ca5d6b3f434d046e572bbb9cbed5d569bd80fcbc07b"
         },
         "dpdy": {
           "status": "skip"
@@ -254,7 +251,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ad32a879d93e3b8f761642490c7d2ac6d6a8770cbb56cd2fd43177e042b645f2"
+          "digest": "sha256:b57d627e6334b1f168994c9ea5a96552ac73fadcb6760683617b86046e0df219"
         },
         "dpdy": {
           "status": "skip"
