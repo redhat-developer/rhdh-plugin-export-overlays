@@ -43,8 +43,8 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="2.1"       # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
+export RHDH_VERSION="${RHDH_VERSION:-2.1}"
 
 # Playwright
 export CI="${CI:-true}"                                  # Enables CI mode (forbidOnly, teardown)
@@ -57,8 +57,11 @@ export SKIP_KEYCLOAK_DEPLOYMENT="${SKIP_KEYCLOAK_DEPLOYMENT:-}" # Set "true" to 
 export JOB_NAME="${JOB_NAME:-}"                          # If contains "periodic-", skips metadata injection
 export GIT_PR_NUMBER="${GIT_PR_NUMBER:-}"                 # PR number for OCI URL generation
 
-# Catalog index image — only set if you need to override the default baked into the RHDH chart
-export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
+# CI is also enabled for local runs, so use Prow job metadata to distinguish
+# OpenShift CI. Keep its supplied release branch; default only local runs.
+if [[ -z "$JOB_NAME" && -z "${PROW_JOB_ID:-}" ]]; then
+    export RELEASE_BRANCH_NAME="${RELEASE_BRANCH_NAME:-release-2.1}"
+fi
 
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"

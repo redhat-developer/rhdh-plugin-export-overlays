@@ -289,9 +289,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:2.1.24":
-  version: 2.1.24
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.24"
+"@red-hat-developer-hub/e2e-test-utils@npm:2.1.25":
+  version: 2.1.25
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.25"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
@@ -316,7 +316,7 @@ __metadata:
     "@playwright/test": ^1.57.0
   bin:
     rhdh-e2e-secrets: ./dist/secrets/cli.js
-  checksum: 10c0/74d8e623df5d214ad3912d006827c6297ac524be0034d1ec1c3862f6660bb994754d75ea6549466873facb46dae8c8c92c55cbec3f2d1466d05b4d30438e9f43
+  checksum: 10c0/c7aa05d96554b490fe3e3c20d8f21f460e8a006b564fba27db410f9f2bbd10f03bba41fb67a49aca545f7198446742b4d351fe1f5d18d68742de2a074461c54c
   languageName: node
   linkType: hard
 
@@ -1938,7 +1938,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:10.0.1"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.24"
+    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.25"
     "@types/node": "npm:25.5.2"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"

@@ -3,7 +3,7 @@ import {
   DEFAULT_USERS,
 } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 
-/** Static token from tests/config/keycloak-auth/value-file.yaml */
+/** Static token configured in the Keycloak auth app-config files. */
 export const KEYCLOAK_CATALOG_TOKEN = "keycloak-auth-e2e-token";
 
 function defaultAuthUser(username: string) {

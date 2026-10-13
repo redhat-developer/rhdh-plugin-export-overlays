@@ -130,7 +130,6 @@ test.describe("Keycloak auth provider", () => {
       appConfig: `${KEYCLOAK_AUTH_CONFIG_DIR}/app-config-rhdh.yaml`,
       dynamicPlugins: `${KEYCLOAK_AUTH_CONFIG_DIR}/dynamic-plugins.yaml`,
       secrets: `${KEYCLOAK_AUTH_CONFIG_DIR}/rhdh-secrets.yaml`,
-      valueFile: `${KEYCLOAK_AUTH_CONFIG_DIR}/value-file.yaml`,
     });
     await rhdh.deploy();
     baseUrl = rhdh.rhdhUrl;
