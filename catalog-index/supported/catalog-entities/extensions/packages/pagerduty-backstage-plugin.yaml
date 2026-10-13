@@ -26,20 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - pagerduty
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            pagerduty.backstage-plugin:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityPagerDutyCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isPluginApplicableToEntity
+  appConfigNotRequired: true
+  appConfigExamples: []

@@ -25,15 +25,5 @@ spec:
   lifecycle: active
   partOf:
     - todo
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-todo:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityTodoContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
+  appConfigNotRequired: true
+  appConfigExamples: []

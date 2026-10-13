@@ -26,18 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - datadog
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            roadiehq.backstage-plugin-datadog:
-              mountPoints:
-                - mountPoint: entity.page.monitoring/cards
-                  importName: EntityDatadogContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isDatadogAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

@@ -22,21 +22,5 @@ spec:
   author: Red Hat
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            red-hat-developer-hub.backstage-plugin-translations:
-              translationResources:
-                - importName: translationsPluginTranslations
-                  module: Alpha
-                  ref: translationsPluginTranslationRef
-              dynamicRoutes:
-                - path: /translations
-                  importName: TranslationsPage
-                  module: Legacy
-              mountPoints:
-                - mountPoint: application/provider
-                  importName: PseudoLocalizationProvider
-                  module: Legacy
+  appConfigNotRequired: true
+  appConfigExamples: []
