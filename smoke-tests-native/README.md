@@ -297,9 +297,6 @@ yarn smoke --catalog-index ../catalog-index/dynamic-plugins.default.yaml
 yarn smoke --catalog-index /tmp/dpdy.yaml --exclusions catalog-index-sanity-excludes.txt
 ```
 
-The [Catalog Index Sanity workflow](../.github/workflows/catalog-index-sanity.yaml) runs the
-second form daily against the productized index.
-
 Two deliberate differences from feeding the index straight to the install CLI:
 
 - **The index's `enabled:` flags are ignored.** It ships most packages `enabled: false` —
