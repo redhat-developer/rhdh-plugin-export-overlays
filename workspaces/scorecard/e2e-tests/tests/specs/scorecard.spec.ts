@@ -41,15 +41,26 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    await scorecard.addWidget("Scorecard: GitHub open PRs", { exact: true });
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "github.openPRs",
+    });
     await scorecard.expectNoProgressBar();
-    await scorecard.addWidget("Jira open blocking tickets");
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "jira.openIssues",
+    });
+    await scorecard.expectNoProgressBar();
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "openPrsWeightedKpi",
+    });
     await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
+    await scorecard.expectAggregatedScorecardVisible(
+      "GitHub open PRs (weighted health)",
+    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -63,8 +74,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     await scorecard.navigateToHome();
     await scorecard.expectNoProgressBar();
 
-    // The home.page mount already places this card. Its title contains
-    // "GitHub open PRs", so the setup test selects cards by exact title.
+    // The setup test adds the generic Scorecard widget with `openPrsWeightedKpi` KPI ID.
     const card = page.getByTestId("scorecard-homepage-card-openPrsWeightedKpi");
     await expect(card).toBeVisible({ timeout: 90_000 });
     await expect(

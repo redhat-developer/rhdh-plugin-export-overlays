@@ -69,14 +69,14 @@ test.describe.serial("Scorecard DORA Tests", () => {
     test("Verify aggregated scorecards are displayed for all 4 DORA metrics", async () => {
       await scorecard.navigateToHome();
 
-      // Change Failure Rate also renders a deprecated metricId card with the
-      // same heading, so select the configured KPI cards by id.
       for (const aggregationId of [
         "doraDeploymentFrequencyKpi",
         "doraMedianLeadTimeForChangesKpi",
         "doraChangeFailureRateKpi",
         "doraMedianTimeToRestoreKpi",
       ]) {
+        await scorecard.addWidget("Scorecard", { aggregationId });
+        await scorecard.expectNoProgressBar();
         await expect(aggregated.homepageCard(aggregationId)).toBeVisible({
           timeout: 90_000,
         });

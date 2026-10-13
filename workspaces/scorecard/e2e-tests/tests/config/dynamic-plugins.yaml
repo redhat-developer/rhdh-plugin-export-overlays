@@ -1,9 +1,9 @@
 # Enable Scorecard plugin for e2e tests (main scorecard project).
 # Filecheck backend module is intentionally excluded — it lives in filecheck/dynamic-plugins.yaml.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend
     enabled: true
     pluginConfig:
       scorecard:
@@ -18,7 +18,7 @@ plugins:
                 ideal: 100
                 warning: 50
                 critical: 0
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
     enabled: true
     pluginConfig:
       scorecard:
@@ -47,7 +47,7 @@ plugins:
                     expression: ">70"
                     icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" style="color:#FAA0A0"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#FAA0A0" stroke-width="2"/><path d="M9 9l6 6M15 9l-6 6" stroke="#FAA0A0" stroke-width="2" stroke-linecap="round"/></svg>
                     color: "#faa0a0"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
     enabled: true
     pluginConfig:
       jira:
@@ -65,7 +65,7 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 15
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.54.9__1.1.3
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot
     enabled: true
     pluginConfig:
       scorecard:
@@ -103,7 +103,7 @@ plugins:
                   minutes: 15
                 initialDelay:
                   seconds: 20
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.54.9__2.0.0
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf
     enabled: true
     pluginConfig:
       scorecard:
@@ -116,16 +116,9 @@ plugins:
                 minutes: 15
               initialDelay:
                 seconds: 25
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+  # Homepage 3.1.0 provides the NFS page:homepage extension for Scorecard widgets.
+  # We can use {{inherit}} once RHDH's catalog resolves it for 3.1.0 or newer.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-homepage:
-            dynamicRoutes:
-              - path: /
-                importName: DynamicCustomizableHomePage
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
     enabled: true
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
-    enabled: false
