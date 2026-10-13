@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki"
   # Tag: bs_1.54.9__1.5.1
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:9e03a4aefd2f675545936d7dd5859f6b5397957c2119df94ecbf74de5a3898ca"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:a82b9532dcbd7a52ff46f19d5486deb77ca5f9a529aaea0607f18f2c1fddb8f6"
   version: 1.5.1
   backstage:
     role: backend-plugin-module
