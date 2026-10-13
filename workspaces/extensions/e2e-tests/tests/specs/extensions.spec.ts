@@ -36,7 +36,11 @@ test.describe("Admin > Extensions", () => {
     uiHelper = u;
     extensions = new ExtensionsPage(page, uiHelper);
     await loginHelper.loginAsKeycloakUser();
-    await uiHelper.openSidebar("Extensions");
+    const extensionsNav = page.getByRole("link", { name: "Extensions" });
+    if (!(await extensionsNav.isVisible())) {
+      await page.getByRole("button", { name: "Administration" }).click();
+    }
+    await extensionsNav.click();
     await uiHelper.verifyHeading("Extensions");
   });
 
