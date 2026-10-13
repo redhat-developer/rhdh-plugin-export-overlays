@@ -26,29 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - backstage-plugins-for-aws
-
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            aws.amazon-ecs-plugin-for-backstage:
-              # Entity tab for ECS services (main plugin functionality)
-              entityTabs:
-                - path: /amazon-ecs
-                  title: Amazon ECS
-                  mountPoint: entity.page.amazon-ecs
-
-              # ECS services content in the entity tab
-              mountPoints:
-                - mountPoint: entity.page.amazon-ecs/cards
-                  importName: EntityAmazonEcsServicesContent
-                  config:
-                    layout:
-                      gridColumn: "1 / -1"
-                    if:
-                      anyOf:
-                        # Show for entities with ECS service tags
-                        - hasAnnotation: aws.amazon.com/amazon-ecs-service-tags
-                        # Show for entities with specific ECS service ARN
-                        - hasAnnotation: aws.amazon.com/amazon-ecs-service-arn
+  appConfigNotRequired: true
+  appConfigExamples: []

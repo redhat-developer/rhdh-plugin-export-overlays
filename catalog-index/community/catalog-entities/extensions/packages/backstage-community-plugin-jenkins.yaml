@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-jenkins"
   # Tag: bs_1.54.9__0.34.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins@sha256:0ef28959fb981aab0117599cb51df5e08e14ec4a584043ba7452eff38ad8227b"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins@sha256:364a93acbb53bd746135821cda8e824a429b034d79f83da4e7c50e03340a80b7"
   version: 0.34.0
   backstage:
     role: frontend-plugin
@@ -27,18 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - jenkins
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-jenkins:
-              mountPoints:
-                - mountPoint: entity.page.ci/cards
-                  importName: EntityJenkinsContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isJenkinsAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

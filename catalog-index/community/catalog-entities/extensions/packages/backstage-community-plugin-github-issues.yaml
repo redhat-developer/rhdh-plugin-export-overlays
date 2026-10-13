@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-github-issues"
   # Tag: bs_1.54.9__1.4.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues@sha256:42f5ffba35b40a6aec63166aa9d65200aeae8f8a883d004bbc113641b49c338f"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues@sha256:93bbec3f0c00aa077bf7a78ce09f14f6e39678339678e2348ba529bf244296c9"
   version: 1.4.0
   backstage:
     role: frontend-plugin
@@ -27,18 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - github-issues
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-github-issues:
-              mountPoints:
-                - mountPoint: entity.page.issues/cards
-                  importName: GithubIssuesCard
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - hasAnnotation: github.com/project-slug
+  appConfigNotRequired: true
+  appConfigExamples: []

@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-github-actions"
   # Tag: bs_1.54.9__1.4.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions@sha256:b74d7368adec10490bfdc94620c0cb3e7396e2882674d9017f0a060821c26380"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions@sha256:aa93a00b05849fd406ad53ecbb79c1f24cf4b96391e7c57971dbd7b1b8531521"
   version: 1.4.0
   backstage:
     role: frontend-plugin
@@ -27,18 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - github-actions
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-github-actions:
-              mountPoints:
-                - mountPoint: entity.page.ci/cards
-                  importName: EntityGithubActionsContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGithubActionsAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

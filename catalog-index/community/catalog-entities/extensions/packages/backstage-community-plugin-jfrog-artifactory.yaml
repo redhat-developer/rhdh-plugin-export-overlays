@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-jfrog-artifactory"
   # Tag: bs_1.54.9__2.0.3
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory@sha256:1241b58d6ed576726494e1ebce27c36af78759a0236f0d994618207b3bc3d465"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory@sha256:3c97444a49acb9df097e436d338633ce4716c6c3254468b742e9435ca6458a36"
   version: 2.0.3
   backstage:
     role: frontend-plugin
@@ -27,18 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - jfrog-artifactory
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-jfrog-artifactory:
-              mountPoints:
-                - mountPoint: entity.page.image-registry/cards
-                  importName: JfrogArtifactoryPage
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      anyOf:
-                        - isJfrogArtifactoryAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

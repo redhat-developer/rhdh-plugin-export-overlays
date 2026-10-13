@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-sonarqube"
   # Tag: bs_1.54.9__1.2.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube@sha256:47380cf1659e45a5bd8a554db66ee18a2a77c992b92251a2ae100c60008016ee"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube@sha256:73222372fa20668d9e4fb71eec8365e61fa32fec73407c2609c504ce810e041a"
   version: 1.2.0
   backstage:
     role: frontend-plugin
@@ -27,21 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - sonarqube-catalog-cards
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-sonarqube:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntitySonarQubeCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        lg: span 4
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isSonarQubeAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

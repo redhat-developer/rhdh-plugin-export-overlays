@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@backstage-community/plugin-lighthouse'
   # Tag: bs_1.54.9__0.26.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse@sha256:7a3ca746d6679d788edf9bcaeb939341cf3146dcae8061e6c9044c78da0d55ed"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse@sha256:622c805d74b9cf59027e71e3dbe980ecdd1a1012ccb58d0737cc183a9c67dbcc"
   version: 0.26.0
   backstage:
     role: frontend-plugin
@@ -27,30 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - lighthouse
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-lighthouse:
-              appIcons:
-                - name: lighthouse
-                  importName: LighthouseIcon
-              dynamicRoutes:
-                - path: /lighthouse
-                  importName: LighthousePage
-                  menuItem:
-                    icon: lighthouse
-                    text: menuItem.lighthouse
-                    textKey: menuItem.lighthouse
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityLastLighthouseAuditCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isLighthouseAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

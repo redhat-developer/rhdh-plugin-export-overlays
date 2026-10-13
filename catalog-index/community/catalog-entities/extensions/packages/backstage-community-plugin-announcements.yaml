@@ -24,24 +24,5 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-announcements:
-              dynamicRoutes:
-                - path: /announcements
-                  importName: AnnouncementsPage
-                  menuItem:
-                    text: Announcements
-              mountPoints:
-                - mountPoint: home.page/cards
-                  importName: AnnouncementsCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        md: span 6
-                        xs: span 12
-                    props:
-                      max: 5
+  appConfigNotRequired: true
+  appConfigExamples: []

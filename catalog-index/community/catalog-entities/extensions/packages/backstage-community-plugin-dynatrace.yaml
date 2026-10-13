@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-dynatrace"
   # Tag: bs_1.54.9__10.23.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:0a8278f84698ec96667a17124f09e8cf738a61068c86fa01c80cb80d987597b0"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:e4f492efabb2a31b3333a294e031c8c084c17bcaccc0a9e2408fd8276ce9dc8d"
   version: 10.23.0
   backstage:
     role: frontend-plugin
@@ -27,18 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - dynatrace-community
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-dynatrace:
-              mountPoints:
-                - mountPoint: entity.page.monitoring/cards
-                  importName: DynatraceTab
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isDynatraceAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

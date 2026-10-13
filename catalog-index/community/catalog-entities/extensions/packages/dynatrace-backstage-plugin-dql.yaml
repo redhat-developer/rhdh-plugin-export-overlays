@@ -27,18 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - dynatrace-commercial
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            dynatrace.backstage-plugin-dql:
-              mountPoints:
-                - mountPoint: entity.page.monitoring/cards
-                  importName: DynatraceTab
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isDynatraceAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

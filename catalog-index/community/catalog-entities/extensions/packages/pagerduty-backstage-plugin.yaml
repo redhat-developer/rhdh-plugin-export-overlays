@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@pagerduty/backstage-plugin"
   # Tag: bs_1.54.9__0.21.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:7f2cca8460ea84e79771ca0b84d689b4bbe9d4caa984e499ea561b78e05cb1a5"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:0046bfa0fd07a6668e8bb1b3b84608680b78611feb525424fed1cabe30fa0fac"
   version: 0.21.0
   backstage:
     role: frontend-plugin
@@ -27,20 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - pagerduty
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            pagerduty.backstage-plugin:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityPagerDutyCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isPluginApplicableToEntity
+  appConfigNotRequired: true
+  appConfigExamples: []

@@ -16,7 +16,7 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-quickstart'
   # Tag: bs_1.54.9__2.2.0, Build date: 2026-06-03T21:14:06Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:ec8f9aa32c3a36f952a0c07646c96c3d3505f40b5f5e66b20450b9b8835cdd60"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:2f3464db2b697690d9dd3418e254c9818f7f6211f2356159d547dc2157b82f47"
   version: 2.2.0
   backstage:
     role: frontend-plugin
@@ -119,28 +119,3 @@ spec:
                 text: Learn more
                 textKey: steps.getStartedWithLightspeed.ctaTitle
                 link: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/
-        dynamicPlugins:
-          frontend:
-            red-hat-developer-hub.backstage-plugin-quickstart:
-              translationResources:
-                - importName: quickstartTranslations
-                  module: Alpha
-                  ref: quickstartTranslationRef
-              # Legacy exports require `module: Legacy` — they are not available on the default module.
-              mountPoints:
-                - mountPoint: application/provider
-                  importName: QuickstartDrawerProvider
-                  module: Legacy
-                - mountPoint: application/internal/drawer-state
-                  importName: QuickstartDrawerStateExposer
-                  module: Legacy
-                - mountPoint: application/internal/drawer-content
-                  importName: QuickstartDrawerContent
-                  module: Legacy
-                  config:
-                    id: quickstart
-                - mountPoint: global.header/help
-                  importName: QuickstartButton
-                  module: Legacy
-                  config:
-                    priority: 100

@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@backstage-community/plugin-topology'
   # Tag: bs_1.54.9__3.0.7, Build date: 2026-06-03T21:11:38Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:1ab5eda6e1026e4423b2c1a3e32f0451c281d67d70272b21b3c52965c6294fa6"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:98f3bbdac64c032d54b42bd0b1c7aebc439261c81cc805f0d153ab0718afdf80"
   version: 3.0.7
   backstage:
     role: frontend-plugin
@@ -27,24 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - topology
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-topology:
-              translationResources:
-                - importName: topologyTranslations
-                  ref: topologyTranslationRef
-                  module: Alpha
-              mountPoints:
-                - mountPoint: entity.page.topology/cards
-                  importName: TopologyPage
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                      height: 75vh
-                    if:
-                      anyOf:
-                        - hasAnnotation: backstage.io/kubernetes-id
-                        - hasAnnotation: backstage.io/kubernetes-namespace
+  appConfigNotRequired: true
+  appConfigExamples: []
