@@ -26,18 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - jenkins
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-jenkins:
-              mountPoints:
-                - mountPoint: entity.page.ci/cards
-                  importName: EntityJenkinsContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isJenkinsAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

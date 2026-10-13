@@ -26,30 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - lighthouse
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-lighthouse:
-              appIcons:
-                - name: lighthouse
-                  importName: LighthouseIcon
-              dynamicRoutes:
-                - path: /lighthouse
-                  importName: LighthousePage
-                  menuItem:
-                    icon: lighthouse
-                    text: menuItem.lighthouse
-                    textKey: menuItem.lighthouse
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityLastLighthouseAuditCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isLighthouseAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []
