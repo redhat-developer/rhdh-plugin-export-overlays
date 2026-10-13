@@ -41,9 +41,18 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    await scorecard.addWidget("Scorecard: GitHub open PRs", { exact: true });
+    // These widgets use metric ids as aggregation ids. The "GitHub open PRs"
+    // and "Jira open blocking tickets" widgets are custom KPIs and stay empty
+    // unless scorecard.aggregationKPIs defines them.
+    await scorecard.addWidget(
+      "Scorecard: With default aggregation config (GitHub)",
+      { exact: true },
+    );
     await scorecard.expectNoProgressBar();
-    await scorecard.addWidget("Jira open blocking tickets");
+    await scorecard.addWidget(
+      "Scorecard: With deprecated metricId property (Jira)",
+      { exact: true },
+    );
     await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
@@ -57,6 +66,20 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     initialJiraCount = await scorecard.getAggregatedScorecardEntityCount(
       jiraMetric.title,
     );
+  });
+
+  test("Weighted status score card shows a percentage for GitHub open PRs", async () => {
+    await scorecard.navigateToHome();
+    await scorecard.addWidget("Scorecard: GitHub open PRs (weighted health)", {
+      exact: true,
+    });
+    await scorecard.expectNoProgressBar();
+
+    const card = page.getByTestId("scorecard-homepage-card-openPrsWeightedKpi");
+    await expect(card).toBeVisible({ timeout: 90_000 });
+    await expect(
+      card.getByTestId("weighted-status-score-card-center-percent"),
+    ).toHaveText(/^\d+(\.\d+)?%$/);
   });
 
   test.describe("Aggregated scorecard drill-down", () => {

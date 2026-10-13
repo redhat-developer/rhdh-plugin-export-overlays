@@ -70,6 +70,11 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
       key: "readme",
       expected: "exist",
     },
+    {
+      entity: "filecheck-scorecard-github",
+      key: "missing",
+      expected: "missing",
+    },
   ] as const;
 
   for (const { entity, key, expected } of filecheckCases) {

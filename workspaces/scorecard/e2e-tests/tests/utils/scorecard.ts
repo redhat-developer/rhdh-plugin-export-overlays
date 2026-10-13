@@ -36,6 +36,13 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       .locator('[role="article"]')
       .filter({ has: page.getByText(metric.title, { exact: true }) });
 
+  // Exact title so "GitHub open PRs" does not also match
+  // "GitHub open PRs (weighted health)".
+  const getAggregatedCard = (metricTitle: string) =>
+    page.locator('[role="article"]').filter({
+      has: page.getByText(metricTitle, { exact: true }),
+    });
+
   return {
     getScorecardCard,
     async openTab() {
@@ -163,20 +170,14 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await page.getByRole("button", { name: "Save" }).click();
     },
     async expectAggregatedScorecardVisible(metricTitle: string) {
-      await expect(
-        page
-          .locator('[role="article"]')
-          .filter({ hasText: metricTitle })
-          .first(),
-      ).toBeVisible({ timeout: 90_000 });
+      await expect(getAggregatedCard(metricTitle)).toBeVisible({
+        timeout: 90_000,
+      });
     },
     async getAggregatedScorecardEntityCount(
       metricTitle: string,
     ): Promise<number> {
-      const card = page
-        .locator('[role="article"]')
-        .filter({ hasText: metricTitle });
-      const text = await card.textContent();
+      const text = await getAggregatedCard(metricTitle).textContent();
       const match = text?.match(/(\d+)\s*entities/);
       return match ? Number.parseInt(match[1], 10) : 0;
     },
@@ -184,10 +185,9 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       metricTitle: string,
       expectedCount: number,
     ) {
-      const card = page
-        .locator('[role="article"]')
-        .filter({ hasText: metricTitle });
-      await expect(card).toContainText(`${expectedCount} entities`);
+      await expect(getAggregatedCard(metricTitle)).toContainText(
+        `${expectedCount} entities`,
+      );
     },
     async expectFilecheckForEntity(
       navigate: () => Promise<void>,
