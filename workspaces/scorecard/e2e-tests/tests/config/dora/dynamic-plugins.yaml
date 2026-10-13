@@ -1,0 +1,247 @@
+# Scorecard plugins for scorecard-backend-module-dora e2e.
+# The DORA module uses collectors to fetch data from third party services,
+# deployments and pull requests through the GitHub module's collectors,
+# and incidents through the Jira module's collector. Both modules have to be enabled alongside it.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.9__4.4.1
+    enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-scorecard:
+            # Legacy exports require `module: Legacy` — they are not available on the default module.
+            translationResources:
+              - importName: scorecardTranslations
+                module: Legacy
+                ref: scorecardTranslationRef
+            entityTabs:
+              - path: "/scorecard"
+                title: Scorecard
+                mountPoint: entity.page.scorecard
+            dynamicRoutes:
+              - path: /scorecard/aggregations/:aggregationId/metrics/:metricId
+                importName: ScorecardPage
+                module: Legacy
+            mountPoints:
+              - mountPoint: entity.page.scorecard/cards
+                importName: EntityScorecardContent
+                module: Legacy
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                module: Legacy
+                config:
+                  id: "scorecard-doraDeploymentFrequencyKpi"
+                  title: "DORA - Deployment Frequency"
+                  props:
+                    aggregationId: "doraDeploymentFrequencyKpi"
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                module: Legacy
+                config:
+                  id: "scorecard-doraMedianLeadTimeForChangesKpi"
+                  title: "DORA - Lead Time for Changes"
+                  props:
+                    aggregationId: "doraMedianLeadTimeForChangesKpi"
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                module: Legacy
+                config:
+                  id: "scorecard-doraChangeFailureRateKpi"
+                  title: "DORA - Change Failure Rate"
+                  props:
+                    aggregationId: "doraChangeFailureRateKpi"
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                module: Legacy
+                config:
+                  id: "scorecard-doraMedianTimeToRestoreKpi"
+                  title: "DORA - Median Time to Restore"
+                  props:
+                    aggregationId: "doraMedianTimeToRestoreKpi"
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
+    enabled: true
+    pluginConfig:
+      scorecard:
+        aggregationKPIs:
+          doraDeploymentFrequencyKpi:
+            title: DORA - Deployment Frequency
+            type: average
+            description: Tracks how often code is successfully deployed to production over the past 30 days. Elite performers deploy on demand (multiple times per day).
+            metricId: dora.deploymentFrequency
+            options:
+              thresholds:
+                rules:
+                  - key: elite
+                    expression: ">=7"
+                    color: success.main
+                    icon: scorecardSuccessStatusIcon
+                  - key: medium
+                    expression: "1-7"
+                    color: warning.main
+                    icon: scorecardWarningStatusIcon
+                  - key: low
+                    expression: "<1"
+                    color: error.main
+                    icon: scorecardErrorStatusIcon
+          doraChangeFailureRateKpi:
+            title: DORA - Change Failure Rate
+            type: average
+            description: Monitors the percentage of deployments that cause a failure in production over the past 30 days. Elite performers maintain a change failure rate below 5%.
+            metricId: dora.changeFailureRate
+            options:
+              thresholds:
+                rules:
+                  - key: elite
+                    expression: "<5"
+                    color: success.main
+                    icon: scorecardSuccessStatusIcon
+                  - key: medium
+                    expression: "5-15"
+                    color: warning.main
+                    icon: scorecardWarningStatusIcon
+                  - key: low
+                    expression: ">15"
+                    color: error.main
+                    icon: scorecardErrorStatusIcon
+          doraMedianLeadTimeForChangesKpi:
+            title: DORA - Lead Time for Changes
+            type: average
+            description: Measures the median time from code commit to production deployment over the past 30 days. Elite performers have a lead time of less than 24 hours.
+            metricId: dora.medianLeadTimeForChanges
+            options:
+              thresholds:
+                rules:
+                  - key: elite
+                    expression: "<24"
+                    color: success.main
+                    icon: scorecardSuccessStatusIcon
+                  - key: medium
+                    expression: "24-168"
+                    color: warning.main
+                    icon: scorecardWarningStatusIcon
+                  - key: low
+                    expression: ">168"
+                    color: error.main
+                    icon: scorecardErrorStatusIcon
+          doraMedianTimeToRestoreKpi:
+            title: DORA - Median Time to Restore
+            type: average
+            description: Tracks the median time to restore service after an incident over the past 30 days. Elite performers restore service in under one hour.
+            metricId: dora.medianTimeToRestore
+            options:
+              thresholds:
+                rules:
+                  - key: elite
+                    expression: "<1"
+                    color: success.main
+                    icon: scorecardSuccessStatusIcon
+                  - key: medium
+                    expression: "1-24"
+                    color: warning.main
+                    icon: scorecardWarningStatusIcon
+                  - key: low
+                    expression: ">24"
+                    color: error.main
+                    icon: scorecardErrorStatusIcon
+  # Registers the github:doraDeployments and github:doraDeploymentPullRequests collectors.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.54.9__4.4.1
+    enabled: true
+    pluginConfig:
+      scorecard:
+        metricProviders:
+          github:
+            openPRs:
+              schedule:
+                frequency:
+                  minutes: 5
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 10
+  # Registers the jira:doraIncidents collector.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.54.9__4.4.1
+    enabled: true
+    pluginConfig:
+      jira:
+        baseUrl: ${JIRA_URL}
+        token: ${JIRA_TOKEN}
+        product: cloud
+      scorecard:
+        metricProviders:
+          jira:
+            openIssues:
+              schedule:
+                frequency:
+                  minutes: 5
+                timeout:
+                  minutes: 5
+                initialDelay:
+                  seconds: 15
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora:bs_1.54.9__0.2.2
+    enabled: true
+    pluginConfig:
+      scorecard:
+        plugins:
+          dora:
+            productionEnvironments:
+              - production
+            collectors:
+              deployments:
+                id: github:doraDeployments
+              deploymentPullRequests:
+                id: github:doraDeploymentPullRequests
+              incidents:
+                id: jira:doraIncidents
+                input:
+                  # simulate incidents
+                  issueType: Bug
+        metricProviders:
+          dora:
+            deploymentFrequency:
+              schedule:
+                frequency:
+                  minutes: 5
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 30
+            medianLeadTimeForChanges:
+              schedule:
+                frequency:
+                  minutes: 5
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 30
+            changeFailureRate:
+              schedule:
+                frequency:
+                  minutes: 5
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 30
+            medianTimeToRestore:
+              schedule:
+                frequency:
+                  minutes: 5
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 30
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+    enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-homepage:
+            dynamicRoutes:
+              - path: /
+                importName: DynamicCustomizableHomePage
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
+    enabled: true
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false

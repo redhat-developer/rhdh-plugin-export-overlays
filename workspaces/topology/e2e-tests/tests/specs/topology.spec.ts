@@ -1,4 +1,3 @@
-// Trigger e2e: validate the zip-bomb guard on __coverage images (RHDHBUGS-3470)
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
@@ -15,13 +14,6 @@ let topology: Topology;
 
 const deployResources = async (project: string) =>
   await $`bash ${setupScript} ${project}`;
-
-async function navigateToTopology(uiHelper: UIhelper) {
-  await uiHelper.openCatalogSidebar("Component");
-  await uiHelper.searchInputPlaceholder("backstage-janus");
-  await uiHelper.clickLink("backstage-janus");
-  await uiHelper.clickLink("Topology");
-}
 
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
   await page.waitForLoadState();
@@ -62,8 +54,7 @@ test.describe("Test Topology plugin", () => {
     test.setTimeout(150000 + testInfo.retry * 30000);
     await loginHelper.loginAsKeycloakUser("test1", "test1@123");
     topology = new Topology(page);
-    await navigateToTopology(uiHelper);
-    await uiHelper.verifyHeading("backstage-janus");
+    await topology.navigateToTopologyView();
     await page.getByRole("button", { name: "Fit to Screen" }).click();
     await expect(async () => {
       await page
@@ -144,12 +135,11 @@ test.describe("Test Topology plugin", () => {
     test("Verify limited user can see Topology but cannot view pod logs", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test2", "test2@123");
-      await navigateToTopology(uiHelper);
+      await topo.navigateToTopologyView();
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(false);
@@ -158,12 +148,11 @@ test.describe("Test Topology plugin", () => {
     test("Verify admin user can see Topology pods and view pod logs", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test1", "test1@123");
-      await navigateToTopology(uiHelper);
+      await topo.navigateToTopologyView();
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(true);

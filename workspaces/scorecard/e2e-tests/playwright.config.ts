@@ -12,6 +12,11 @@ export default defineConfig({
       timeout: 10 * 60 * 1000,
     },
     {
+      name: "scorecard-dora",
+      testMatch: "scorecard-dora.spec.ts",
+      timeout: 15 * 60 * 1000,
+    },
+    {
       name: "scorecard-filecheck",
       testMatch: "scorecard-filecheck.spec.ts",
       timeout: 15 * 60 * 1000,

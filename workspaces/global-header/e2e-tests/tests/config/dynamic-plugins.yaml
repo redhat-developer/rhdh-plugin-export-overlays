@@ -1,5 +1,5 @@
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications:bs_1.54.6__0.5.20
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications:bs_1.54.9__0.5.20
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -12,8 +12,8 @@ plugins:
     enabled: true
   - package: oci://quay.io/rhdh/backstage-plugin-signals-backend:{{inherit}}
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals:bs_1.54.6__0.0.34
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals:bs_1.54.9__0.0.34
     enabled: true
   # Version from workspaces/global-header/metadata (PR mode rewrites to pr_* tags)
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.6__3.1.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.9__3.1.0
     enabled: true

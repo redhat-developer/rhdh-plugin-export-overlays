@@ -7,7 +7,7 @@ import {
   type AggregatedScorecardHelpers,
   type ScorecardHelpers,
 } from "../utils/setup";
-import { FILECHECK_METRICS } from "../utils/scorecard";
+import { FILECHECK_METRICS } from "../utils/constants";
 
 test.describe.serial("Scorecard Filecheck Tests", () => {
   let context: BrowserContext | undefined;
@@ -55,12 +55,6 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
         () => scorecard.navigateToHome(),
         FILECHECK_METRICS.readme,
         "filecheck.readme",
-        {
-          thresholdRules: [
-            { key: "exist", color: "rgb(46, 125, 50)" },
-            { key: "missing", color: "rgb(211, 47, 47)" },
-          ],
-        },
       );
     });
   });

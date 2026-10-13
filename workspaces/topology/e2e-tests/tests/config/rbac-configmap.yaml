@@ -9,7 +9,7 @@ data:
     p, role:default/topology-limited, kubernetes.resources.read, read, allow
     p, role:default/topology-limited, catalog-entity, read, allow
 
+    # Guest may read catalog entities but must not have k8s read — NFS hides
+    # the Topology tab when kubernetes.clusters.read / kubernetes.resources.read are denied.
     g, user:development/guest, role:default/topology-viewer
     p, role:default/topology-viewer, catalog-entity, read, allow
-    p, role:default/topology-viewer, kubernetes.clusters.read, read, allow
-    p, role:default/topology-viewer, kubernetes.resources.read, read, allow

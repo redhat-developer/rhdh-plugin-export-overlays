@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Discover or install OpenShift cluster logging (Loki) for orchestrator-backend-module-loki.
-# Object storage uses in-cluster MinIO (S3-compatible). Prints the Loki base URL on stdout.
+# Object storage uses in-cluster RustFS (S3-compatible). Prints the Loki base URL on stdout.
 #
 # Discovery (when logging-loki route already exists):
 #   https://$LOKI_HOST/api/logs/v1/application/
@@ -14,16 +14,15 @@
 #   LOKI_OPERATOR_WAIT_TIMEOUT  Operator CSV wait (default: 1800)
 #   LOKI_SIZE                   LokiStack size (default: 1x.demo — lightest; use 1x.extra-small+ for prod-like)
 #   LOKI_STORAGE_CLASS          Block storage class (default: cluster default SC)
-#   LOKI_MINIO_NAME             MinIO service name (default: minio)
-#   LOKI_MINIO_BUCKET           Bucket for Loki (default: logging-loki)
-#   LOKI_MINIO_REGION           Placeholder region for Loki secret (default: us-east-1)
-#   LOKI_MINIO_ACCESS_KEY       MinIO access key (default: e2e-loki-minio)
-#   LOKI_MINIO_SECRET_KEY       MinIO secret key (default: e2e-loki-minio-secret)
-#   LOKI_MINIO_STORAGE_SIZE     MinIO PVC size (default: 10Gi)
-#   LOKI_MINIO_IMAGE            MinIO server image
-#   LOKI_MINIO_MC_IMAGE            MinIO client image for bucket bootstrap
-#   LOKI_MINIO_USE_PVC            Use PVC for MinIO data (default: false = emptyDir, ROSA-friendly)
-#   LOKI_MINIO_ROLLOUT_TIMEOUT    MinIO deployment wait (default: 600)
+#   LOKI_RUSTFS_NAME            RustFS service name (default: rustfs)
+#   LOKI_RUSTFS_BUCKET          Bucket for Loki (default: logging-loki)
+#   LOKI_RUSTFS_REGION          Placeholder region for Loki secret (default: us-east-1)
+#   LOKI_RUSTFS_ACCESS_KEY      RustFS access key (default: e2e-loki-rustfs)
+#   LOKI_RUSTFS_SECRET_KEY      RustFS secret key (default: e2e-loki-rustfs-secret)
+#   LOKI_RUSTFS_STORAGE_SIZE    RustFS PVC size (default: 10Gi)
+#   LOKI_RUSTFS_IMAGE           RustFS server image
+#   LOKI_RUSTFS_USE_PVC         Use PVC for RustFS data (default: false = emptyDir, ROSA-friendly)
+#   LOKI_RUSTFS_ROLLOUT_TIMEOUT RustFS deployment wait (default: 600)
 #   LOKI_DISCOVER_ONLY          If true/1, skip install and fail when route is missing
 #
 set -euo pipefail
@@ -39,18 +38,17 @@ LOKI_SIZE="${LOKI_SIZE:-1x.demo}"
 LOKI_SECRET_NAME="${LOKI_SECRET_NAME:-logging-loki-s3}"
 LOKI_OPERATORS_NS="${LOKI_OPERATORS_NS:-openshift-operators-redhat}"
 
-MINIO_NAME="${LOKI_MINIO_NAME:-minio}"
-MINIO_BUCKET="${LOKI_MINIO_BUCKET:-logging-loki}"
-MINIO_REGION="${LOKI_MINIO_REGION:-us-east-1}"
-MINIO_ACCESS_KEY="${LOKI_MINIO_ACCESS_KEY:-e2e-loki-minio}"
-MINIO_SECRET_KEY="${LOKI_MINIO_SECRET_KEY:-e2e-loki-minio-secret}"
-MINIO_STORAGE_SIZE="${LOKI_MINIO_STORAGE_SIZE:-10Gi}"
-MINIO_IMAGE="${LOKI_MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z}"
-MINIO_MC_IMAGE="${LOKI_MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2024-11-21T17-21-54Z}"
-MINIO_ROLLOUT_TIMEOUT="${LOKI_MINIO_ROLLOUT_TIMEOUT:-600}"
+RUSTFS_NAME="${LOKI_RUSTFS_NAME:-rustfs}"
+RUSTFS_BUCKET="${LOKI_RUSTFS_BUCKET:-logging-loki}"
+RUSTFS_REGION="${LOKI_RUSTFS_REGION:-us-east-1}"
+RUSTFS_ACCESS_KEY="${LOKI_RUSTFS_ACCESS_KEY:-e2e-loki-rustfs}"
+RUSTFS_SECRET_KEY="${LOKI_RUSTFS_SECRET_KEY:-e2e-loki-rustfs-secret}"
+RUSTFS_STORAGE_SIZE="${LOKI_RUSTFS_STORAGE_SIZE:-10Gi}"
+RUSTFS_IMAGE="${LOKI_RUSTFS_IMAGE:-quay.io/rustfs/rustfs:1.0.1}"
+RUSTFS_ROLLOUT_TIMEOUT="${LOKI_RUSTFS_ROLLOUT_TIMEOUT:-600}"
 # emptyDir avoids PVC + SCC uid range issues on ROSA restricted-v2
-MINIO_USE_PVC="${LOKI_MINIO_USE_PVC:-false}"
-MINIO_ENDPOINT="http://${MINIO_NAME}.${LOKI_NS}.svc:9000"
+RUSTFS_USE_PVC="${LOKI_RUSTFS_USE_PVC:-false}"
+RUSTFS_ENDPOINT="http://${RUSTFS_NAME}.${LOKI_NS}.svc:9000"
 
 log() {
   echo "[install-orchestrator-loki] $*" >&2
@@ -331,26 +329,26 @@ EOF
     "${OPERATOR_WAIT_TIMEOUT}"
 }
 
-install_minio() {
-  local storage_class volume_block minio_data_volume
+install_rustfs() {
+  local storage_class volume_block rustfs_data_volume
 
-  if oc get deployment "${MINIO_NAME}" -n "${LOKI_NS}" &>/dev/null \
-    && oc rollout status "deployment/${MINIO_NAME}" -n "${LOKI_NS}" --timeout=30s &>/dev/null; then
-    log "MinIO deployment already ready in ${LOKI_NS}"
-    ensure_minio_bucket
+  if oc get deployment "${RUSTFS_NAME}" -n "${LOKI_NS}" &>/dev/null \
+    && oc rollout status "deployment/${RUSTFS_NAME}" -n "${LOKI_NS}" --timeout=30s &>/dev/null; then
+    log "RustFS deployment already ready in ${LOKI_NS}"
+    ensure_rustfs_bucket
     return 0
   fi
 
-  # Replace a failed deployment (e.g. old runAsUser:1000 spec blocked by restricted-v2 SCC)
-  if oc get deployment "${MINIO_NAME}" -n "${LOKI_NS}" &>/dev/null; then
-    log "Replacing existing MinIO deployment in ${LOKI_NS}..."
-    oc delete deployment "${MINIO_NAME}" -n "${LOKI_NS}" --wait=true
+  # Replace a deployment that exists but never became ready (e.g. a stale spec blocked by restricted-v2 SCC)
+  if oc get deployment "${RUSTFS_NAME}" -n "${LOKI_NS}" &>/dev/null; then
+    log "Replacing existing RustFS deployment in ${LOKI_NS}..."
+    oc delete deployment "${RUSTFS_NAME}" -n "${LOKI_NS}" --wait=true
   fi
 
-  if [[ "${MINIO_USE_PVC}" == "true" ]]; then
+  if [[ "${RUSTFS_USE_PVC}" == "true" ]]; then
     storage_class="${LOKI_STORAGE_CLASS:-$(get_default_storage_class)}"
     [[ -n "${storage_class}" ]] || {
-      log "ERROR: Could not determine storageClassName for MinIO PVC"
+      log "ERROR: Could not determine storageClassName for RustFS PVC"
       return 1
     }
     volume_block="
@@ -358,41 +356,41 @@ install_minio() {
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: ${MINIO_NAME}-data
+  name: ${RUSTFS_NAME}-data
   namespace: ${LOKI_NS}
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: ${MINIO_STORAGE_SIZE}
+      storage: ${RUSTFS_STORAGE_SIZE}
   storageClassName: ${storage_class}"
-    minio_data_volume="
+    rustfs_data_volume="
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: ${MINIO_NAME}-data"
-    log "Ensuring in-cluster MinIO (${MINIO_NAME}) with PVC (${MINIO_STORAGE_SIZE}, ${storage_class})..."
+            claimName: ${RUSTFS_NAME}-data"
+    log "Ensuring in-cluster RustFS (${RUSTFS_NAME}) with PVC (${RUSTFS_STORAGE_SIZE}, ${storage_class})..."
   else
-    oc delete pvc "${MINIO_NAME}-data" -n "${LOKI_NS}" --ignore-not-found --wait=false
+    oc delete pvc "${RUSTFS_NAME}-data" -n "${LOKI_NS}" --ignore-not-found --wait=false
     volume_block=""
-    minio_data_volume="
+    rustfs_data_volume="
       volumes:
         - name: data
           emptyDir: {}"
-    log "Ensuring in-cluster MinIO (${MINIO_NAME}) with emptyDir (ROSA-compatible)..."
+    log "Ensuring in-cluster RustFS (${RUSTFS_NAME}) with emptyDir (ROSA-compatible)..."
   fi
 
   oc apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
-  name: ${MINIO_NAME}-credentials
+  name: ${RUSTFS_NAME}-credentials
   namespace: ${LOKI_NS}
 type: Opaque
 stringData:
-  rootUser: ${MINIO_ACCESS_KEY}
-  rootPassword: ${MINIO_SECRET_KEY}
+  accessKey: ${RUSTFS_ACCESS_KEY}
+  secretKey: ${RUSTFS_SECRET_KEY}
 EOF
 
   if [[ -n "${volume_block}" ]]; then
@@ -400,60 +398,65 @@ EOF
 }"
   fi
 
+  # The image entrypoint appends RUSTFS_VOLUMES (/data) as the data path, so no args are needed.
+  # RUSTFS_OBS_LOG_DIRECTORY is emptied on purpose: the image default (/logs) is owned by the
+  # image user with mode 0750 and is not writable under an arbitrary OpenShift uid; an empty
+  # value makes RustFS log to stdout instead.
   oc apply -f - <<EOF
 apiVersion: v1
 kind: Service
 metadata:
-  name: ${MINIO_NAME}
+  name: ${RUSTFS_NAME}
   namespace: ${LOKI_NS}
   labels:
-    app: ${MINIO_NAME}
+    app: ${RUSTFS_NAME}
 spec:
   ports:
     - name: api
       port: 9000
       targetPort: 9000
   selector:
-    app: ${MINIO_NAME}
+    app: ${RUSTFS_NAME}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${MINIO_NAME}
+  name: ${RUSTFS_NAME}
   namespace: ${LOKI_NS}
   labels:
-    app: ${MINIO_NAME}
+    app: ${RUSTFS_NAME}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ${MINIO_NAME}
+      app: ${RUSTFS_NAME}
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: ${MINIO_NAME}
+        app: ${RUSTFS_NAME}
     spec:
       containers:
-        - name: minio
-          image: ${MINIO_IMAGE}
-          args:
-            - server
-            - /data
-            - --console-address
-            - ":9090"
+        - name: rustfs
+          image: ${RUSTFS_IMAGE}
           env:
-            - name: MINIO_ROOT_USER
+            - name: RUSTFS_ADDRESS
+              value: ":9000"
+            - name: RUSTFS_CONSOLE_ENABLE
+              value: "false"
+            - name: RUSTFS_OBS_LOG_DIRECTORY
+              value: ""
+            - name: RUSTFS_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
+                  name: ${RUSTFS_NAME}-credentials
+                  key: accessKey
+            - name: RUSTFS_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootPassword
+                  name: ${RUSTFS_NAME}-credentials
+                  key: secretKey
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -463,103 +466,57 @@ spec:
           ports:
             - containerPort: 9000
               name: api
-            - containerPort: 9090
-              name: console
           readinessProbe:
             httpGet:
-              path: /minio/health/ready
+              path: /health
               port: 9000
             initialDelaySeconds: 5
             periodSeconds: 10
           volumeMounts:
             - name: data
               mountPath: /data
-${minio_data_volume}
+${rustfs_data_volume}
 EOF
 
-  log "Waiting for MinIO deployment (timeout ${MINIO_ROLLOUT_TIMEOUT}s)..."
-  if ! oc rollout status "deployment/${MINIO_NAME}" -n "${LOKI_NS}" --timeout="${MINIO_ROLLOUT_TIMEOUT}s"; then
-    log "ERROR: MinIO rollout failed"
-    if [[ "${MINIO_USE_PVC}" == "true" ]]; then
-      log "Hint: on ROSA, PVC + restricted-v2 often blocks MinIO — try LOKI_MINIO_USE_PVC=false (emptyDir)"
+  log "Waiting for RustFS deployment (timeout ${RUSTFS_ROLLOUT_TIMEOUT}s)..."
+  if ! oc rollout status "deployment/${RUSTFS_NAME}" -n "${LOKI_NS}" --timeout="${RUSTFS_ROLLOUT_TIMEOUT}s"; then
+    log "ERROR: RustFS rollout failed"
+    if [[ "${RUSTFS_USE_PVC}" == "true" ]]; then
+      log "Hint: on ROSA, PVC + restricted-v2 often blocks RustFS — try LOKI_RUSTFS_USE_PVC=false (emptyDir)"
     fi
-    oc describe deployment,rs,pod -n "${LOKI_NS}" -l "app=${MINIO_NAME}" >&2 || true
-    oc get events -n "${LOKI_NS}" --field-selector "involvedObject.name=${MINIO_NAME}" 2>/dev/null | tail -15 >&2 || true
+    oc describe deployment,rs,pod -n "${LOKI_NS}" -l "app=${RUSTFS_NAME}" >&2 || true
+    oc get events -n "${LOKI_NS}" --field-selector "involvedObject.name=${RUSTFS_NAME}" 2>/dev/null | tail -15 >&2 || true
     return 1
   fi
 
-  ensure_minio_bucket
+  ensure_rustfs_bucket
 }
 
-ensure_minio_bucket() {
-  local job_name="${MINIO_NAME}-create-bucket"
-  if [[ "$(oc get job "${job_name}" -n "${LOKI_NS}" \
-    -o jsonpath='{.status.succeeded}' 2>/dev/null || true)" == "1" ]]; then
-    log "MinIO bucket job already succeeded"
-    return 0
-  fi
-
-  local failed_count
-  failed_count="$(oc get job "${job_name}" -n "${LOKI_NS}" \
-    -o jsonpath='{.status.failed}' 2>/dev/null || true)"
-  if [[ -n "${failed_count}" && "${failed_count}" != "0" ]]; then
-    log "MinIO bucket job previously failed; recreating"
-    oc delete job "${job_name}" -n "${LOKI_NS}" --ignore-not-found --wait=true || true
-  fi
-
-  if ! oc apply -f - <<EOF
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: ${MINIO_NAME}-create-bucket
-  namespace: ${LOKI_NS}
-spec:
-  backoffLimit: 6
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: ${MINIO_MC_IMAGE}
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-          env:
-            - name: MC_CONFIG_DIR
-              value: /tmp/.mc
-            - name: MINIO_ROOT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootPassword
-          command:
-            - /bin/sh
-            - -ec
-            - |
-              mc alias set local ${MINIO_ENDPOINT} "\${MINIO_ROOT_USER}" "\${MINIO_ROOT_PASSWORD}"
-              mc mb --ignore-existing "local/${MINIO_BUCKET}"
-              mc ls local
-EOF
-  then
-    if ! oc get job "${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" &>/dev/null; then
-      log "ERROR: failed to create MinIO bucket job"
-      return 1
-    fi
-    log "MinIO bucket job already exists; waiting for the other worker"
-  fi
-
-  log "Waiting for MinIO bucket job..."
-  timeout 180 oc wait "job/${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" \
-    --for=condition=complete --timeout=180s
-  log "MinIO ready at ${MINIO_ENDPOINT}, bucket=${MINIO_BUCKET}"
+# RustFS has no startup bucket bootstrap, but its image ships curl and PUT Bucket is
+# idempotent (200 for new and existing buckets), so the bucket is created over the S3 API
+# from inside the RustFS pod. Credentials are read from the pod environment, so they
+# never appear on a command line.
+ensure_rustfs_bucket() {
+  local attempt status max_attempts=12
+  log "Ensuring bucket ${RUSTFS_BUCKET} on ${RUSTFS_ENDPOINT}..."
+  for attempt in $(seq 1 "${max_attempts}"); do
+    status="$(oc exec -n "${LOKI_NS}" "deployment/${RUSTFS_NAME}" -c rustfs -- \
+      sh -ec 'curl -sS -o /dev/null -w "%{http_code}" \
+        --aws-sigv4 "aws:amz:$2:s3" --user "${RUSTFS_ACCESS_KEY}:${RUSTFS_SECRET_KEY}" \
+        -X PUT "http://127.0.0.1:9000/$1"' \
+      sh "${RUSTFS_BUCKET}" "${RUSTFS_REGION}" 2>/dev/null || true)"
+    case "${status}" in
+      200|409)
+        log "RustFS ready at ${RUSTFS_ENDPOINT}, bucket=${RUSTFS_BUCKET}"
+        return 0
+        ;;
+    esac
+    log "Bucket ${RUSTFS_BUCKET} not created yet (HTTP ${status:-n/a}, attempt ${attempt}/${max_attempts}); retrying in 10s..."
+    sleep 10
+  done
+  log "ERROR: could not create bucket ${RUSTFS_BUCKET} on ${RUSTFS_ENDPOINT}"
+  oc logs -n "${LOKI_NS}" "deployment/${RUSTFS_NAME}" --tail=30 >&2 || true
+  return 1
 }
 
 create_loki_object_storage_secret() {
@@ -568,13 +525,13 @@ create_loki_object_storage_secret() {
     return 0
   fi
 
-  log "Creating Loki object storage secret ${LOKI_SECRET_NAME} (MinIO endpoint=${MINIO_ENDPOINT})..."
+  log "Creating Loki object storage secret ${LOKI_SECRET_NAME} (RustFS endpoint=${RUSTFS_ENDPOINT})..."
   oc create secret generic "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" \
-    --from-literal=bucketnames="${MINIO_BUCKET}" \
-    --from-literal=endpoint="${MINIO_ENDPOINT}" \
-    --from-literal=access_key_id="${MINIO_ACCESS_KEY}" \
-    --from-literal=access_key_secret="${MINIO_SECRET_KEY}" \
-    --from-literal=region="${MINIO_REGION}" \
+    --from-literal=bucketnames="${RUSTFS_BUCKET}" \
+    --from-literal=endpoint="${RUSTFS_ENDPOINT}" \
+    --from-literal=access_key_id="${RUSTFS_ACCESS_KEY}" \
+    --from-literal=access_key_secret="${RUSTFS_SECRET_KEY}" \
+    --from-literal=region="${RUSTFS_REGION}" \
     --from-literal=forcepathstyle="true"
 }
 
@@ -809,11 +766,11 @@ install_openshift_logging() {
 
   channel="$(resolve_logging_stack_channel)" || return 1
 
-  log "Installing OpenShift Logging (Loki) with in-cluster MinIO..."
+  log "Installing OpenShift Logging (Loki) with in-cluster RustFS..."
   ensure_loki_operators_namespace
   install_loki_operator "${channel}"
   install_cluster_logging_operator "${channel}"
-  install_minio
+  install_rustfs
   create_loki_object_storage_secret
   ensure_lokistack
   wait_for_lokistack_ready

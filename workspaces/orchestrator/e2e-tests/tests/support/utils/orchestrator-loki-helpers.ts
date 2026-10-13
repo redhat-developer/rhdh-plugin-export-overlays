@@ -45,8 +45,10 @@ async function fetchLokiApi(
     } as RequestInit & { dispatcher: Agent });
     return { status: response.status, body: await response.text() };
   } catch (error) {
+    const errorMessage =
+      error instanceof Error && error.message ? error.message : String(error);
     throw new Error(
-      `Loki API request failed for ${probeUrl}: ${error instanceof Error ? error.message : String(error)}`,
+      `Loki API request failed for ${probeUrl}: ${errorMessage}`,
       { cause: error },
     );
   }
@@ -229,9 +231,11 @@ async function tryLokiUrlCandidate(
     );
     return candidate;
   } catch (error) {
+    const errorMessage =
+      error instanceof Error && error.message ? error.message : String(error);
     console.warn(
       `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
-      error instanceof Error ? error.message : error,
+      errorMessage,
     );
     return undefined;
   }
@@ -307,8 +311,10 @@ async function countLokiLogLinesForInstance(
   try {
     ({ status, body } = await fetchLokiApi(probeUrl, token));
   } catch (error) {
+    const errorMessage =
+      error instanceof Error && error.message ? error.message : String(error);
     throw new Error(
-      `Loki instance log probe failed for ${instanceId}: ${error instanceof Error ? error.message : String(error)}`,
+      `Loki instance log probe failed for ${instanceId}: ${errorMessage}`,
       { cause: error },
     );
   }
@@ -365,9 +371,10 @@ export async function configureOrchestratorLoki(): Promise<void> {
         process.env.LOKI_BASE_URL?.trim() || LOKI_PLACEHOLDER_URL;
       return;
     }
-    const message = error instanceof Error ? error.message : String(error);
+    const errorMessage =
+      error instanceof Error && error.message ? error.message : String(error);
     throw new Error(
-      `[configureOrchestratorLoki] Loki is required for orchestrator log tests. ${message}`,
+      `[configureOrchestratorLoki] Loki is required for orchestrator log tests. ${errorMessage}`,
       { cause: error },
     );
   }
@@ -413,10 +420,12 @@ export async function waitForLokiWorkflowLogs(
     await sleep(5_000);
   }
 
-  const detail =
-    lastError instanceof Error ? lastError.message : String(lastError ?? "");
+  const errorMessage =
+    lastError instanceof Error && lastError.message
+      ? lastError.message
+      : String(lastError);
   throw new Error(
-    `Timed out after ${timeoutMs}ms waiting for Loki logs for workflow instance ${instanceId}.${detail ? ` Last probe error: ${detail}` : ""}`,
+    `Timed out after ${timeoutMs}ms waiting for Loki logs for workflow instance ${instanceId}. Last probe error: ${errorMessage}`,
   );
 }
 

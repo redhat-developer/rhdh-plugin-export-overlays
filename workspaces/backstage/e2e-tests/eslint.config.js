@@ -14,4 +14,19 @@ export default [
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
     },
   },
+  {
+    // pollUntil / pollUntilDefined wrap expect.poll; the plugin does not see expect inside helpers.
+    files: [
+      "**/github-scaffolder-actions.spec.ts",
+      "**/gitlab-scaffolder-actions.spec.ts",
+    ],
+    rules: {
+      "playwright/expect-expect": [
+        "warn",
+        {
+          assertFunctionNames: ["pollUntil", "pollUntilDefined"],
+        },
+      ],
+    },
+  },
 ];
