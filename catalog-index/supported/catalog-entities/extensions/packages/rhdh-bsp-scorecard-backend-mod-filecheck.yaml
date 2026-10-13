@@ -17,9 +17,9 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck"
-  # Tag: bs_1.54.9__1.1.4
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck@sha256:77b47053da450c7b81cb00b3bdc95d60785de5727f33e943e3303c849e2da85f"
-  version: 1.1.4
+  # Tag: bs_1.54.9__1.1.7
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck@sha256:f1b56fd528c504bec587f00fa33801f78a81f123b924ff84a389521f7d522d6f"
+  version: 1.1.7
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.54.9
