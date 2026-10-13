@@ -30,41 +30,6 @@ plugins:
   # Group: Orchestrator
   - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.54.9__6.2.4"
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-orchestrator:
-            translationResources:
-              - importName: orchestratorTranslations
-                module: Legacy
-                ref: orchestratorTranslationRef
-            appIcons:
-              - importName: OrchestratorIcon
-                name: orchestratorIcon
-                module: Legacy
-            dynamicRoutes:
-              - importName: OrchestratorPage
-                module: Legacy
-                menuItem:
-                  icon: orchestratorIcon
-                  text: Orchestrator
-                  textKey: menuItem.orchestrator
-                path: /orchestrator
-            entityTabs:
-              - path: /workflows
-                title: Workflows
-                titleKey: catalog.entityPage.workflows.title
-                mountPoint: entity.page.workflows
-            mountPoints:
-              - mountPoint: entity.page.workflows/cards
-                importName: OrchestratorCatalogTab
-                module: Legacy
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                    if:
-                      anyOf:
-                        - IsOrchestratorCatalogTabAvailable
 
   - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.54.9__8.13.2"
     enabled: true
