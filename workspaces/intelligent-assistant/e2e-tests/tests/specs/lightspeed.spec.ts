@@ -206,7 +206,9 @@ test.describe("Lightspeed UI", () => {
     test("page is available", async () => {
       await expect(page).toHaveURL(/\/intelligent-assistant/);
       await expect(
-        page.getByRole("heading", { name: "Intelligent assistant" }),
+        page.getByRole("heading", {
+          name: "Developer Hub Intelligent Assistant",
+        }),
       ).toBeVisible();
       await expect(page.getByText("How can I help you today?")).toBeVisible();
     });
