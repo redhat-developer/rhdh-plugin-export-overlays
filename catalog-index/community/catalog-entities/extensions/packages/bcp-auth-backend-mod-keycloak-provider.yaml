@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-community-plugin-auth-backend-module-keycloak-provider
+  name: bcp-auth-backend-mod-keycloak-provider
   namespace: rhdh
   title: "Auth Backend Module Keycloak Provider"
   links:
@@ -17,8 +17,7 @@ metadata:
     - authentication
 spec:
   packageName: "@backstage-community/plugin-auth-backend-module-keycloak-provider"
-  # Tag: bs_1.54.9__0.6.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider@sha256:5c4830a4b6f557b8b54cef6ade390e5d8710218a12c05a90495ba1b98acdb5ff"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.54.9__0.6.0
   version: 0.6.0
   backstage:
     role: backend-plugin-module
@@ -27,7 +26,7 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-    - backstage-community-plugin-auth-backend-module-keycloak-provider
+    - bcp-auth-backend-mod-keycloak-provider
   appConfigExamples:
     - title: Default configuration
       content:
