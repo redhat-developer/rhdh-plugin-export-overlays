@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-intelligent-assistant"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.54.9__5.3.7!red-hat-developer-hub-backstage-plugin-intelligent-assistant
-  version: 5.3.7
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.54.9__5.3.9!red-hat-developer-hub-backstage-plugin-intelligent-assistant
+  version: 5.3.9
   backstage:
     role: frontend-plugin
     supportedVersions: 1.54.9
@@ -35,3 +35,32 @@ spec:
           prompts:
             - title: 'Getting Started with Red Hat Developer Hub'
               message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-intelligent-assistant:
+              translationResources:
+                - importName: lightspeedTranslations
+                  module: Alpha
+                  ref: intelligentAssistantTranslationRef
+              dynamicRoutes:
+                - path: /intelligent-assistant
+                  importName: LightspeedPage
+                  module: Legacy
+              mountPoints:
+                - mountPoint: application/listener
+                  importName: LightspeedFAB
+                  module: Legacy
+                - mountPoint: application/provider
+                  importName: LightspeedDrawerProvider
+                  module: Legacy
+                - mountPoint: application/internal/drawer-state
+                  importName: LightspeedDrawerStateExposer
+                  module: Legacy
+                  config:
+                    id: intelligent-assistant
+                - mountPoint: application/internal/drawer-content
+                  importName: LightspeedChatContainer
+                  module: Legacy
+                  config:
+                    id: intelligent-assistant
+                    priority: 100
