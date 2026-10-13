@@ -26,21 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - security-insights
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            roadiehq.backstage-plugin-security-insights:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityDependabotAlertsCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        lg: span 4
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isSecurityInsightsAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []
