@@ -35,7 +35,7 @@ export async function deployRhdh(
 ): Promise<void> {
   await rhdh.configure({
     auth: "keycloak",
-    version: process.env.RHDH_VERSION ?? "2.0",
+    version: process.env.RHDH_VERSION,
     ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     ...(options.valueFile ? { valueFile: options.valueFile } : {}),
     dynamicPlugins: options.dynamicPlugins,
