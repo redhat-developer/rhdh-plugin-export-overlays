@@ -2,7 +2,7 @@
 # Includes: scorecard frontend/backend, filecheck backend module, and dynamic home page.
 # GitHub, Jira, Dependabot, and OpenSSF backend modules are intentionally excluded.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -28,18 +28,9 @@ plugins:
                 config:
                   layout:
                     gridColumn: 1 / -1
-              - mountPoint: home.page/cards
-                importName: ScorecardHomepageCard
-                module: Legacy
-                config:
-                  id: "scorecard-filecheck.readme"
-                  title: "README file exists"
-                  description: "Checks if the README file exists in the repository"
-                  props:
-                    aggregationId: "filecheck.readme"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.54.9__1.1.3
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
     enabled: true
     pluginConfig:
       scorecard:
@@ -58,14 +49,9 @@ plugins:
                   minutes: 10
                 initialDelay:
                   seconds: 120
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+  # Homepage 3.1.0 provides the NFS page:homepage extension for Scorecard widgets.
+  # We can use {{inherit}} once RHDH's catalog resolves it for 3.1.0 or newer.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-homepage:
-            dynamicRoutes:
-              - path: /
-                importName: DynamicCustomizableHomePage
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
     enabled: true

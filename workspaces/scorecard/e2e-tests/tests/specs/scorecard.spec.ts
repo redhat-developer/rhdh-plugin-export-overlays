@@ -41,24 +41,26 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    // These widgets use metric ids as aggregation ids. The "GitHub open PRs"
-    // and "Jira open blocking tickets" widgets are custom KPIs and stay empty
-    // unless scorecard.aggregationKPIs defines them.
-    await scorecard.addWidget(
-      "Scorecard: With default aggregation config (GitHub)",
-      { exact: true },
-    );
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "github.openPRs",
+    });
     await scorecard.expectNoProgressBar();
-    await scorecard.addWidget(
-      "Scorecard: With deprecated metricId property (Jira)",
-      { exact: true },
-    );
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "jira.openIssues",
+    });
+    await scorecard.expectNoProgressBar();
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "openPrsWeightedKpi",
+    });
     await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
+    await scorecard.expectAggregatedScorecardVisible(
+      "GitHub open PRs (weighted health)",
+    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -70,11 +72,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
 
   test("Weighted status score card shows a percentage for GitHub open PRs", async () => {
     await scorecard.navigateToHome();
-    await scorecard.addWidget("Scorecard: GitHub open PRs (weighted health)", {
-      exact: true,
-    });
     await scorecard.expectNoProgressBar();
 
+    // The setup test adds the generic Scorecard widget with `openPrsWeightedKpi` KPI ID.
     const card = page.getByTestId("scorecard-homepage-card-openPrsWeightedKpi");
     await expect(card).toBeVisible({ timeout: 90_000 });
     await expect(

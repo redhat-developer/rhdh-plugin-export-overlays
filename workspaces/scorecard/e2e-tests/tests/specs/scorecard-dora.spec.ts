@@ -69,24 +69,14 @@ test.describe.serial("Scorecard DORA Tests", () => {
     test("Verify aggregated scorecards are displayed for all 4 DORA metrics", async () => {
       await scorecard.navigateToHome();
 
-      // RHDH 2.1 does not pre-place these mounts. Exact titles avoid the
-      // deprecated Change Failure Rate widget, which shares the heading.
-      for (const widgetTitle of [
-        "Scorecard: DORA - Deployment Frequency",
-        "Scorecard: DORA - Lead Time for Changes",
-        "Scorecard: DORA - Change Failure Rate",
-        "Scorecard: DORA - Median Time to Restore",
-      ]) {
-        await scorecard.addWidget(widgetTitle, { exact: true });
-        await scorecard.expectNoProgressBar();
-      }
-
       for (const aggregationId of [
         "doraDeploymentFrequencyKpi",
         "doraMedianLeadTimeForChangesKpi",
         "doraChangeFailureRateKpi",
         "doraMedianTimeToRestoreKpi",
       ]) {
+        await scorecard.addWidget("Scorecard", { aggregationId });
+        await scorecard.expectNoProgressBar();
         await expect(aggregated.homepageCard(aggregationId)).toBeVisible({
           timeout: 90_000,
         });

@@ -3,7 +3,7 @@
 # deployments and pull requests through the GitHub module's collectors,
 # and incidents through the Jira module's collector. Both modules have to be enabled alongside it.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -29,39 +29,7 @@ plugins:
                 config:
                   layout:
                     gridColumn: 1 / -1
-              - mountPoint: home.page/cards
-                importName: ScorecardHomepageCard
-                module: Legacy
-                config:
-                  id: "scorecard-doraDeploymentFrequencyKpi"
-                  title: "DORA - Deployment Frequency"
-                  props:
-                    aggregationId: "doraDeploymentFrequencyKpi"
-              - mountPoint: home.page/cards
-                importName: ScorecardHomepageCard
-                module: Legacy
-                config:
-                  id: "scorecard-doraMedianLeadTimeForChangesKpi"
-                  title: "DORA - Lead Time for Changes"
-                  props:
-                    aggregationId: "doraMedianLeadTimeForChangesKpi"
-              - mountPoint: home.page/cards
-                importName: ScorecardHomepageCard
-                module: Legacy
-                config:
-                  id: "scorecard-doraChangeFailureRateKpi"
-                  title: "DORA - Change Failure Rate"
-                  props:
-                    aggregationId: "doraChangeFailureRateKpi"
-              - mountPoint: home.page/cards
-                importName: ScorecardHomepageCard
-                module: Legacy
-                config:
-                  id: "scorecard-doraMedianTimeToRestoreKpi"
-                  title: "DORA - Median Time to Restore"
-                  props:
-                    aggregationId: "doraMedianTimeToRestoreKpi"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend
     enabled: true
     pluginConfig:
       scorecard:
@@ -147,7 +115,7 @@ plugins:
                     color: error.main
                     icon: scorecardErrorStatusIcon
   # Registers the github:doraDeployments and github:doraDeploymentPullRequests collectors.
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
     enabled: true
     pluginConfig:
       scorecard:
@@ -162,7 +130,7 @@ plugins:
                 initialDelay:
                   seconds: 10
   # Registers the jira:doraIncidents collector.
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.54.9__4.4.1
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
     enabled: true
     pluginConfig:
       jira:
@@ -180,7 +148,7 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 15
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora:bs_1.54.9__0.2.2
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora
     enabled: true
     pluginConfig:
       scorecard:
@@ -232,16 +200,9 @@ plugins:
                   minutes: 15
                 initialDelay:
                   seconds: 30
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+  # Homepage 3.1.0 provides the NFS page:homepage extension for Scorecard widgets.
+  # We can use {{inherit}} once RHDH's catalog resolves it for 3.1.0 or newer.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-homepage:
-            dynamicRoutes:
-              - path: /
-                importName: DynamicCustomizableHomePage
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
     enabled: true
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
-    enabled: false
