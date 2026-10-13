@@ -26,18 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - github-actions
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-github-actions:
-              mountPoints:
-                - mountPoint: entity.page.ci/cards
-                  importName: EntityGithubActionsContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGithubActionsAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []
