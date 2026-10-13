@@ -35,11 +35,10 @@ export async function deployRhdh(
 ): Promise<void> {
   await rhdh.configure({
     auth: "keycloak",
-    version: process.env.RHDH_VERSION ?? "2.0",
+    version: process.env.RHDH_VERSION,
     ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     ...(options.valueFile ? { valueFile: options.valueFile } : {}),
     dynamicPlugins: options.dynamicPlugins,
-    disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
   });
   await options.beforeDeploy?.(rhdh);
   await rhdh.deploy();

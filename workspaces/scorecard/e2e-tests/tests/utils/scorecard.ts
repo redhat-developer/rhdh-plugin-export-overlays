@@ -133,10 +133,26 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
         // Edit button never appeared — already in edit mode.
       }
     },
-    async addWidget(cardName: string, options?: { exact?: boolean }) {
+    async addWidget(
+      cardName: string,
+      options?: { exact?: boolean; aggregationId?: string },
+    ) {
       await this.enterEditModeIfNeeded();
       await this.openAddWidgetDialog();
       await this.selectWidget(cardName, options);
+
+      if (options?.aggregationId) {
+        const addedWidget = page.locator(".react-grid-item").last();
+        await addedWidget
+          .getByRole("button", { name: "Edit settings" })
+          .click();
+        const settingsDialog = page.getByRole("dialog");
+        await settingsDialog
+          .getByRole("textbox", { name: "Aggregation ID" })
+          .fill(options.aggregationId);
+        await settingsDialog.getByRole("button", { name: "Submit" }).click();
+      }
+
       try {
         await page
           .getByRole("button", { name: "Save" })
