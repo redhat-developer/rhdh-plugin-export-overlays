@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-community-plugin-auth-backend-module-pingfederate-provider
+  name: bcp-auth-backend-mod-pingfederate-provider
   namespace: rhdh
   title: "Auth Backend Module PingFederate Provider"
   links:
@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-auth-backend-module-pingfederate-provider"
   # Tag: bs_1.54.9__0.4.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider@sha256:da8a9868bb8ad3facc6262cdea0dd61de19af1964cfa6b992853312b3b3b05f1"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider@sha256:3347e6daffb4cc33ce9ccba4bcdfb63a7a28e6bafdfb40b5ecf80cc0158e412f"
   version: 0.4.0
   backstage:
     role: backend-plugin-module
@@ -27,7 +27,7 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-    - backstage-community-plugin-auth-backend-module-pingfederate-provider
+    - bcp-auth-backend-mod-pingfederate-provider
   appConfigExamples:
     - title: Default configuration
       content:
