@@ -83,5 +83,9 @@ export default playwrightDefineConfig({
       name: "backstage-ldap-auth",
       testMatch: /tests\/specs\/ldap-auth\.spec\.ts/,
     },
+    {
+      name: "backstage-github-auth",
+      testMatch: /tests\/specs\/github-auth\.spec\.ts/,
+    },
   ],
 });
