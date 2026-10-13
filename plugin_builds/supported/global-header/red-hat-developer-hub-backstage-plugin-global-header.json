@@ -2,7 +2,9 @@
   "red-hat-developer-hub-backstage-plugin-global-header": {
     "workspacePath": "global-header/plugins/global-header",
     "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.9__3.1.0",
-    "digest": "sha256:3371a81ac5611a1b418effe6ba01458b3c341910a8b7383b0dc7c669e599af71",
+    "fallback": true,
+    "requestedTag": "bs_1.54.9__3.2.0",
+    "digest": "sha256:73c5e6c9d6b59262c02c9b500ecd21556cfa8b97bd610ac7239782d1372a3b51",
     "build-date": "2026-06-03T21:16:21Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
