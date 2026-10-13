@@ -1,8 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.1-bs_1.54.9-b0b42ce",
-    "last-successful-publish": "b0b42ceaf0d560d49523ee46bdfede407dca4fb7"
-  },
+  "metadata": {},
   "plugins": {
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
       "stages": {
@@ -276,7 +273,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0575f2b0671f8c0affcccf36f5a8858d81817e2863a495c32184423622b85cf6"
+          "digest": "sha256:4522dc3300bfce7302013175d58f429fd4c713711c6a69c9961597675d10338f"
         },
         "dpdy": {
           "status": "pass"
@@ -298,7 +295,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3a40bf5992d2a08b34b0a720e05f4149a74afd4c2d3d5dc6bcf67db0f721e907"
+          "digest": "sha256:bc1e46e36e1d4056d115d095cde8d2ba64df3bd1b0678cfb104821b1cfc696bd"
         },
         "dpdy": {
           "status": "pass"
@@ -320,7 +317,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:22adcaa91e34a079f26a698a73f38a162f5ea10457bfe72f0fd58912e848ec5a"
+          "digest": "sha256:b55831e44e8dd001413403250c9e9845043c1e8efdf1d2ebc22cbc7be66b9864"
         },
         "dpdy": {
           "status": "pass"
@@ -342,7 +339,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d065b22d3d64e427264ab11fd3fa4f0e7c1098f55c7c95870e22eb183583582f"
+          "digest": "sha256:a992cf2e27d56b17959a9b51259962049f55083b7e9ad6ebdca3844512696f9a"
         },
         "dpdy": {
           "status": "pass"
@@ -844,11 +841,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.9__3.1.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.9__3.2.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:73c5e6c9d6b59262c02c9b500ecd21556cfa8b97bd610ac7239782d1372a3b51"
+          "digest": "sha256:34f8899870fe6a087a4031e06aa913d595537767f5ba255732d3336a787db1a9"
         },
         "dpdy": {
           "status": "pass"
@@ -858,7 +855,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-global-header",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "workspace": "global-header",
       "overall": "pass"
     },
