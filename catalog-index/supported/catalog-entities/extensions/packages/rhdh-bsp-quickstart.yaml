@@ -16,7 +16,7 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-quickstart'
   # Tag: bs_1.54.9__2.2.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:a14a4d0b35cd4e0af3c5b19096cb2f041e7e17307697ff0eb5e3f923d34a6e6e"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:60cae062e4f0f9fd2ba208b8fc0079be69dfa29769e66c0e8ff4f5906dd8d854"
   version: 2.2.0
   backstage:
     role: frontend-plugin

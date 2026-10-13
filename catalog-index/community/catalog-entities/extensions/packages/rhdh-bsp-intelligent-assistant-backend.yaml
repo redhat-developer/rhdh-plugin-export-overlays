@@ -32,6 +32,9 @@ spec:
         intelligent-assistant:
           # OPTIONAL: Port for intelligent-assistant service (default: 8080)
           servicePort: 8080
+          # OPTIONAL: Enable screen context (page content shared with the assistant)
+          screen-context:
+            enabled: true
           # OPTIONAL: MCP server name and token for MCP servers defined in LCORE config
           # mcpServers:
           #  - name: <mcp server name>

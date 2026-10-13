@@ -15,7 +15,7 @@ metadata:
 spec:
   packageName: "apic-backstage"
   # Tag: bs_1.54.9__1.0.4
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage@sha256:23cae6e4667337f0bf77c990303d6665fd14b0da120893b8bc3aa76755847c55"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage@sha256:acfd50fef11c59abfb41b0e9a735b85a244ffdafab012e0569445fb8f99a3bbe"
   version: 1.0.4
   backstage:
     role: backend-plugin
