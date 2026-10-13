@@ -90,14 +90,13 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Use our self-service templates");
     await verifyLinkURL(page, "Explore templates", "/create");
     await uiHelper.clickLink("Explore templates");
-    // await uiHelper.verifyHeading("Self-service"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3676
-    await uiHelper.verifyHeading("Create");
+    await uiHelper.verifyHeading("Self-service");
 
     await uiHelper.clickButtonByText("Find all Learning Paths");
     await uiHelper.verifyTextVisible("Integrate tailored e-learning");
     await verifyLinkURL(page, "View Learning Paths", "/learning-paths");
     await uiHelper.clickLink("View Learning Paths");
-    // await uiHelper.verifyHeading("Learning Paths"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3681
+    await uiHelper.verifyHeading("Learning Paths");
     await expect(page).toHaveURL("/learning-paths");
 
     await uiHelper.clickButtonByText("Get started with Intelligent Assistant");
