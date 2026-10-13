@@ -56,7 +56,10 @@ test.describe("Test Quick Start plugin", () => {
       page,
       "Learn more",
       "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
-      { exact: false },
+      {
+        exact: false,
+        locator: 'li:has-text("Set up Intelligent Assistant")',
+      },
     );
     await uiHelper.verifyText("20% progress");
 
@@ -102,7 +105,10 @@ test.describe("Test Quick Start plugin", () => {
       page,
       "Learn more",
       "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
-      { exact: false },
+      {
+        exact: false,
+        locator: 'li:has-text("Get started with Intelligent Assistant")',
+      },
     );
     await uiHelper.verifyText("60% progress");
   });
