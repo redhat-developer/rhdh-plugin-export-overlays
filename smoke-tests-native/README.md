@@ -289,7 +289,7 @@ Validate every package a generated catalog index declares — the upstream half 
 cluster-free plugin sanity check (RHIDP-13508):
 
 ```bash
-# Against an index this repo is about to publish
+# Against an index generated locally by scripts/update-index.sh
 yarn smoke --catalog-index ../catalog-index/dynamic-plugins.default.yaml
 
 # Against an index that is already published

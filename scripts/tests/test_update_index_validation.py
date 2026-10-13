@@ -172,13 +172,13 @@ def python_shim(tmp_path):
     return bindir
 
 
-def run_update_index(root, *args, bindir=None, registry=REGISTRY):
+def run_update_index(root, *args, registry=REGISTRY):
     """Run the fixture's update-index.sh with a scrubbed environment.
 
     The fixture's own empty allowlist is passed unless the caller overrides it, so a
     change to the committed allowlist cannot alter these results.
     """
-    bindir = bindir or python_shim(root.parent)
+    bindir = python_shim(root.parent)
     if "--validate-allowlist" not in args:
         args = (*args, "--validate-allowlist", str(root / "allowlist.txt"))
     env = {
