@@ -91,9 +91,14 @@ export class Topology {
     await expect(
       this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
     ).toBeVisible({ timeout: 30_000 });
-    await this.uiHelper.clickButtonByLabel("Deployment");
-    await expect(topologyEntityTab(this.page)).toBeVisible();
-    await topologyEntityTab(this.page).click();
+    const topologyLink = this.page.getByRole("link", { name: "Topology" });
+    if (await topologyLink.isVisible()) {
+      await topologyLink.click();
+    } else {
+      await this.uiHelper.clickButtonByLabel("Deployment");
+      await expect(topologyEntityTab(this.page)).toBeVisible();
+      await topologyEntityTab(this.page).click();
+    }
     await this.uiHelper.verifyHeading(BACKSTAGE_JANUS_COMPONENT);
   }
 
