@@ -1,7 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.2-bs_1.54.9-fe2ea86"
-  },
+  "metadata": {},
   "plugins": {
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
       "stages": {
@@ -275,7 +273,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4522dc3300bfce7302013175d58f429fd4c713711c6a69c9961597675d10338f"
+          "digest": "sha256:42d665a1c098051ae15104f0f0157f97f62dd6277d2073e1089a67bd74a0cd76"
         },
         "dpdy": {
           "status": "pass"
@@ -297,7 +295,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:bc1e46e36e1d4056d115d095cde8d2ba64df3bd1b0678cfb104821b1cfc696bd"
+          "digest": "sha256:ca3115d9a407a1432782ea6f759859678cd90e5ea6b772d2be64e49eb675a021"
         },
         "dpdy": {
           "status": "pass"
@@ -319,7 +317,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b55831e44e8dd001413403250c9e9845043c1e8efdf1d2ebc22cbc7be66b9864"
+          "digest": "sha256:ae35ca9b710be07aed5f9fea6b0dc986131344e69f4e57c857007f5e631ceca2"
         },
         "dpdy": {
           "status": "pass"
@@ -341,7 +339,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a992cf2e27d56b17959a9b51259962049f55083b7e9ad6ebdca3844512696f9a"
+          "digest": "sha256:1420fdce4e9af82c915bd6b307e4bf64bdec7e50725afa818927bb1ea338adf7"
         },
         "dpdy": {
           "status": "pass"
@@ -363,7 +361,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9f0a6489054bc82268fc8ccd724ae9af46b6d6664cd4afb7b7db888a71a56d5d"
+          "digest": "sha256:5a12e2bb963b93005ad4e3e243e4505fc351bba8fb707f817a228261faf6a3ed"
         },
         "dpdy": {
           "status": "pass"
@@ -385,7 +383,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c1d805868673765267b72996a1c87aa472104ef459e7574cf87ed94bd8eb48fa"
+          "digest": "sha256:e6d3e43713c12d3914382fbe4c44bb66af9cffb4567d6f6e8f5ecce7f0feacba"
         },
         "dpdy": {
           "status": "pass"
@@ -407,7 +405,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d6b24761950e5b155eaecca2df019641d2a462e349b171f98ea43a5fc2a526a2"
+          "digest": "sha256:9b201a55b51410ca754231126f0e1e61ada7a48a4dea057e25e57f3a333c4c9a"
         },
         "dpdy": {
           "status": "pass"
@@ -429,7 +427,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:96cd60d9552acfaf8bd04e44485a1de781d1f2e952ff148faa025451dceef329"
+          "digest": "sha256:2ff8efaebbf39598ca9b7659b18174182d0410cb9612855f9123005c2228bc87"
         },
         "dpdy": {
           "status": "pass"
@@ -451,7 +449,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6682eb483b8aaf759310fa62dacce5387c2e6851b06e83c65a7aa23963eb526e"
+          "digest": "sha256:68f3888e36e2e15adbae8f3ec1ea7a34f0a1860fd33f9252b94f1f45cb5bd385"
         },
         "dpdy": {
           "status": "pass"
@@ -473,7 +471,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b3e9f0adcbcba92bdb0cdf38d96f636bb9f8fb6d04b81fa1b162c53a33a2a4f4"
+          "digest": "sha256:f38aa9289bf20f5ac8d79bf4e291a59d644e974fd1be3af037db28c25e44a13d"
         },
         "dpdy": {
           "status": "pass"
@@ -927,7 +925,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.9__5.3.7 after bs_1.54.9__5.3.9 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.9__5.3.7 after bs_1.54.9__5.3.9 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -958,7 +956,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.9__5.3.7 after bs_1.54.9__5.3.9 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.9__5.3.7 after bs_1.54.9__5.3.9 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1283,13 +1281,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e573f9d1fea0e1c3d8a52990863fe1d36a5a6aac2f6c874555f194d37ff0d513"
+          "digest": "sha256:e573f9d1fea0e1c3d8a52990863fe1d36a5a6aac2f6c874555f194d37ff0d513",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__1.1.7",
+          "resolvedTag": "bs_1.54.9__1.1.4"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot' resolved to bs_1.54.9__1.1.4 after bs_1.54.9__1.1.7 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot",
@@ -1305,13 +1312,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:62d64ff37abb8558a92892b52e94e2fec7aa4705a9c27db406396980c23d847d"
+          "digest": "sha256:62d64ff37abb8558a92892b52e94e2fec7aa4705a9c27db406396980c23d847d",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__0.2.6",
+          "resolvedTag": "bs_1.54.9__0.2.3"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora' resolved to bs_1.54.9__0.2.3 after bs_1.54.9__0.2.6 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora",
@@ -1327,13 +1343,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:77b47053da450c7b81cb00b3bdc95d60785de5727f33e943e3303c849e2da85f"
+          "digest": "sha256:77b47053da450c7b81cb00b3bdc95d60785de5727f33e943e3303c849e2da85f",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__1.1.7",
+          "resolvedTag": "bs_1.54.9__1.1.4"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck' resolved to bs_1.54.9__1.1.4 after bs_1.54.9__1.1.7 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck",
@@ -1349,13 +1374,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:07b7f2629fdd9b7f84e01a8bf284aada3a86cf36d4a94e363f031a45a9cdc73c"
+          "digest": "sha256:07b7f2629fdd9b7f84e01a8bf284aada3a86cf36d4a94e363f031a45a9cdc73c",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__4.5.2",
+          "resolvedTag": "bs_1.54.9__4.4.2"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github' resolved to bs_1.54.9__4.4.2 after bs_1.54.9__4.5.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github",
@@ -1371,13 +1405,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b6f08483fd554e65ddd0a04cb78f5fb14d471fed80c44ba31619529f76241ee2"
+          "digest": "sha256:b6f08483fd554e65ddd0a04cb78f5fb14d471fed80c44ba31619529f76241ee2",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__4.5.2",
+          "resolvedTag": "bs_1.54.9__4.4.2"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira' resolved to bs_1.54.9__4.4.2 after bs_1.54.9__4.5.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-jira",
@@ -1393,13 +1436,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:af60ab95d3a2edc0243d6800444c376dc79a53406c9c9a7af98cef82d137dd78"
+          "digest": "sha256:af60ab95d3a2edc0243d6800444c376dc79a53406c9c9a7af98cef82d137dd78",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__2.0.4",
+          "resolvedTag": "bs_1.54.9__2.0.1"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf' resolved to bs_1.54.9__2.0.1 after bs_1.54.9__2.0.4 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf",
@@ -1415,13 +1467,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2085b2c7cbb0d61b3715fc9b6d3970c9caeeac0c323a1d945e0c051cdc394aef"
+          "digest": "sha256:2085b2c7cbb0d61b3715fc9b6d3970c9caeeac0c323a1d945e0c051cdc394aef",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__4.5.2",
+          "resolvedTag": "bs_1.54.9__4.4.2"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube' resolved to bs_1.54.9__4.4.2 after bs_1.54.9__4.5.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-sonarqube",
@@ -1437,13 +1498,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6b431cccc7c683ea5261caca034032a9677d8cd3a1793fe9ef588072f3297fae"
+          "digest": "sha256:6b431cccc7c683ea5261caca034032a9677d8cd3a1793fe9ef588072f3297fae",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__4.5.2",
+          "resolvedTag": "bs_1.54.9__4.4.2"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend' resolved to bs_1.54.9__4.4.2 after bs_1.54.9__4.5.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend",
@@ -1459,13 +1529,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8a5b68ac0e1a5eda901c11cb1d4b95534065b4241684799f98902608df878059"
+          "digest": "sha256:8a5b68ac0e1a5eda901c11cb1d4b95534065b4241684799f98902608df878059",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__4.5.2",
+          "resolvedTag": "bs_1.54.9__4.4.2"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard' resolved to bs_1.54.9__4.4.2 after bs_1.54.9__4.5.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scorecard",
