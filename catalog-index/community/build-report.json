@@ -1,8 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.2-bs_1.54.9-0742993",
-    "last-successful-publish": "07429936e2a8c07adcc4c6e0df755aeb5c64c182"
-  },
+  "metadata": {},
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -166,7 +163,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0086fe985bb31d784e1b96f0386fbd635fdddb12a8bc7e95266846a0673813e9"
+          "digest": "sha256:3513cbfed97747b18ede1e86f77241beed7e9f95f43977e2ee83730e9dbe35d5"
         },
         "dpdy": {
           "status": "skip"
@@ -188,7 +185,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:62d9a28e6ef270c0a0d575507dabcace03af1050a41ecf0bb8d88e4cbba73e45"
+          "digest": "sha256:2f01e6ac07c16dc865826dea605326cd1875d71340cafa55917953bf7b246bd2"
         },
         "dpdy": {
           "status": "skip"
