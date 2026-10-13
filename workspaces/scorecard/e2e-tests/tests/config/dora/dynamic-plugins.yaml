@@ -182,5 +182,3 @@ plugins:
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
     enabled: true
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
-    enabled: false

@@ -39,7 +39,6 @@ export async function deployRhdh(
     ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     ...(options.valueFile ? { valueFile: options.valueFile } : {}),
     dynamicPlugins: options.dynamicPlugins,
-    disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
   });
   await options.beforeDeploy?.(rhdh);
   await rhdh.deploy();
