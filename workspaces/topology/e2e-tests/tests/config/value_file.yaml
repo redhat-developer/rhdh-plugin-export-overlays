@@ -1,6 +1,3 @@
-intelligentAssistant:
-  enabled: false
-
 extraVolumeMounts:
   - name: rbac-policy
     mountPath: /opt/app-root/src/rbac

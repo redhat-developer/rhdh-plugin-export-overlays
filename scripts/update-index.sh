@@ -110,6 +110,8 @@ Arguments:
                                and txt files with workspace paths (e.g., rhdh-supported-packages.txt).
                                DPDY generation runs only when a file named default.packages.yaml is provided.
        --report-file           Path to build-report.json for tracking generation stages (optional).
+                               An existing file is removed at the start of the run.
+                               Stages from a previous index are not carried forward.
        --validate-mode         Step 5, static validation of the generated index
                                (no network). One of:
                                  report (default) — always run, never fail the build
@@ -235,6 +237,14 @@ if [[ -n "$REPORT_FILE" ]]; then
         exit 1
     fi
     REPORT_FILE_ARG="--report-file $REPORT_FILE"
+    # The report is the output of this run. BuildReport loads an existing file and
+    # set_stage replaces only the stage it owns, so a renamed stage (registry-enrich)
+    # or a validate warning from an earlier fetch would otherwise survive a clean run.
+    # Delete before Step 1; bootstrap is the first writer and must start empty.
+    if [[ -e "$REPORT_FILE" ]]; then
+        echo -e "${blue}[INFO] Removing previous build report so this run starts empty: $REPORT_FILE${norm}"
+        rm -f -- "$REPORT_FILE"
+    fi
 fi
 
 # Build --packages-file args for bootstrapPluginBuilds.py

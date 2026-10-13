@@ -28,6 +28,7 @@ const FILE_MAP = {
   'user-guide/06-patch-management.md': 'Patch-Management',
   'user-guide/07-plugin-catalog-index.md': 'Plugin-Catalog-Index-Generation',
   'user-guide/08-creating-release-branches.md': 'Creating-Release-Branches',
+  'user-guide/09-managing-e2e-secrets.md': 'Managing-E2E-Secrets',
 };
 
 // Link transformations for wiki format
@@ -41,6 +42,7 @@ const LINK_TRANSFORMS = [
   { from: /\[([^\]]+)\]\(\.\/06-patch-management\.md(#[^\)]+)?\)/g, to: '[$1](Patch-Management$2)' },
   { from: /\[([^\]]+)\]\(\.\/07-plugin-catalog-index\.md(#[^\)]+)?\)/g, to: '[$1](Plugin-Catalog-Index-Generation$2)' },
   { from: /\[([^\]]+)\]\(\.\/08-creating-release-branches\.md(#[^\)]+)?\)/g, to: '[$1](Creating-Release-Branches$2)' },
+  { from: /\[([^\]]+)\]\(\.\/09-managing-e2e-secrets\.md(#[^\)]+)?\)/g, to: '[$1](Managing-E2E-Secrets$2)' },
 ];
 
 // Source repository metadata
@@ -229,6 +231,7 @@ function generateSidebar(workspaceStats, reportPages, catalogStatusPages) {
 * [Home](Home)
 * [Getting Started](Getting-Started)
 * [Export Tools](Export-Tools)
+* [Managing E2E Secrets](Managing-E2E-Secrets)
 
 ### 🔧 Plugin Maintenance
 * [Plugin Owner Guide](Plugin-Owner-Guide)
@@ -370,6 +373,7 @@ Welcome to the documentation for the \`rhdh-plugin-export-overlays\` repository.
 | [Metadata Synchronization](Metadata-Synchronization) | Keeping source and overlay in sync |
 | [Version Updates](Version-Updates) | Backstage version management |
 | [Patch Management](Patch-Management) | Creating and maintaining patches |
+| [Managing E2E Secrets](Managing-E2E-Secrets) | Repository secret naming and local test entry points |
 
 ## Repository Stats
 

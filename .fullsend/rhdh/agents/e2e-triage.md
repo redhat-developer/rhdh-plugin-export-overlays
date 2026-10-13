@@ -139,7 +139,7 @@ workspace, assign a `fix_category`:
 - If the plugin itself is broken (API changed, component missing) → `product_bug`
 - If the bug is in a shared helper/fixture/page object from `@red-hat-developer-hub/e2e-test-utils` (e.g. `UIhelper`, `LoginHelper`, `RHDHDeployment`, page objects, `runOnce`) → `upstream_test_utils`
 - If pods crashed with OOM/ImagePull/network errors → `infra_flake`
-- If vault secrets or CI variables are missing → `environment`
+- If secret values or CI variables are missing → `environment`
 
 **`infra_flake` requires evidence of transience.** Check `pods.txt`,
 `events.txt`, and `backstage-backend.log` (if the pod started) to confirm

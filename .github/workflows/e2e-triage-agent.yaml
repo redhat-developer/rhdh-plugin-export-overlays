@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: ${{ github.event_name == 'schedule' && fromJSON('["main","release-1.10"]') || fromJSON(format('["{0}"]', inputs.branch || 'main')) }}
+        branch: ${{ github.event_name == 'schedule' && fromJSON('["main","release-1.10","release-2.1"]') || fromJSON(format('["{0}"]', inputs.branch || 'main')) }}
     steps:
       - name: Discover latest failed nightly
         id: discover

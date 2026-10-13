@@ -116,9 +116,7 @@ expected may not be the one that applies.
 
 #### ref-form
 
-A `plugins[].package` value is neither an `oci://` reference nor a
-`./dynamic-plugins/dist/` path. Generated indexes should never produce this; it means the
-file was hand-edited or a generator step wrote a malformed value.
+A `plugins[].package` value is not an `oci://` reference. Generated indexes should never produce this; it means the file was hand-edited or a generator step wrote a malformed value.
 
 <a id="validation-index-ref-mismatch"></a>
 

@@ -9,7 +9,7 @@
 #
 # Using content in plugin_builds folder:
 # - Create a summary index.json file
-# - Use that file to update all file refs to oci:// refs
+# - Use that file to update package files to oci:// refs
 
 import argparse
 import importlib.util
@@ -111,10 +111,27 @@ OCI_VALUE_LINE_RE = re.compile(
 OCI_PACKAGE_DIGEST_RE = re.compile(
     r'^\s*(?:#\s*-\s+package|-\s+package|dynamicArtifact):\s*[\'"]?oci://[^\s\'"]+@(sha256:[a-f0-9]+)[\'"]?\s*$'
 )
-COMMENTED_OCI_PACKAGE_RE = re.compile(r'^\s*#\s*-\s+package:\s+oci://')
-MIGRATION_HINT_RE = re.compile(
-    r'^\s*#\s*(new approach using oci images|the \'package\' line above|enabled: false)\b'
+WRAPPER_REFERENCE_RE = re.compile(
+    r'^\s*(?:#\s*)?(?:-\s+package|dynamicArtifact):\s*[\'"]?'
+    r'\./dynamic-plugins/dist(?:/|\s|[\'"]|$)'
 )
+
+
+def reject_wrapper_references(output_dir: Path) -> None:
+    """Fail if generated catalog inputs still contain legacy wrapper references."""
+    yaml_paths = sorted(output_dir.rglob("*.yaml")) + sorted(output_dir.rglob("*.yml"))
+    for yaml_path in yaml_paths:
+        lines = yaml_path.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, start=1):
+            if WRAPPER_REFERENCE_RE.match(line):
+                try:
+                    display_path = yaml_path.relative_to(output_dir)
+                except ValueError:
+                    display_path = yaml_path
+                raise ValueError(
+                    f"{display_path}:{number}: wrapper package references are no longer "
+                    "supported; use the package's oci:// artifact reference"
+                )
 
 
 def oci_value_matches_plugin(
@@ -600,28 +617,24 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
     """Add or update OCI reference entries in package YAML files and dynamic-plugins.default.yaml.
 
     Performs line-by-line editing on package YAML files and
-    ``dynamic-plugins.default.yaml`` to inject OCI image references. Handles
-    two distinct patterns:
+    ``dynamic-plugins.default.yaml`` to inject OCI image references.
 
-    1. **Replacing existing OCI lines**: When a ``- package: oci://...`` line (in
-       ``dynamic-plugins.default.yaml``) or ``dynamicArtifact: oci://...`` scalar
-       (in package entity YAML) already exists for the plugin, it is replaced
-       with the current digest reference and its tag comment is updated.
-    2. **Adding commented OCI blocks**: When only a file-path entry exists
-       (``- package: ./dynamic-plugins/dist/...``), a commented-out OCI
-       block is added above it with migration hints, preserving the original
-       file-path entry.
+    Existing OCI lines are replaced with the current digest reference and their
+    tag comments are updated. Empty ``dynamicArtifact`` values are populated.
+    Wrapper package paths are rejected before any files are updated.
+
+    Existing ``- package: oci://...`` lines in ``dynamic-plugins.default.yaml``
+    and ``dynamicArtifact: oci://...`` scalars in package entities are replaced
+    with the current digest reference.
 
     Plugin name matching accounts for alternatives: the
-    ``red-hat-developer-hub-`` vs ``rhdh-`` prefix, and with/without the
-    ``-dynamic`` suffix.
+    ``red-hat-developer-hub-`` vs ``rhdh-`` prefix.
 
     Package entity files are located by guessed filename and by
     ``spec.packageName`` via ``build_packages_dir_image_index``.
 
     Also delegates to ``inject_dpdy_tag_comments`` to handle tag comments
-    on lines that were not matched by the main loop (e.g., wrapper package
-    lines in dynamic-plugins.default.yaml).
+    on active OCI package lines in dynamic-plugins.default.yaml.
 
     Args:
         output_dir: Output directory containing the catalog index being
@@ -632,6 +645,8 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
         plugin_builds_dir: Path to ``plugin_builds/`` directory, passed
             through to ``inject_dpdy_tag_comments``.
     """
+    reject_wrapper_references(output_dir)
+
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     dynamic_plugins_yaml = output_dir / "dynamic-plugins.default.yaml"
 
@@ -689,19 +704,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                 while i < len(lines):
                     line = lines[i]
 
-                    if COMMENTED_OCI_PACKAGE_RE.match(line) or MIGRATION_HINT_RE.match(line):
-                        new_lines.append(line)
-                        i += 1
-                        continue
-
                     if is_tag_comment_line(line):
-                        j = i + 1
-                        while j < len(lines) and not lines[j].strip():
-                            j += 1
-                        if j < len(lines) and COMMENTED_OCI_PACKAGE_RE.match(lines[j]):
-                            new_lines.append(line)
-                            i += 1
-                            continue
                         digest = peek_digest_after(lines, i)
                         if digest:
                             expected = digest_comment_map.get(digest)
@@ -788,63 +791,14 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                             new_lines.append(pl)
                         continue
 
-                    matched = False
-                    for pname in [plugin_name, plugin_name_alternative,
-                                  plugin_name_with_dynamic, plugin_name_alternative_with_dynamic]:
-                        pattern = rf'^  - package: \.\/dynamic-plugins\/dist\/{re.escape(pname)}\s*$'
-                        if re.match(pattern, line):
-                            commented_oci = f"  # - package: oci://{registry_reference_for_oci}\n"
-                            block_exists = commented_oci.rstrip() in {
-                                l.rstrip() for l in new_lines[-15:]
-                            }
-                            if block_exists:
-                                if expected_comment and not trailing_tag_comment_matches(
-                                    new_lines, expected_comment
-                                ):
-                                    pop_trailing_tag_comments(new_lines)
-                                    modified = True
-                                    new_lines.append(tag_comment_line_text(expected_comment))
-                            else:
-                                pop_trailing_tag_comments(new_lines)
-                                modified = True
-                                new_lines.append(commented_oci)
-                                if expected_comment:
-                                    new_lines.append(tag_comment_line_text(expected_comment))
-                                new_lines.append(
-                                    "  # new approach using oci images: to switch to the new approach, uncomment\n"
-                                )
-                                new_lines.append(
-                                    "  # the 'package' line above and remove the next two lines, keeping the pluginConfig.\n"
-                                )
-                                new_lines.append("  # enabled: false\n")
-
-                            new_lines.append(line)
-
-                            i += 1
-                            while i < len(lines):
-                                next_line = lines[i]
-                                if next_line.strip() and not next_line.startswith(' ') and not next_line.startswith('\t'):
-                                    break
-                                if not is_tag_comment_line(next_line):
-                                    new_lines.append(next_line)
-                                i += 1
-
-                            log_debug(f"Added OCI reference for {pname} in {yaml_file.name}")
-                            i -= 1
-                            matched = True
-                            break
-
-                    if not matched:
-                        empty_artifact_pattern = r"^(\s*)dynamicArtifact:(\s+(?:''|\"\"|\~|null))?\s*$"
-                        empty_match = re.match(empty_artifact_pattern, line)
-                        if empty_match:
-                            indent = empty_match.group(1)
-                            new_lines.append(f"{indent}dynamicArtifact: oci://{registry_reference_for_oci}\n")
-                            modified = True
-                            log_debug(f"Set dynamicArtifact:oci://{registry_reference_for_oci} in {yaml_file.name}")
-                            matched = True
-
-                    if not matched:
+                    empty_artifact_pattern = r"^(\s*)dynamicArtifact:(\s+(?:''|\"\"|\~|null))?\s*$"
+                    empty_match = re.match(empty_artifact_pattern, line)
+                    if empty_match:
+                        indent = empty_match.group(1)
+                        new_lines.append(f"{indent}dynamicArtifact: oci://{registry_reference_for_oci}\n")
+                        modified = True
+                        log_debug(f"Set dynamicArtifact:oci://{registry_reference_for_oci} in {yaml_file.name}")
+                    else:
                         new_lines.append(line)
 
                     i += 1
@@ -1019,6 +973,12 @@ Examples:
 
     print(f"\n{Colors.GREEN}=== Copy workspaces/*/metadata/*.yaml to output packages/ ==={Colors.NORM}")
     yaml_file_names, _ = copy_workspace_metadata_files(overlays_dir, output_dir)
+
+    try:
+        reject_wrapper_references(output_dir)
+    except ValueError as e:
+        log_error(str(e))
+        sys.exit(1)
 
     report = BuildReport(args.report_file)
 

@@ -13,6 +13,6 @@ host_files:
     dest: /sandbox/workspace/.env.d/yarn-proxy.env
 env:
   runner:
-    CODE_ALLOWED_TARGET_BRANCHES: "main,release-1.9,release-1.10"
+    CODE_ALLOWED_TARGET_BRANCHES: "main,release-1.9,release-1.10,release-2.1"
 skills:
   - skills/e2e-failure-analysis

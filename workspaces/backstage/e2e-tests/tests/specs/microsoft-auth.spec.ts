@@ -18,7 +18,7 @@ import {
   groupHasRelation,
 } from "../../support/api/catalog-query-helpers.js";
 
-/** Static token from tests/config/microsoft/value-file.yaml */
+/** Static token from tests/config/microsoft/app-config-rhdh.yaml */
 const CATALOG_TOKEN = "microsoft-e2e-token";
 const APP_CONFIG_PATH = "tests/config/microsoft/app-config-rhdh.yaml";
 const HOMEPAGE_WRAPPER_DIST_NAME =
@@ -107,8 +107,12 @@ async function applyAppConfigAndRestart(
     ns,
   );
   await rhdh.scaleDownAndRestart();
+  const deployment =
+    rhdh.deploymentConfig.method === "operator"
+      ? "backstage-developer-hub"
+      : "redhat-developer-hub";
   // waitUntilReady() is true while the old pod still serves; gate on rollout completion.
-  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
+  await $`oc rollout status deployment/${deployment} -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
@@ -145,7 +149,6 @@ test.describe(
           appConfig: APP_CONFIG_PATH,
           secrets: "tests/config/microsoft/rhdh-secrets.yaml",
           dynamicPlugins: "tests/config/microsoft/dynamic-plugins.yaml",
-          valueFile: "tests/config/microsoft/value-file.yaml",
           disablePlugins: [HOMEPAGE_WRAPPER_DIST_NAME],
         });
       });

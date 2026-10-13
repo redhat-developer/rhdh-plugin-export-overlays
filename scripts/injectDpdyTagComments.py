@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 #
 # Insert # Tag / Build date comments into dynamic-plugins.default.yaml from plugin_builds/.
-# TODO: Once we drop wrappers, this will be obsolete and can be deleted
-#
-# - After "# - package: oci://..." (migration block)
-# - Before "- package: ./dynamic-plugins/dist/..." only when no Tag comment is already nearby
+# Tag comments are added only to active OCI package references.
 
 import argparse
 import json
@@ -12,10 +9,12 @@ import re
 import sys
 from pathlib import Path
 
-COMMENTED_OCI_RE = re.compile(r"^ {2}# - package: oci://")
 PKG_LINE_RE = re.compile(r"^ {2}- package: (?P<val>\S+)")
 TAG_LINE_RE = re.compile(r"^\s*# Tag:")
-
+WRAPPER_PACKAGE_RE = re.compile(
+    r"^\s*(?:#\s*)?-\s+package:\s*['\"]?\./dynamic-plugins/dist(?:/|\s|['\"]|$)"
+)
+OCI_PREFIX = "oci://"
 
 def load_tag_by_key(plugin_builds_dir: Path) -> dict[str, tuple[str, str]]:
     """Read all plugin_builds/*/*.json and build a lookup dict from image name to (tag, build_date).
@@ -118,27 +117,13 @@ def comment_for_package(pkg: str, tag_by_key: dict[str, tuple[str, str]]) -> str
     return None
 
 
-def package_name_from_oci_comment(line: str) -> str | None:
-    """Extract the image name from a commented OCI package line.
-
-    Parses lines like ``# - package: oci://registry/image-name@sha256:...``
-    and returns the image name portion.
-    """
-    m = re.search(r"oci://[^/]+/([^@\s!]+)", line)
-    if not m:
+def package_name_from_oci_value(val: str) -> str | None:
+    """Extract the image name from an ``oci://`` package reference."""
+    if not val.startswith(OCI_PREFIX):
         return None
-    return m.group(1).rsplit("/", 1)[-1]
-
-
-def package_name_from_package_value(val: str) -> str:
-    """Extract the package name from a package value string.
-
-    Handles both local paths (``./dynamic-plugins/dist/foo`` returns
-    ``foo``) and OCI references (returns the image name before ``@``).
-    """
-    if val.startswith("./"):
-        return val.rsplit("/", 1)[-1]
-    return val.split("/")[-1].split("@")[0]
+    reference = val.removeprefix(OCI_PREFIX).split("!", 1)[0]
+    image = reference.rsplit("/", 1)[-1].split("@", 1)[0]
+    return image.rsplit(":", 1)[0] if ":" in image else image
 
 
 def recent_has_tag(result: list[str]) -> bool:
@@ -146,7 +131,7 @@ def recent_has_tag(result: list[str]) -> bool:
     for line in reversed(result):
         if TAG_LINE_RE.match(line):
             return True
-        if PKG_LINE_RE.match(line) or COMMENTED_OCI_RE.match(line):
+        if PKG_LINE_RE.match(line):
             return False
     return False
 
@@ -155,11 +140,7 @@ def inject(dpdy_path: Path, plugin_builds_dir: Path) -> bool:
     """Insert ``# Tag: ..., Build date: ...`` comments into dynamic-plugins.default.yaml.
 
     Reads the DPDY file and plugin build metadata, then inserts tag/build-date
-    comments in two positions:
-
-    - After ``# - package: oci://...`` lines (commented-out migration blocks)
-    - Before ``- package: ./dynamic-plugins/dist/...`` lines (wrapper package
-      entries), only when no Tag comment already exists nearby
+    comments before active OCI package references that do not already have one.
 
     Args:
         dpdy_path: Path to the dynamic-plugins.default.yaml file.
@@ -169,44 +150,31 @@ def inject(dpdy_path: Path, plugin_builds_dir: Path) -> bool:
     Returns:
         True if the file was modified and written back, False otherwise.
 
-    Example:
-
-        Before::
-
-            # - package: oci://quay.io/rhdh/plugin-foo@sha256:abc123
-            - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic
-
-        After::
-
-            # - package: oci://quay.io/rhdh/plugin-foo@sha256:abc123
-            # Tag: 1.11--1.5.4, Build date: 2025-05-01
-            - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic
+    Raises:
+        ValueError: If the DPDY file contains a wrapper package reference.
     """
     tag_by_key = load_tag_by_key(plugin_builds_dir)
     lines = dpdy_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    for number, line in enumerate(lines, start=1):
+        if WRAPPER_PACKAGE_RE.match(line):
+            raise ValueError(
+                f"{dpdy_path}:{number}: wrapper package references are no longer "
+                "supported; use the package's oci:// artifact reference"
+            )
+
     result: list[str] = []
     changed = False
     i = 0
     while i < len(lines):
         line = lines[i]
 
-        if COMMENTED_OCI_RE.match(line):
-            result.append(line)
-            i += 1
-            if i < len(lines) and TAG_LINE_RE.match(lines[i]):
-                result.append(lines[i])
+        m = PKG_LINE_RE.match(line)
+        if m and m.group("val").startswith(OCI_PREFIX):
+            pkg = package_name_from_oci_value(m.group("val"))
+            if pkg is None:
+                result.append(line)
                 i += 1
                 continue
-            pkg = package_name_from_oci_comment(line)
-            cmt = comment_for_package(pkg, tag_by_key) if pkg else None
-            if cmt:
-                result.append(cmt)
-                changed = True
-            continue
-
-        m = PKG_LINE_RE.match(line)
-        if m:
-            pkg = package_name_from_package_value(m.group("val"))
             if not recent_has_tag(result):
                 cmt = comment_for_package(pkg, tag_by_key)
                 if cmt:
@@ -229,7 +197,11 @@ def main() -> int:
     if not args.dpdy_file.is_file():
         print(f"Error: DPDY file not found: {args.dpdy_file}", file=sys.stderr)
         return 1
-    inject(args.dpdy_file, args.plugin_builds_dir)
+    try:
+        inject(args.dpdy_file, args.plugin_builds_dir)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
     return 0
 
 

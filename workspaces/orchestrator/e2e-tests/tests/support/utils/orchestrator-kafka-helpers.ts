@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import yaml from "js-yaml";
 import { Agent } from "undici";
+import type { DeploymentMethod } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 import { describeFetchError } from "./fetch-error-description.js";
 import { runOc } from "./oc-helpers.js";
 
@@ -15,7 +16,6 @@ const KAFKA_INSTALL_SCRIPT = join(
 
 const APP_CONFIG_CM = "app-config-rhdh";
 const APP_CONFIG_KEY = "app-config-rhdh.yaml";
-const RHDH_DEPLOYMENT = "redhat-developer-hub";
 
 /** Same as Loki probes: OpenShift route certs are not in Node's trust store. */
 const rhdhHttpsDispatcher = new Agent({
@@ -68,6 +68,7 @@ function parseBootstrapFromStdout(stdout: string): string {
 export async function patchAppConfigKafka(
   namespace: string,
   bootstrap: string,
+  method: DeploymentMethod,
 ): Promise<void> {
   const current = runOc(
     [
@@ -162,20 +163,28 @@ export async function patchAppConfigKafka(
     rmSync(tmpDir, { recursive: true, force: true });
   }
 
-  await restartRhdhScaleZeroOne(namespace);
+  await restartRhdhScaleZeroOne(namespace, method);
 }
 
-async function restartRhdhScaleZeroOne(namespace: string): Promise<void> {
+async function restartRhdhScaleZeroOne(
+  namespace: string,
+  method: DeploymentMethod,
+): Promise<void> {
+  const deployment =
+    method === "operator" ? "backstage-developer-hub" : "redhat-developer-hub";
+  const podSelector =
+    method === "operator"
+      ? "rhdh.redhat.com/app=backstage-developer-hub"
+      : "app.kubernetes.io/component=backstage";
   console.warn(
-    `[configureOrchestratorKafka] Restarting ${RHDH_DEPLOYMENT} via scale 0→1 in ${namespace}`,
+    `[configureOrchestratorKafka] Restarting ${deployment} via scale 0→1 in ${namespace}`,
   );
   runOc(
-    ["-n", namespace, "scale", `deploy/${RHDH_DEPLOYMENT}`, "--replicas=0"],
+    ["-n", namespace, "scale", `deploy/${deployment}`, "--replicas=0"],
     60_000,
   );
   try {
-    // Prefer the Backstage Deployment pods only — the chart's postgresql
-    // StatefulSet also carries app.kubernetes.io/instance=redhat-developer-hub.
+    // Select only RHDH Pods so the database does not block termination waiting.
     runOc(
       [
         "-n",
@@ -184,7 +193,7 @@ async function restartRhdhScaleZeroOne(namespace: string): Promise<void> {
         "--for=delete",
         "pod",
         "-l",
-        "app.kubernetes.io/component=backstage",
+        podSelector,
         "--timeout=180s",
       ],
       200_000,
@@ -193,7 +202,7 @@ async function restartRhdhScaleZeroOne(namespace: string): Promise<void> {
     // pods may already be gone
   }
   runOc(
-    ["-n", namespace, "scale", `deploy/${RHDH_DEPLOYMENT}`, "--replicas=1"],
+    ["-n", namespace, "scale", `deploy/${deployment}`, "--replicas=1"],
     60_000,
   );
   runOc(
@@ -202,7 +211,7 @@ async function restartRhdhScaleZeroOne(namespace: string): Promise<void> {
       namespace,
       "rollout",
       "status",
-      `deployment/${RHDH_DEPLOYMENT}`,
+      `deployment/${deployment}`,
       "--timeout=600s",
     ],
     620_000,
@@ -263,6 +272,7 @@ async function waitForRhdhPermissionApiReady(
  */
 export async function configureOrchestratorKafka(
   namespace: string,
+  method: DeploymentMethod,
 ): Promise<string> {
   const result = await runKafkaInstallScript(namespace);
   if (result.stderr.trim()) {
@@ -277,6 +287,6 @@ export async function configureOrchestratorKafka(
   console.warn(
     `[configureOrchestratorKafka] Using Kafka bootstrap: ${bootstrap}`,
   );
-  await patchAppConfigKafka(namespace, bootstrap);
+  await patchAppConfigKafka(namespace, bootstrap, method);
   return bootstrap;
 }

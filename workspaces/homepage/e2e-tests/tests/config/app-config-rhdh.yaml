@@ -1,13 +1,16 @@
-# NFS (Backstage app) requires app.extensions so Home is registered, plus the upstream
-# backstage-plugin-home OCI (see dynamic-plugins.yaml).
+# NFS: use RH page:homepage as the sole Home. Keep community home package for
+# visits APIs (see dynamic-plugins.yaml), but disable page:home so the sidebar
+# does not show two Home items.
 app:
   extensions:
-    - page:home:
+    - page:home: false
+    - page:homepage:
         config:
           path: /
+          title: Home
     - api:home/visits: true
     - app-root-element:home/visit-listener: true
-    - home-page-layout:home/dynamic-homepage-layout:
+    - home-page-layout:homepage/dynamic-homepage-layout:
         config:
           customizable: true
 

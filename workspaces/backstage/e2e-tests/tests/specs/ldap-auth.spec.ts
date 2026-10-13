@@ -15,7 +15,7 @@ import {
 } from "../../support/api/catalog-query-helpers.js";
 
 const LDAP_CONFIG_DIR = "tests/config/ldap";
-/** Static token from tests/config/ldap/value-file.yaml */
+/** Static token from tests/config/ldap/app-config-rhdh.yaml */
 const CATALOG_TOKEN = "ldap-auth-e2e-token";
 
 test.describe.configure({ mode: "serial" });
@@ -72,7 +72,6 @@ test.describe("LDAP auth provider", { tag: "@auth-tests" }, () => {
         appConfig: `${LDAP_CONFIG_DIR}/app-config-rhdh.yaml`,
         dynamicPlugins: `${LDAP_CONFIG_DIR}/dynamic-plugins.yaml`,
         secrets: `${LDAP_CONFIG_DIR}/rhdh-secrets.yaml`,
-        valueFile: `${LDAP_CONFIG_DIR}/value-file.yaml`,
       });
     });
 
