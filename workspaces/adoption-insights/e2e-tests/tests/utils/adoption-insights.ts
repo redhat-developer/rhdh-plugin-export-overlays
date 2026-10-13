@@ -209,7 +209,9 @@ export async function waitUntilApiCallSucceeds(
 
 async function clickAdoptionInsightsSidebarLink(page: Page): Promise<void> {
   const link = page.locator('nav a:has-text("Adoption Insights")').first();
-  await link.waitFor({ state: "visible", timeout: 15_000 });
+  if (!(await link.isVisible())) {
+    await page.getByRole("button", { name: "Administration" }).click();
+  }
   await link.click();
 }
 
