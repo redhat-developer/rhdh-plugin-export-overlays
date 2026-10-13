@@ -32,11 +32,11 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
     await context?.close();
   });
 
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip("Setup filecheck aggregated scorecard on homepage", async () => {
-    // TODO(RHDHBUGS-3715): unskip once scorecard plugin adds a HomePageWidgetBlueprint for README
+  test("Setup filecheck aggregated scorecard on homepage", async () => {
     await scorecard.navigateToHome();
-    await scorecard.addWidget("Scorecard: README file exists");
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "filecheck.readme",
+    });
     await scorecard.expectNoProgressBar();
     await scorecard.addWidget("Entity section");
     await scorecard.expectNoProgressBar();
@@ -48,9 +48,7 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
   test.describe("Aggregated scorecard drill-down", () => {
     test.describe.configure({ retries: 1 });
 
-    // eslint-disable-next-line playwright/no-skipped-test
-    test.skip("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-      // TODO(RHDHBUGS-3715): unskip once scorecard plugin adds a HomePageWidgetBlueprint for README
+    test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
       await aggregated.runAggregatedScorecardDrilldownScenario(
         () => scorecard.navigateToHome(),
         FILECHECK_METRICS.readme,

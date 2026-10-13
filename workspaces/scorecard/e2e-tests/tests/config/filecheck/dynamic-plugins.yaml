@@ -4,6 +4,10 @@
 plugins:
   - package: ref://red-hat-developer-hub-backstage-plugin-scorecard
     enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-scorecard: {}
   - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend
     enabled: true
   - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
@@ -25,7 +29,13 @@ plugins:
                   minutes: 10
                 initialDelay:
                   seconds: 120
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+  # Homepage 3.1.0 provides the NFS page:homepage extension for Scorecard widgets.
+  # We can use {{inherit}} once RHDH's catalog resolves it for 3.1.0 or newer.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
     enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-homepage: {}
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
     enabled: true
