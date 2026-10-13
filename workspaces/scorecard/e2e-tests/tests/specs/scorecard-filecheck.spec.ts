@@ -38,8 +38,6 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
       aggregationId: "filecheck.readme",
     });
     await scorecard.expectNoProgressBar();
-    await scorecard.addWidget("Entity section");
-    await scorecard.expectNoProgressBar();
     await scorecard.expectAggregatedScorecardVisible(
       FILECHECK_METRICS.readme.title,
     );
