@@ -5,18 +5,12 @@ const SIGN_IN_HEADING = "Select a sign-in method";
 const LOGIN_ATTEMPTS = 2;
 
 /**
- * The OIDC popup can complete in Keycloak while the main window never stores
- * the session cookie. The app shell can show a sidebar for a moment and then
- * fall back to the sign-in page on the next navigation, which is what
- * `navigateToRBACPage` does. Confirm `/rbac` stays signed in, and retry the
- * popup when it does not.
+ * The OIDC popup can finish while the main window falls back to the sign-in
+ * page. A full page load is what drops the session, so this check stays on
+ * the page login already opened and retries the popup if that page is signed
+ * out. A later `page.goto` is then the first document load after login.
  */
-const sessionSurvivesNavigation = async (
-  loginHelper: LoginHelper,
-): Promise<boolean> => {
-  await loginHelper.page.goto("/rbac");
-  await loginHelper.uiHelper.waitForLoad();
-
+const sessionIsActive = async (loginHelper: LoginHelper): Promise<boolean> => {
   const signIn = loginHelper.page.getByRole("heading", {
     name: SIGN_IN_HEADING,
   });
@@ -50,7 +44,7 @@ export const loginAs = async (
   for (let attempt = 1; attempt <= LOGIN_ATTEMPTS; attempt++) {
     try {
       await loginHelper.loginAsKeycloakUser(user.username, user.password);
-      if (await sessionSurvivesNavigation(loginHelper)) {
+      if (await sessionIsActive(loginHelper)) {
         return;
       }
       lastError = new Error(

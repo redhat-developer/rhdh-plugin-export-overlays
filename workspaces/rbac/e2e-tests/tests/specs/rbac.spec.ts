@@ -91,7 +91,10 @@ test.describe("RBAC plugin", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.goToPageUrl("/");
+      await page
+        .getByRole("navigation", { name: "sidebar nav" })
+        .getByRole("link", { name: "Home", exact: true })
+        .click();
       await uiHelper.clickButton("Administration");
       const rbacLink = page.getByRole("link", { name: "RBAC" });
       await expect(rbacLink).toBeVisible();
