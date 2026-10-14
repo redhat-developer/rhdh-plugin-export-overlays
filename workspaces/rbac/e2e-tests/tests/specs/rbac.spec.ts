@@ -16,7 +16,10 @@ import {
   displayName,
   userEntityRef,
 } from "../../support/constants/users-and-groups";
-import { RBAC_ROLES } from "../../support/constants/roles";
+import {
+  RBAC_ADMIN_ROLE_DESCRIPTION,
+  RBAC_ROLES,
+} from "../../support/constants/roles";
 import { loginAs } from "../../support/utils/login";
 import {
   AuthApiHelper,
@@ -138,10 +141,11 @@ test.describe("RBAC plugin", () => {
 
     test("View details of a role (rbac_admin)", async ({ uiHelper }) => {
       await rbacPO.navigateToRBACPage();
-      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.rbacAdmin.ref, "", [
-        "1 user",
-        "5 permissions",
-      ]);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.rbacAdmin.ref,
+        RBAC_ADMIN_ROLE_DESCRIPTION,
+        ["1 user", "5 permissions"],
+      );
 
       const usersAndGroupsColumnsText =
         RolesPage.getUsersAndGroupsListColumnsText();
@@ -305,16 +309,22 @@ test.describe("RBAC plugin", () => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
     });
 
-    test("Administration side nav does not show RBAC plugin", async ({
+    test("Administration side nav shows RBAC and the page denies access", async ({
       page,
       uiHelper,
     }) => {
       await uiHelper.openSidebarButton("Administration");
-      // Check specifically for RBAC link in sidebar navigation, not anywhere on the page
+      // The dynamic plugin registers the RBAC menu item for every user.
+      // Page access is still denied.
       const rbacNavLink = page
         .getByRole("navigation", { name: "sidebar nav" })
         .getByRole("link", { name: "RBAC" });
-      await expect(rbacNavLink).toHaveCount(0);
+      await expect(rbacNavLink).toBeVisible();
+      await rbacNavLink.click();
+      await uiHelper.waitForLoad();
+      await uiHelper.verifyText(
+        "ERROR 403: Insufficient permissions to access this page",
+      );
     });
 
     test("No access user should not see list of components in catalog", async ({
@@ -403,10 +413,11 @@ test.describe("RBAC plugin", () => {
       page,
     }) => {
       await rbacPO.filterRolesList(RBAC_ROLES.rbacAdmin.name);
-      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.rbacAdmin.ref, "", [
-        "1 user",
-        "5 permissions",
-      ]);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.rbacAdmin.ref,
+        RBAC_ADMIN_ROLE_DESCRIPTION,
+        ["1 user", "5 permissions"],
+      );
 
       await rbacPO.editRolePermissions();
 
@@ -441,10 +452,10 @@ test.describe("RBAC plugin", () => {
     }) => {
       await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
 
-      // Verify component name in the main heading
-      await expect(page.getByRole("heading", { level: 1 })).toContainText(
-        "test-rhdh-qe-2",
-      );
+      // The plugin header h1 is "Catalog". The entity name is its own heading.
+      await expect(
+        page.getByRole("heading", { name: "test-rhdh-qe-2", exact: true }),
+      ).toBeVisible();
       await page.getByTestId("menu-button").click();
       const unregisterUserOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
@@ -581,16 +592,18 @@ test.describe("RBAC plugin", () => {
       await rbacPO.deleteRole(RBAC_ROLES.rbacOwnership.ref);
     });
 
-    test("conditional-manager no longer sees RBAC in the sidebar after access is revoked", async ({
-      page,
+    test("conditional-manager is denied the RBAC page after access is revoked", async ({
       uiHelper,
       loginHelper,
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalManager);
 
-      await uiHelper.openSidebarButton("Administration");
-      const dropdownMenuLocator = page.getByText("RBAC");
-      await expect(dropdownMenuLocator).toBeHidden();
+      // The menu item stays registered. Revoking the role denies the page.
+      await rbacPO.go();
+      await uiHelper.waitForLoad();
+      await uiHelper.verifyText(
+        "ERROR 403: Insufficient permissions to access this page",
+      );
     });
   });
 

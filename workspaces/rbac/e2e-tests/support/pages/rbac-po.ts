@@ -98,7 +98,10 @@ export class RbacPO {
     await this.switchToOverView();
     await this.uiHelper.verifyText("About");
 
-    await this.uiHelper.verifyText(description);
+    // An empty description matches the hidden toast container.
+    if (description) {
+      await this.uiHelper.verifyText(description);
+    }
 
     for (const heading of headings) {
       await this.uiHelper.verifyHeading(heading);
@@ -189,6 +192,7 @@ export class RbacPO {
     await this.page
       .getByRole("link", { name: componentName, exact: true })
       .click();
+    await this.page.waitForURL("**/catalog/**/component/**");
   }
 
   public async verifyComponentOwner(ownerPattern: string): Promise<void> {
