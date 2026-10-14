@@ -1,5 +1,7 @@
 {
-  "metadata": {},
+  "metadata": {
+    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.2-bs_1.54.9-3c6ff3e"
+  },
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -771,7 +773,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-community-plugin-sonarqube-backend' resolved to bs_1.54.9__1.2.0 after bs_1.54.9__1.3.0 was not found \u2014 the index ships an older build"
+            "[fallback-tag] 'backstage-community-plugin-sonarqube-backend' resolved to bs_1.54.9__1.2.0 after bs_1.54.9__1.3.0 was not found — the index ships an older build"
           ]
         }
       },
@@ -802,7 +804,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-community-plugin-sonarqube' resolved to bs_1.54.9__1.2.0 after bs_1.54.9__1.3.0 was not found \u2014 the index ships an older build"
+            "[fallback-tag] 'backstage-community-plugin-sonarqube' resolved to bs_1.54.9__1.2.0 after bs_1.54.9__1.3.0 was not found — the index ships an older build"
           ]
         }
       },
