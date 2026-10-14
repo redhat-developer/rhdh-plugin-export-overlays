@@ -1,0 +1,40 @@
+catalog:
+  rules:
+    - allow:
+        [
+          API,
+          Component,
+          User,
+          Group,
+          Location,
+          Resource,
+          System,
+          Template,
+          Plugin,
+          Package,
+        ]
+  locations:
+    - type: url
+      target: https://github.com/PatAKnight/rhdh-plugin-export-overlays/blob/sonarqube-scorecard-tests/workspaces/scorecard/e2e-tests/tests/config/sonarqube/catalog-entities.yaml
+
+permission:
+  enabled: true
+  rbac:
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - scorecard
+    admin:
+      superUsers:
+        - name: user:default/test1
+      users:
+        - name: user:default/test1
+
+sonarqube:
+  baseUrl: http://sonarqube:9000
+  apiKey: ${SONARQUBE_TOKEN}
+  instances:
+    - name: internal
+      baseUrl: http://sonarqube:9000
+      apiKey: ${SONARQUBE_TOKEN}
+      authType: Basic
