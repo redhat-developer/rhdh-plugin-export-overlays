@@ -6,30 +6,39 @@ const LOGIN_ATTEMPTS = 2;
 
 /**
  * The OIDC popup can complete in Keycloak while the main window never stores
- * the session cookie. A full navigation then lands back on the sign-in page.
- * Confirm the session survives that navigation, and retry the popup when it
- * does not.
+ * the session cookie. The app shell can show a sidebar for a moment and then
+ * fall back to the sign-in page on the next navigation, which is what
+ * `navigateToRBACPage` does. Confirm `/rbac` stays signed in, and retry the
+ * popup when it does not.
  */
 const sessionSurvivesNavigation = async (
   loginHelper: LoginHelper,
 ): Promise<boolean> => {
-  await loginHelper.page.goto("/");
+  await loginHelper.page.goto("/rbac");
   await loginHelper.uiHelper.waitForLoad();
 
-  const stillSignedOut = await loginHelper.page
-    .getByRole("heading", { name: SIGN_IN_HEADING })
-    .isVisible()
-    .catch(() => false);
-  if (stillSignedOut) {
+  const signIn = loginHelper.page.getByRole("heading", {
+    name: SIGN_IN_HEADING,
+  });
+  const sidebar = loginHelper.page
+    .getByLabel("sidebar nav")
+    .getByRole("link")
+    .first();
+  const signedOut = () => signIn.isVisible().catch(() => false);
+
+  if (await signedOut()) {
     return false;
   }
 
-  await loginHelper.page
-    .getByLabel("sidebar nav")
-    .getByRole("link")
-    .first()
-    .waitFor({ state: "visible" });
-  return true;
+  try {
+    await sidebar.waitFor({ state: "visible", timeout: 15_000 });
+  } catch {
+    return false;
+  }
+
+  // A late auth redirect replaces the shell after the sidebar first appears.
+  await new Promise((resolve) => setTimeout(resolve, 1_000));
+  return !(await signedOut());
 };
 
 export const loginAs = async (

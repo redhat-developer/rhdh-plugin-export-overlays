@@ -25,8 +25,16 @@ export class RbacPO {
   }
 
   public async navigateToRBACPage(timeout?: number) {
-    await this.go();
-    await this.uiHelper.waitForLoad();
+    const signedOut = await this.page
+      .getByRole("heading", { name: "Select a sign-in method" })
+      .isVisible()
+      .catch(() => false);
+    // Login already opened /rbac to prove the session. A second full
+    // navigation is what drops the OIDC cookie.
+    if (!this.page.url().includes("/rbac") || signedOut) {
+      await this.go();
+      await this.uiHelper.waitForLoad();
+    }
     await this.uiHelper.verifyHeading("RBAC", timeout);
   }
 
