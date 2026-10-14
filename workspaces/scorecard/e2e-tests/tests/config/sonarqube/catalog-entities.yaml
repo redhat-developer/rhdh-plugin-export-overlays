@@ -1,0 +1,45 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sonarqube-default
+  description: Component analyzed with full line coverage.
+  annotations:
+    sonarqube.org/project-key: demo
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/test1
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sonarqube-low
+  description: Component analyzed on the named SonarQube instance with low coverage.
+  annotations:
+    sonarqube.org/project-key: internal/demo-low
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/test1
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sonarqube-missing
+  description: Component whose SonarQube project key does not exist.
+  annotations:
+    sonarqube.org/project-key: missing-project
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/test1
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sonarqube-none
+  description: Component with no SonarQube project annotation.
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/test1
