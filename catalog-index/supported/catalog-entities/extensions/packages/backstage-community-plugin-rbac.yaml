@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@backstage-community/plugin-rbac'
   # Tag: bs_1.54.9__2.3.4
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:b9d28322ecd68f20bfb5fcdd886bc57ee20368091e723f24771ff399a63c899e"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:d0af7c56897d62c8b8a0933839209f958ac978aa19f4007dd0e0918a2ab116d4"
   version: 2.3.4
   backstage:
     role: frontend-plugin
