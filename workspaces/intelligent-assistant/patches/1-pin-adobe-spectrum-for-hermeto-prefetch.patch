@@ -10,10 +10,10 @@
 +    "@react-stately/layout": "4.7.1",
 +    "@react-stately/overlays": "3.7.1",
 +    "@react-types/table": "3.14.0",
+     "@red-hat-developer-hub/cli": "file:../../.yarn/cache/red-hat-developer-hub-cli-2.1.2.tgz",
      "@spotify/prettier-config": "^12.0.0",
      "@types/jest": "^30.0.0",
-     "@types/jsdom": "^27.0.0",
-@@ -68,8 +68,6 @@
+@@ -69,8 +69,6 @@
      "typescript": "~5.8.0"
    },
    "dependencies": {
@@ -22,12 +22,11 @@
      "react": "^18.3.1"
    },
    "resolutions": {
-@@ -94,7 +92,17 @@
-     "@types/react": "^18",
+@@ -96,7 +94,16 @@
      "react-router-dom": "6.30.6",
      "react-router": "6.30.6",
--    "refractor@npm:3.6.0/prismjs": "^1.30.0"
-+    "refractor@npm:3.6.0/prismjs": "^1.30.0",
+     "refractor@npm:3.6.0/prismjs": "^1.30.0",
+-    "@yarnpkg/core": "4.9.1"
 +    "@yarnpkg/core": "4.9.1",
 +    "@adobe/react-spectrum": "3.47.1",
 +    "react-aria": "3.49.0",
