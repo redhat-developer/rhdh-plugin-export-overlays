@@ -339,7 +339,20 @@ async function countLokiLogLinesForInstance(
  * @see https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/orchestrator_in_red_hat_developer_hub/integrate-loki-logs-to-debug-orchestrator-workflows_orchestrator-in-rhdh
  */
 export async function configureOrchestratorLoki(): Promise<void> {
-  process.env.AUTH_TOKEN = await resolveOpenShiftAuthToken();
+  try {
+    process.env.AUTH_TOKEN = await resolveOpenShiftAuthToken();
+  } catch (error) {
+    if (process.env.LOKI_ALLOW_PLACEHOLDER !== "true") {
+      throw error;
+    }
+    console.warn(
+      "[configureOrchestratorLoki] OpenShift token unavailable; LOKI_ALLOW_PLACEHOLDER=true:",
+      error,
+    );
+    process.env.AUTH_TOKEN = LOKI_PLACEHOLDER_TOKEN;
+    process.env.LOKI_BASE_URL = LOKI_PLACEHOLDER_URL;
+    return;
+  }
 
   try {
     const result = await runLokiInstallScript();
