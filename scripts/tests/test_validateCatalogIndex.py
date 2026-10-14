@@ -326,20 +326,25 @@ class TestRules:
             tmp_path,
             [
                 {"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}", "enabled": True},
-                {"package": "./dynamic-plugins/dist/plugin-b", "enabled": False},
+                {"package": f"oci://{REGISTRY}/plugin-b@{OTHER_DIGEST}", "enabled": False},
             ],
-            builds={"plugin-a": resolved("plugin-a")},
-            index_json={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@{DIGEST}"}},
+            builds={
+                "plugin-a": resolved("plugin-a"),
+                "plugin-b": resolved("plugin-b", OTHER_DIGEST),
+            },
+            index_json={
+                "plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@{DIGEST}"},
+                "plugin-b": {"registryReference": f"{REGISTRY}/plugin-b@{OTHER_DIGEST}"},
+            },
         )
         assert result.findings == []
         assert result.stats == {
             "packages": 2,
-            "oci_refs": 1,
-            "oci_images": 1,
-            "local_refs": 1,
+            "oci_refs": 2,
+            "oci_images": 2,
             "enabled": 1,
-            "plugin_builds": 1,
-            "index_entries": 1,
+            "plugin_builds": 2,
+            "index_entries": 2,
         }
 
     def test_a_non_oci_scheme_is_reported(self, tmp_path):
@@ -542,16 +547,15 @@ class TestRules:
         )
         assert result.findings == []
 
-    def test_in_image_packages_are_exempt_from_every_registry_rule(self, tmp_path):
-        """`./dynamic-plugins/dist/…` ships inside the RHDH image — nothing to resolve."""
+    def test_wrapper_package_paths_are_reported_as_invalid(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": "./dynamic-plugins/dist/plugin-a-dynamic"}],
             builds={},
             index_json={},
         )
-        assert result.findings == []
-        assert result.stats["local_refs"] == 1
+        assert rules_of(result) == ["ref-form"]
+        assert result.stats["oci_refs"] == 0
 
 
 # ---------------------------------------------------------------------------
