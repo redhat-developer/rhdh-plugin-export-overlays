@@ -10,10 +10,10 @@
 +    "@react-stately/layout": "4.7.1",
 +    "@react-stately/overlays": "3.7.1",
 +    "@react-types/table": "3.14.0",
-     "@red-hat-developer-hub/cli": "file:../../.yarn/cache/red-hat-developer-hub-cli-2.1.2.tgz",
      "@spotify/prettier-config": "^12.0.0",
      "@types/jest": "^30.0.0",
-@@ -69,8 +69,6 @@
+     "@types/jsdom": "^27.0.0",
+@@ -68,8 +68,6 @@
      "typescript": "~5.8.0"
    },
    "dependencies": {
@@ -22,12 +22,12 @@
      "react": "^18.3.1"
    },
    "resolutions": {
-@@ -96,7 +94,15 @@
+@@ -94,7 +92,16 @@
+     "@types/react": "^18",
      "react-router-dom": "6.30.6",
      "react-router": "6.30.6",
-     "refractor@npm:3.6.0/prismjs": "^1.30.0",
--    "@yarnpkg/core": "4.9.1"
-+    "@yarnpkg/core": "4.9.1",
+-    "refractor@npm:3.6.0/prismjs": "^1.30.0"
++    "refractor@npm:3.6.0/prismjs": "^1.30.0",
 +    "@adobe/react-spectrum": "3.47.1",
 +    "react-aria": "3.49.0",
 +    "react-stately": "3.47.0",
@@ -35,7 +35,8 @@
 +    "@react-stately/overlays": "3.7.1",
 +    "@react-stately/table": "3.16.1",
 +    "@react-types/table": "3.14.0",
-+    "@react-types/shared": "3.35.0"
++    "@react-types/shared": "3.35.0",
++    "react-aria-components": "1.18.0"
    },
    "prettier": "@spotify/prettier-config",
    "lint-staged": {
