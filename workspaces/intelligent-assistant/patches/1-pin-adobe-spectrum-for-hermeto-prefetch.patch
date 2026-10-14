@@ -1,0 +1,14 @@
+--- package.json
++++ package.json
+@@ -94,7 +94,10 @@
+     "@types/react": "^18",
+     "react-router-dom": "6.30.6",
+     "react-router": "6.30.6",
+-    "refractor@npm:3.6.0/prismjs": "^1.30.0"
++    "refractor@npm:3.6.0/prismjs": "^1.30.0",
++    "@adobe/react-spectrum": "3.47.1",
++    "react-aria": "3.49.0",
++    "react-stately": "3.47.0"
+   },
+   "prettier": "@spotify/prettier-config",
+   "lint-staged": {
