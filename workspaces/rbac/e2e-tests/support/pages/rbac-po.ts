@@ -53,17 +53,40 @@ export class RbacPO {
     await this.uiHelper.waitForLoad();
   }
 
+  /**
+   * Role overview and edit pages link back with the header type link
+   * (`typeLink=".."`). That is a router link. The sidebar item reloads
+   * `/rbac` and drops the OIDC session.
+   */
+  private async returnViaHeaderTypeLink(): Promise<boolean> {
+    const headerLink = this.page
+      .locator("header")
+      .getByRole("link", { name: "RBAC", exact: true });
+    if (!(await headerLink.isVisible().catch(() => false))) {
+      return false;
+    }
+    await headerLink.click();
+    await this.uiHelper.waitForLoad();
+    return true;
+  }
+
   public async navigateToRBACPage(timeout?: number) {
     if (!this.onRolesList()) {
-      const sidebarVisible = await this.page
-        .getByLabel("sidebar nav")
-        .isVisible()
-        .catch(() => false);
-      if (sidebarVisible) {
-        await this.openRbacFromSidebar();
-      } else {
-        await this.go();
-        await this.uiHelper.waitForLoad();
+      const onRbacSubpage = new URL(this.page.url()).pathname.startsWith(
+        "/rbac/",
+      );
+      const returned = onRbacSubpage && (await this.returnViaHeaderTypeLink());
+      if (!returned) {
+        const sidebarVisible = await this.page
+          .getByLabel("sidebar nav")
+          .isVisible()
+          .catch(() => false);
+        if (sidebarVisible) {
+          await this.openRbacFromSidebar();
+        } else {
+          await this.go();
+          await this.uiHelper.waitForLoad();
+        }
       }
     }
     await this.uiHelper.verifyHeading("RBAC", timeout);

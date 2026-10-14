@@ -91,14 +91,13 @@ test.describe("RBAC plugin", () => {
       page,
       uiHelper,
     }) => {
-      await page
-        .getByRole("navigation", { name: "sidebar nav" })
-        .getByRole("link", { name: "Home", exact: true })
-        .click();
-      await uiHelper.clickButton("Administration");
-      const rbacLink = page.getByRole("link", { name: "RBAC" });
-      await expect(rbacLink).toBeVisible();
-      await rbacLink.click();
+      // Setup already opened RBAC. Clicking Home or the current RBAC item
+      // reloads the document and drops the OIDC session.
+      await expect(
+        page
+          .getByRole("navigation", { name: "sidebar nav" })
+          .getByRole("link", { name: "RBAC" }),
+      ).toBeVisible();
       await uiHelper.verifyHeading("RBAC");
       expect(await page.title()).toContain("RBAC");
 
@@ -459,7 +458,7 @@ test.describe("RBAC plugin", () => {
       await expect(
         page.getByRole("heading", { name: "test-rhdh-qe-2", exact: true }),
       ).toBeVisible();
-      await page.getByTestId("menu-button").click();
+      await page.getByRole("button", { name: "More actions" }).click();
       const unregisterUserOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
       });
@@ -481,7 +480,7 @@ test.describe("RBAC plugin", () => {
           .getByRole("article")
           .getByRole("link", { name: /janus-qe\/rhdh-qe-2-team/ }),
       ).toBeVisible();
-      await page.getByTestId("menu-button").click();
+      await page.getByRole("button", { name: "More actions" }).click();
       const unregisterGroupOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
       });
