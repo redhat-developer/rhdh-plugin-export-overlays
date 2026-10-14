@@ -1,14 +1,41 @@
 --- package.json
 +++ package.json
-@@ -94,7 +94,10 @@
-     "@types/react": "^18",
+@@ -54,9 +54,9 @@
+     "@ianvs/prettier-plugin-sort-imports": "^4.4.0",
+     "@jest/environment-jsdom-abstract": "^30.3.0",
+     "@playwright/test": "1.61.1",
+-    "@react-stately/layout": "^4.7.1",
+-    "@react-stately/overlays": "^3.7.1",
+-    "@react-types/table": "^3.14.0",
++    "@react-stately/layout": "4.7.1",
++    "@react-stately/overlays": "3.7.1",
++    "@react-types/table": "3.14.0",
+     "@red-hat-developer-hub/cli": "file:../../.yarn/cache/red-hat-developer-hub-cli-2.1.2.tgz",
+     "@spotify/prettier-config": "^12.0.0",
+     "@types/jest": "^30.0.0",
+@@ -69,8 +69,6 @@
+     "typescript": "~5.8.0"
+   },
+   "dependencies": {
+-    "@react-stately/layout": "^3.6.0",
+-    "@react-stately/overlays": "^3.6.0",
+     "react": "^18.3.1"
+   },
+   "resolutions": {
+@@ -96,7 +94,15 @@
      "react-router-dom": "6.30.6",
      "react-router": "6.30.6",
--    "refractor@npm:3.6.0/prismjs": "^1.30.0"
-+    "refractor@npm:3.6.0/prismjs": "^1.30.0",
+     "refractor@npm:3.6.0/prismjs": "^1.30.0",
+-    "@yarnpkg/core": "4.9.1"
++    "@yarnpkg/core": "4.9.1",
 +    "@adobe/react-spectrum": "3.47.1",
 +    "react-aria": "3.49.0",
-+    "react-stately": "3.47.0"
++    "react-stately": "3.47.0",
++    "@react-stately/layout": "4.7.1",
++    "@react-stately/overlays": "3.7.1",
++    "@react-stately/table": "3.16.1",
++    "@react-types/table": "3.14.0",
++    "@react-types/shared": "3.35.0"
    },
    "prettier": "@spotify/prettier-config",
    "lint-staged": {
