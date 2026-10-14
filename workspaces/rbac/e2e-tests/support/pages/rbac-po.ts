@@ -189,6 +189,7 @@ export class RbacPO {
     await this.page
       .getByRole("link", { name: componentName, exact: true })
       .click();
+    await this.page.waitForURL("**/catalog/default/component/**");
   }
 
   public async verifyComponentOwner(ownerPattern: string): Promise<void> {

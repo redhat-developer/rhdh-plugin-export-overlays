@@ -138,10 +138,11 @@ test.describe("RBAC plugin", () => {
 
     test("View details of a role (rbac_admin)", async ({ uiHelper }) => {
       await rbacPO.navigateToRBACPage();
-      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.rbacAdmin.ref, "", [
-        "1 user",
-        "5 permissions",
-      ]);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.rbacAdmin.ref,
+        "The default permission policy for the admin role allows for the creation, deletion, updating, and reading of roles and permission policies.",
+        ["1 user", "5 permissions"],
+      );
 
       const usersAndGroupsColumnsText =
         RolesPage.getUsersAndGroupsListColumnsText();
@@ -309,8 +310,10 @@ test.describe("RBAC plugin", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.openSidebarButton("Administration");
-      // Check specifically for RBAC link in sidebar navigation, not anywhere on the page
+      // RBAC is now a direct sidebar item, not under a collapsible
+      // Administration menu. Navigate to the home page and verify the
+      // RBAC link is absent from the sidebar.
+      await uiHelper.goToPageUrl("/");
       const rbacNavLink = page
         .getByRole("navigation", { name: "sidebar nav" })
         .getByRole("link", { name: "RBAC" });
@@ -403,10 +406,11 @@ test.describe("RBAC plugin", () => {
       page,
     }) => {
       await rbacPO.filterRolesList(RBAC_ROLES.rbacAdmin.name);
-      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.rbacAdmin.ref, "", [
-        "1 user",
-        "5 permissions",
-      ]);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.rbacAdmin.ref,
+        "The default permission policy for the admin role allows for the creation, deletion, updating, and reading of roles and permission policies.",
+        ["1 user", "5 permissions"],
+      );
 
       await rbacPO.editRolePermissions();
 
