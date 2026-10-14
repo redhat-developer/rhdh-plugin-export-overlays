@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-quay"
   # Tag: bs_1.54.9__2.22.1
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay@sha256:bc5b9bc18610b3e7b6f9cf45e38ba839dce807a5627fec18eae889de0e36a9b6"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay@sha256:8f1318ce7b26b0f6cfd16af390975074627472b424cc92014024e03356a2eb96"
   version: 2.22.1
   backstage:
     role: backend-plugin-module
