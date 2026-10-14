@@ -289,18 +289,13 @@ Validate every package a generated catalog index declares — the upstream half 
 cluster-free plugin sanity check (RHIDP-13508):
 
 ```bash
-# Against an index this repo is about to publish
+# Against an index generated locally by scripts/update-index.sh
 yarn smoke --catalog-index ../catalog-index/dynamic-plugins.default.yaml
 
 # Against an index that is already published
 ../scripts/extractCatalogIndex.sh quay.io/rhdh/plugin-catalog-index:next /tmp/dpdy.yaml
 yarn smoke --catalog-index /tmp/dpdy.yaml --exclusions catalog-index-sanity-excludes.txt
 ```
-
-RHDH's check has to `skopeo copy` the published `plugin-catalog-index` image and walk its
-layers just to recover `dynamic-plugins.default.yaml`. Run from
-`scripts/update-index.sh --sanity-check`, that file is already on disk and the failure
-lands **before** the image is built rather than a day after it shipped.
 
 Two deliberate differences from feeding the index straight to the install CLI:
 

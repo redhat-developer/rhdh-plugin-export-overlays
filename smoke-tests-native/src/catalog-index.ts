@@ -7,9 +7,10 @@
 /**
  * Catalog-index mode: validate every package a generated catalog index declares.
  *
- * Reads the `dynamic-plugins.default.yaml` that `update-index.sh` writes, so the check
- * runs before the index image is built — RHDH's equivalent (RHIDP-13508) has to
- * skopeo-copy the published image and walk its layers to recover the same file.
+ * Reads a `dynamic-plugins.default.yaml`: one `update-index.sh` generated locally, or
+ * one `scripts/extractCatalogIndex.sh` pulled out of a published index image, which is
+ * what the scheduled catalog-index-sanity workflow does. Upstream half of RHDH's
+ * cluster-free sanity check (RHIDP-13508).
  *
  * Two deliberate departures from the file as written:
  *

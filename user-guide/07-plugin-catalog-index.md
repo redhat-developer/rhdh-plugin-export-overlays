@@ -54,7 +54,7 @@ flowchart LR
 
 The pipeline runs via the `[generate-catalog-index.yaml](../.github/workflows/generate-catalog-index.yaml)` workflow, triggered on pushes to `main` and `release-*` branches when relevant files change, or manually via `workflow_dispatch`.
 
-The core orchestrator script is `[scripts/update-index.sh](../scripts/update-index.sh)`, which runs six steps in sequence — four that build the index, and two that check it:
+The core orchestrator script is `[scripts/update-index.sh](../scripts/update-index.sh)`, which runs five steps in sequence — four that build the index, and one that checks it:
 
 ```mermaid
 flowchart TB
@@ -98,14 +98,6 @@ flowchart TB
         S3_OUT --> S5
         S2_OUT --> S5
         S5 --> S5_OUT
-    end
-
-    subgraph "Step 6: Sanity check (opt-in, --sanity-check)"
-        S6["smoke-tests-native<br/>yarn smoke --catalog-index"]
-        S6_OUT["results-catalog-index.json<br/>(install + boot per package)"]
-        S3_OUT --> S6
-        REG2["Container registries<br/>(pulls every artifact)"] --> S6
-        S6 --> S6_OUT
     end
 ```
 
@@ -262,18 +254,17 @@ Step 5 still walks `plugin_builds/` for `unresolved-image`, `missing-annotation`
 (RHIDP-15725). The mandatory registry policy still checks `plugin_builds/` and
 `index.json`; DPDY-only rules do not run.
 
-### Step 6: Catalog Index Sanity Check (opt-in)
+### Catalog Index Sanity Check (scheduled, not part of `update-index.sh`)
 
-Installs and boots **every** package the generated index declares, using the Docker-free
+Installs and boots **every** package a published index declares, using the Docker-free
 [`smoke-tests-native`](../smoke-tests-native/README.md) harness — the install CLI plus
 `startTestBackend`, no container and no cluster. This is the upstream half of RHDH's
-cluster-free plugin sanity check (RHIDP-13508), running against the index as it is about
-to be published rather than against an index image that already exists.
+cluster-free plugin sanity check (RHIDP-13508).
 
-It is **off by default** (`--sanity-check` opts in) because it pulls every artifact the
-index declares and needs Node 24 and Yarn 4, which the midstream `update-index` GitLab
-job has neither the budget (1 CPU / 2Gi, 30-minute script timeout, today doing metadata
-lookups only) nor the toolchain for.
+It runs against the productized index (`quay.io/rhdh/plugin-catalog-index`), whose
+artifacts are built in Konflux and validated nowhere else in this repo. The index this
+repo generates points at the same ghcr.io artifacts that the post-publish smoke and the
+nightly tier sweeps already install and boot, so it is not re-checked here.
 
 Two things about how it reads the index are worth knowing:
 
@@ -290,15 +281,11 @@ Packages that genuinely cannot be validated go in
 again with a tracking ticket per entry.
 
 ```bash
-# Against the index this repo is about to generate
-scripts/update-index.sh --registry quay.io/rhdh --validate-mode gate --sanity-check
-
-# Against an index that is already published
 scripts/extractCatalogIndex.sh quay.io/rhdh/plugin-catalog-index:next /tmp/dpdy.yaml
 cd smoke-tests-native && yarn smoke --catalog-index /tmp/dpdy.yaml
 ```
 
-On a schedule, this runs as the
+It runs as the
 [Catalog Index Sanity workflow](../.github/workflows/catalog-index-sanity.yaml)
 (04:00 UTC daily, plus `workflow_dispatch` with a `catalog_index_image` input for RC
 verification). It is not a PR check, for the same reason RHDH's is not: the index changes
