@@ -38,3 +38,12 @@ def test_auto_publish_pr_declares_published_exports_output():
     assert "workflow_call" in on_block
     assert "outputs" in on_block["workflow_call"]
     assert "published-exports" in on_block["workflow_call"]["outputs"]
+    assert "only-metadata-changed" in on_block["workflow_call"]["outputs"]
+
+
+def test_prepare_smoke_tests_guards_against_metadata_only_changes():
+    workflow = _workflow(".github/workflows/pr-actions.yaml")
+    prepare_job = workflow["jobs"]["prepare_smoke_tests"]
+    condition = prepare_job["if"]
+    assert "only-metadata-changed" in condition
+

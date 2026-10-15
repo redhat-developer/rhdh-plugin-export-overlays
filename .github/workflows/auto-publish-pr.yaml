@@ -18,6 +18,7 @@ on:
       published-exports:
         value: ${{ jobs.export.outputs.published-exports }}
       only-metadata-changed:
+        description: Whether only metadata files were modified
         value: ${{ jobs.detect-changes.outputs.only-metadata-changed }}
 
 jobs:
