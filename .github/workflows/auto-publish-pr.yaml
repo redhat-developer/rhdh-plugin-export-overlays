@@ -573,21 +573,6 @@ jobs:
               });
             }
 
-            if (publishSuccess) {
-              const [repoOwner, repoName] = core.getInput('overlay_repo').split('/');
-              try {
-                await github.rest.repos.getContent({
-                  owner: repoOwner,
-                  repo: repoName,
-                  path: `${core.getInput('workspace')}/e2e-tests/package.json`,
-                  ref: core.getInput('overlay_branch'),
-                });
-                body += '\n\nRunning e2e tests\n/test e2e-ocp-helm';
-              } catch {
-                body += '\n\nNo E2E tests available for this workspace.';
-              }
-            }
-
             await github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
