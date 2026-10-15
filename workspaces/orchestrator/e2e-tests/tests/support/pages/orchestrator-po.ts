@@ -38,20 +38,18 @@ export class OrchestratorPO {
    * can land on Sign In after RBAC role churn.
    */
   private async clickOrchestratorInSidebar(): Promise<void> {
-    const adminButton = this.page
-      .getByRole("button", { name: "Administration", exact: true })
-      .first();
     const orchestratorLink = this.page
       .locator('nav a:has-text("Orchestrator")')
       .first();
-    // Expand Administration only when present and collapsed. NFS may mount
-    // Orchestrator top-level with no Administration button.
-    if (
-      (await adminButton.isVisible().catch(() => false)) &&
-      (await adminButton.getAttribute("aria-expanded")) !== "true"
-    ) {
+    // The Administration control does not expose aria-expanded. Treat the
+    // Orchestrator link as the open signal so an already-open section is not
+    // collapsed. NFS may also mount Orchestrator with no Administration button.
+    if (!(await orchestratorLink.isVisible().catch(() => false))) {
+      const adminButton = this.page
+        .getByRole("button", { name: "Administration", exact: true })
+        .first();
       await adminButton.click();
-      await expect(adminButton).toHaveAttribute("aria-expanded", "true");
+      await expect(orchestratorLink).toBeVisible();
     }
     await orchestratorLink.click();
     await this.page.waitForLoadState("domcontentloaded");
