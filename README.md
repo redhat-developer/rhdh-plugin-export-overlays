@@ -140,7 +140,7 @@ The repository includes an automated smoke testing workflow that verifies plugin
 - Published plugins without runnable metadata are skipped individually
 
 **Triggering smoke tests:**
-- After `/publish`: Smoke tests run automatically upon successful publish completion
+- After `/publish`: Smoke tests run automatically upon successful publish completion as a synchronous downstream job in the same workflow run
 - Manual testing: Use one of these comments on the PR to rerun smoke tests using the latest published artifacts:
   - `/smoketest` (default image derived from PR target branch)
   - `/smoketest <tag>` (uses `quay.io/rhdh-community/rhdh:<tag>`)
@@ -151,7 +151,7 @@ The repository includes an automated smoke testing workflow that verifies plugin
 1. **Resolve metadata**: Retrieves published OCI references and PR metadata from the `published-exports` artifact
 2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from any runnable plugin metadata it finds (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). Published plugins without runnable metadata are skipped; if none are runnable, smoke tests are skipped. Each generated `package` line uses `oci://…/image:<tag>` only (no `!package-id` suffix). If a published export tag still includes a legacy `!<plugin reference>` suffix matching the normalized `spec.packageName` (scope stripped, `/` → `-`), the workflow removes that suffix before writing the file.
 3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin included in the generated config loads successfully
-4. **Report results**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run
+4. **Report results & E2E trigger**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run. If smoke tests pass and the workspace contains an `e2e-tests/` directory, automatically triggers `/test e2e-ocp-helm`.
 
 **Environment Variables in Smoke Tests:**
 If your plugin configuration (in `metadata/*.yaml`) uses environment variables (e.g., `${API_TOKEN}`), you must provide them in a `test.env` file located at `workspaces/<workspace>/smoke-tests/test.env`.

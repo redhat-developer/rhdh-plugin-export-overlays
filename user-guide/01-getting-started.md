@@ -322,11 +322,13 @@ This builds and publishes test OCI artifacts tagged as `pr_<number>__<version>`.
 
 ### Run Smoke Tests
 
-After `/publish` completes, smoke tests run automatically if:
+After `/publish` completes, smoke tests run automatically as a synchronous downstream job in the same workflow run if:
 - PR touches exactly one workspace
 - At least one published plugin has runnable metadata
 
 Published plugins without runnable metadata are skipped individually. Smoke tests are skipped only when no published plugin in the workspace can produce runnable metadata, or when plugin config references environment variables and the workspace `smoke-tests/test.env` file is missing. If the file exists but required variables are missing from it, the workflow fails instead of skipping.
+
+When smoke tests pass, workspace E2E tests (`/test e2e-ocp-helm`) are automatically triggered for workspaces that include an `e2e-tests/` directory.
 
 To re-run smoke tests manually:
 
