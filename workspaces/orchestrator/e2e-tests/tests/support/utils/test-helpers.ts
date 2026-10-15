@@ -422,9 +422,8 @@ export async function setupAuthenticatedPage(
 export function createOrchestratorPO(
   page: Page,
   uiHelper: UIhelper,
-  reauthenticate?: () => Promise<void>,
 ): OrchestratorPO {
-  return new OrchestratorPO(page, uiHelper, reauthenticate);
+  return new OrchestratorPO(page, uiHelper);
 }
 
 export async function launchGreetingTemplateFromSelfService(

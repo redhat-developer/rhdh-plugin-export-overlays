@@ -13,12 +13,6 @@ export class OrchestratorPO {
   constructor(
     private readonly page: Page,
     private readonly uiHelper: UIhelper,
-    /**
-     * Optional RBAC/OIDC recovery. When set, Sign In during /orchestrator
-     * navigation or heading wait re-auths and retries instead of hanging on
-     * a missing Workflows tab (ci-diagnose #3910 / #4199).
-     */
-    private readonly reauthenticate?: () => Promise<void>,
   ) {}
 
   private workflowsCatalogControl(): Locator {
@@ -26,41 +20,6 @@ export class OrchestratorPO {
     return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page).or(
       ORCHESTRATOR_COMPONENTS.workflowsLink(this.page),
     );
-  }
-
-  private async isSignInPage(): Promise<boolean> {
-    return this.page
-      .getByRole("button", { name: /sign in/i })
-      .or(this.page.getByRole("heading", { name: /sign-in method/i }))
-      .first()
-      .isVisible()
-      .catch(() => false);
-  }
-
-  private async recoverFromSignInOrThrow(context: string): Promise<void> {
-    if (!this.reauthenticate) {
-      throw new Error(
-        `${context}; sign-in page is visible and no re-authentication handler was provided.`,
-      );
-    }
-    await this.reauthenticate();
-  }
-
-  private async gotoOrchestratorList(): Promise<void> {
-    const maxAttempts = this.reauthenticate ? 3 : 1;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await this.page.goto("/orchestrator");
-      await this.page.waitForLoadState("domcontentloaded");
-      if (!(await this.isSignInPage())) {
-        return;
-      }
-      if (!this.reauthenticate || attempt === maxAttempts - 1) {
-        throw new Error(
-          "Navigating to /orchestrator reached the sign-in page; session was dropped.",
-        );
-      }
-      await this.reauthenticate();
-    }
   }
 
   async clickWorkflowsCatalogControl(): Promise<void> {
@@ -74,26 +33,43 @@ export class OrchestratorPO {
     });
   }
 
+  /**
+   * Client-side sidebar nav keeps the OIDC session. Full page.goto("/orchestrator")
+   * can land on Sign In after RBAC role churn.
+   */
+  private async clickOrchestratorInSidebar(): Promise<void> {
+    const adminButton = this.page
+      .getByRole("button", { name: "Administration", exact: true })
+      .first();
+    const orchestratorLink = this.page
+      .locator('nav a:has-text("Orchestrator")')
+      .first();
+    // Expand Administration only when present and collapsed. NFS may mount
+    // Orchestrator top-level with no Administration button.
+    if (
+      (await adminButton.isVisible().catch(() => false)) &&
+      (await adminButton.getAttribute("aria-expanded")) !== "true"
+    ) {
+      await adminButton.click();
+      await expect(adminButton).toHaveAttribute("aria-expanded", "true");
+    }
+    await orchestratorLink.click();
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
   async openWorkflowsPage(): Promise<void> {
     const heading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
     const orchestratorCrumb = ORCHESTRATOR_COMPONENTS.breadcrumbNav(
       this.page,
     ).getByRole("link", { name: /^Orchestrator$/i });
 
-    await this.gotoOrchestratorList();
+    await this.clickOrchestratorInSidebar();
 
-    // After RBAC role churn, goto("/orchestrator") can leave a stale
-    // workflow-detail view (breadcrumb Orchestrator > Greeting workflow)
-    // without the Workflows (N) list tab. Prefer breadcrumb back to the list.
-    // OIDC refresh 401 during this window → Sign In; re-auth + retry URL
-    // instead of waiting 120s for a tab that will never appear.
+    // After RBAC role churn, the SPA can leave a stale workflow-detail view
+    // (breadcrumb Orchestrator > Greeting workflow) without the Workflows (N)
+    // list tab. Prefer breadcrumb back to the list; retry sidebar if needed.
     if (!(await heading.isVisible().catch(() => false))) {
-      if (await this.isSignInPage()) {
-        await this.recoverFromSignInOrThrow(
-          "Orchestrator page lost the session after navigation",
-        );
-        await this.gotoOrchestratorList();
-      } else if (await orchestratorCrumb.isVisible().catch(() => false)) {
+      if (await orchestratorCrumb.isVisible().catch(() => false)) {
         await orchestratorCrumb.click();
         await this.page.waitForLoadState("domcontentloaded");
       } else if (
@@ -103,18 +79,8 @@ export class OrchestratorPO {
           .isVisible()
           .catch(() => false)
       ) {
-        await this.gotoOrchestratorList();
+        await this.clickOrchestratorInSidebar();
       }
-    }
-
-    if (
-      !(await heading.isVisible().catch(() => false)) &&
-      (await this.isSignInPage())
-    ) {
-      await this.recoverFromSignInOrThrow(
-        "Orchestrator page lost the session while waiting for Workflows tab",
-      );
-      await this.gotoOrchestratorList();
     }
 
     await expect(heading).toBeVisible({ timeout: 120_000 });
@@ -124,25 +90,7 @@ export class OrchestratorPO {
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
-    if (await this.isSignInPage()) {
-      await this.recoverFromSignInOrThrow(
-        "Cannot open Orchestrator from sidebar",
-      );
-    }
-    const adminButton = this.page
-      .getByRole("button", { name: "Administration" })
-      .first();
-    const orchestratorLink = this.page
-      .locator('nav a:has-text("Orchestrator")')
-      .first();
-    // NFS often mounts Orchestrator top-level; only expand Administration when needed.
-    if (
-      !(await orchestratorLink.isVisible().catch(() => false)) &&
-      (await adminButton.isVisible().catch(() => false))
-    ) {
-      await adminButton.click();
-    }
-    await this.uiHelper.openSidebar("Orchestrator");
+    await this.clickOrchestratorInSidebar();
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
     ).toBeVisible({ timeout: 120_000 });
@@ -473,7 +421,8 @@ export class OrchestratorPO {
   }
 
   async openGreetingTemplateFromSelfService(): Promise<void> {
-    await this.page.goto("/create");
+    // await this.page.goto("/create");
+    await this.uiHelper.openSidebarButton("Self-service");
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
       this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
