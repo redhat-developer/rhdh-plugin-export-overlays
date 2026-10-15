@@ -53,8 +53,7 @@ test.describe("Check default RBAC permissions", () => {
     await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
 
     rbacPO = new RbacPO(page, uiHelper);
-    await uiHelper.goToPageUrl("/catalog");
-    await uiHelper.waitForLoad();
+    await uiHelper.openSidebar("Catalog");
     await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
   });
 
