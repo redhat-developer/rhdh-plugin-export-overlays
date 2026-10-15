@@ -314,9 +314,12 @@ test.describe("RBAC plugin", () => {
       page,
     }) => {
       // RHDH 2.1 does not render the Administration section for a user with
-      // no RBAC access. Direct navigation is covered by the 403 test below.
+      // no RBAC access. The sidebar <nav> itself has no box, so visibility is
+      // checked on a link inside it. Direct navigation is covered below.
       const sidebar = page.getByRole("navigation", { name: "sidebar nav" });
-      await expect(sidebar).toBeVisible();
+      await expect(
+        sidebar.getByRole("link", { name: "Catalog" }),
+      ).toBeVisible();
       await expect(sidebar.getByRole("link", { name: "RBAC" })).toHaveCount(0);
     });
 
@@ -445,10 +448,10 @@ test.describe("RBAC plugin", () => {
     }) => {
       await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
 
-      // Verify component name in the main heading
-      await expect(page.getByRole("heading", { level: 1 })).toContainText(
-        "test-rhdh-qe-2",
-      );
+      // The plugin header h1 is "Catalog". The entity name is its own heading.
+      await expect(
+        page.getByRole("heading", { name: "test-rhdh-qe-2", exact: true }),
+      ).toBeVisible();
       await page.getByTestId("menu-button").click();
       const unregisterUserOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
