@@ -138,6 +138,9 @@ def build_stub_repo(tmp_path, packages, builds, index_json=None):
     (scripts / "generatePluginBuildInfo.py").write_text(
         GENERATE_PLUGIN_BUILD_INFO_STUB, encoding="utf-8"
     )
+    (scripts / "proposeSourceJsonUpdates.ts").write_text(
+        "process.exit(0);\n", encoding="utf-8"
+    )
 
     output_dir = root / "catalog-index"
     output_dir.mkdir()

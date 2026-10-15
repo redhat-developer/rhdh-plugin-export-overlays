@@ -76,6 +76,8 @@ DEBUG=0
 STRICT=0
 ALLOW_WARNINGS=()
 PREVIOUS_INDEX_REF=""
+OPEN_SOURCE_JSON_PRS=0
+OVERLAYS_BRANCH=""
 
 usage() {
     cat <<'USAGE'
@@ -94,6 +96,7 @@ Usage:
         [--validate-allowlist PATH] [--validation-json PATH] \
         [--strict] [--allow-warnings RULE] [--previous-index-ref REF] \
         [--sanity-check] \
+        [--open-source-json-prs] [--overlays-branch BRANCH] \
         [--debug] \
         [-h|--help]
 
@@ -145,6 +148,11 @@ Arguments:
                                it pulls every artifact and needs Node 24 + Yarn 4, which
                                the midstream update-index job has neither the budget nor
                                the toolchain for. See the catalog-index-sanity workflow.
+       --open-source-json-prs  After fallbacks, open a GitHub PR on this overlays
+                               checkout that bumps stale source.json repo-ref values
+                               (RHIDP-17975). Requires GH_TOKEN or GITHUB_TOKEN.
+                               Failures are logged and do not fail index generation.
+       --overlays-branch NAME  Overlays git branch for that PR (default: current HEAD).
        --debug                 Enable debug output
   -h,  --help                  Show this help
 USAGE
@@ -211,6 +219,14 @@ while [[ "$#" -gt 0 ]]; do
         ;;
     '--previous-index-ref')
         PREVIOUS_INDEX_REF="$2"
+        shift 2
+        ;;
+    '--open-source-json-prs')
+        OPEN_SOURCE_JSON_PRS=1
+        shift 1
+        ;;
+    '--overlays-branch')
+        OVERLAYS_BRANCH="$2"
         shift 2
         ;;
     '--debug')
@@ -615,3 +631,20 @@ from pathlib import Path
 from generatePluginBuildInfo import collect_fallback_entries, print_fallback_rebuild_cta
 print_fallback_rebuild_cta(collect_fallback_entries(Path('$PLUGIN_BUILDS_DIR')))
 "
+
+if [[ -z "$OVERLAYS_BRANCH" ]]; then
+    OVERLAYS_BRANCH=$(git -C "$OVERLAYS_DIR_ABS" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+fi
+PROPOSE_ARGS=(
+    --overlays-dir "$OVERLAYS_DIR_ABS"
+    --plugin-builds-dir "$(cd "$PLUGIN_BUILDS_DIR" && pwd)"
+    --overlays-branch "$OVERLAYS_BRANCH"
+)
+if [[ "$OPEN_SOURCE_JSON_PRS" -eq 1 ]]; then
+    PROPOSE_ARGS+=(--open-prs)
+fi
+# Stale source.json PRs must not fail catalog index generation (RHIDP-17975).
+# Node 22 needs --experimental-strip-types; Node 24+ still accepts the flag.
+if ! node --experimental-strip-types "$SCRIPT_DIR/proposeSourceJsonUpdates.ts" "${PROPOSE_ARGS[@]}"; then
+    echo -e "${yellow}[WARN] proposeSourceJsonUpdates.ts failed; catalog index is unchanged${norm}" >&2
+fi

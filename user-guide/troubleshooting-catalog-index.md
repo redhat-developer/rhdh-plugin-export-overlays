@@ -66,8 +66,9 @@ Common issues reported on the status page and how to resolve them.
 
 **What to do:**
 
-1. Check whether the publish workflow has run successfully for this plugin.
-2. Trigger the export/publish workflow for the plugin to publish the plugin with the updated tag.
+1. Check whether overlay `source.json` `repo-ref` still pins an older commit than `metadata/*.yaml` `spec.version`. If it does, `update-index.sh` proposes a GitHub PR on this repository (RHIDP-17975) to bump the SHA/tag — rebuilding first would only republish the old version.
+2. If `source.json` already matches the requested version, check whether the publish workflow has run successfully for this plugin.
+3. Trigger the export/publish workflow for the plugin to publish the plugin with the updated tag.
 
 If this fallback also fails (no older tag exists), the plugin will instead appear as [Image not found in registry](#image-not-found-in-registry).
 
