@@ -9,6 +9,9 @@ on:
       published-exports:
         description: Published exports list
         value: ${{ jobs.export.outputs.published-exports }}
+      only-metadata-changed:
+        description: Whether only metadata files were modified
+        value: ${{ jobs.detect-changes.outputs.only-metadata-changed }}
 
 jobs:
   prepare:
