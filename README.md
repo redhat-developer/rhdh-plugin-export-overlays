@@ -136,6 +136,7 @@ The repository includes an automated smoke testing workflow that verifies plugin
 
 **Prerequisites:**
 - PR must touch exactly one workspace
+- PR includes non-metadata changes (smoke tests are skipped when only metadata files were modified)
 - At least one published plugin in the workspace must have runnable metadata in `workspaces/<modified_workspace>/metadata/`
 - Published plugins without runnable metadata are skipped individually
 

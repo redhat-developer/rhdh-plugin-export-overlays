@@ -1,3 +1,5 @@
+# Standalone manual dispatch workflow for workspace smoke tests.
+# PR Actions (pr-actions.yaml) executes smoke tests synchronously as a downstream job.
 name: Workspace Smoke Tests
 
 on:
@@ -104,7 +106,7 @@ jobs:
               console.log('Missing PR or commit; skipping pending status');
               return;
             }
-            
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -195,7 +197,7 @@ jobs:
           # Always include the root-level default config
           ROOT_CONFIG="$GITHUB_WORKSPACE/smoke-tests/app-config.yaml"
           [ -f "$ROOT_CONFIG" ] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
-          
+
           # Read workspace-wide test.env if it exists
           WORKSPACE_ENV_FILE="$WORKSPACE_PATH/smoke-tests/test.env"
           WORKSPACE_ENV_CONTENT=""
@@ -252,7 +254,7 @@ jobs:
               fi
 
               ENV_VARS=$(echo "$CONFIG_CONTENT" | yq -o=yaml '.dynamicPlugins' 2>/dev/null | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' | sed 's/\${//; s/}//; s/^\$//' | sort -u || true)
-              
+
               if [ -n "$ENV_VARS" ]; then
                 # Config contains environment variables
                 if [ -z "$WORKSPACE_ENV_CONTENT" ]; then
@@ -269,7 +271,7 @@ jobs:
                       MISSING_ENVS+=("$env_var")
                     fi
                   done <<< "$ENV_VARS"
-                  
+
                   if [ ${#MISSING_ENVS[@]} -gt 0 ]; then
                     echo "  ::error::Environment variables missing from test.env: ${MISSING_ENVS[*]}"
                     echo "  Config for $PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE."
@@ -358,11 +360,11 @@ jobs:
             const hasRunnablePlugins = core.getInput('has_runnable_plugins') === 'true';
             const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
             const missingMetadataPlugins = (core.getInput('missing_metadata_plugins') || '').trim();
-            
+
             let statusDescription = 'Skipped';
             let commentDetail = ' skipped for an unknown reason. Check workflow run for details.\n';
             let summaryDetail = 'Unknown reason. Check workflow run for details.';
-            
+
             if (!workspace || workspace === '') {
               statusDescription = 'Skipped: PR doesn\'t touch one workspace';
               commentDetail = ' skipped: PR doesn\'t touch exactly one workspace.\n';
@@ -381,7 +383,7 @@ jobs:
               commentDetail += `\nPublished plugins skipped due to missing runnable metadata:\n\`\`\`\n${missingMetadataPlugins}\n\`\`\`\n`;
               summaryDetail += `\n\nPublished plugins skipped due to missing runnable metadata:\n${missingMetadataPlugins}`;
             }
-            
+
             if (overlayCommit) {
               await github.rest.repos.createCommitStatus({
                 owner: context.repo.owner,
@@ -394,7 +396,7 @@ jobs:
               });
               console.log(`Set success status on ${overlayCommit} (skipped for valid reason)`);
             }
-            
+
             if (pr) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -403,7 +405,7 @@ jobs:
                 body: `:warning: \n[Smoke test workflow](${runUrl})${commentDetail}`,
               });
             }
-            
+
             await core.summary
               .addRaw('\n### Tests Skipped\n\n' + summaryDetail)
               .write();
@@ -445,7 +447,7 @@ jobs:
             const missingMetadataPlugins = (process.env.MISSING_METADATA_PLUGINS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
-            
+
             const nativeResult = process.env.NATIVE_RESULT || '';
             const success = smokeTestsResult === 'success' && successOutput === 'true';
             let failureReason = '';
@@ -476,7 +478,7 @@ jobs:
                   failureReason = `Smoke tests ended in an unexpected state: ${smokeTestsResult}. Check the workflow logs for details.`;
               }
             }
-            
+
             // Write step summary (always, even if PR is unavailable)
             let summary;
             if (success) {
@@ -494,23 +496,23 @@ jobs:
               summary += `\n\n**Published plugins skipped due to missing runnable metadata:**\n\`\`\`\n${missingMetadataPlugins}\n\`\`\``;
             }
             await core.summary.addRaw(summary).write();
-            
+
             if (!pr) {
               console.log('No PR associated; skipping status and comment');
               return;
             }
-            
+
             // Get current PR head SHA
             const { data: prData } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pr,
             });
-            
+
             // Use PR head if different from overlayCommit (/smoketest command), else use overlayCommit (immediate publish)
             const sha = prData.head.sha !== overlayCommit ? prData.head.sha : overlayCommit;
             console.log(`Status SHA: ${sha} (PR head: ${prData.head.sha}, overlay: ${overlayCommit})`);
-            
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -520,7 +522,7 @@ jobs:
               target_url: runUrl,
               context: 'smoketest',
             });
-            
+
             let body;
             if (success) {
               body = `:white_check_mark: [Smoke tests workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
@@ -536,7 +538,7 @@ jobs:
             if (missingMetadataPlugins) {
               body += `\n\n:warning: Published plugins skipped due to missing runnable metadata:\n\`\`\`\n${missingMetadataPlugins}\n\`\`\``;
             }
-            
+
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,
