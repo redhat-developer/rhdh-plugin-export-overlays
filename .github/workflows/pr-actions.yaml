@@ -282,7 +282,7 @@ jobs:
       statuses: write
       pull-requests: write
 
-  prepare_smoke_tests:
+  prepareSmokeTests:
     name: Prepare Smoke Tests
     needs:
       - parse
@@ -558,14 +558,14 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  run_smoke_tests:
+  runSmokeTests:
     name: Run Smoke Tests
     needs:
       - prepare
-      - prepare_smoke_tests
+      - prepareSmokeTests
     if: >-
-      needs.prepare_smoke_tests.outputs.has-runnable-plugins == 'true' &&
-      needs.prepare_smoke_tests.outputs.skip-tests-missing-env != 'true'
+      needs.prepareSmokeTests.outputs.has-runnable-plugins == 'true' &&
+      needs.prepareSmokeTests.outputs.skip-tests-missing-env != 'true'
     permissions:
       contents: read
       packages: read
@@ -575,7 +575,7 @@ jobs:
       rhdh-tag: ${{ needs.prepare.outputs.rhdh-tag }}
       workspace: ${{ needs.prepare.outputs.workspace }}
 
-  add_skipped_smoke_comment:
+  addSkippedSmokeComment:
     name: Add Skipped Smoke Comment
     if: >-
       always() &&
@@ -583,14 +583,14 @@ jobs:
       ((needs.parse.outputs.command-name == 'publish' &&
         needs.publish.result == 'success' &&
         needs.publish.outputs.only-metadata-changed == 'true') ||
-       (needs.prepare_smoke_tests.result == 'success' &&
-        (needs.prepare_smoke_tests.outputs.has-runnable-plugins != 'true' ||
-         needs.prepare_smoke_tests.outputs.skip-tests-missing-env == 'true')))
+       (needs.prepareSmokeTests.result == 'success' &&
+        (needs.prepareSmokeTests.outputs.has-runnable-plugins != 'true' ||
+         needs.prepareSmokeTests.outputs.skip-tests-missing-env == 'true')))
     needs:
       - parse
       - prepare
       - publish
-      - prepare_smoke_tests
+      - prepareSmokeTests
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -602,9 +602,9 @@ jobs:
         env:
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           INPUT_WORKSPACE: ${{ needs.prepare.outputs.workspace }}
-          INPUT_HAS_RUNNABLE_PLUGINS: ${{ needs.prepare_smoke_tests.outputs.has-runnable-plugins || '' }}
-          INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepare_smoke_tests.outputs.skip-tests-missing-env || '' }}
-          INPUT_MISSING_METADATA_PLUGINS: ${{ needs.prepare_smoke_tests.outputs.missing-metadata-plugins || '' }}
+          INPUT_HAS_RUNNABLE_PLUGINS: ${{ needs.prepareSmokeTests.outputs.has-runnable-plugins || '' }}
+          INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepareSmokeTests.outputs.skip-tests-missing-env || '' }}
+          INPUT_MISSING_METADATA_PLUGINS: ${{ needs.prepareSmokeTests.outputs.missing-metadata-plugins || '' }}
           INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
           INPUT_ONLY_METADATA_CHANGED: ${{ needs.publish.outputs.only-metadata-changed || 'false' }}
         with:
@@ -666,19 +666,19 @@ jobs:
               .addRaw('\n### Tests Skipped\n\n' + summaryDetail)
               .write();
 
-  add_smoke_test_result_comment:
+  addSmokeTestResultComment:
     name: Add Smoke Test Result Comment
     if: >-
       always() &&
-      needs.prepare_smoke_tests.outputs.has-runnable-plugins == 'true' &&
-      needs.prepare_smoke_tests.outputs.skip-tests-missing-env != 'true'
+      needs.prepareSmokeTests.outputs.has-runnable-plugins == 'true' &&
+      needs.prepareSmokeTests.outputs.skip-tests-missing-env != 'true'
     needs:
       - parse
       - prepare
-      - prepare_smoke_tests
-      - run_smoke_tests
+      - prepareSmokeTests
+      - runSmokeTests
     concurrency:
-      group: add-smoke-test-result-comment-${{ github.ref_name }}-${{ needs.prepare.outputs.pr-number }}
+      group: addSmokeTestResultComment-${{ github.ref_name }}-${{ needs.prepare.outputs.pr-number }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -690,12 +690,12 @@ jobs:
       - name: Post test result comment and status
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          SMOKE_TESTS_RESULT: ${{ needs.run_smoke_tests.result }}
-          SUCCESS: ${{ needs.run_smoke_tests.outputs.success }}
-          NATIVE_RESULT: ${{ needs.run_smoke_tests.outputs.native-result }}
-          FAILED_PLUGINS: ${{ needs.run_smoke_tests.outputs.failed-plugins }}
-          ERROR_LOGS: ${{ needs.run_smoke_tests.outputs.error-logs }}
-          MISSING_METADATA_PLUGINS: ${{ needs.prepare_smoke_tests.outputs.missing-metadata-plugins || '' }}
+          SMOKE_TESTS_RESULT: ${{ needs.runSmokeTests.result }}
+          SUCCESS: ${{ needs.runSmokeTests.outputs.success }}
+          NATIVE_RESULT: ${{ needs.runSmokeTests.outputs.native-result }}
+          FAILED_PLUGINS: ${{ needs.runSmokeTests.outputs.failed-plugins }}
+          ERROR_LOGS: ${{ needs.runSmokeTests.outputs.error-logs }}
+          MISSING_METADATA_PLUGINS: ${{ needs.prepareSmokeTests.outputs.missing-metadata-plugins || '' }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
@@ -827,12 +827,12 @@ jobs:
               body,
             });
 
-  add_smoke_prepare_failure_comment:
+  addSmokePrepareFailureComment:
     name: Add Smoke Preparation Failure Comment
-    if: always() && needs.prepare_smoke_tests.result == 'failure'
+    if: always() && needs.prepareSmokeTests.result == 'failure'
     needs:
       - prepare
-      - prepare_smoke_tests
+      - prepareSmokeTests
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

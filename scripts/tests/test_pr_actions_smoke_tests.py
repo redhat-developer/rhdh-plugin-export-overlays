@@ -21,15 +21,15 @@ def test_pr_actions_has_synchronous_smoke_test_jobs():
     workflow = _workflow(".github/workflows/pr-actions.yaml")
     jobs = workflow["jobs"]
 
-    assert "prepare_smoke_tests" in jobs
-    assert "run_smoke_tests" in jobs
-    assert "add_smoke_test_result_comment" in jobs
-    assert "add_skipped_smoke_comment" in jobs
+    assert "prepareSmokeTests" in jobs
+    assert "runSmokeTests" in jobs
+    assert "addSmokeTestResultComment" in jobs
+    assert "addSkippedSmokeComment" in jobs
 
-    # run_smoke_tests calls run-workspace-smoke-tests.yaml synchronously
-    run_job = jobs["run_smoke_tests"]
+    # runSmokeTests calls run-workspace-smoke-tests.yaml synchronously
+    run_job = jobs["runSmokeTests"]
     assert run_job["uses"] == "./.github/workflows/run-workspace-smoke-tests.yaml"
-    assert "prepare_smoke_tests" in run_job["needs"]
+    assert "prepareSmokeTests" in run_job["needs"]
 
 
 def test_auto_publish_pr_declares_published_exports_output():
@@ -43,7 +43,7 @@ def test_auto_publish_pr_declares_published_exports_output():
 
 def test_prepare_smoke_tests_guards_against_metadata_only_changes():
     workflow = _workflow(".github/workflows/pr-actions.yaml")
-    prepare_job = workflow["jobs"]["prepare_smoke_tests"]
+    prepare_job = workflow["jobs"]["prepareSmokeTests"]
     condition = prepare_job["if"]
     assert "only-metadata-changed" in condition
 
