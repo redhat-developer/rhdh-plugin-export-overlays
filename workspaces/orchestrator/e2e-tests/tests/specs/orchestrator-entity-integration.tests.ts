@@ -137,7 +137,9 @@ export function registerEntityWorkflowIntegrationTests(
       await clickCreateAndWaitForScaffolderTerminalState(page);
 
       await orchestratorPo.openOrchestratorFromSidebar();
-      await expect(page.getByText(/Workflows \(\d+\)/).last()).toBeVisible();
+      await expect(
+        page.getByRole("tab", { name: /Workflows \(\d+\)/ }),
+      ).toBeVisible();
 
       const greetingWorkflow = page.getByRole("link", {
         name: /Greeting workflow/i,
