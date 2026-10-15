@@ -53,6 +53,29 @@ export type Proposal = {
   newBackstage: string | null;
 };
 
+type ClassifyDeps = {
+  fetchJson: FetchJson;
+  npmGitHead: RunNpm;
+  gitLogSha: RunGitLog;
+};
+
+type ClassifyInput = ClassifyDeps & {
+  workspace: string;
+  source: JsonMap;
+  stale: StalePlugin[];
+  packageDirs: Record<string, string>;
+};
+
+type CliArgs = {
+  overlaysDir: string;
+  pluginBuildsDir: string;
+  overlaysBranch: string;
+  openPrs: boolean;
+  issue: string;
+  patchDir: string;
+  json: boolean;
+};
+
 function logInfo(msg: string): void {
   console.log(`[INFO] ${msg}`);
 }
@@ -61,6 +84,10 @@ function logWarn(msg: string): void {
 }
 function logError(msg: string): void {
   console.error(`[ERROR] ${msg}`);
+}
+
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 export function pluginVersionFromTag(tag: string): string | null {
@@ -129,13 +156,62 @@ function sourceString(source: JsonMap, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
+function trimSlashes(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value.charAt(start) === '/') start += 1;
+  while (end > start && value.charAt(end - 1) === '/') end -= 1;
+  return value.slice(start, end);
+}
+
+function yamlScalar(text: string, key: string): string | null {
+  const prefix = `${key}:`;
+  for (const line of text.split('\n')) {
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith(prefix)) continue;
+    let value = trimmed.slice(prefix.length).trim();
+    const quote = value.charAt(0);
+    if ((quote === '"' || quote === "'") && value.endsWith(quote)) {
+      value = value.slice(1, -1);
+    }
+    const token = value.split(' ')[0] || '';
+    return token || null;
+  }
+  return null;
+}
+
+function readJsonMap(file: string): JsonMap | null {
+  try {
+    const data = JSON.parse(readFileSync(file, 'utf8')) as unknown;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    return data as JsonMap;
+  } catch {
+    return null;
+  }
+}
+
+function jsonMapsInDir(dir: string): JsonMap[] {
+  if (!existsSync(dir)) return [];
+  const maps: JsonMap[] = [];
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.json')).sort()) {
+    const data = readJsonMap(path.join(dir, file));
+    if (data) maps.push(data);
+  }
+  return maps;
+}
+
+function asPluginMap(value: unknown): JsonMap | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as JsonMap;
+}
+
 export function packageDirInSource(
   workspace: string,
   workspacePath: string,
   repoFlat: boolean,
 ): string {
-  let rel = workspacePath.replace(/^\/+|\/+$/g, '');
-  rel = rel.startsWith(`${workspace}/`) ? rel.slice(workspace.length + 1) : rel;
+  let rel = trimSlashes(workspacePath);
+  if (rel.startsWith(`${workspace}/`)) rel = rel.slice(workspace.length + 1);
   if (repoFlat) return rel;
   if (rel.startsWith('workspaces/')) return rel;
   return rel ? `workspaces/${workspace}/${rel}` : `workspaces/${workspace}`;
@@ -148,14 +224,7 @@ export function isPackageTag(repoRef: string): boolean {
 function loadSourceJson(overlaysDir: string, workspace: string): JsonMap | null {
   const file = path.join(overlaysDir, 'workspaces', workspace, 'source.json');
   if (!existsSync(file)) return null;
-  try {
-    const data = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-    return data && typeof data === 'object' && !Array.isArray(data)
-      ? (data as JsonMap)
-      : null;
-  } catch {
-    return null;
-  }
+  return readJsonMap(file);
 }
 
 function loadMetadataPlugins(overlaysDir: string, workspace: string): PluginMeta[] {
@@ -165,48 +234,38 @@ function loadMetadataPlugins(overlaysDir: string, workspace: string): PluginMeta
   for (const name of readdirSync(metaDir).sort()) {
     if (!name.endsWith('.yaml')) continue;
     const text = readFileSync(path.join(metaDir, name), 'utf8');
-    const pkg = text.match(/packageName:\s*["']?([^\s"']+)/);
-    const ver = text.match(/^\s*version:\s*["']?([^\s"']+)/m);
-    if (pkg?.[1] && ver?.[1]) {
-      plugins.push({ packageName: pkg[1], version: ver[1] });
-    }
+    const pkg = yamlScalar(text, 'packageName');
+    const ver = yamlScalar(text, 'version');
+    if (pkg && ver) plugins.push({ packageName: pkg, version: ver });
   }
   return plugins;
+}
+
+function fallbackFromPlugin(
+  workspace: string,
+  pluginName: string,
+  plugin: JsonMap,
+): FallbackEntry | null {
+  if (!plugin.fallback) return null;
+  const ref = typeof plugin.registryReference === 'string' ? plugin.registryReference : '';
+  const colon = ref.lastIndexOf(':');
+  return {
+    container: pluginName,
+    haveTag: colon >= 0 ? ref.slice(colon + 1) : '',
+    requestedTag: typeof plugin.requestedTag === 'string' ? plugin.requestedTag : '',
+    workspace,
+  };
 }
 
 export function collectFallbackEntries(pluginBuildsDir: string): FallbackEntry[] {
   const fallbacks: FallbackEntry[] = [];
   if (!existsSync(pluginBuildsDir)) return fallbacks;
   for (const workspace of readdirSync(pluginBuildsDir).sort()) {
-    const wsDir = path.join(pluginBuildsDir, workspace);
-    let files: string[];
-    try {
-      files = readdirSync(wsDir).filter((f) => f.endsWith('.json')).sort();
-    } catch {
-      continue;
-    }
-    for (const file of files) {
-      let data: JsonMap;
-      try {
-        data = JSON.parse(readFileSync(path.join(wsDir, file), 'utf8')) as JsonMap;
-      } catch {
-        continue;
-      }
+    for (const data of jsonMapsInDir(path.join(pluginBuildsDir, workspace))) {
       for (const [pluginName, pluginData] of Object.entries(data)) {
-        if (!pluginData || typeof pluginData !== 'object' || Array.isArray(pluginData)) {
-          continue;
-        }
-        const plugin = pluginData as JsonMap;
-        if (!plugin.fallback) continue;
-        const ref = typeof plugin.registryReference === 'string' ? plugin.registryReference : '';
-        const haveTag = ref.includes(':') ? ref.slice(ref.lastIndexOf(':') + 1) : '';
-        const wantTag = typeof plugin.requestedTag === 'string' ? plugin.requestedTag : '';
-        fallbacks.push({
-          container: pluginName,
-          haveTag,
-          requestedTag: wantTag,
-          workspace,
-        });
+        const plugin = asPluginMap(pluginData);
+        const entry = plugin ? fallbackFromPlugin(workspace, pluginName, plugin) : null;
+        if (entry) fallbacks.push(entry);
       }
     }
   }
@@ -218,20 +277,11 @@ function pluginBuildsWorkspacePaths(
   workspace: string,
 ): Record<string, string> {
   const paths: Record<string, string> = {};
-  const wsDir = path.join(pluginBuildsDir, workspace);
-  if (!existsSync(wsDir)) return paths;
-  for (const file of readdirSync(wsDir).filter((f) => f.endsWith('.json'))) {
-    let data: JsonMap;
-    try {
-      data = JSON.parse(readFileSync(path.join(wsDir, file), 'utf8')) as JsonMap;
-    } catch {
-      continue;
-    }
-    for (const [name, plugin] of Object.entries(data)) {
-      if (plugin && typeof plugin === 'object' && !Array.isArray(plugin)) {
-        const wp = (plugin as JsonMap).workspacePath;
-        if (typeof wp === 'string') paths[name] = wp;
-      }
+  for (const data of jsonMapsInDir(path.join(pluginBuildsDir, workspace))) {
+    for (const [name, pluginData] of Object.entries(data)) {
+      const plugin = asPluginMap(pluginData);
+      const wp = plugin?.workspacePath;
+      if (typeof wp === 'string') paths[name] = wp;
     }
   }
   return paths;
@@ -248,12 +298,11 @@ export function defaultFetchJson(url: string): JsonMap | null {
 }
 
 export function defaultNpmGitHead(packageName: string, version: string): string | null {
-  const result = runTool('npm', [
-    'view',
-    `${packageName}@${version}`,
-    'gitHead',
-    '--json',
-  ], { timeout: 30_000 });
+  const result = runTool(
+    'npm',
+    ['view', `${packageName}@${version}`, 'gitHead', '--json'],
+    { timeout: 30_000 },
+  );
   if (result.status !== 0) return null;
   const raw = (result.stdout || '').trim();
   if (!raw) return null;
@@ -328,40 +377,36 @@ function fetchBackstageVersionAtRef(
   return fetchGithubFileJson(repoUrl, repoRef, rel, fetchJson);
 }
 
-function resolveNewRepoRef(
-  source: JsonMap,
-  plugins: PluginMeta[],
-  npmGitHead: RunNpm,
-  gitLogSha: RunGitLog,
-  fetchJson: FetchJson,
-  packageDirs: Record<string, string>,
-): string | null {
-  const repoRef = sourceString(source, 'repo-ref');
-  const repoUrl = sourceString(source, 'repo');
-  if (isPackageTag(repoRef) && plugins.length === 1) {
-    return `${plugins[0].packageName}@${plugins[0].version}`;
-  }
-  let candidate: string | null = null;
+function firstNpmHead(plugins: PluginMeta[], npmGitHead: RunNpm): string | null {
   for (const plugin of plugins) {
     const head = npmGitHead(plugin.packageName, plugin.version);
-    if (head) {
-      candidate = head;
-      break;
-    }
+    if (head) return head;
   }
-  if (!candidate) {
-    for (const plugin of plugins) {
-      const pkgDir = packageDirs[plugin.packageName] || '';
-      if (!pkgDir) continue;
-      candidate = gitLogSha(
-        repoUrl,
-        `"version": "${plugin.version}"`,
-        `${pkgDir}/package.json`,
-      );
-      if (candidate) break;
-    }
+  return null;
+}
+
+function firstGitHead(
+  plugins: PluginMeta[],
+  repoUrl: string,
+  packageDirs: Record<string, string>,
+  gitLogSha: RunGitLog,
+): string | null {
+  for (const plugin of plugins) {
+    const pkgDir = packageDirs[plugin.packageName] || '';
+    if (!pkgDir) continue;
+    const sha = gitLogSha(repoUrl, `"version": "${plugin.version}"`, `${pkgDir}/package.json`);
+    if (sha) return sha;
   }
-  if (!candidate) return null;
+  return null;
+}
+
+function refHasRequestedVersions(
+  repoUrl: string,
+  candidate: string,
+  plugins: PluginMeta[],
+  packageDirs: Record<string, string>,
+  fetchJson: FetchJson,
+): boolean {
   for (const plugin of plugins) {
     const pkgDir = packageDirs[plugin.packageName] || '';
     if (!pkgDir) continue;
@@ -370,68 +415,93 @@ function resolveNewRepoRef(
       logError(
         `Ref ${candidate} has ${plugin.packageName}@${found || 'missing'}, need ${plugin.version}; skip workspace`,
       );
-      return null;
+      return false;
     }
+  }
+  return true;
+}
+
+function resolveNewRepoRef(
+  source: JsonMap,
+  plugins: PluginMeta[],
+  deps: ClassifyDeps,
+  packageDirs: Record<string, string>,
+): string | null {
+  const repoRef = sourceString(source, 'repo-ref');
+  const repoUrl = sourceString(source, 'repo');
+  if (isPackageTag(repoRef) && plugins.length === 1) {
+    return `${plugins[0].packageName}@${plugins[0].version}`;
+  }
+  const candidate =
+    firstNpmHead(plugins, deps.npmGitHead) ||
+    firstGitHead(plugins, repoUrl, packageDirs, deps.gitLogSha);
+  if (!candidate) return null;
+  if (!refHasRequestedVersions(repoUrl, candidate, plugins, packageDirs, deps.fetchJson)) {
+    return null;
   }
   return candidate;
 }
 
-function finishClassify(
-  workspace: string,
-  source: JsonMap,
+function pinStalePlugins(
+  stale: StalePlugin[],
   repoUrl: string,
   repoRef: string,
-  repoFlat: boolean,
-  stale: StalePlugin[],
   packageDirs: Record<string, string>,
   fetchJson: FetchJson,
-  npmGitHead: RunNpm,
-  gitLogSha: RunGitLog,
-): Proposal | string {
-  const pinVersions: string[] = [];
+): string {
+  let fallback = '';
   for (const plugin of stale) {
     const pkgDir = packageDirs[plugin.packageName] || '';
     if (!pkgDir) continue;
     const pinned = fetchPackageVersionAtRef(repoUrl, repoRef, pkgDir, fetchJson);
     if (pinned) {
-      pinVersions.push(pinned);
       plugin.pinned = pinned;
+      fallback = fallback || pinned;
     }
   }
-  if (!pinVersions.length) pinVersions.push('');
+  return fallback;
+}
 
+function bumpNeeded(workspace: string, stale: StalePlugin[], fallbackPin: string): string | true {
   let needsBump = false;
   for (const plugin of stale) {
-    const pinned = plugin.pinned || pinVersions[0] || '';
+    const pinned = plugin.pinned || fallbackPin;
     if (!pinned) {
       needsBump = true;
       continue;
     }
-    if (versionNewer(plugin.version, pinned)) needsBump = true;
-    else if (pinned === plugin.version) continue;
-    else {
-      return `${workspace}: pinned ${plugin.packageName}@${pinned} is not older than requested ${plugin.version}`;
+    if (versionNewer(plugin.version, pinned)) {
+      needsBump = true;
+      continue;
     }
+    if (pinned === plugin.version) continue;
+    return `${workspace}: pinned ${plugin.packageName}@${pinned} is not older than requested ${plugin.version}`;
   }
-  if (!needsBump) {
-    return `${workspace}: image-lag (source.json already at requested version)`;
-  }
+  if (!needsBump) return `${workspace}: image-lag (source.json already at requested version)`;
+  return true;
+}
+
+function finishClassify(input: ClassifyInput): Proposal | string {
+  const { workspace, source, stale, packageDirs } = input;
+  const repoUrl = sourceString(source, 'repo');
+  const repoRef = sourceString(source, 'repo-ref');
+  const repoFlat = Boolean(source['repo-flat']);
+  const fallbackPin = pinStalePlugins(
+    stale,
+    repoUrl,
+    repoRef,
+    packageDirs,
+    input.fetchJson,
+  );
+  const bump = bumpNeeded(workspace, stale, fallbackPin);
+  if (bump !== true) return bump;
   const requested = stale.map((p) => ({
     packageName: p.packageName,
     version: p.version,
   }));
-  const newRef = resolveNewRepoRef(
-    source,
-    requested,
-    npmGitHead,
-    gitLogSha,
-    fetchJson,
-    packageDirs,
-  );
+  const newRef = resolveNewRepoRef(source, requested, input, packageDirs);
   if (!newRef) return `${workspace}: could not resolve a repo-ref for ${JSON.stringify(requested)}`;
-  if (newRef === repoRef) {
-    return `${workspace}: image-lag (resolved ref matches current pin)`;
-  }
+  if (newRef === repoRef) return `${workspace}: image-lag (resolved ref matches current pin)`;
   return {
     workspace,
     oldRef: repoRef,
@@ -443,23 +513,69 @@ function finishClassify(
       newRef,
       workspace,
       repoFlat,
-      fetchJson,
+      input.fetchJson,
     ),
   };
+}
+
+function metaForFallback(
+  entry: FallbackEntry,
+  metadata: PluginMeta[],
+  metaByContainer: Map<string, PluginMeta>,
+): PluginMeta | undefined {
+  const wantVer = pluginVersionFromTag(entry.requestedTag);
+  let meta = metaByContainer.get(entry.container);
+  meta ??= metadata.find((p) => p.version === wantVer);
+  meta ??= metadata.length === 1 ? metadata[0] : undefined;
+  return meta;
+}
+
+function staleForWorkspace(
+  workspace: string,
+  entries: FallbackEntry[],
+  overlaysDir: string,
+  pluginBuildsDir: string,
+  repoFlat: boolean,
+  skips: string[],
+): { stale: StalePlugin[]; packageDirs: Record<string, string> } {
+  const paths = pluginBuildsWorkspacePaths(pluginBuildsDir, workspace);
+  const metadata = loadMetadataPlugins(overlaysDir, workspace);
+  const metaByContainer = new Map<string, PluginMeta>();
+  for (const plugin of metadata) {
+    const slug = plugin.packageName.replace(/^@/, '').replaceAll('/', '-');
+    metaByContainer.set(slug, plugin);
+  }
+  const stale: StalePlugin[] = [];
+  const packageDirs: Record<string, string> = {};
+  for (const entry of entries) {
+    const meta = metaForFallback(entry, metadata, metaByContainer);
+    if (!meta) {
+      skips.push(`${workspace}/${entry.container}: no metadata`);
+      continue;
+    }
+    const wsPath = paths[entry.container] || '';
+    const pkgDir = wsPath ? packageDirInSource(workspace, wsPath, repoFlat) : '';
+    const wantVer = pluginVersionFromTag(entry.requestedTag);
+    stale.push({
+      packageName: meta.packageName,
+      version: wantVer || meta.version,
+      container: entry.container,
+    });
+    if (pkgDir) packageDirs[meta.packageName] = pkgDir;
+  }
+  return { stale, packageDirs };
 }
 
 export function classifyFallbacks(
   overlaysDir: string,
   pluginBuildsDir: string,
-  deps: {
-    fetchJson?: FetchJson;
-    npmGitHead?: RunNpm;
-    gitLogSha?: RunGitLog;
-  } = {},
+  deps: Partial<ClassifyDeps> = {},
 ): { proposals: Proposal[]; skips: string[] } {
-  const fetchJson = deps.fetchJson ?? defaultFetchJson;
-  const npmGitHead = deps.npmGitHead ?? defaultNpmGitHead;
-  const gitLogSha = deps.gitLogSha ?? defaultGitLogSha;
+  const resolved: ClassifyDeps = {
+    fetchJson: deps.fetchJson ?? defaultFetchJson,
+    npmGitHead: deps.npmGitHead ?? defaultNpmGitHead,
+    gitLogSha: deps.gitLogSha ?? defaultGitLogSha,
+  };
   const byWs = new Map<string, FallbackEntry[]>();
   for (const entry of collectFallbackEntries(pluginBuildsDir)) {
     const list = byWs.get(entry.workspace) ?? [];
@@ -469,53 +585,27 @@ export function classifyFallbacks(
   const proposals: Proposal[] = [];
   const skips: string[] = [];
   for (const workspace of [...byWs.keys()].sort((a, b) => a.localeCompare(b))) {
-    const entries = byWs.get(workspace) ?? [];
-    const paths = pluginBuildsWorkspacePaths(pluginBuildsDir, workspace);
     const source = loadSourceJson(overlaysDir, workspace);
     if (!source) {
       skips.push(`${workspace}: missing source.json`);
       continue;
     }
-    const repoFlat = Boolean(source['repo-flat']);
-    const stale: StalePlugin[] = [];
-    const packageDirs: Record<string, string> = {};
-    const metadata = loadMetadataPlugins(overlaysDir, workspace);
-    const metaByContainer = new Map<string, PluginMeta>();
-    for (const plugin of metadata) {
-      const slug = plugin.packageName.replace(/^@/, '').replaceAll('/', '-');
-      metaByContainer.set(slug, plugin);
-    }
-    for (const entry of entries) {
-      const wantVer = pluginVersionFromTag(entry.requestedTag);
-      let meta = metaByContainer.get(entry.container);
-      if (!meta) meta = metadata.find((p) => p.version === wantVer);
-      if (!meta && metadata.length === 1) meta = metadata[0];
-      if (!meta) {
-        skips.push(`${workspace}/${entry.container}: no metadata`);
-        continue;
-      }
-      const wsPath = paths[entry.container] || '';
-      const pkgDir = wsPath ? packageDirInSource(workspace, wsPath, repoFlat) : '';
-      stale.push({
-        packageName: meta.packageName,
-        version: wantVer || meta.version,
-        container: entry.container,
-      });
-      if (pkgDir) packageDirs[meta.packageName] = pkgDir;
-    }
+    const { stale, packageDirs } = staleForWorkspace(
+      workspace,
+      byWs.get(workspace) ?? [],
+      overlaysDir,
+      pluginBuildsDir,
+      Boolean(source['repo-flat']),
+      skips,
+    );
     if (!stale.length) continue;
-    const finished = finishClassify(
+    const finished = finishClassify({
       workspace,
       source,
-      sourceString(source, 'repo'),
-      sourceString(source, 'repo-ref'),
-      repoFlat,
       stale,
       packageDirs,
-      fetchJson,
-      npmGitHead,
-      gitLogSha,
-    );
+      ...resolved,
+    });
     if (typeof finished === 'string') skips.push(finished);
     else proposals.push(finished);
   }
@@ -543,6 +633,13 @@ function writePatch(overlaysDir: string, patchPath: string): void {
   const result = runTool('git', ['-C', overlaysDir, 'diff', '--', 'workspaces']);
   mkdirSync(path.dirname(patchPath), { recursive: true });
   writeFileSync(patchPath, result.stdout || '', 'utf8');
+}
+
+function writeFailPatch(overlaysDir: string, patchPath: string, reason: string): null {
+  logError(reason);
+  writePatch(overlaysDir, patchPath);
+  logError(`Could not open PR; patch written to ${patchPath}`);
+  return null;
 }
 
 export function prBody(proposals: Proposal[], issue: string): string {
@@ -600,6 +697,40 @@ function git(cwd: string, args: string[], check = true) {
   return result;
 }
 
+function urlFromOpener(work: string, branch: string, head: string, title: string, bodyFile: string, issue: string): string {
+  const opener = findCreatePrMr();
+  if (!opener) return '';
+  const opened = spawnSync(
+    opener,
+    [
+      '--cwd', work, '--base', branch, '--head', head, '--title', title,
+      '--body-file', bodyFile, '--issue', issue, '--no-open',
+    ],
+    { encoding: 'utf8' },
+  );
+  let url = '';
+  for (const line of (opened.stdout || '').split('\n')) {
+    if (line.startsWith('url:')) url = line.slice(4).trim();
+  }
+  if (opened.status !== 0 && !url) {
+    logWarn(`create-pr-mr.sh failed: ${(opened.stderr || '').trim()}`);
+  }
+  return url;
+}
+
+function urlFromGh(work: string, branch: string, head: string, title: string, bodyFile: string): string {
+  const created = runTool(
+    'gh',
+    [
+      'pr', 'create', '--repo', OVERLAYS_GITHUB, '--base', branch, '--head', head,
+      '--title', `${title} [${branch}]`, '--body-file', bodyFile,
+    ],
+    { cwd: work },
+  );
+  const lines = (created.stdout || '').trim().split('\n').filter(Boolean);
+  return lines.at(-1) || '';
+}
+
 export function openOverlaysPr(
   overlaysDir: string,
   branch: string,
@@ -610,13 +741,7 @@ export function openOverlaysPr(
   const stamp = String(Math.floor(Date.now() / 1000));
   const head = `chore/source-json-${branch}-bump-${stamp}`;
   const work = mkdtempSync(path.join(tmpdir(), 'source-json-pr-'));
-  const failPatch = (dir: string, reason: string): null => {
-    logError(reason);
-    const patchPath = path.join(patchDir, `source-json-${branch}-${stamp}.patch`);
-    writePatch(dir, patchPath);
-    logError(`Could not open PR; patch written to ${patchPath}`);
-    return null;
-  };
+  const patchPath = (dir: string) => path.join(patchDir, `source-json-${branch}-${stamp}.patch`);
   try {
     const clone = runTool(
       'git',
@@ -625,7 +750,7 @@ export function openOverlaysPr(
     );
     if (clone.status !== 0) {
       applyProposals(overlaysDir, proposals);
-      return failPatch(overlaysDir, `git clone failed: ${(clone.stderr || '').trim()}`);
+      return writeFailPatch(overlaysDir, patchPath(overlaysDir), `git clone failed: ${(clone.stderr || '').trim()}`);
     }
     git(work, ['checkout', '-B', head]);
     applyProposals(work, proposals);
@@ -643,73 +768,19 @@ export function openOverlaysPr(
     ]);
     const push = git(work, ['push', '-u', 'origin', `HEAD:${head}`], false);
     if (push.status !== 0) {
-      return failPatch(work, `git push failed: ${(push.stderr || '').trim()}`);
+      return writeFailPatch(work, patchPath(work), `git push failed: ${(push.stderr || '').trim()}`);
     }
     const title = 'chore: bump source.json repo-ref to match catalog metadata';
     const bodyFile = path.join(work, 'PR_BODY.md');
     writeFileSync(bodyFile, prBody(proposals, issue), 'utf8');
-    let url = '';
-    const opener = findCreatePrMr();
-    if (opener) {
-      const opened = spawnSync(
-        opener,
-        [
-          '--cwd',
-          work,
-          '--base',
-          branch,
-          '--head',
-          head,
-          '--title',
-          title,
-          '--body-file',
-          bodyFile,
-          '--issue',
-          issue,
-          '--no-open',
-        ],
-        { encoding: 'utf8' },
-      );
-      for (const line of (opened.stdout || '').split('\n')) {
-        if (line.startsWith('url:')) url = line.slice(4).trim();
-      }
-      if (opened.status !== 0 && !url) {
-        logWarn(`create-pr-mr.sh failed: ${(opened.stderr || '').trim()}`);
-      }
-    }
+    const url = urlFromOpener(work, branch, head, title, bodyFile, issue)
+      || urlFromGh(work, branch, head, title, bodyFile);
     if (!url) {
-      const created = runTool(
-        'gh',
-        [
-          'pr',
-          'create',
-          '--repo',
-          OVERLAYS_GITHUB,
-          '--base',
-          branch,
-          '--head',
-          head,
-          '--title',
-          `${title} [${branch}]`,
-          '--body-file',
-          bodyFile,
-        ],
-        { cwd: work },
-      );
-      const lines = (created.stdout || '').trim().split('\n').filter(Boolean);
-      url = lines.at(-1) || '';
-      if (created.status !== 0 && !url) {
-        return failPatch(
-          work,
-          `gh pr create failed: ${(created.stderr || '').trim()}`,
-        );
-      }
+      return writeFailPatch(work, patchPath(work), 'gh pr create failed');
     }
-    if (url) {
-      runTool('gh', ['pr', 'comment', url, '--body', '/publish']);
-      runTool('gh', ['pr', 'merge', url, '--auto', '--squash']);
-    }
-    return url || null;
+    runTool('gh', ['pr', 'comment', url, '--body', '/publish']);
+    runTool('gh', ['pr', 'merge', url, '--auto', '--squash']);
+    return url;
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -740,16 +811,8 @@ function printReport(
   else logInfo('Would open an overlays PR (pass --open-prs to create it)');
 }
 
-export function parseArgs(argv: string[]): {
-  overlaysDir: string;
-  pluginBuildsDir: string;
-  overlaysBranch: string;
-  openPrs: boolean;
-  issue: string;
-  patchDir: string;
-  json: boolean;
-} {
-  const args = {
+export function parseArgs(argv: string[]): CliArgs {
+  const args: CliArgs = {
     overlaysDir: '',
     pluginBuildsDir: '',
     overlaysBranch: 'main',
@@ -758,23 +821,18 @@ export function parseArgs(argv: string[]): {
     patchDir: '',
     json: false,
   };
+  const take = new Map<string, (value: string) => void>([
+    ['--overlays-dir', (v) => { args.overlaysDir = v; }],
+    ['--plugin-builds-dir', (v) => { args.pluginBuildsDir = v; }],
+    ['--overlays-branch', (v) => { args.overlaysBranch = v; }],
+    ['--issue', (v) => { args.issue = v; }],
+    ['--patch-dir', (v) => { args.patchDir = v; }],
+  ]);
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
-    const next = argv[i + 1];
-    if (key === '--overlays-dir') {
-      args.overlaysDir = next;
-      i += 1;
-    } else if (key === '--plugin-builds-dir') {
-      args.pluginBuildsDir = next;
-      i += 1;
-    } else if (key === '--overlays-branch') {
-      args.overlaysBranch = next;
-      i += 1;
-    } else if (key === '--issue') {
-      args.issue = next;
-      i += 1;
-    } else if (key === '--patch-dir') {
-      args.patchDir = next;
+    const setter = take.get(key);
+    if (setter) {
+      setter(argv[i + 1]);
       i += 1;
     } else if (key === '--open-prs') args.openPrs = true;
     else if (key === '--json') args.json = true;
@@ -785,61 +843,60 @@ export function parseArgs(argv: string[]): {
   return args;
 }
 
+function patchProposals(overlaysDir: string, proposals: Proposal[], patchPath: string, reason: string): void {
+  logError(reason);
+  applyProposals(overlaysDir, proposals);
+  writePatch(overlaysDir, patchPath);
+  logError(`Could not open PR; patch written to ${patchPath}`);
+}
+
+function maybeOpenPrs(
+  args: CliArgs,
+  overlaysDir: string,
+  pluginBuildsDir: string,
+  patchDir: string,
+): { proposals: Proposal[]; skips: string[]; url: string | null } {
+  const { proposals, skips } = classifyFallbacks(overlaysDir, pluginBuildsDir);
+  let url: string | null = null;
+  if (!(proposals.length && args.openPrs)) return { proposals, skips, url };
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+  const patchPath = path.join(patchDir, `source-json-${args.overlaysBranch}.patch`);
+  if (!token) {
+    patchProposals(overlaysDir, proposals, patchPath, 'GH_TOKEN/GITHUB_TOKEN missing; cannot open overlays PR');
+    return { proposals, skips, url };
+  }
+  try {
+    url = openOverlaysPr(overlaysDir, args.overlaysBranch, proposals, args.issue, patchDir);
+  } catch (err) {
+    try {
+      patchProposals(overlaysDir, proposals, patchPath, `Could not open PR: ${errText(err)}`);
+    } catch (patchErr) {
+      logError(`Could not write patch: ${errText(patchErr)}`);
+    }
+  }
+  return { proposals, skips, url };
+}
+
 export function main(argv: string[] = process.argv.slice(2)): number {
-  let args: ReturnType<typeof parseArgs>;
+  let args: CliArgs;
   try {
     args = parseArgs(argv);
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
-    return 0;
+    logError(errText(err));
+    return 1;
   }
   const overlaysDir = path.resolve(args.overlaysDir);
   const pluginBuildsDir = path.resolve(args.pluginBuildsDir);
   const patchDir = args.patchDir ? path.resolve(args.patchDir) : tmpdir();
-  let proposals: Proposal[] = [];
-  let skips: string[] = [];
   try {
-    ({ proposals, skips } = classifyFallbacks(overlaysDir, pluginBuildsDir));
+    const { proposals, skips, url } = maybeOpenPrs(args, overlaysDir, pluginBuildsDir, patchDir);
+    if (args.json) console.log(JSON.stringify({ proposals, skips }, null, 2));
+    else printReport(proposals, skips, url);
+    return 0;
   } catch (err) {
-    logError(`proposeSourceJsonUpdates failed: ${err instanceof Error ? err.message : err}`);
+    logError(`proposeSourceJsonUpdates failed: ${errText(err)}`);
     return 0;
   }
-  if (args.json) {
-    console.log(JSON.stringify({ proposals, skips }, null, 2));
-  }
-  let url: string | null = null;
-  if (proposals.length && args.openPrs) {
-    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-    if (!token) {
-      logError('GH_TOKEN/GITHUB_TOKEN missing; cannot open overlays PR');
-      applyProposals(overlaysDir, proposals);
-      const patchPath = path.join(patchDir, `source-json-${args.overlaysBranch}.patch`);
-      writePatch(overlaysDir, patchPath);
-      logError(`Could not open PR; patch written to ${patchPath}`);
-    } else {
-      try {
-        url = openOverlaysPr(
-          overlaysDir,
-          args.overlaysBranch,
-          proposals,
-          args.issue,
-          patchDir,
-        );
-      } catch (err) {
-        logError(`Could not open PR: ${err instanceof Error ? err.message : err}`);
-        try {
-          applyProposals(overlaysDir, proposals);
-          const patchPath = path.join(patchDir, `source-json-${args.overlaysBranch}.patch`);
-          writePatch(overlaysDir, patchPath);
-          logError(`Patch written to ${patchPath}`);
-        } catch (patchErr) {
-          logError(`Could not write patch: ${patchErr instanceof Error ? patchErr.message : patchErr}`);
-        }
-      }
-    }
-  }
-  if (!args.json) printReport(proposals, skips, url);
-  return 0;
 }
 
 const isMain =
