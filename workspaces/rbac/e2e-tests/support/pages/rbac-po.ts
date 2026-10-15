@@ -30,6 +30,12 @@ export class RbacPO {
     return pathname === "/rbac";
   }
 
+  /** NFS may render the 403 message across elements; use a partial match. */
+  public async verifyAccessDenied(): Promise<void> {
+    await expect(
+      this.page.getByText(/Insufficient permissions to access this page/i),
+    ).toBeVisible({ timeout: 30_000 });
+  }
   /**
    * Opens the RBAC roles list through the sidebar. A `page.goto` reloads the
    * document and drops the OIDC session, so in-app moves stay client-side.

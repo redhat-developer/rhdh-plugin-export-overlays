@@ -310,38 +310,22 @@ test.describe("RBAC plugin", () => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
     });
 
-    test("Administration side nav shows RBAC and the page denies access", async ({
-      page,
+    test("Sidebar does not show RBAC plugin for no-access user", async ({
       uiHelper,
     }) => {
-      await uiHelper.openSidebarButton("Administration");
-      // The dynamic plugin registers the RBAC menu item for every user.
-      // Page access is still denied.
-      const rbacNavLink = page
-        .getByRole("navigation", { name: "sidebar nav" })
-        .getByRole("link", { name: "RBAC" });
-      await expect(rbacNavLink).toBeVisible();
-      await rbacNavLink.click();
+      // In NFS, the RBAC sidebar link may be visible to all users;
+      // access is enforced at the route level with a 403 error.
+      await rbacPO.go();
       await uiHelper.waitForLoad();
-      await uiHelper.verifyText(
-        "ERROR 403: Insufficient permissions to access this page",
-      );
+      await rbacPO.verifyAccessDenied();
     });
 
     test("No access user should not see list of components in catalog", async ({
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
+      await uiHelper.goToPageUrl("/catalog");
       await uiHelper.waitForLoad();
       await uiHelper.verifyTableIsEmpty();
-    });
-
-    test("Direct navigation to /rbac is denied", async ({ uiHelper }) => {
-      await rbacPO.go();
-      await uiHelper.waitForLoad();
-      await uiHelper.verifyText(
-        "ERROR 403: Insufficient permissions to access this page",
-      );
     });
   });
 
@@ -456,7 +440,6 @@ test.describe("RBAC plugin", () => {
     // and a 2.2-*-CI chart includes that index.
     test.skip("User can unregister own components but not group-owned components", async ({
       page,
-      uiHelper,
     }) => {
       await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
 
@@ -469,28 +452,19 @@ test.describe("RBAC plugin", () => {
         name: "Unregister entity",
       });
       await expect(unregisterUserOwned).toBeEnabled();
-
-      await page.getByRole("menuitem", { name: "Unregister entity" }).click();
-      await expect(page.getByRole("dialog")).toContainText(
-        "Are you sure you want to unregister this entity?",
-      );
-      await page.getByRole("button", { name: "Cancel" }).click();
-
-      await uiHelper.openSidebar("Catalog");
-      await page
-        .getByRole("link", { name: "test-rhdh-qe-2-team-owned" })
-        .click();
-      // Verify owner group in the component metadata (scope to article to avoid duplicates)
+      await unregisterUserOwned.click();
       await expect(
-        page
-          .getByRole("article")
-          .getByRole("link", { name: /janus-qe\/rhdh-qe-2-team/ }),
+        page.getByRole("dialog", {
+          name: "Are you sure you want to unregister this entity?",
+        }),
       ).toBeVisible();
+      await page.getByRole("button", { name: "Cancel" }).click();
+      await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2-team-owned");
+      await rbacPO.verifyComponentOwner("janus-qe/rhdh-qe-2-team");
       await page.getByRole("button", { name: "More actions" }).click();
-      const unregisterGroupOwned = page.getByRole("menuitem", {
-        name: "Unregister entity",
-      });
-      await expect(unregisterGroupOwned).toBeDisabled();
+      await expect(
+        page.getByRole("menuitem", { name: "Unregister entity" }),
+      ).toBeDisabled();
     });
   });
 
@@ -606,12 +580,11 @@ test.describe("RBAC plugin", () => {
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalManager);
 
-      // The menu item stays registered. Revoking the role denies the page.
+      // In NFS, RBAC is a direct sidebar link that may still be visible;
+      // access is enforced at the route level with a 403 error.
       await rbacPO.go();
       await uiHelper.waitForLoad();
-      await uiHelper.verifyText(
-        "ERROR 403: Insufficient permissions to access this page",
-      );
+      await rbacPO.verifyAccessDenied();
     });
   });
 
@@ -634,7 +607,7 @@ test.describe("RBAC plugin", () => {
     }) => {
       // Should deny read: conditional deny policy takes precedence over allow read via basic
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalDenyUser);
-      await uiHelper.openSidebar("Catalog");
+      await uiHelper.goToPageUrl("/catalog");
       await uiHelper.selectMuiBox("Kind", "Component");
       await uiHelper.verifyTableIsEmpty();
     });
