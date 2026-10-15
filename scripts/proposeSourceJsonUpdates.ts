@@ -28,6 +28,8 @@ const BOT_NAME = 'rhdh-bot';
 const BOT_EMAIL = 'rhdh-bot@redhat.com';
 const PACKAGE_TAG_RE = /^(@[^/]+\/[^@]+|[^@]+)@([^@]+)$/;
 const SHA_RE = /^[0-9a-f]{40}$/;
+const TOOL_BIN_CACHE = new Map<string, string>();
+const TOOL_SEARCH_DIRS = ['/usr/bin', '/usr/local/bin', '/bin'];
 
 export type JsonMap = Record<string, unknown>;
 export type FetchJson = (url: string) => JsonMap | null;
@@ -90,9 +92,41 @@ export function versionNewer(requested: string, pinned: string): boolean {
 }
 
 export function githubOwnerRepo(repoUrl: string): [string, string] | null {
-  const match = (repoUrl || '').match(/github\.com[:/]([^/]+)\/([^/.]+)/);
+  const match = /github\.com[:/]([^/]+)\/([^/.]+)/.exec(repoUrl || '');
   if (!match) return null;
   return [match[1], match[2].replace(/\.git$/, '')];
+}
+
+/** Absolute path for spawnSync (Sonar typescript:S4036). */
+export function resolveTool(name: string): string {
+  const cached = TOOL_BIN_CACHE.get(name);
+  if (cached) return cached;
+  const envKey = `RHDH_${name.toUpperCase()}_BIN`;
+  const candidates = [
+    process.env[envKey] || '',
+    ...TOOL_SEARCH_DIRS.map((dir) => path.join(dir, name)),
+    path.join(path.dirname(process.execPath), name),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      TOOL_BIN_CACHE.set(name, candidate);
+      return candidate;
+    }
+  }
+  throw new Error(`${name} not found; set ${envKey} to an absolute path`);
+}
+
+function runTool(
+  name: string,
+  args: string[],
+  options: Parameters<typeof spawnSync>[2] = {},
+) {
+  return spawnSync(resolveTool(name), args, { encoding: 'utf8', ...options });
+}
+
+function sourceString(source: JsonMap, key: string): string {
+  const value = source[key];
+  return typeof value === 'string' ? value : '';
 }
 
 export function packageDirInSource(
@@ -205,9 +239,7 @@ function pluginBuildsWorkspacePaths(
 
 export function defaultFetchJson(url: string): JsonMap | null {
   try {
-    const result = spawnSync('curl', ['-fsSL', '--max-time', '20', url], {
-      encoding: 'utf8',
-    });
+    const result = runTool('curl', ['-fsSL', '--max-time', '20', url]);
     if (result.status !== 0) return null;
     return JSON.parse(result.stdout) as JsonMap;
   } catch {
@@ -216,11 +248,12 @@ export function defaultFetchJson(url: string): JsonMap | null {
 }
 
 export function defaultNpmGitHead(packageName: string, version: string): string | null {
-  const result = spawnSync(
-    'npm',
-    ['view', `${packageName}@${version}`, 'gitHead', '--json'],
-    { encoding: 'utf8', timeout: 30_000 },
-  );
+  const result = runTool('npm', [
+    'view',
+    `${packageName}@${version}`,
+    'gitHead',
+    '--json',
+  ], { timeout: 30_000 });
   if (result.status !== 0) return null;
   const raw = (result.stdout || '').trim();
   if (!raw) return null;
@@ -241,16 +274,16 @@ export function defaultGitLogSha(
 ): string | null {
   const tmp = mkdtempSync(path.join(tmpdir(), 'source-json-git-'));
   try {
-    const clone = spawnSync(
+    const clone = runTool(
       'git',
       ['clone', '--filter=blob:none', '--no-checkout', repoUrl, tmp],
-      { encoding: 'utf8', timeout: 120_000 },
+      { timeout: 120_000 },
     );
     if (clone.status !== 0) return null;
-    const log = spawnSync(
+    const log = runTool(
       'git',
       ['-C', tmp, 'log', '-1', '--format=%H', '-S', needle, '--', pathName],
-      { encoding: 'utf8', timeout: 60_000 },
+      { timeout: 60_000 },
     );
     const sha = (log.stdout || '').trim();
     return SHA_RE.test(sha) ? sha : null;
@@ -259,20 +292,29 @@ export function defaultGitLogSha(
   }
 }
 
-function fetchPackageVersionAtRef(
+function fetchGithubFileJson(
   repoUrl: string,
   repoRef: string,
-  packageDir: string,
+  relPath: string,
   fetchJson: FetchJson,
 ): string | null {
   const ownerRepo = githubOwnerRepo(repoUrl);
   if (!ownerRepo) return null;
   const [owner, repo] = ownerRepo;
   const encodedRef = repoRef.replaceAll('/', '%2F');
-  const url = `https://raw.githubusercontent.com/${owner}/${repo}/${encodedRef}/${packageDir}/package.json`;
+  const url = `https://raw.githubusercontent.com/${owner}/${repo}/${encodedRef}/${relPath}`;
   const data = fetchJson(url);
   const version = data && typeof data.version === 'string' ? data.version.trim() : '';
   return version || null;
+}
+
+function fetchPackageVersionAtRef(
+  repoUrl: string,
+  repoRef: string,
+  packageDir: string,
+  fetchJson: FetchJson,
+): string | null {
+  return fetchGithubFileJson(repoUrl, repoRef, `${packageDir}/package.json`, fetchJson);
 }
 
 function fetchBackstageVersionAtRef(
@@ -282,15 +324,8 @@ function fetchBackstageVersionAtRef(
   repoFlat: boolean,
   fetchJson: FetchJson,
 ): string | null {
-  const ownerRepo = githubOwnerRepo(repoUrl);
-  if (!ownerRepo) return null;
-  const [owner, repo] = ownerRepo;
-  const encodedRef = repoRef.replaceAll('/', '%2F');
   const rel = repoFlat ? 'backstage.json' : `workspaces/${workspace}/backstage.json`;
-  const url = `https://raw.githubusercontent.com/${owner}/${repo}/${encodedRef}/${rel}`;
-  const data = fetchJson(url);
-  const version = data && typeof data.version === 'string' ? data.version.trim() : '';
-  return version || null;
+  return fetchGithubFileJson(repoUrl, repoRef, rel, fetchJson);
 }
 
 function resolveNewRepoRef(
@@ -301,8 +336,8 @@ function resolveNewRepoRef(
   fetchJson: FetchJson,
   packageDirs: Record<string, string>,
 ): string | null {
-  const repoRef = String(source['repo-ref'] || '');
-  const repoUrl = String(source.repo || '');
+  const repoRef = sourceString(source, 'repo-ref');
+  const repoUrl = sourceString(source, 'repo');
   if (isPackageTag(repoRef) && plugins.length === 1) {
     return `${plugins[0].packageName}@${plugins[0].version}`;
   }
@@ -433,7 +468,7 @@ export function classifyFallbacks(
   }
   const proposals: Proposal[] = [];
   const skips: string[] = [];
-  for (const workspace of [...byWs.keys()].sort()) {
+  for (const workspace of [...byWs.keys()].sort((a, b) => a.localeCompare(b))) {
     const entries = byWs.get(workspace) ?? [];
     const paths = pluginBuildsWorkspacePaths(pluginBuildsDir, workspace);
     const source = loadSourceJson(overlaysDir, workspace);
@@ -472,8 +507,8 @@ export function classifyFallbacks(
     const finished = finishClassify(
       workspace,
       source,
-      String(source.repo || ''),
-      String(source['repo-ref'] || ''),
+      sourceString(source, 'repo'),
+      sourceString(source, 'repo-ref'),
       repoFlat,
       stale,
       packageDirs,
@@ -505,9 +540,7 @@ export function applyProposals(overlaysDir: string, proposals: Proposal[]): stri
 }
 
 function writePatch(overlaysDir: string, patchPath: string): void {
-  const result = spawnSync('git', ['-C', overlaysDir, 'diff', '--', 'workspaces'], {
-    encoding: 'utf8',
-  });
+  const result = runTool('git', ['-C', overlaysDir, 'diff', '--', 'workspaces']);
   mkdirSync(path.dirname(patchPath), { recursive: true });
   writeFileSync(patchPath, result.stdout || '', 'utf8');
 }
@@ -552,8 +585,7 @@ function findCreatePrMr(): string | null {
 }
 
 function git(cwd: string, args: string[], check = true) {
-  const result = spawnSync('git', ['-C', cwd, ...args], {
-    encoding: 'utf8',
+  const result = runTool('git', ['-C', cwd, ...args], {
     env: {
       ...process.env,
       GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME || BOT_NAME,
@@ -586,10 +618,10 @@ export function openOverlaysPr(
     return null;
   };
   try {
-    const clone = spawnSync(
+    const clone = runTool(
       'git',
       ['clone', '--branch', branch, overlaysDir, work],
-      { encoding: 'utf8', timeout: 120_000 },
+      { timeout: 120_000 },
     );
     if (clone.status !== 0) {
       applyProposals(overlaysDir, proposals);
@@ -646,7 +678,7 @@ export function openOverlaysPr(
       }
     }
     if (!url) {
-      const created = spawnSync(
+      const created = runTool(
         'gh',
         [
           'pr',
@@ -662,7 +694,7 @@ export function openOverlaysPr(
           '--body-file',
           bodyFile,
         ],
-        { encoding: 'utf8', cwd: work },
+        { cwd: work },
       );
       const lines = (created.stdout || '').trim().split('\n').filter(Boolean);
       url = lines.at(-1) || '';
@@ -674,12 +706,8 @@ export function openOverlaysPr(
       }
     }
     if (url) {
-      spawnSync('gh', ['pr', 'comment', url, '--body', '/publish'], {
-        encoding: 'utf8',
-      });
-      spawnSync('gh', ['pr', 'merge', url, '--auto', '--squash'], {
-        encoding: 'utf8',
-      });
+      runTool('gh', ['pr', 'comment', url, '--body', '/publish']);
+      runTool('gh', ['pr', 'merge', url, '--auto', '--squash']);
     }
     return url || null;
   } finally {

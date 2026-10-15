@@ -10,6 +10,7 @@ import {
   main,
   packageDirInSource,
   pluginVersionFromTag,
+  resolveTool,
   type FetchJson,
   type Proposal,
 } from '../proposeSourceJsonUpdates.ts';
@@ -84,6 +85,11 @@ function fetchFactory(versionsByUrlSubstr: Record<string, string>): FetchJson {
 }
 
 describe('proposeSourceJsonUpdates', () => {
+  it('resolves git and curl to absolute paths', () => {
+    assert.match(resolveTool('git'), /^\/.+/);
+    assert.match(resolveTool('curl'), /^\/.+/);
+  });
+
   it('parses plugin versions from Quay and GHCR tags', () => {
     assert.equal(pluginVersionFromTag('2.1.0--5.9.0'), '5.9.0');
     assert.equal(pluginVersionFromTag('bs_1.54.9__5.8.0'), '5.8.0');
