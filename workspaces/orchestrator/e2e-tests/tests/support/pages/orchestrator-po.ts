@@ -13,13 +13,6 @@ export class OrchestratorPO {
   constructor(
     private readonly page: Page,
     private readonly uiHelper: UIhelper,
-    /**
-     * Optional RBAC/OIDC recovery. When set, Sign In during /orchestrator
-     * navigation or the heading/sidebar fallback re-auths and retries the URL
-     * instead of chasing Administration on a sign-in page (ci-diagnose #3910).
-     * Callers without this callback still fail loudly on session drop.
-     */
-    private readonly reauthenticate?: () => Promise<void>,
   ) {}
 
   private workflowsCatalogControl(): Locator {
@@ -29,41 +22,35 @@ export class OrchestratorPO {
     );
   }
 
-  private async isSignInPage(): Promise<boolean> {
-    return this.page
-      .getByRole("button", { name: /sign in/i })
-      .or(this.page.getByRole("heading", { name: /sign-in method/i }))
-      .first()
-      .isVisible()
+  /**
+   * Client-side sidebar nav keeps the OIDC session. Full page.goto("/orchestrator")
+   * can land on Sign In after RBAC role churn.
+   */
+  private async clickOrchestratorInSidebar(): Promise<void> {
+    const adminButton = this.page
+      .getByRole("button", { name: "Administration", exact: true })
+      .first();
+    const orchestratorLink = this.page
+      .getByRole("navigation", { name: "sidebar nav" })
+      .getByRole("link", { name: "Orchestrator", exact: true });
+
+    // Do not use aria-expanded: the Admin button often omits it (CI Received:
+    // null), so expecting "true" after click fails every suite. Expand only
+    // when the Orchestrator link is not yet actionable (collapsed group);
+    // NFS mounts Orchestrator top-level with no Admin button.
+    const orchestratorActionable = await orchestratorLink
+      .click({ trial: true, timeout: 2_000 })
+      .then(() => true)
       .catch(() => false);
-  }
-
-  private async recoverFromSignInOrThrow(context: string): Promise<void> {
-    if (!this.reauthenticate) {
-      throw new Error(
-        `${context}; sign-in page is visible and no re-authentication handler was provided.`,
-      );
-    }
-    await this.reauthenticate();
-  }
-
-  private async gotoOrchestratorPreferringUrl(): Promise<void> {
-    // Prefer direct URL over legacy Administration sidebar (NFS has no such group).
-    // With reauthenticate (RBAC), retry after OIDC refresh 401 → Sign In.
-    const maxAttempts = this.reauthenticate ? 3 : 1;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await this.page.goto("/orchestrator");
-      await this.page.waitForLoadState("domcontentloaded");
-      if (!(await this.isSignInPage())) {
-        return;
+    if (!orchestratorActionable) {
+      if (await adminButton.isVisible().catch(() => false)) {
+        await adminButton.click();
       }
-      if (!this.reauthenticate || attempt === maxAttempts - 1) {
-        throw new Error(
-          "Navigating to /orchestrator reached the sign-in page; session was dropped.",
-        );
-      }
-      await this.reauthenticate();
+      await expect(orchestratorLink).toBeVisible({ timeout: 15_000 });
     }
+
+    await orchestratorLink.click();
+    await this.page.waitForLoadState("domcontentloaded");
   }
 
   async clickWorkflowsCatalogControl(): Promise<void> {
@@ -92,50 +79,22 @@ export class OrchestratorPO {
     const headingVisible = async (timeoutMs: number) =>
       heading.isVisible({ timeout: timeoutMs }).catch(() => false);
 
-    await this.gotoOrchestratorPreferringUrl();
+    await this.clickOrchestratorInSidebar();
 
-    // CI flake: bare /orchestrator can paint a 404 shell, leave a stale
-    // workflow-detail route, or lose the session mid heading-wait (OIDC
-    // refresh 401). Sign In → reauthenticate + URL retry (never sidebar —
-    // Sign In has no Administration / Orchestrator link). Otherwise URL
-    // retry, then sidebar. Sidebar expands Administration only when needed.
+    // CI flake: sidebar can leave a 404 shell or stale workflow-detail without
+    // "Workflows (N)". Retry sidebar — do not mid-stream re-login.
     if (!(await headingVisible(30_000))) {
-      if (await this.isSignInPage()) {
-        await this.recoverFromSignInOrThrow(
-          "Orchestrator page lost the session after navigation",
-        );
-        await this.gotoOrchestratorPreferringUrl();
-      } else {
-        const is404 = await this.page
-          .getByText(/PAGE NOT FOUND/i)
-          .isVisible()
-          .catch(() => false);
-        if (is404 || !(await headingVisible(5_000))) {
-          await this.openOrchestratorFromSidebar();
-        } else {
-          await this.gotoOrchestratorPreferringUrl();
-        }
+      const is404 = await this.page
+        .getByText(/PAGE NOT FOUND/i)
+        .isVisible()
+        .catch(() => false);
+      if (is404 || !(await headingVisible(5_000))) {
+        await this.clickOrchestratorInSidebar();
       }
     }
 
     if (!(await headingVisible(15_000))) {
-      if (await this.isSignInPage()) {
-        await this.recoverFromSignInOrThrow(
-          "Orchestrator page lost the session while waiting for Workflows heading",
-        );
-        await this.gotoOrchestratorPreferringUrl();
-      } else {
-        await this.page.reload();
-        await this.page.waitForLoadState("domcontentloaded");
-        if (await this.isSignInPage()) {
-          await this.recoverFromSignInOrThrow(
-            "Orchestrator reload reached the sign-in page",
-          );
-          await this.gotoOrchestratorPreferringUrl();
-        } else if (!(await headingVisible(5_000))) {
-          await this.openOrchestratorFromSidebar();
-        }
-      }
+      await this.clickOrchestratorInSidebar();
     }
 
     await expect(heading).toBeVisible({ timeout: 120_000 });
@@ -145,20 +104,7 @@ export class OrchestratorPO {
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
-    if (await this.isSignInPage()) {
-      await this.recoverFromSignInOrThrow(
-        "Cannot open Orchestrator from sidebar",
-      );
-    }
-    const orchestratorLink = this.page
-      .locator('nav a:has-text("Orchestrator")')
-      .first();
-    // NFS: Orchestrator is often top-level. Administration is legacy-only —
-    // expand it only when the link is not already visible.
-    if (!(await orchestratorLink.isVisible())) {
-      await this.page.getByRole("button", { name: "Administration" }).click();
-    }
-    await orchestratorLink.click();
+    await this.clickOrchestratorInSidebar();
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
     ).toBeVisible({ timeout: 60_000 });
@@ -495,7 +441,8 @@ export class OrchestratorPO {
   }
 
   async openSelfServiceTemplatesPage(): Promise<void> {
-    await this.page.goto("/create");
+    // await this.page.goto("/create");
+    await this.uiHelper.openSidebarButton("Self-service");
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
       this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
