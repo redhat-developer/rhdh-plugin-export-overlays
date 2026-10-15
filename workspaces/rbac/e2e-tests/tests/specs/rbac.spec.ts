@@ -318,7 +318,7 @@ test.describe("RBAC plugin", () => {
       // checked on a link inside it. Direct navigation is covered below.
       const sidebar = page.getByRole("navigation", { name: "sidebar nav" });
       await expect(
-        sidebar.getByRole("link", { name: "Catalog" }),
+        sidebar.getByRole("link", { name: "Catalog", exact: true }),
       ).toBeVisible();
       await expect(sidebar.getByRole("link", { name: "RBAC" })).toHaveCount(0);
     });
@@ -452,7 +452,7 @@ test.describe("RBAC plugin", () => {
       await expect(
         page.getByRole("heading", { name: "test-rhdh-qe-2", exact: true }),
       ).toBeVisible();
-      await page.getByTestId("menu-button").click();
+      await page.getByRole("button", { name: "More actions" }).click();
       const unregisterUserOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
       });
@@ -474,7 +474,7 @@ test.describe("RBAC plugin", () => {
           .getByRole("article")
           .getByRole("link", { name: /janus-qe\/rhdh-qe-2-team/ }),
       ).toBeVisible();
-      await page.getByTestId("menu-button").click();
+      await page.getByRole("button", { name: "More actions" }).click();
       const unregisterGroupOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
       });
