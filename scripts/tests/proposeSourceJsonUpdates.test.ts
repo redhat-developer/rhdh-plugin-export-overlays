@@ -12,10 +12,15 @@ import {
   resolveTool,
   type FetchJson,
   type Proposal,
+  type RunGitLog,
+  type RunNpm,
 } from '../proposeSourceJsonUpdates.ts';
 
 const OLD_SHA = 'e4ca4f128d1aaa550bd0e4e8d041188f2ed5f52b';
 const NEW_SHA = 'abcdef0123456789abcdef0123456789abcdef01';
+const ROADIE_WS = 'roadie-backstage-plugins';
+const ROADIE_PKG = '@roadiehq/scaffolder-backend-module-http-request';
+const ROADIE_CONTAINER = 'roadiehq-scaffolder-backend-module-http-request';
 
 function writeWorkspace(
   overlays: string,
@@ -83,6 +88,37 @@ function fetchFactory(versionsByUrlSubstr: Record<string, string>): FetchJson {
   };
 }
 
+function classifyRoadie(opts: {
+  repoRef: string;
+  pluginPath: string;
+  versions: Record<string, string>;
+  npmGitHead: RunNpm;
+  gitLogSha?: RunGitLog;
+}): ReturnType<typeof classifyFallbacks> {
+  const root = mkdtempSync(path.join(tmpdir(), 'source-json-'));
+  const overlays = path.join(root, 'overlay-repo');
+  const builds = path.join(root, 'plugin_builds');
+  writeWorkspace(overlays, {
+    workspace: ROADIE_WS,
+    repoRef: opts.repoRef,
+    repoFlat: true,
+    packageName: ROADIE_PKG,
+    version: '5.9.0',
+  });
+  writeFallback(builds, {
+    workspace: ROADIE_WS,
+    container: ROADIE_CONTAINER,
+    have: '2.1.0--5.8.0',
+    want: '2.1.0--5.9.0',
+    workspacePath: `${ROADIE_WS}/plugins/${opts.pluginPath}`,
+  });
+  return classifyFallbacks(overlays, builds, {
+    fetchJson: fetchFactory(opts.versions),
+    npmGitHead: opts.npmGitHead,
+    gitLogSha: opts.gitLogSha ?? (() => null),
+  });
+}
+
 describe('proposeSourceJsonUpdates', () => {
   it('resolves git and curl to absolute paths', () => {
     expect(resolveTool('git')).toMatch(/^\/.+/);
@@ -98,8 +134,8 @@ describe('proposeSourceJsonUpdates', () => {
   it('maps workspacePath to source package dirs', () => {
     expect(
       packageDirInSource(
-        'roadie-backstage-plugins',
-        'roadie-backstage-plugins/plugins/http-request',
+        ROADIE_WS,
+        `${ROADIE_WS}/plugins/http-request`,
         true,
       ),
     ).toBe('plugins/http-request');
@@ -109,71 +145,35 @@ describe('proposeSourceJsonUpdates', () => {
   });
 
   it('classifies a SHA workspace as a stale pin', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'source-json-'));
-    const overlays = path.join(root, 'overlay-repo');
-    const builds = path.join(root, 'plugin_builds');
-    const ws = 'roadie-backstage-plugins';
-    const pkg = '@roadiehq/scaffolder-backend-module-http-request';
-    const container = 'roadiehq-scaffolder-backend-module-http-request';
-    writeWorkspace(overlays, {
-      workspace: ws,
+    const { proposals, skips } = classifyRoadie({
       repoRef: OLD_SHA,
-      repoFlat: true,
-      packageName: pkg,
-      version: '5.9.0',
-    });
-    writeFallback(builds, {
-      workspace: ws,
-      container,
-      have: '2.1.0--5.8.0',
-      want: '2.1.0--5.9.0',
-      workspacePath: `${ws}/plugins/scaffolder-actions/scaffolder-backend-module-http-request`,
-    });
-    const { proposals, skips } = classifyFallbacks(overlays, builds, {
-      fetchJson: fetchFactory({
+      pluginPath: 'scaffolder-actions/scaffolder-backend-module-http-request',
+      versions: {
         [`${OLD_SHA}/plugins/`]: '5.8.0',
         [`${NEW_SHA}/plugins/`]: '5.9.0',
-      }),
+      },
       npmGitHead: (name, version) => {
-        expect(name).toBe(pkg);
+        expect(name).toBe(ROADIE_PKG);
         expect(version).toBe('5.9.0');
         return NEW_SHA;
       },
-      gitLogSha: () => null,
     });
     expect(skips).toEqual([]);
     expect(proposals).toHaveLength(1);
-    expect(proposals[0].workspace).toBe(ws);
-    expect(proposals[0].oldRef).toBe(OLD_SHA);
-    expect(proposals[0].newRef).toBe(NEW_SHA);
-    expect(proposals[0].reason).toBe('stale-pin');
+    expect(proposals[0]).toMatchObject({
+      workspace: ROADIE_WS,
+      oldRef: OLD_SHA,
+      newRef: NEW_SHA,
+      reason: 'stale-pin',
+    });
   });
 
   it('skips image-lag when the pin already matches the requested version', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'source-json-'));
-    const overlays = path.join(root, 'overlay-repo');
-    const builds = path.join(root, 'plugin_builds');
-    const ws = 'roadie-backstage-plugins';
-    const pkg = '@roadiehq/scaffolder-backend-module-http-request';
-    const container = 'roadiehq-scaffolder-backend-module-http-request';
-    writeWorkspace(overlays, {
-      workspace: ws,
+    const { proposals, skips } = classifyRoadie({
       repoRef: NEW_SHA,
-      repoFlat: true,
-      packageName: pkg,
-      version: '5.9.0',
-    });
-    writeFallback(builds, {
-      workspace: ws,
-      container,
-      have: '2.1.0--5.8.0',
-      want: '2.1.0--5.9.0',
-      workspacePath: `${ws}/plugins/http-request`,
-    });
-    const { proposals, skips } = classifyFallbacks(overlays, builds, {
-      fetchJson: fetchFactory({ [`${NEW_SHA}/plugins/`]: '5.9.0' }),
+      pluginPath: 'http-request',
+      versions: { [`${NEW_SHA}/plugins/`]: '5.9.0' },
       npmGitHead: () => NEW_SHA,
-      gitLogSha: () => null,
     });
     expect(proposals).toEqual([]);
     expect(skips.some((s) => s.includes('image-lag'))).toBe(true);
@@ -183,11 +183,9 @@ describe('proposeSourceJsonUpdates', () => {
     const root = mkdtempSync(path.join(tmpdir(), 'source-json-'));
     const overlays = path.join(root, 'overlay-repo');
     const builds = path.join(root, 'plugin_builds');
-    const ws = 'topology';
     const pkg = '@backstage-community/plugin-topology';
-    const container = 'backstage-community-plugin-topology';
     writeWorkspace(overlays, {
-      workspace: ws,
+      workspace: 'topology',
       repoRef: `${pkg}@1.5.4`,
       repoFlat: false,
       packageName: pkg,
@@ -195,11 +193,11 @@ describe('proposeSourceJsonUpdates', () => {
       repo: 'https://github.com/backstage/community-plugins',
     });
     writeFallback(builds, {
-      workspace: ws,
-      container,
+      workspace: 'topology',
+      container: 'backstage-community-plugin-topology',
       have: '2.1.0--1.5.4',
       want: '2.1.0--1.6.0',
-      workspacePath: `${ws}/plugins/topology`,
+      workspacePath: 'topology/plugins/topology',
     });
     const { proposals, skips } = classifyFallbacks(overlays, builds, {
       fetchJson: fetchFactory({
@@ -214,30 +212,11 @@ describe('proposeSourceJsonUpdates', () => {
   });
 
   it('skips when a new ref cannot be resolved', () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'source-json-'));
-    const overlays = path.join(root, 'overlay-repo');
-    const builds = path.join(root, 'plugin_builds');
-    const ws = 'roadie-backstage-plugins';
-    const pkg = '@roadiehq/scaffolder-backend-module-http-request';
-    const container = 'roadiehq-scaffolder-backend-module-http-request';
-    writeWorkspace(overlays, {
-      workspace: ws,
+    const { proposals, skips } = classifyRoadie({
       repoRef: OLD_SHA,
-      repoFlat: true,
-      packageName: pkg,
-      version: '5.9.0',
-    });
-    writeFallback(builds, {
-      workspace: ws,
-      container,
-      have: '2.1.0--5.8.0',
-      want: '2.1.0--5.9.0',
-      workspacePath: `${ws}/plugins/http-request`,
-    });
-    const { proposals, skips } = classifyFallbacks(overlays, builds, {
-      fetchJson: fetchFactory({ [`${OLD_SHA}/plugins/`]: '5.8.0' }),
+      pluginPath: 'http-request',
+      versions: { [`${OLD_SHA}/plugins/`]: '5.8.0' },
       npmGitHead: () => null,
-      gitLogSha: () => null,
     });
     expect(proposals).toEqual([]);
     expect(skips.some((s) => s.includes('could not resolve'))).toBe(true);
@@ -245,16 +224,15 @@ describe('proposeSourceJsonUpdates', () => {
 
   it('applies repo-ref updates to source.json', () => {
     const overlays = mkdtempSync(path.join(tmpdir(), 'source-json-'));
-    const ws = 'roadie-backstage-plugins';
     writeWorkspace(overlays, {
-      workspace: ws,
+      workspace: ROADIE_WS,
       repoRef: OLD_SHA,
       repoFlat: true,
       packageName: '@roadiehq/http-request',
       version: '5.9.0',
     });
     const proposal: Proposal = {
-      workspace: ws,
+      workspace: ROADIE_WS,
       oldRef: OLD_SHA,
       newRef: NEW_SHA,
       plugins: [{ packageName: '@roadiehq/http-request', version: '5.9.0' }],
@@ -263,7 +241,7 @@ describe('proposeSourceJsonUpdates', () => {
     };
     applyProposals(overlays, [proposal]);
     const data = JSON.parse(
-      readFileSync(path.join(overlays, 'workspaces', ws, 'source.json'), 'utf8'),
+      readFileSync(path.join(overlays, 'workspaces', ROADIE_WS, 'source.json'), 'utf8'),
     );
     expect(data['repo-ref']).toBe(NEW_SHA);
     expect(data['repo-backstage-version']).toBe('1.55.2');
