@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { describe, expect, it } from 'vite-plus/test';
 
 import {
   applyProposals,
@@ -86,27 +85,25 @@ function fetchFactory(versionsByUrlSubstr: Record<string, string>): FetchJson {
 
 describe('proposeSourceJsonUpdates', () => {
   it('resolves git and curl to absolute paths', () => {
-    assert.match(resolveTool('git'), /^\/.+/);
-    assert.match(resolveTool('curl'), /^\/.+/);
+    expect(resolveTool('git')).toMatch(/^\/.+/);
+    expect(resolveTool('curl')).toMatch(/^\/.+/);
   });
 
   it('parses plugin versions from Quay and GHCR tags', () => {
-    assert.equal(pluginVersionFromTag('2.1.0--5.9.0'), '5.9.0');
-    assert.equal(pluginVersionFromTag('bs_1.54.9__5.8.0'), '5.8.0');
-    assert.equal(pluginVersionFromTag(''), null);
+    expect(pluginVersionFromTag('2.1.0--5.9.0')).toBe('5.9.0');
+    expect(pluginVersionFromTag('bs_1.54.9__5.8.0')).toBe('5.8.0');
+    expect(pluginVersionFromTag('')).toBeNull();
   });
 
   it('maps workspacePath to source package dirs', () => {
-    assert.equal(
+    expect(
       packageDirInSource(
         'roadie-backstage-plugins',
         'roadie-backstage-plugins/plugins/http-request',
         true,
       ),
-      'plugins/http-request',
-    );
-    assert.equal(
-      packageDirInSource('topology', 'topology/plugins/topology', false),
+    ).toBe('plugins/http-request');
+    expect(packageDirInSource('topology', 'topology/plugins/topology', false)).toBe(
       'workspaces/topology/plugins/topology',
     );
   });
@@ -138,18 +135,18 @@ describe('proposeSourceJsonUpdates', () => {
         [`${NEW_SHA}/plugins/`]: '5.9.0',
       }),
       npmGitHead: (name, version) => {
-        assert.equal(name, pkg);
-        assert.equal(version, '5.9.0');
+        expect(name).toBe(pkg);
+        expect(version).toBe('5.9.0');
         return NEW_SHA;
       },
       gitLogSha: () => null,
     });
-    assert.deepEqual(skips, []);
-    assert.equal(proposals.length, 1);
-    assert.equal(proposals[0].workspace, ws);
-    assert.equal(proposals[0].oldRef, OLD_SHA);
-    assert.equal(proposals[0].newRef, NEW_SHA);
-    assert.equal(proposals[0].reason, 'stale-pin');
+    expect(skips).toEqual([]);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].workspace).toBe(ws);
+    expect(proposals[0].oldRef).toBe(OLD_SHA);
+    expect(proposals[0].newRef).toBe(NEW_SHA);
+    expect(proposals[0].reason).toBe('stale-pin');
   });
 
   it('skips image-lag when the pin already matches the requested version', () => {
@@ -178,8 +175,8 @@ describe('proposeSourceJsonUpdates', () => {
       npmGitHead: () => NEW_SHA,
       gitLogSha: () => null,
     });
-    assert.deepEqual(proposals, []);
-    assert.ok(skips.some((s) => s.includes('image-lag')));
+    expect(proposals).toEqual([]);
+    expect(skips.some((s) => s.includes('image-lag'))).toBe(true);
   });
 
   it('rewrites a package-tag repo-ref', () => {
@@ -212,8 +209,8 @@ describe('proposeSourceJsonUpdates', () => {
       npmGitHead: () => null,
       gitLogSha: () => null,
     });
-    assert.deepEqual(skips, []);
-    assert.equal(proposals[0].newRef, `${pkg}@1.6.0`);
+    expect(skips).toEqual([]);
+    expect(proposals[0].newRef).toBe(`${pkg}@1.6.0`);
   });
 
   it('skips when a new ref cannot be resolved', () => {
@@ -242,8 +239,8 @@ describe('proposeSourceJsonUpdates', () => {
       npmGitHead: () => null,
       gitLogSha: () => null,
     });
-    assert.deepEqual(proposals, []);
-    assert.ok(skips.some((s) => s.includes('could not resolve')));
+    expect(proposals).toEqual([]);
+    expect(skips.some((s) => s.includes('could not resolve'))).toBe(true);
   });
 
   it('applies repo-ref updates to source.json', () => {
@@ -268,8 +265,8 @@ describe('proposeSourceJsonUpdates', () => {
     const data = JSON.parse(
       readFileSync(path.join(overlays, 'workspaces', ws, 'source.json'), 'utf8'),
     );
-    assert.equal(data['repo-ref'], NEW_SHA);
-    assert.equal(data['repo-backstage-version'], '1.55.2');
+    expect(data['repo-ref']).toBe(NEW_SHA);
+    expect(data['repo-backstage-version']).toBe('1.55.2');
   });
 
   it('CLI --json with empty trees exits 0', () => {
@@ -283,6 +280,6 @@ describe('proposeSourceJsonUpdates', () => {
       path.join(root, 'plugin_builds'),
       '--json',
     ]);
-    assert.equal(rc, 0);
+    expect(rc).toBe(0);
   });
 });

@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "scripts": {
-    "test:source-json": "node --test --experimental-strip-types tests/proposeSourceJsonUpdates.test.ts"
+    "test:source-json": "vp test tests/proposeSourceJsonUpdates.test.ts"
   },
   "devDependencies": {
     "vite-plus": "catalog:"
