@@ -1,8 +1,12 @@
 import { Page, Locator } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 export const ORCHESTRATOR_COMPONENTS = {
+  // Prefer the list tab role — getByText().last() misses the NFS tab label
+  // and can time out even when "Workflows (0)" is on screen.
   workflowsHeading: (page: Page): Locator =>
-    page.getByText(/Workflows \(\d+\)/).last(),
+    page
+      .getByRole("tab", { name: /Workflows \(\d+\)/ })
+      .or(page.getByText(/Workflows \(\d+\)/).last()),
   workflowLink: (page: Page, workflowName: string | RegExp): Locator =>
     page.getByRole("link", { name: workflowName }),
   runButton: (page: Page): Locator =>

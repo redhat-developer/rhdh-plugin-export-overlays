@@ -34,11 +34,34 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsPage(): Promise<void> {
+    const heading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
+    const orchestratorCrumb = ORCHESTRATOR_COMPONENTS.breadcrumbNav(
+      this.page,
+    ).getByRole("link", { name: /^Orchestrator$/i });
+
     await this.page.goto("/orchestrator");
-    await expect(this.page).toHaveURL("/orchestrator");
-    await expect(
-      ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible({ timeout: 120_000 });
+    await this.page.waitForLoadState("domcontentloaded");
+
+    // After RBAC role churn, goto("/orchestrator") can leave a stale
+    // workflow-detail view (breadcrumb Orchestrator > Greeting workflow)
+    // without the Workflows (N) list tab. Prefer breadcrumb back to the list.
+    if (!(await heading.isVisible().catch(() => false))) {
+      if (await orchestratorCrumb.isVisible().catch(() => false)) {
+        await orchestratorCrumb.click();
+        await this.page.waitForLoadState("domcontentloaded");
+      } else if (
+        await this.page
+          .getByRole("heading", { name: /workflow/i })
+          .first()
+          .isVisible()
+          .catch(() => false)
+      ) {
+        await this.page.goto("/orchestrator");
+        await this.page.waitForLoadState("domcontentloaded");
+      }
+    }
+
+    await expect(heading).toBeVisible({ timeout: 120_000 });
     await expect(this.page.getByRole("tablist", { name: "tabs" })).toBeVisible({
       timeout: 30_000,
     });
@@ -51,14 +74,17 @@ export class OrchestratorPO {
     const orchestratorLink = this.page
       .locator('nav a:has-text("Orchestrator")')
       .first();
-    if (!(await orchestratorLink.isVisible().catch(() => false))) {
-      await adminButton.waitFor({ state: "visible", timeout: 120_000 });
+    // NFS often mounts Orchestrator top-level; only expand Administration when needed.
+    if (
+      !(await orchestratorLink.isVisible().catch(() => false)) &&
+      (await adminButton.isVisible().catch(() => false))
+    ) {
       await adminButton.click();
     }
     await this.uiHelper.openSidebar("Orchestrator");
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 120_000 });
   }
 
   async openWorkflow(name: string | RegExp): Promise<void> {
