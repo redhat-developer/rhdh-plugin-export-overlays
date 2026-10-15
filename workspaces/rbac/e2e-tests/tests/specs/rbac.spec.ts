@@ -459,10 +459,12 @@ test.describe("RBAC plugin", () => {
       await expect(unregisterUserOwned).toBeEnabled();
 
       await page.getByRole("menuitem", { name: "Unregister entity" }).click();
-      await expect(page.getByRole("dialog")).toContainText(
-        "Are you sure you want to unregister this entity?",
-      );
-      await page.getByRole("button", { name: "Cancel" }).click();
+      // The More actions menu stays open as its own dialog.
+      const unregisterDialog = page.getByRole("dialog", {
+        name: "Are you sure you want to unregister this entity?",
+      });
+      await expect(unregisterDialog).toBeVisible();
+      await unregisterDialog.getByRole("button", { name: "Cancel" }).click();
 
       await uiHelper.openSidebar("Catalog");
       await page
