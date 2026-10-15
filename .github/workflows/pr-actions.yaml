@@ -688,6 +688,9 @@ jobs:
           MISSING_METADATA_PLUGINS: ${{ needs.prepare_smoke_tests.outputs.missing-metadata-plugins || '' }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
         with:
           script: |
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
@@ -698,6 +701,9 @@ jobs:
             const missingMetadataPlugins = (process.env.MISSING_METADATA_PLUGINS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
+            const overlayRepo = process.env.OVERLAY_REPO || '';
+            const overlayBranch = process.env.OVERLAY_BRANCH || '';
+            const workspace = process.env.WORKSPACE || '';
 
             const nativeResult = process.env.NATIVE_RESULT || '';
             const success = smokeTestsResult === 'success' && successOutput === 'true';
@@ -777,6 +783,20 @@ jobs:
             let body;
             if (success) {
               body = `:white_check_mark: [Smoke tests workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
+              if (overlayRepo && workspace) {
+                const [repoOwner, repoName] = overlayRepo.split('/');
+                try {
+                  await github.rest.repos.getContent({
+                    owner: repoOwner,
+                    repo: repoName,
+                    path: `${workspace}/e2e-tests/package.json`,
+                    ref: overlayBranch,
+                  });
+                  body += '\nRunning e2e tests\n/test e2e-ocp-helm';
+                } catch {
+                  body += '\nNo E2E tests available for this workspace.';
+                }
+              }
             } else {
               body = `:x: \n[Smoke tests workflow](${runUrl}) failed.\n\n:warning: ${failureReason}`;
               if (failed) {
