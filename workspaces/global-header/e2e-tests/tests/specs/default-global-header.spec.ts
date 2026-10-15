@@ -60,8 +60,9 @@ test.describe("Default Global Header", () => {
     uiHelper,
   }) => {
     await uiHelper.clickLink({ ariaLabel: "Self-service" });
+    const globalHeader = page.getByRole("navigation").first();
     await expect(
-      page.getByRole("link", { name: "Self-service" }),
+      globalHeader.getByRole("link", { name: "Self-service" }),
     ).toBeVisible();
   });
 
