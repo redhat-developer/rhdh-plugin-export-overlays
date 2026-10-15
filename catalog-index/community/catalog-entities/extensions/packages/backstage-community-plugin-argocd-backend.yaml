@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-argocd-backend"
   # Tag: bs_1.54.9__1.7.2
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend@sha256:0a1a05a6a2ea44f14794134cf57a89dfaa7678250cd02553d138d69651c382bb"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend@sha256:7eb3c676ce6763bc8266f896c494facce7e7d5c90adbc4a0d100d8ff1c04e1a1"
   version: 1.7.2
   backstage:
     role: backend-plugin

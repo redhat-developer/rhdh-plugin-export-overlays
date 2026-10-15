@@ -15,10 +15,10 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
   tags: []
 spec:
-  packageName: '@backstage-community/plugin-rbac'
-  # Tag: bs_1.54.9__2.3.1, Build date: 2026-06-03T21:19:15Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:800bca9230cb43bc95c98e8bbeac2fb3d1a46eaf42073a779fbecea850bca066"
-  version: 2.3.1
+  packageName: "@backstage-community/plugin-rbac"
+  # Tag: bs_1.54.9__2.3.4, Build date: 2026-06-03T21:19:15Z
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:39b25620cced6034410491cbb206e612095473cdcc0247386589195b08ffe278"
+  version: 2.3.4
   backstage:
     role: frontend-plugin
     supportedVersions: 1.54.9
