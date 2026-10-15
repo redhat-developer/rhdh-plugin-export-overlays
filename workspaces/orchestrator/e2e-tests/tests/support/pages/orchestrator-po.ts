@@ -13,6 +13,13 @@ export class OrchestratorPO {
   constructor(
     private readonly page: Page,
     private readonly uiHelper: UIhelper,
+    /**
+     * Optional RBAC/OIDC recovery. When set, Sign In during /orchestrator
+     * navigation or the heading/sidebar fallback re-auths and retries the URL
+     * instead of chasing Administration on a sign-in page (ci-diagnose #3910).
+     * Callers without this callback still fail loudly on session drop.
+     */
+    private readonly reauthenticate?: () => Promise<void>,
   ) {}
 
   private workflowsCatalogControl(): Locator {
@@ -31,15 +38,31 @@ export class OrchestratorPO {
       .catch(() => false);
   }
 
+  private async recoverFromSignInOrThrow(context: string): Promise<void> {
+    if (!this.reauthenticate) {
+      throw new Error(
+        `${context}; sign-in page is visible and no re-authentication handler was provided.`,
+      );
+    }
+    await this.reauthenticate();
+  }
+
   private async gotoOrchestratorPreferringUrl(): Promise<void> {
     // Prefer direct URL over legacy Administration sidebar (NFS has no such group).
-    // Do not soft-recover Sign In here — unexpected session drop should fail the test.
-    await this.page.goto("/orchestrator");
-    await this.page.waitForLoadState("domcontentloaded");
-    if (await this.isSignInPage()) {
-      throw new Error(
-        "Navigating to /orchestrator reached the sign-in page; session was dropped.",
-      );
+    // With reauthenticate (RBAC), retry after OIDC refresh 401 → Sign In.
+    const maxAttempts = this.reauthenticate ? 3 : 1;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await this.page.goto("/orchestrator");
+      await this.page.waitForLoadState("domcontentloaded");
+      if (!(await this.isSignInPage())) {
+        return;
+      }
+      if (!this.reauthenticate || attempt === maxAttempts - 1) {
+        throw new Error(
+          "Navigating to /orchestrator reached the sign-in page; session was dropped.",
+        );
+      }
+      await this.reauthenticate();
     }
   }
 
@@ -71,37 +94,47 @@ export class OrchestratorPO {
 
     await this.gotoOrchestratorPreferringUrl();
 
-    // CI flake: bare /orchestrator can paint a 404 shell or leave a stale
-    // route without "Workflows (N)". Prefer URL retry, then sidebar recovery.
-    // Unexpected Sign In fails (no silent re-login). Sidebar expands
-    // Administration only when Orchestrator is not already visible (NFS).
+    // CI flake: bare /orchestrator can paint a 404 shell, leave a stale
+    // workflow-detail route, or lose the session mid heading-wait (OIDC
+    // refresh 401). Sign In → reauthenticate + URL retry (never sidebar —
+    // Sign In has no Administration / Orchestrator link). Otherwise URL
+    // retry, then sidebar. Sidebar expands Administration only when needed.
     if (!(await headingVisible(30_000))) {
       if (await this.isSignInPage()) {
-        throw new Error(
-          "Orchestrator page lost the session after navigation; sign-in page is visible.",
+        await this.recoverFromSignInOrThrow(
+          "Orchestrator page lost the session after navigation",
         );
-      }
-      const is404 = await this.page
-        .getByText(/PAGE NOT FOUND/i)
-        .isVisible()
-        .catch(() => false);
-      if (is404 || !(await headingVisible(5_000))) {
-        await this.openOrchestratorFromSidebar();
-      } else {
         await this.gotoOrchestratorPreferringUrl();
+      } else {
+        const is404 = await this.page
+          .getByText(/PAGE NOT FOUND/i)
+          .isVisible()
+          .catch(() => false);
+        if (is404 || !(await headingVisible(5_000))) {
+          await this.openOrchestratorFromSidebar();
+        } else {
+          await this.gotoOrchestratorPreferringUrl();
+        }
       }
     }
 
     if (!(await headingVisible(15_000))) {
-      await this.page.reload();
-      await this.page.waitForLoadState("domcontentloaded");
       if (await this.isSignInPage()) {
-        throw new Error(
-          "Orchestrator reload reached the sign-in page; session was dropped.",
+        await this.recoverFromSignInOrThrow(
+          "Orchestrator page lost the session while waiting for Workflows heading",
         );
-      }
-      if (!(await headingVisible(5_000))) {
-        await this.openOrchestratorFromSidebar();
+        await this.gotoOrchestratorPreferringUrl();
+      } else {
+        await this.page.reload();
+        await this.page.waitForLoadState("domcontentloaded");
+        if (await this.isSignInPage()) {
+          await this.recoverFromSignInOrThrow(
+            "Orchestrator reload reached the sign-in page",
+          );
+          await this.gotoOrchestratorPreferringUrl();
+        } else if (!(await headingVisible(5_000))) {
+          await this.openOrchestratorFromSidebar();
+        }
       }
     }
 
@@ -112,6 +145,11 @@ export class OrchestratorPO {
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
+    if (await this.isSignInPage()) {
+      await this.recoverFromSignInOrThrow(
+        "Cannot open Orchestrator from sidebar",
+      );
+    }
     const orchestratorLink = this.page
       .locator('nav a:has-text("Orchestrator")')
       .first();

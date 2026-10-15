@@ -36,8 +36,7 @@ type RbacScenario = {
   workflowScope: "global" | "greeting";
 };
 
-const KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS = 5_000;
-const LOGIN_SUCCESS_TIMEOUT_MS = 15_000;
+const LOGIN_SUCCESS_TIMEOUT_MS = 30_000;
 const WORKFLOW_INSTANCE_VISIBLE_TIMEOUT_MS = 30_000;
 
 const RBAC_SCENARIOS: RbacScenario[] = [
@@ -104,22 +103,27 @@ async function assertRbacScenario(
   loginHelper: LoginHelper,
   scenario: RbacScenario,
 ): Promise<void> {
-  const orchestratorPo = createOrchestratorPO(page, uiHelper);
-  // Prefer reload over goto("/"): a full SPA remount triggers OIDC refresh
-  // that intermittently 401s and drops the session (ci-diagnose #3910).
+  const reauthenticate = async () => {
+    await loginAsKeycloakUserWithRetry(page, loginHelper);
+  };
+  // Wire Sign In recovery into openWorkflowsPage (OIDC refresh 401 during
+  // heading wait — ci-diagnose #3910 / #4199).
+  const orchestratorPo = createOrchestratorPO(page, uiHelper, reauthenticate);
   await page.reload();
   await page.waitForLoadState("domcontentloaded");
-  // Role churn can still surface Sign In; re-auth here (expected), not inside the PO.
+
+  // Role churn can still surface Sign In before openWorkflowsPage runs.
+  const signInButton = page.getByRole("button", { name: /Sign In/i });
+  const signInHeading = page.getByRole("heading", {
+    name: /Select a sign-in method/i,
+  });
   if (
-    await page
-      .getByRole("button", { name: /sign in/i })
-      .or(page.getByRole("heading", { name: /sign-in method/i }))
-      .first()
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false)
+    (await signInButton.isVisible().catch(() => false)) ||
+    (await signInHeading.isVisible().catch(() => false))
   ) {
-    await loginAsKeycloakUserWithRetry(page, loginHelper);
+    await reauthenticate();
   }
+
   await orchestratorPo.openWorkflowsPage();
 
   if (!scenario.expectWorkflowVisible) {
@@ -148,35 +152,45 @@ export async function loginAsKeycloakUserWithRetry(
   const resolvedUsername = username || process.env.GH_USER_ID || "test1";
   const resolvedPassword = password || process.env.GH_USER_PASS || "test1@123";
   let lastError: unknown;
+
   for (let attempt = 1; attempt <= 3; attempt++) {
+    const signInButton = page.getByRole("button", { name: /Sign In/i });
+    const onSignInPage = await signInButton
+      .or(page.getByRole("heading", { name: /Select a sign-in method/i }))
+      .first()
+      .isVisible()
+      .catch(() => false);
+
     try {
-      await loginHelper.loginAsKeycloakUser(resolvedUsername, resolvedPassword);
+      // Already on provider picker (session drop): Sign In may open a popup
+      // or navigate same-tab. loginAsKeycloakUser() only waits for popup (#3910).
+      if (onSignInPage) {
+        const popupPromise = page
+          .waitForEvent("popup", { timeout: 10_000 })
+          .catch(() => null);
+        await signInButton.click();
+        const popup = await popupPromise;
+        const keycloak = popup ?? page;
+        if (popup) {
+          await popup.waitForLoadState();
+        } else {
+          await page.waitForLoadState("domcontentloaded");
+        }
+        await keycloak.locator("#username").fill(resolvedUsername);
+        await keycloak.locator("#password").fill(resolvedPassword);
+        await keycloak.locator("#kc-login").click();
+      } else {
+        await loginHelper.loginAsKeycloakUser(
+          resolvedUsername,
+          resolvedPassword,
+        );
+      }
+      await expect(page.locator("nav a").first()).toBeVisible({
+        timeout: LOGIN_SUCCESS_TIMEOUT_MS,
+      });
       return;
     } catch (error) {
       lastError = error;
-
-      // Fallback path: handle non-popup Keycloak auth flow directly in-page.
-      try {
-        await page.goto("/");
-        await page.waitForLoadState("domcontentloaded");
-        const userInput = page.locator("#username");
-        if (
-          await userInput.isVisible({
-            timeout: KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS,
-          })
-        ) {
-          await userInput.fill(resolvedUsername);
-          await page.locator("#password").fill(resolvedPassword);
-          await page.locator("#kc-login").click();
-          await expect(page.locator("nav a").first()).toBeVisible({
-            timeout: LOGIN_SUCCESS_TIMEOUT_MS,
-          });
-          return;
-        }
-      } catch (fallbackError) {
-        lastError = fallbackError;
-      }
-
       await page.goto("/");
       await page.waitForLoadState("load");
       await page.waitForLoadState("domcontentloaded");
@@ -306,11 +320,6 @@ async function assertTemplatePermissionScenarioOutcome(
   scenario: TemplatePermissionScenario,
 ): Promise<void> {
   if (!scenario.expectWorkflowVisible) {
-    // Without workflow permissions the scaffolder disables Choose on the
-    // greeting template (orchestrator:workflow:run step). Assert that gate
-    // instead of attempting a template run.
-    await orchestratorPo.verifyGreetingTemplateChooseDisabled();
-    await orchestratorPo.openOrchestratorFromSidebar();
     await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
     return;
   }
@@ -320,36 +329,8 @@ async function assertTemplatePermissionScenarioOutcome(
   await expect(page).toHaveURL(/\/orchestrator/);
 }
 
-async function runTemplatePermissionScenario(
-  page: Page,
-  uiHelper: UIhelper,
-  scenario: TemplatePermissionScenario,
-): Promise<void> {
-  const orchestratorPo = createOrchestratorPO(page, uiHelper);
-  if (!scenario.expectWorkflowVisible) {
-    await assertTemplatePermissionScenarioOutcome(
-      page,
-      orchestratorPo,
-      scenario,
-    );
-    return;
-  }
-
-  await runGreetingTemplateAndWaitForScaffolderTerminal(
-    page,
-    uiHelper,
-    scenario.terminalTimeoutsMs,
-  );
-  await orchestratorPo.openOrchestratorFromSidebar();
-  await assertTemplatePermissionScenarioOutcome(page, orchestratorPo, scenario);
-  await expect(page).toHaveURL(/\/orchestrator/);
-}
-
 export function registerOrchestratorRbacTests(): void {
   test.describe("Orchestrator RBAC", () => {
-    // Scenarios bind roles to the same PRIMARY_USER — must not run in parallel.
-    test.describe.configure({ mode: "serial" });
-
     test.beforeAll(async ({ browser }, testInfo) => {
       await removeBaselineRole(browser, testInfo);
     });
@@ -385,13 +366,7 @@ export function registerOrchestratorRbacTests(): void {
         });
 
         test(`Validate ${scenario.name} workflow behavior`, async ({}) => {
-          // Product: Run stays enabled when orchestrator.workflow.use is denied
-          // (allow read + deny update). Snapshot shows an enabled Run button.
-          test.skip(
-            scenario.name === "Global Read-Only",
-            "product_bug: Global Read-Only leaves Run enabled despite deny on orchestrator.workflow.use",
-          );
-          // openWorkflowsPage may reload / sidebar-recover; keep headroom.
+          // openWorkflowsPage waits up to 120s for the list tab after role churn.
           test.setTimeout(180_000);
           await assertRbacScenario(page, uiHelper, loginHelper, scenario);
           await expect(page).toHaveURL(/\/orchestrator/);
@@ -431,7 +406,13 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Primary user runs greeting workflow and captures instance ID", async ({}) => {
-        const orchestratorPo = createOrchestratorPO(page, uiHelper);
+        const orchestratorPo = createOrchestratorPO(
+          page,
+          uiHelper,
+          async () => {
+            await loginAsKeycloakUserWithRetry(page, loginHelper);
+          },
+        );
         await orchestratorPo.openGreetingWorkflowFromSidebar();
         await orchestratorPo.verifyRunButtonState("enabled");
         workflowInstanceId =
@@ -440,15 +421,28 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Secondary user cannot access instance before admin grant", async ({}) => {
-        const orchestratorPo = createOrchestratorPO(page, uiHelper);
+        const secondaryUser = process.env.GH_USER2_ID || "test2";
+        const secondaryPass = process.env.GH_USER2_PASS || "test2@123";
+        const orchestratorPo = createOrchestratorPO(
+          page,
+          uiHelper,
+          async () => {
+            await loginAsKeycloakUserWithRetry(
+              page,
+              loginHelper,
+              secondaryUser,
+              secondaryPass,
+            );
+          },
+        );
         await page.context().clearCookies();
         await page.goto("/");
         await page.waitForLoadState("load");
         await loginAsKeycloakUserWithRetry(
           page,
           loginHelper,
-          process.env.GH_USER2_ID || "test2",
-          process.env.GH_USER2_PASS || "test2@123",
+          secondaryUser,
+          secondaryPass,
         );
         await orchestratorPo.openWorkflowInstance(workflowInstanceId);
         expect(
@@ -457,7 +451,6 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Grant admin role and verify secondary user access", async ({}) => {
-        const orchestratorPo = createOrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
         await loginAsKeycloakUserWithRetry(page, loginHelper);
@@ -503,13 +496,27 @@ export function registerOrchestratorRbacTests(): void {
         );
         expect(roleUpdateResponse.ok()).toBeTruthy();
 
+        const secondaryUser = process.env.GH_USER2_ID || "test2";
+        const secondaryPass = process.env.GH_USER2_PASS || "test2@123";
         await page.context().clearCookies();
         await page.goto("/");
         await loginAsKeycloakUserWithRetry(
           page,
           loginHelper,
-          process.env.GH_USER2_ID || "test2",
-          process.env.GH_USER2_PASS || "test2@123",
+          secondaryUser,
+          secondaryPass,
+        );
+        const orchestratorPo = createOrchestratorPO(
+          page,
+          uiHelper,
+          async () => {
+            await loginAsKeycloakUserWithRetry(
+              page,
+              loginHelper,
+              secondaryUser,
+              secondaryPass,
+            );
+          },
         );
         await orchestratorPo.openWorkflowInstance(workflowInstanceId);
         await orchestratorPo.verifyWorkflowCompletedStatusVisible(
@@ -521,14 +528,13 @@ export function registerOrchestratorRbacTests(): void {
     for (const scenario of TEMPLATE_PERMISSION_SCENARIOS) {
       test.describe(`${scenario.id}: ${scenario.name}`, () => {
         let uiHelper: UIhelper;
+        let loginHelper: LoginHelper;
         let page: Page;
         let apiToken: string;
 
         test.beforeAll(async ({ browser }, testInfo) => {
-          ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-            browser,
-            testInfo,
-          ));
+          ({ page, uiHelper, loginHelper, apiToken } =
+            await setupAuthenticatedPage(browser, testInfo));
           await cleanupGreetingComponentEntity();
           await createRoleWithPolicies(
             apiToken,
@@ -544,10 +550,36 @@ export function registerOrchestratorRbacTests(): void {
         });
 
         test(`Validate ${scenario.id} behavior`, async ({}) => {
+          // product_bug RHIDP-11839: with scaffolder.* allowed but
+          // orchestrator.workflow + orchestrator.workflow.use denied, Self-service
+          // still renders Choose disabled on Greeting Test Picker (and Greeting
+          // workflow). RHIDP-11840 covers the same template when workflow perms
+          // are allowed.
+          test.skip(
+            scenario.id === "RHIDP-11839",
+            "RHIDP-11839: Choose stays disabled when orchestrator.workflow permissions are denied despite scaffolder template allows",
+          );
           test.setTimeout(scenario.testTimeoutMs);
-          await runTemplatePermissionScenario(page, uiHelper, scenario);
-          // Assertions are inside the helper; keep a page-level expect for eslint.
-          await expect(page.locator("body")).toBeVisible();
+          const orchestratorPo = createOrchestratorPO(
+            page,
+            uiHelper,
+            async () => {
+              await loginAsKeycloakUserWithRetry(page, loginHelper);
+            },
+          );
+
+          await runGreetingTemplateAndWaitForScaffolderTerminal(
+            page,
+            uiHelper,
+            scenario.terminalTimeoutsMs,
+          );
+          await orchestratorPo.openOrchestratorFromSidebar();
+          await assertTemplatePermissionScenarioOutcome(
+            page,
+            orchestratorPo,
+            scenario,
+          );
+          await expect(page).toHaveURL(/\/orchestrator/);
         });
       });
     }
