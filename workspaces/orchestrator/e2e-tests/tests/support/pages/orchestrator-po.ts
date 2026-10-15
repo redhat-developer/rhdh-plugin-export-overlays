@@ -44,6 +44,44 @@ export class OrchestratorPO {
     });
   }
 
+  /**
+   * Navigate to /orchestrator and detect the landing state.
+   *
+   * Restricted RBAC permissions change what the route renders:
+   * - Full access: workflow list with "Workflows (N)" heading.
+   * - Read-only (single workflow visible): auto-redirects to the
+   *   workflow detail page (breadcrumb "Orchestrator > ...").
+   * - Denied: redirects to the OIDC sign-in page.
+   */
+  async navigateToOrchestrator(): Promise<"list" | "detail" | "denied"> {
+    await this.page.goto("/orchestrator");
+    await this.page.waitForLoadState("domcontentloaded");
+
+    // If the URL no longer contains /orchestrator, the session was
+    // redirected (e.g. to the OIDC sign-in page).
+    if (!this.page.url().includes("/orchestrator")) {
+      return "denied";
+    }
+
+    // Wait for either the workflow list heading or the detail-page
+    // breadcrumb. The sign-in form covers the case where the redirect
+    // kept /orchestrator in the URL path (client-side routing).
+    const listHeading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
+    const breadcrumb = ORCHESTRATOR_COMPONENTS.breadcrumbNav(this.page);
+    const signIn = ORCHESTRATOR_COMPONENTS.keycloakSignInButton(this.page);
+
+    const sentinel = listHeading.or(breadcrumb).or(signIn);
+    await expect(sentinel).toBeVisible({ timeout: 30_000 });
+
+    if (await signIn.isVisible()) {
+      return "denied";
+    }
+    if (await listHeading.isVisible()) {
+      return "list";
+    }
+    return "detail";
+  }
+
   async openOrchestratorFromSidebar(): Promise<void> {
     const adminButton = this.page
       .getByRole("button", { name: "Administration" })

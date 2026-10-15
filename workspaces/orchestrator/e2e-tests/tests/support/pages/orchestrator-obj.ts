@@ -51,4 +51,6 @@ export const ORCHESTRATOR_COMPONENTS = {
   /** Event-started instance without ownership — proves Run as Event produced a run id. */
   eventInstanceAccessDenied: (page: Page): Locator =>
     page.getByText(/Access denied for instance `[0-9a-f-]{36}`/i),
+  /** Keycloak sign-in form — visible when access is denied and the session redirects to OIDC. */
+  keycloakSignInButton: (page: Page): Locator => page.locator("#kc-login"),
 };
