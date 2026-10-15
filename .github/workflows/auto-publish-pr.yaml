@@ -5,6 +5,10 @@ on:
       pr-number:
         type: string
         required: true
+    outputs:
+      published-exports:
+        description: Published exports list
+        value: ${{ jobs.export.outputs.published-exports }}
 
 jobs:
   prepare:
