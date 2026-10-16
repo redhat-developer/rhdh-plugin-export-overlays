@@ -54,6 +54,7 @@ describe("ActionExecutor", () => {
     number: 2525,
     title: "fix(homepage): update homepage frontend and backend",
     headRef: "homepage/update-main",
+    headSha: "2525sha123",
     baseRef: "main",
     labels: ["workspace-update"],
     author: "app/github-actions",

@@ -9,6 +9,7 @@ export interface PullRequestSummary {
   number: number;
   title: string;
   headRef: string;
+  headSha: string;
   headRepo?: string;
   baseRef: string;
   labels: string[];
