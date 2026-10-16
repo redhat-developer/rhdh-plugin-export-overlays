@@ -25,12 +25,12 @@
 set -euo pipefail
 
 YQ="yq"
-if [ -x "/usr/bin/yq" ] && /usr/bin/yq --version 2>&1 | grep -q "mikefarah"; then
+if [[ -x "/usr/bin/yq" ]] && /usr/bin/yq --version 2>&1 | grep -q "mikefarah"; then
   YQ="/usr/bin/yq"
 fi
 
 WORKSPACE_PATH="${1:-${WORKSPACE_PATH:-}}"
-if [ -z "$WORKSPACE_PATH" ]; then
+if [[ -z "$WORKSPACE_PATH" ]]; then
   echo "Error: WORKSPACE_PATH is required (via argument or env var)" >&2
   exit 1
 fi
@@ -47,18 +47,18 @@ SKIP_TESTS_MISSING_ENV="false"
 MISSING_METADATA_PLUGINS=()
 
 emit_outputs() {
-  if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "has-runnable-plugins=$HAS_RUNNABLE_PLUGINS" >> "$GITHUB_OUTPUT"
     echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
     echo "missing-metadata-plugins<<EOF" >> "$GITHUB_OUTPUT"
-    if [ ${#MISSING_METADATA_PLUGINS[@]} -gt 0 ]; then
+    if [[ ${#MISSING_METADATA_PLUGINS[@]} -gt 0 ]]; then
       printf "%s\n" "${MISSING_METADATA_PLUGINS[@]}" >> "$GITHUB_OUTPUT"
     fi
     echo "EOF" >> "$GITHUB_OUTPUT"
   fi
 }
 
-if [ -z "$PUBLISHED_EXPORTS" ]; then
+if [[ -z "$PUBLISHED_EXPORTS" ]]; then
   EXPORTS_FILE=""
   if [[ -f "./published-exports/published-exports.txt" ]]; then
     EXPORTS_FILE="./published-exports/published-exports.txt"
@@ -72,7 +72,7 @@ if [ -z "$PUBLISHED_EXPORTS" ]; then
   fi
 fi
 
-if [ -z "$PUBLISHED_EXPORTS" ]; then
+if [[ -z "$PUBLISHED_EXPORTS" ]]; then
   echo "No published exports provided."
   emit_outputs
   exit 0
@@ -87,9 +87,9 @@ mkdir -p "$OUT_DIR"
 # Build map of <stripped packageName> -> metadata file path
 declare -A META_MAP
 for file in "$WORKSPACE_PATH"/metadata/*.yaml; do
-  [ -e "$file" ] || continue
+  [[ -e "$file" ]] || continue
   pkg=$("$YQ" -r '.spec.packageName // ""' "$file")
-  if [ -n "$pkg" ] && [ "$pkg" != "null" ]; then
+  if [[ -n "$pkg" && "$pkg" != "null" ]]; then
     stripped=$(echo "$pkg" | sed 's|^@||; s|/|-|')
     META_MAP["$stripped"]="$file"
   fi
@@ -98,12 +98,12 @@ done
 # Always include the root-level default config
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_CONFIG="${GITHUB_WORKSPACE:-$REPO_ROOT}/smoke-tests/app-config.yaml"
-[ -f "$ROOT_CONFIG" ] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
+[[ -f "$ROOT_CONFIG" ]] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
 
 # Read workspace-wide test.env if it exists
 WORKSPACE_ENV_FILE="$WORKSPACE_PATH/smoke-tests/test.env"
 WORKSPACE_ENV_CONTENT=""
-if [ -f "$WORKSPACE_ENV_FILE" ]; then
+if [[ -f "$WORKSPACE_ENV_FILE" ]]; then
   echo "Found workspace test.env file: $WORKSPACE_ENV_FILE"
   WORKSPACE_ENV_CONTENT=$(cat "$WORKSPACE_ENV_FILE")
 else
@@ -121,7 +121,7 @@ for export in $PUBLISHED_EXPORTS; do
     NEW_TAG="${BASH_REMATCH[2]}"                 # <tag>
     PLUGIN_NAME="${IMAGE_PATH_AND_PLUGIN##*/}"
     METADATA_FILE="${META_MAP[$PLUGIN_NAME]:-}"
-    if [ -z "$METADATA_FILE" ]; then
+    if [[ -z "$METADATA_FILE" ]]; then
       # if the name of the plugin ends with -test, it is a test plugin without metadata:
       # skip it without cancelling the test workflow
       if [[ "$PLUGIN_NAME" =~ -test$ ]]; then
@@ -136,7 +136,7 @@ for export in $PUBLISHED_EXPORTS; do
     fi
 
     PACKAGE_NAME=$("$YQ" -r '.spec.packageName' "$METADATA_FILE")
-    if [ -z "$PACKAGE_NAME" ] || [ "$PACKAGE_NAME" = "null" ]; then
+    if [[ -z "$PACKAGE_NAME" || "$PACKAGE_NAME" == "null" ]]; then
       echo "spec.packageName not found in $METADATA_FILE, skipping"
       PLUGINS_SKIPPED_MISSING_METADATA=$((PLUGINS_SKIPPED_MISSING_METADATA + 1))
       MISSING_METADATA_PLUGINS+=("$PLUGIN_NAME")
@@ -150,16 +150,16 @@ for export in $PUBLISHED_EXPORTS; do
 
     # First appConfigExamples item is used for testing
     CONFIG_CONTENT=$("$YQ" -o=yaml '.spec.appConfigExamples[0].content' "$METADATA_FILE" 2>/dev/null || echo "")
-    if [ -z "$CONFIG_CONTENT" ] || [ "$CONFIG_CONTENT" = "null" ]; then
+    if [[ -z "$CONFIG_CONTENT" || "$CONFIG_CONTENT" == "null" ]]; then
       echo "spec.appConfigExamples[0].content not found in $METADATA_FILE: assuming empty config"
       CONFIG_CONTENT=""
     fi
 
     ENV_VARS=$(echo "$CONFIG_CONTENT" | "$YQ" -o=yaml '.dynamicPlugins' 2>/dev/null | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' | sed 's/\${//; s/}//; s/^\$//' | sort -u || true)
 
-    if [ -n "$ENV_VARS" ]; then
+    if [[ -n "$ENV_VARS" ]]; then
       # Config contains environment variables
-      if [ -z "$WORKSPACE_ENV_CONTENT" ]; then
+      if [[ -z "$WORKSPACE_ENV_CONTENT" ]]; then
         echo "::warning::Config for $PLUGIN_NAME contains environment variables but workspace test.env is missing. Tests will be skipped."
         SKIP_TESTS_MISSING_ENV="true"
         PLUGINS_SKIPPED_MISSING_ENV=$((PLUGINS_SKIPPED_MISSING_ENV + 1))
@@ -168,15 +168,15 @@ for export in $PUBLISHED_EXPORTS; do
         # Validate all ENVs are present in workspace test.env
         MISSING_ENVS=()
         while IFS= read -r env_var; do
-          [ -z "$env_var" ] && continue
+          [[ -z "$env_var" ]] && continue
           if ! echo "$WORKSPACE_ENV_CONTENT" | grep -qE "^[[:space:]]*${env_var}[[:space:]]*="; then
             MISSING_ENVS+=("$env_var")
           fi
         done <<< "$ENV_VARS"
 
-        if [ ${#MISSING_ENVS[@]} -gt 0 ]; then
-          echo "::error::Environment variables missing from test.env: ${MISSING_ENVS[*]}"
-          echo "Config for $PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE."
+        if [[ ${#MISSING_ENVS[@]} -gt 0 ]]; then
+          echo "::error::Environment variables missing from test.env: ${MISSING_ENVS[*]}" >&2
+          echo "Config for $PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE." >&2
           exit 1
         fi
       fi
@@ -185,7 +185,7 @@ for export in $PUBLISHED_EXPORTS; do
 
     echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${OCI_TAG}\"" >> "$OUT_FILE"
     echo "  enabled: true" >> "$OUT_FILE"
-    if [ -n "$CONFIG_CONTENT" ]; then
+    if [[ -n "$CONFIG_CONTENT" ]]; then
       echo "  pluginConfig:" >> "$OUT_FILE"
       echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
     fi
@@ -195,17 +195,17 @@ for export in $PUBLISHED_EXPORTS; do
   fi
 done
 
-if [ "$PLUGINS_FOUND" -eq 0 ]; then
+if [[ "$PLUGINS_FOUND" -eq 0 ]]; then
   echo "plugins: []" > "$OUT_FILE"
 else
   HAS_RUNNABLE_PLUGINS="true"
 fi
 
 echo "Plugins: $PLUGINS_FOUND/$TOTAL_PLUGINS processed successfully"
-[ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_METADATA (missing runnable metadata)"
-[ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_ENV (missing test.env)"
-[ "${TEST_PLUGINS_SKIPPED:-0}" -gt 0 ] && echo "Skipped $TEST_PLUGINS_SKIPPED test plugin(s) without metadata"
-if [ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ]; then
+[[ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ]] && echo "Skipped $PLUGINS_SKIPPED_MISSING_METADATA (missing runnable metadata)"
+[[ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ]] && echo "Skipped $PLUGINS_SKIPPED_MISSING_ENV (missing test.env)"
+[[ "${TEST_PLUGINS_SKIPPED:-0}" -gt 0 ]] && echo "Skipped $TEST_PLUGINS_SKIPPED test plugin(s) without metadata"
+if [[ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ]]; then
   echo "Some published plugins were skipped because they do not have runnable metadata."
 fi
 
