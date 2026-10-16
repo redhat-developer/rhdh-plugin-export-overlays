@@ -17,7 +17,7 @@ export type RBACGroup = {
  * Each key describes the scenario the user serves.
  *
  * - rbacAdmin:             RBAC plugin admin; configured as admin in app-config.
- * - noAccess:              No permissions; verifies RBAC sidebar hidden and direct nav blocked.
+ * - noAccess:              No permissions; RHDH 2.1 omits the Administration section, so the RBAC item is hidden.
  * - tara:                  Fixture member used when constructing roles via the UI.
  * - jonathon:              Fixture member used when editing role membership via the UI.
  * - currentUserOwner:      Member of rhdh-qe-2-team. Tests $currentUser: can unregister own
@@ -36,21 +36,21 @@ export type RBACGroup = {
  * - subChildGroupMember:   Member of rhdh-qe-sub-child-team. Tests deep transitive $ownerRefs:
  *                          can read components owned by parent and grandparent groups.
  *
- * Passwords are generated at module-load time using `crypto.randomUUID()` trimmed
- * to 21 characters with hyphens replaced by zeros.  This satisfies typical minimum
- * length and complexity requirements while staying fully random per test run.
- * The rbacAdmin password can be overridden via the `RBAC_ADMIN_PASSWORD` env var
- * so that a stable value can be used in CI where needed.
+ * Passwords are stable across worker restarts. A restart reloads this module;
+ * regenerating passwords would force Keycloak user deletion, which races the
+ * catalog provider and drops the OIDC session. The rbacAdmin password can be
+ * overridden via the `RBAC_ADMIN_PASSWORD` env var.
  */
+const e2ePassword = (username: string): string =>
+  `Rhdh-e2e-${username}-Passw0rd`;
+
 export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
   rbacAdmin: {
     username: "rbac-admin",
     firstName: "RBAC",
     lastName: "Admin",
     email: "rbac-admin@example.com",
-    password:
-      process.env.RBAC_ADMIN_PASSWORD ??
-      crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: process.env.RBAC_ADMIN_PASSWORD ?? e2ePassword("rbac-admin"),
     groups: [],
   },
   noAccess: {
@@ -58,7 +58,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "No",
     lastName: "Access",
     email: "no-access@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("no-access"),
     groups: [],
   },
   tara: {
@@ -66,7 +66,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Tara",
     lastName: "MacGovern",
     email: "tara@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("tara"),
     groups: [],
   },
   jonathon: {
@@ -74,7 +74,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Jonathon",
     lastName: "Page",
     email: "jonathon@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("jonathon"),
     groups: [],
   },
   currentUserOwner: {
@@ -82,7 +82,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Current",
     lastName: "User-Owner",
     email: "current-user-owner@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("current-user-owner"),
     groups: ["rhdh-qe-2-team"],
   },
   conditionalManager: {
@@ -90,7 +90,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Conditional",
     lastName: "Manager",
     email: "conditional-manager@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("conditional-manager"),
     groups: [],
   },
   allowAllowUser: {
@@ -98,7 +98,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Allow",
     lastName: "Allow-User",
     email: "allow-allow-user@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("allow-allow-user"),
     groups: [],
   },
   conditionalAllowUser: {
@@ -106,7 +106,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Conditional",
     lastName: "Allow-User",
     email: "conditional-allow-user@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("conditional-allow-user"),
     groups: [],
   },
   conditionalDenyUser: {
@@ -114,7 +114,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Conditional",
     lastName: "Deny-User",
     email: "conditional-deny-user@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("conditional-deny-user"),
     groups: [],
   },
   childGroupMember: {
@@ -122,7 +122,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Child",
     lastName: "Group-Member",
     email: "child-group-member@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("child-group-member"),
     groups: [],
   },
   subChildGroupMember: {
@@ -130,7 +130,7 @@ export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
     firstName: "Sub-Child",
     lastName: "Group-Member",
     email: "sub-child-group-member@example.com",
-    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    password: e2ePassword("sub-child-group-member"),
     groups: [],
   },
 };

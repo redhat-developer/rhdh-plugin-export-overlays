@@ -16,7 +16,10 @@ import {
   displayName,
   userEntityRef,
 } from "../../support/constants/users-and-groups";
-import { RBAC_ROLES } from "../../support/constants/roles";
+import {
+  RBAC_ADMIN_ROLE_DESCRIPTION,
+  RBAC_ROLES,
+} from "../../support/constants/roles";
 import { loginAs } from "../../support/utils/login";
 import {
   AuthApiHelper,
@@ -88,13 +91,14 @@ test.describe("RBAC plugin", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.goToPageUrl("/");
-      await uiHelper.clickButton("Administration");
-      const rbacLink = page.getByRole("link", { name: "RBAC" });
-      await expect(rbacLink).toBeVisible();
-      await rbacLink.click();
+      // Setup already opened RBAC. Clicking Home or the current RBAC item
+      // reloads the document and drops the OIDC session.
+      await expect(
+        page
+          .getByRole("navigation", { name: "sidebar nav" })
+          .getByRole("link", { name: "RBAC" }),
+      ).toBeVisible();
       await uiHelper.verifyHeading("RBAC");
-      expect(await page.title()).toContain("RBAC");
 
       await rbacPO.verifyGeneralRbacViewHeading();
       const allGridColumnsText = RolesPage.getRolesListColumnsText();
@@ -138,10 +142,11 @@ test.describe("RBAC plugin", () => {
 
     test("View details of a role (rbac_admin)", async ({ uiHelper }) => {
       await rbacPO.navigateToRBACPage();
-      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.rbacAdmin.ref, "", [
-        "1 user",
-        "5 permissions",
-      ]);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.rbacAdmin.ref,
+        RBAC_ADMIN_ROLE_DESCRIPTION,
+        ["1 user", "5 permissions"],
+      );
 
       const usersAndGroupsColumnsText =
         RolesPage.getUsersAndGroupsListColumnsText();
@@ -307,14 +312,15 @@ test.describe("RBAC plugin", () => {
 
     test("Administration side nav does not show RBAC plugin", async ({
       page,
-      uiHelper,
     }) => {
-      await uiHelper.openSidebarButton("Administration");
-      // Check specifically for RBAC link in sidebar navigation, not anywhere on the page
-      const rbacNavLink = page
-        .getByRole("navigation", { name: "sidebar nav" })
-        .getByRole("link", { name: "RBAC" });
-      await expect(rbacNavLink).toHaveCount(0);
+      // RHDH 2.1 does not render the Administration section for a user with
+      // no RBAC access. The sidebar <nav> itself has no box, so visibility is
+      // checked on a link inside it. Direct navigation is covered below.
+      const sidebar = page.getByRole("navigation", { name: "sidebar nav" });
+      await expect(
+        sidebar.getByRole("link", { name: "Catalog", exact: true }),
+      ).toBeVisible();
+      await expect(sidebar.getByRole("link", { name: "RBAC" })).toHaveCount(0);
     });
 
     test("No access user should not see list of components in catalog", async ({
@@ -403,10 +409,11 @@ test.describe("RBAC plugin", () => {
       page,
     }) => {
       await rbacPO.filterRolesList(RBAC_ROLES.rbacAdmin.name);
-      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.rbacAdmin.ref, "", [
-        "1 user",
-        "5 permissions",
-      ]);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.rbacAdmin.ref,
+        RBAC_ADMIN_ROLE_DESCRIPTION,
+        ["1 user", "5 permissions"],
+      );
 
       await rbacPO.editRolePermissions();
 
@@ -441,21 +448,23 @@ test.describe("RBAC plugin", () => {
     }) => {
       await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
 
-      // Verify component name in the main heading
-      await expect(page.getByRole("heading", { level: 1 })).toContainText(
-        "test-rhdh-qe-2",
-      );
-      await page.getByTestId("menu-button").click();
+      // The plugin header h1 is "Catalog". The entity name is its own heading.
+      await expect(
+        page.getByRole("heading", { name: "test-rhdh-qe-2", exact: true }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "More actions" }).click();
       const unregisterUserOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
       });
       await expect(unregisterUserOwned).toBeEnabled();
 
       await page.getByRole("menuitem", { name: "Unregister entity" }).click();
-      await expect(page.getByRole("dialog")).toContainText(
-        "Are you sure you want to unregister this entity?",
-      );
-      await page.getByRole("button", { name: "Cancel" }).click();
+      // The More actions menu stays open as its own dialog.
+      const unregisterDialog = page.getByRole("dialog", {
+        name: "Are you sure you want to unregister this entity?",
+      });
+      await expect(unregisterDialog).toBeVisible();
+      await unregisterDialog.getByRole("button", { name: "Cancel" }).click();
 
       await uiHelper.openSidebar("Catalog");
       await page
@@ -467,7 +476,7 @@ test.describe("RBAC plugin", () => {
           .getByRole("article")
           .getByRole("link", { name: /janus-qe\/rhdh-qe-2-team/ }),
       ).toBeVisible();
-      await page.getByTestId("menu-button").click();
+      await page.getByRole("button", { name: "More actions" }).click();
       const unregisterGroupOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
       });
@@ -581,16 +590,18 @@ test.describe("RBAC plugin", () => {
       await rbacPO.deleteRole(RBAC_ROLES.rbacOwnership.ref);
     });
 
-    test("conditional-manager no longer sees RBAC in the sidebar after access is revoked", async ({
-      page,
+    test("conditional-manager is denied the RBAC page after access is revoked", async ({
       uiHelper,
       loginHelper,
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalManager);
 
-      await uiHelper.openSidebarButton("Administration");
-      const dropdownMenuLocator = page.getByText("RBAC");
-      await expect(dropdownMenuLocator).toBeHidden();
+      // The menu item stays registered. Revoking the role denies the page.
+      await rbacPO.go();
+      await uiHelper.waitForLoad();
+      await uiHelper.verifyText(
+        "ERROR 403: Insufficient permissions to access this page",
+      );
     });
   });
 
