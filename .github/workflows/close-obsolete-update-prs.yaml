@@ -6,6 +6,11 @@ on:
     - cron: '0 8 * * 1'
   workflow_dispatch:
     inputs:
+      base:
+        description: 'Target base branch to evaluate (default: main)'
+        type: string
+        required: false
+        default: 'main'
       dry-run:
         description: 'Preview candidate closures without making changes (default: false)'
         type: boolean
@@ -50,12 +55,13 @@ jobs:
       - name: Detect and close obsolete update PRs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ inputs.base || 'main' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
           PR_NUMBER: ${{ inputs.pr }}
         run: |
           args=(
             --repo "${{ github.repository }}"
-            --base "main"
+            --base "$BASE_BRANCH"
           )
 
           if [[ "$DRY_RUN" == "true" ]]; then

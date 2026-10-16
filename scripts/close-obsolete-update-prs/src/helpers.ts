@@ -5,10 +5,18 @@
  * you may not use this file except in compliance with the License.
  */
 
+/**
+ * Narrows a parsed JSON or YAML value to a plain mapping object (non-null, non-array).
+ */
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Safely reads a property from an error or unknown object without unsafe type casting.
+ * Node and third-party libraries attach extra properties (such as 'status' or 'code')
+ * to Error instances that are not declared on the base Error interface.
+ */
 export function errorProperty(error: unknown, key: string): unknown {
   if (typeof error !== "object" || error === null || !(key in error)) {
     return undefined;
@@ -25,8 +33,10 @@ export function trimTrailingSlashes(url: string): string {
 }
 
 /**
- * Sanitizes input strings before logging to prevent log injection (CWE-117 / S5145).
- * Replaces newlines, carriage returns, and control characters with a safe space.
+ * Sanitizes input strings before logging to prevent log injection (CWE-117 / S5145)
+ * and GitHub Actions workflow command injection.
+ * Replaces newlines, carriage returns, and percent-encoded newlines with a safe space,
+ * and neutralizes GHA '::' command tokens.
  */
 export function sanitizeLog(text: string | number | undefined | null): string {
   if (text === null || text === undefined) {
@@ -34,6 +44,8 @@ export function sanitizeLog(text: string | number | undefined | null): string {
   }
   return String(text)
     .replace(/[\r\n]/g, " ")
+    .replace(/%(?:0a|0d|0A|0D)/g, " ")
+    .replaceAll("::", ": :")
     .trim();
 }
 

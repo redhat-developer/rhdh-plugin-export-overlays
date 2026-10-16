@@ -28,10 +28,14 @@ export class ActionExecutor {
       })
       .join("\n");
 
+    const workspaceLine = verdict.workspaceName
+      ? `\n**Workspace:** \`${verdict.workspaceName}\`\n`
+      : "";
+
     return `### Obsolete Plugin Update Pull Request
 
 This automated pull request is obsolete and has been superseded by newer releases upstream:
-
+${workspaceLine}
 | Package | Requested in PR | Latest Available | Status | Note |
 |---|---|---|---|---|
 ${tableRows}

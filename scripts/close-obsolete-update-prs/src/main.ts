@@ -35,7 +35,7 @@ function logError(message: string): void {
 }
 
 function printHelp(): void {
-  logInfo(`
+  console.log(`
 Usage: close-obsolete-update-prs [options]
 
 Options:
@@ -113,7 +113,7 @@ export async function run(options: DetectorOptions): Promise<PRVerdict[]> {
   const githubClient = new GitHubClient(options.token);
   const npmClient = new NpmClient(options.npmRegistry);
   const analyzer = new WorkspaceAnalyzer(githubClient);
-  const detector = new ObsoleteDetector(npmClient, githubClient);
+  const detector = new ObsoleteDetector(npmClient);
   const executor = new ActionExecutor(githubClient);
 
   const ctx: ExecutionContext = {
@@ -134,7 +134,27 @@ export async function run(options: DetectorOptions): Promise<PRVerdict[]> {
     options.prNumber,
   );
 
-  const verdicts = await Promise.all(prsToEvaluate.map((pr) => processCandidatePr(pr, ctx)));
+  const results = await Promise.allSettled(prsToEvaluate.map((pr) => processCandidatePr(pr, ctx)));
+  const verdicts: PRVerdict[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const res = results[i];
+    const pr = prsToEvaluate[i];
+    if (!res || !pr) continue;
+    if (res.status === "fulfilled") {
+      verdicts.push(res.value);
+    } else {
+      logError(`Failed to process PR #${sanitizeNumber(pr.number)}: ${res.reason}`);
+      verdicts.push({
+        pr,
+        isCandidate: false,
+        skipReason: `Processing error: ${res.reason}`,
+        isObsolete: false,
+        comparisons: [],
+        actionTaken: "skipped",
+      });
+    }
+  }
 
   printSummary(verdicts, options);
   writeStepSummary(verdicts, options);
@@ -242,7 +262,8 @@ function printSummary(verdicts: PRVerdict[], options: DetectorOptions): void {
     for (const v of obsolete) {
       const mode = options.dryRun ? "[WOULD CLOSE]" : "[CLOSED]";
       const safeNumber = sanitizeNumber(v.pr.number);
-      logInfo(`  - ${mode} PR #${safeNumber}: ${v.pr.title}`);
+      const ws = v.workspaceName ? `[${v.workspaceName}] ` : "";
+      logInfo(`  - ${mode} ${ws}PR #${safeNumber}: ${v.pr.title}`);
       if (v.reason) {
         logInfo(`      Reason: ${v.reason}`);
       }
@@ -267,13 +288,14 @@ function writeStepSummary(verdicts: PRVerdict[], options: DetectorOptions): void
 
   if (obsolete.length > 0) {
     md += `### Obsolete Pull Requests\n\n`;
-    md += `| PR | Title | Action | Details |\n`;
-    md += `|---|---|---|---|\n`;
+    md += `| PR | Workspace | Title | Action | Details |\n`;
+    md += `|---|---|---|---|---|\n`;
     for (const v of obsolete) {
       const action = options.dryRun ? "⚠️ Would Close" : "🛑 Closed";
       const safeNumber = sanitizeNumber(v.pr.number);
+      const ws = v.workspaceName ? `\`${v.workspaceName}\`` : "-";
       const details = sanitizeLog(v.reason ?? "Superseded by newer release");
-      md += `| [#${safeNumber}](${v.pr.htmlUrl}) | ${sanitizeLog(v.pr.title)} | ${action} | ${details} |\n`;
+      md += `| [#${safeNumber}](${v.pr.htmlUrl}) | ${ws} | ${sanitizeLog(v.pr.title)} | ${action} | ${details} |\n`;
     }
   } else {
     md += `✅ No obsolete plugin update pull requests found.\n`;
