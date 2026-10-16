@@ -4,7 +4,8 @@
   "private": true,
   "description": "Yarn workspaces root for TypeScript CLIs and tooling under scripts/.",
   "workspaces": [
-    "validate-app-config-examples"
+    "validate-app-config-examples",
+    "close-obsolete-update-prs"
   ],
   "type": "module",
   "devDependencies": {
