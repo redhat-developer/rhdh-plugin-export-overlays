@@ -273,8 +273,8 @@ def test_env_vars_missing_from_test_env_exits_with_error(tmp_path):
         env={"GITHUB_WORKSPACE": str(tmp_path)},
     )
     assert res.returncode != 0
-    assert "::error::" in res.stdout
-    assert "REQUIRED_KEY" in res.stdout
+    assert "::error::" in res.stderr
+    assert "REQUIRED_KEY" in res.stderr
 
 
 def test_published_exports_file_fallback(tmp_path):
