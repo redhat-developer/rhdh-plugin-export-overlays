@@ -72,5 +72,4 @@ jobs:
             args+=(--pr "$PR_NUMBER")
           fi
 
-          echo "Running close-obsolete-update-prs with args: ${args[*]}"
           vp exec close-obsolete-update-prs "${args[@]}"

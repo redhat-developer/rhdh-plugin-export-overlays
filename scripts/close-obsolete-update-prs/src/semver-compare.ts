@@ -7,6 +7,21 @@
 
 import semver from "semver";
 
+const COMMIT_SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
+
+/**
+ * Checks whether a ref string is a valid semver version or version tag (e.g. '1.54.9' or 'v1.54.9').
+ * Explicitly rejects commit SHAs (7 to 40 hex characters) to avoid false coercion.
+ */
+export function isSemverTag(ref: string): boolean {
+  const trimmed = ref.trim();
+  if (COMMIT_SHA_PATTERN.test(trimmed)) {
+    return false;
+  }
+  const stripped = trimmed.startsWith("v") || trimmed.startsWith("V") ? trimmed.slice(1) : trimmed;
+  return semver.valid(stripped) !== null || semver.clean(stripped, { loose: true }) !== null;
+}
+
 /**
  * Normalizes a version string for semver parsing.
  * Handles leading 'v' (e.g. 'v1.54.9') or loose version strings.

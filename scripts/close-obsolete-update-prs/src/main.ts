@@ -312,9 +312,10 @@ function writeStepSummary(verdicts: PRVerdict[], options: DetectorOptions): void
     for (const v of obsolete) {
       const action = options.dryRun ? "⚠️ Would Close" : "🛑 Closed";
       const safeNumber = sanitizeNumber(v.pr.number);
-      const ws = v.workspaceName ? `\`${v.workspaceName}\`` : "-";
+      const ws = v.workspaceName ? `\`${sanitizeLog(v.workspaceName)}\`` : "-";
+      const safeUrl = sanitizeLog(v.pr.htmlUrl);
       const details = sanitizeLog(v.reason ?? "Superseded by newer release");
-      md += `| [#${safeNumber}](${v.pr.htmlUrl}) | ${ws} | ${sanitizeLog(v.pr.title)} | ${action} | ${details} |\n`;
+      md += `| [#${safeNumber}](${safeUrl}) | ${ws} | ${sanitizeLog(v.pr.title)} | ${action} | ${details} |\n`;
     }
   } else {
     md += `✅ No obsolete plugin update pull requests found.\n`;

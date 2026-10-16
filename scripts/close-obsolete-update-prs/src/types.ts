@@ -33,6 +33,18 @@ export interface WorkspaceSourceInfo {
   mainSourceJson?: SourceJson;
 }
 
+export interface WorkspaceAnalysisResult {
+  isCandidate: boolean;
+  skipReason?: string;
+  workspaceName?: string;
+  canonicalWorkspaceName?: string;
+  workspaces: WorkspaceSourceInfo[];
+  prSourceJson?: SourceJson;
+  mainSourceJson?: SourceJson;
+  prPackages: PackageVersion[];
+  mainPackages: PackageVersion[];
+}
+
 export interface PackageVersion {
   packageName: string;
   version: string;

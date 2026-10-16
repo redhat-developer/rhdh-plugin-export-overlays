@@ -23,7 +23,7 @@ A PR is identified as obsolete if:
 
 1. It is open and targets `main`.
 2. It modifies a workspace's `source.json` and package metadata.
-3. It does not modify framework dependencies (`versions.json`).
+3. It does not modify framework dependencies (`versions.json`) or workflow files (`.github/workflows/`).
 4. At least one package requested in the PR is strictly older than what is already released
    on `main` in `rhdh-plugin-export-overlays` or published to npm.
 5. No package in the PR is strictly newer than what is available upstream.
