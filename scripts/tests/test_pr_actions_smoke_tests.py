@@ -23,8 +23,9 @@ def test_pr_actions_has_synchronous_smoke_test_jobs():
 
     assert "prepareSmokeTests" in jobs
     assert "runSmokeTests" in jobs
-    assert "addSmokeTestResultComment" in jobs
-    assert "addSkippedSmokeComment" in jobs
+    assert "add_smoke_test_result_comment" in jobs
+    assert "add_skipped_smoke_comment" in jobs
+    assert "add_smoke_prepare_failure_comment" in jobs
 
     # runSmokeTests calls run-workspace-smoke-tests.yaml synchronously
     run_job = jobs["runSmokeTests"]
@@ -57,7 +58,7 @@ def test_prepare_smoke_tests_invokes_build_smoke_test_config_script():
 
 def test_add_smoke_test_result_comment_concurrency_uses_parse_pr_number():
     workflow = _workflow(".github/workflows/pr-actions.yaml")
-    job = workflow["jobs"]["addSmokeTestResultComment"]
+    job = workflow["jobs"]["add_smoke_test_result_comment"]
     concurrency_group = job["concurrency"]["group"]
     assert "needs.parse.outputs.pr-number" in concurrency_group
     assert "needs.prepare.outputs.pr-number" not in concurrency_group

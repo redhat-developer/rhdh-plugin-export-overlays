@@ -50,11 +50,13 @@ emit_outputs() {
   if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "has-runnable-plugins=$HAS_RUNNABLE_PLUGINS" >> "$GITHUB_OUTPUT"
     echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
-    echo "missing-metadata-plugins<<EOF" >> "$GITHUB_OUTPUT"
+    local delim
+    delim="EOF_METADATA_$(date +%s%N 2>/dev/null || date +%s)"
+    echo "missing-metadata-plugins<<$delim" >> "$GITHUB_OUTPUT"
     if [[ ${#MISSING_METADATA_PLUGINS[@]} -gt 0 ]]; then
       printf "%s\n" "${MISSING_METADATA_PLUGINS[@]}" >> "$GITHUB_OUTPUT"
     fi
-    echo "EOF" >> "$GITHUB_OUTPUT"
+    echo "$delim" >> "$GITHUB_OUTPUT"
   fi
 }
 
@@ -158,9 +160,10 @@ for export in $PUBLISHED_EXPORTS; do
     ENV_VARS=$(echo "$CONFIG_CONTENT" | "$YQ" -o=yaml '.dynamicPlugins' 2>/dev/null | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' | sed 's/\${//; s/}//; s/^\$//' | sort -u || true)
 
     if [[ -n "$ENV_VARS" ]]; then
+      SAFE_PLUGIN_NAME="$(printf '%s' "$PLUGIN_NAME" | tr -cd 'a-zA-Z0-9._-')"
       # Config contains environment variables
       if [[ -z "$WORKSPACE_ENV_CONTENT" ]]; then
-        echo "::warning::Config for $PLUGIN_NAME contains environment variables but workspace test.env is missing. Tests will be skipped."
+        echo "::warning::Config for $SAFE_PLUGIN_NAME contains environment variables but workspace test.env is missing. Tests will be skipped."
         SKIP_TESTS_MISSING_ENV="true"
         PLUGINS_SKIPPED_MISSING_ENV=$((PLUGINS_SKIPPED_MISSING_ENV + 1))
         continue
@@ -176,7 +179,8 @@ for export in $PUBLISHED_EXPORTS; do
 
         if [[ ${#MISSING_ENVS[@]} -gt 0 ]]; then
           echo "::error::Environment variables missing from test.env: ${MISSING_ENVS[*]}" >&2
-          echo "Config for $PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE." >&2
+          echo "Config for $SAFE_PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE." >&2
+          emit_outputs
           exit 1
         fi
       fi

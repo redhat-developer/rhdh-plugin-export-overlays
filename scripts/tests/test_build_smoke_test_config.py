@@ -265,16 +265,22 @@ def test_env_vars_missing_from_test_env_exits_with_error(tmp_path):
 
     export_ref = "ghcr.io/org/repo/plugin-env:pr_123__1.0.0"
 
+    gh_output = tmp_path / "github_output"
     res = run_script(
         SCRIPT,
         "workspaces/test-ws",
         export_ref,
         cwd=tmp_path,
-        env={"GITHUB_WORKSPACE": str(tmp_path)},
+        env={
+            "GITHUB_WORKSPACE": str(tmp_path),
+            "GITHUB_OUTPUT": str(gh_output),
+        },
     )
     assert res.returncode != 0
     assert "::error::" in res.stderr
     assert "REQUIRED_KEY" in res.stderr
+    outputs = _parse_github_output(gh_output)
+    assert outputs.get("has-runnable-plugins") == "false"
 
 
 def test_published_exports_file_fallback(tmp_path):
