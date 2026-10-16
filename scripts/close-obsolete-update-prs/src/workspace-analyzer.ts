@@ -22,6 +22,15 @@ export interface WorkspaceAnalysisResult {
   mainPackages: PackageVersion[];
 }
 
+interface WorkspaceFetchContext {
+  owner: string;
+  repo: string;
+  prOwner: string;
+  prRepoName: string;
+  headSha: string;
+  baseRef: string;
+}
+
 const SOURCE_JSON_PATTERN = /^workspaces\/([^/]+)\/source\.json$/;
 
 export class WorkspaceAnalyzer {
@@ -69,24 +78,22 @@ export class WorkspaceAnalyzer {
       };
     }
 
+    const ctx: WorkspaceFetchContext = {
+      owner,
+      repo,
+      prOwner,
+      prRepoName,
+      headSha: pr.headSha,
+      baseRef,
+    };
+
     const prPackages: PackageVersion[] = [];
     const mainPackages: PackageVersion[] = [];
     let prSourceJson: SourceJson | undefined;
     let mainSourceJson: SourceJson | undefined;
 
     const workspaceData = await Promise.all(
-      affectedWorkspaces.map((rawWorkspace) =>
-        this.fetchWorkspaceData(
-          owner,
-          repo,
-          prOwner,
-          prRepoName,
-          pr.headSha,
-          baseRef,
-          rawWorkspace,
-          files,
-        ),
-      ),
+      affectedWorkspaces.map((rawWorkspace) => this.fetchWorkspaceData(ctx, rawWorkspace, files)),
     );
 
     for (const data of workspaceData) {
@@ -145,12 +152,7 @@ export class WorkspaceAnalyzer {
   }
 
   private async fetchWorkspaceData(
-    owner: string,
-    repo: string,
-    prOwner: string,
-    prRepoName: string,
-    headRef: string,
-    baseRef: string,
+    ctx: WorkspaceFetchContext,
     rawWorkspace: string,
     files: string[],
   ): Promise<{
@@ -162,8 +164,18 @@ export class WorkspaceAnalyzer {
     const canonicalWorkspace = resolveCurrentWorkspaceName(rawWorkspace);
 
     const [prSourceJson, mainSourceJson] = await Promise.all([
-      this.fetchSourceJson(prOwner, prRepoName, `workspaces/${rawWorkspace}/source.json`, headRef),
-      this.fetchSourceJson(owner, repo, `workspaces/${canonicalWorkspace}/source.json`, baseRef),
+      this.fetchSourceJson(
+        ctx.prOwner,
+        ctx.prRepoName,
+        `workspaces/${rawWorkspace}/source.json`,
+        ctx.headSha,
+      ),
+      this.fetchSourceJson(
+        ctx.owner,
+        ctx.repo,
+        `workspaces/${canonicalWorkspace}/source.json`,
+        ctx.baseRef,
+      ),
     ]);
 
     const metadataFiles = files.filter(
@@ -172,12 +184,22 @@ export class WorkspaceAnalyzer {
         (f.endsWith(".yaml") || f.endsWith(".yml")),
     );
 
-    const prPackages = await this.fetchPackages(prOwner, prRepoName, headRef, metadataFiles);
+    const prPackages = await this.fetchPackages(
+      ctx.prOwner,
+      ctx.prRepoName,
+      ctx.headSha,
+      metadataFiles,
+    );
 
     const mainMetadataFiles = metadataFiles.map((f) =>
       f.replace(`workspaces/${rawWorkspace}/`, `workspaces/${canonicalWorkspace}/`),
     );
-    const mainPackages = await this.fetchPackages(owner, repo, baseRef, mainMetadataFiles);
+    const mainPackages = await this.fetchPackages(
+      ctx.owner,
+      ctx.repo,
+      ctx.baseRef,
+      mainMetadataFiles,
+    );
 
     return { prSourceJson, mainSourceJson, prPackages, mainPackages };
   }
