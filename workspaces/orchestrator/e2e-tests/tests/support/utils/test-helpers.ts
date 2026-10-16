@@ -426,18 +426,102 @@ export async function launchGreetingTemplateFromSelfService(
   ).openGreetingTemplateFromSelfService();
 }
 
+const SCAFFOLDER_TERMINAL_STATUSES = new Set([
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+function scaffolderTaskIdFromUrl(url: string): string | undefined {
+  return url.match(/\/create\/tasks\/([^/?#]+)/)?.[1];
+}
+
+async function isScaffolderTaskTerminalViaApi(
+  page: Page,
+  taskId: string,
+): Promise<boolean> {
+  try {
+    const response = await page.request.get(
+      `/api/scaffolder/v2/tasks/${taskId}`,
+    );
+    if (!response.ok()) {
+      return false;
+    }
+    const body = (await response.json()) as { status?: string };
+    return SCAFFOLDER_TERMINAL_STATUSES.has(body.status ?? "");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Scaffolder task completion signals are inconsistent under load/RBAC:
+ * - success often hides the button bar (no "Start Over")
+ * - step logs can stay empty even when the progress bar is at 100%
+ * Prefer API task status; keep UI markers as a fast path.
+ */
+async function isScaffolderTerminalVisible(page: Page): Promise<boolean> {
+  if (
+    await page
+      .getByText(/Completed|succeeded|finished/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return true;
+  }
+  if (
+    await page
+      .getByText(/409 Conflict/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return true;
+  }
+  if (
+    await page
+      .getByRole("button", { name: "Start Over" })
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return true;
+  }
+  // Backstage: on success Cancel is gone and progress reaches 100%.
+  const progressDone = await page
+    .locator('[role="progressbar"][aria-valuenow="100"]')
+    .first()
+    .isVisible()
+    .catch(() => false);
+  const cancelVisible = await page
+    .getByRole("button", { name: /^Cancel$/i })
+    .isVisible()
+    .catch(() => false);
+  return progressDone && !cancelVisible;
+}
+
 export async function waitForScaffolderTerminalState(
   page: Page,
   timeoutMs = 120_000,
 ): Promise<void> {
-  const completed = page.getByText(/Completed|succeeded|finished/i);
-  const conflictError = page.getByText(/409 Conflict/i);
-  const startOver = page.getByRole("button", { name: "Start Over" });
-  await completed
-    .or(conflictError)
-    .or(startOver)
-    .first()
-    .waitFor({ state: "visible", timeout: timeoutMs });
+  await expect
+    .poll(
+      async () => {
+        if (await isScaffolderTerminalVisible(page)) {
+          return true;
+        }
+        const taskId = scaffolderTaskIdFromUrl(page.url());
+        if (taskId && (await isScaffolderTaskTerminalViaApi(page, taskId))) {
+          return true;
+        }
+        return false;
+      },
+      {
+        timeout: timeoutMs,
+        intervals: [500, 1_000, 2_000],
+      },
+    )
+    .toBe(true);
 }
 
 export async function clickCreateAndWaitForScaffolderTerminalState(
@@ -447,6 +531,8 @@ export async function clickCreateAndWaitForScaffolderTerminalState(
   const createButton = page.getByRole("button", { name: /Create/i });
   await createButton.waitFor({ state: "visible", timeout: 10_000 });
   await createButton.click();
+  // Task id is required for the API fallback in waitForScaffolderTerminalState.
+  await expect(page).toHaveURL(/\/create\/tasks\//, { timeout: 30_000 });
   await waitForScaffolderTerminalState(page, timeoutMs);
 }
 

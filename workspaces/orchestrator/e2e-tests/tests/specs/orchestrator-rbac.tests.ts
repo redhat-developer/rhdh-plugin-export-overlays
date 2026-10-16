@@ -293,8 +293,15 @@ async function runGreetingTemplateAndWaitForScaffolderTerminal(
       if (attempt === terminalTimeoutsMs.length - 1) {
         throw error;
       }
-      await page.goto("/");
-      await page.waitForLoadState("domcontentloaded");
+      // Prefer Start Over on a stuck task page over a full SPA remount (OIDC flake).
+      const startOver = page.getByRole("button", { name: "Start Over" });
+      if (await startOver.isVisible().catch(() => false)) {
+        await startOver.click();
+        await page.waitForLoadState("domcontentloaded");
+      } else {
+        await page.goto("/");
+        await page.waitForLoadState("domcontentloaded");
+      }
     }
   }
   throw lastError;
