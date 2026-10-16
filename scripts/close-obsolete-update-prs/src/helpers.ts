@@ -32,18 +32,22 @@ export function trimTrailingSlashes(url: string): string {
   return result;
 }
 
+const ESCAPE_CHAR = String.fromCharCode(27);
+const ANSI_ESCAPE_REGEX = new RegExp(`${ESCAPE_CHAR}\\[[0-9;]*[a-zA-Z]`, "g");
+
 /**
- * Sanitizes input strings before logging to prevent log injection (CWE-117 / S5145)
- * and GitHub Actions workflow command injection.
+ * Sanitizes input strings before logging to prevent log injection (CWE-117 / S5145),
+ * GitHub Actions workflow command injection, and ANSI escape sequence injection.
  * Replaces newlines, carriage returns, and percent-encoded newlines with a safe space,
- * and neutralizes GHA '::' command tokens.
+ * neutralizes GHA '::' command tokens, and strips ANSI escape codes.
  */
 export function sanitizeLog(text: string | number | undefined | null): string {
   if (text === null || text === undefined) {
     return "";
   }
   return String(text)
-    .replace(/[\r\n]/g, " ")
+    .replace(ANSI_ESCAPE_REGEX, "")
+    .replace(/[\r\n]+/g, " ")
     .replace(/%(?:0a|0d|0A|0D)/g, " ")
     .replaceAll("::", ": :")
     .trim();

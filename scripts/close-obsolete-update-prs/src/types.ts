@@ -26,6 +26,13 @@ export interface SourceJson {
   [key: string]: unknown;
 }
 
+export interface WorkspaceSourceInfo {
+  workspaceName: string;
+  canonicalWorkspaceName: string;
+  prSourceJson?: SourceJson;
+  mainSourceJson?: SourceJson;
+}
+
 export interface PackageVersion {
   packageName: string;
   version: string;
@@ -36,7 +43,9 @@ export interface PackageComparison {
   packageName: string;
   prVersion: string;
   latestVersion: string;
-  source: "overlays-main" | "npm" | "upstream-repo" | "renamed";
+  source: "overlays-main" | "npm" | "upstream-repo";
+  isRenamed?: boolean;
+  renamedTo?: string;
   isObsolete: boolean;
   details?: string;
 }

@@ -34,6 +34,7 @@ function createAnalysis(
     isCandidate: true,
     workspaceName,
     canonicalWorkspaceName: workspaceName,
+    workspaces: [],
     prPackages: [{ packageName, version: prVersion }],
     mainPackages: [{ packageName, version: mainVersion }],
   };
@@ -89,6 +90,7 @@ describe("ObsoleteDetector", () => {
       isCandidate: true,
       workspaceName: "homepage",
       canonicalWorkspaceName: "homepage",
+      workspaces: [],
       prPackages: [
         {
           packageName: "@red-hat-developer-hub/backstage-plugin-dynamic-home-page",
@@ -106,7 +108,11 @@ describe("ObsoleteDetector", () => {
     const verdict = await detector.evaluatePR(basePr, analysis);
 
     expect(verdict.isObsolete).toBe(true);
-    expect(verdict.comparisons[0]?.source).toBe("renamed");
+    expect(verdict.comparisons[0]?.source).toBe("overlays-main");
+    expect(verdict.comparisons[0]?.isRenamed).toBe(true);
+    expect(verdict.comparisons[0]?.renamedTo).toBe(
+      "@red-hat-developer-hub/backstage-plugin-homepage",
+    );
     expect(verdict.comparisons[0]?.latestVersion).toBe("3.1.0");
     expect(verdict.comparisons[0]?.details).toContain(
       "renamed to @red-hat-developer-hub/backstage-plugin-homepage",
@@ -150,6 +156,7 @@ describe("ObsoleteDetector", () => {
       isCandidate: true,
       workspaceName: "multi",
       canonicalWorkspaceName: "multi",
+      workspaces: [],
       prPackages: [
         { packageName: "@scope/pkg-a", version: "1.1.0" },
         { packageName: "@scope/pkg-b", version: "1.0.0" },
@@ -168,6 +175,7 @@ describe("ObsoleteDetector", () => {
       isCandidate: true,
       workspaceName: "multi",
       canonicalWorkspaceName: "multi",
+      workspaces: [],
       prPackages: [
         { packageName: "@scope/pkg-a", version: "1.3.0" }, // newer than 1.2.0
         { packageName: "@scope/pkg-b", version: "0.9.0" },
@@ -189,6 +197,20 @@ describe("ObsoleteDetector", () => {
       isCandidate: true,
       workspaceName: "backstage",
       canonicalWorkspaceName: "backstage",
+      workspaces: [
+        {
+          workspaceName: "backstage",
+          canonicalWorkspaceName: "backstage",
+          prSourceJson: {
+            repo: "https://github.com/backstage/backstage",
+            "repo-ref": "v1.54.6",
+          },
+          mainSourceJson: {
+            repo: "https://github.com/backstage/backstage",
+            "repo-ref": "v1.54.9",
+          },
+        },
+      ],
       prSourceJson: {
         repo: "https://github.com/backstage/backstage",
         "repo-ref": "v1.54.6",
