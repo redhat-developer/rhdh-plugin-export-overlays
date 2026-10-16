@@ -6,6 +6,7 @@
  */
 
 import type { GitHubClient } from "./github-client.ts";
+import { sanitizeLog } from "./helpers.ts";
 import type { PRVerdict } from "./types.ts";
 
 export const SUPERSEDED_LABEL = "superseded";
@@ -22,14 +23,17 @@ export class ActionExecutor {
   formatComment(verdict: PRVerdict): string {
     const tableRows = verdict.comparisons
       .map((c) => {
+        const pkgName = sanitizeLog(c.packageName);
+        const prVer = sanitizeLog(c.prVersion);
+        const latestVer = sanitizeLog(c.latestVersion);
         const status = c.isObsolete ? "Superseded" : "Current";
-        const note = c.details ?? c.source;
-        return `| \`${c.packageName}\` | \`${c.prVersion}\` | \`${c.latestVersion}\` | ${status} | ${note} |`;
+        const note = sanitizeLog(c.details ?? c.source);
+        return `| \`${pkgName}\` | \`${prVer}\` | \`${latestVer}\` | ${status} | ${note} |`;
       })
       .join("\n");
 
     const workspaceLine = verdict.workspaceName
-      ? `\n**Workspace:** \`${verdict.workspaceName}\`\n`
+      ? `\n**Workspace:** \`${sanitizeLog(verdict.workspaceName)}\`\n`
       : "";
 
     return `### Obsolete Plugin Update Pull Request

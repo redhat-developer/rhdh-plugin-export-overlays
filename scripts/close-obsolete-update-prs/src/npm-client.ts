@@ -5,6 +5,7 @@
  * you may not use this file except in compliance with the License.
  */
 
+import semver from "semver";
 import { isPlainObject, trimTrailingSlashes } from "./helpers.ts";
 import { compareVersions } from "./semver-compare.ts";
 
@@ -61,8 +62,13 @@ export class NpmClient {
       const versionsObj = isPlainObject(data["versions"]) ? data["versions"] : undefined;
       const versions = versionsObj ? Object.keys(versionsObj) : [];
       if (versions.length > 0) {
-        versions.sort(compareVersions);
-        const highest = versions.at(-1);
+        const stableVersions = versions.filter((v) => {
+          const parsed = semver.parse(v);
+          return parsed !== null && parsed.prerelease.length === 0;
+        });
+        const candidates = stableVersions.length > 0 ? stableVersions : versions;
+        candidates.sort(compareVersions);
+        const highest = candidates.at(-1);
         if (highest) {
           this.cache.set(packageName, highest);
           return highest;

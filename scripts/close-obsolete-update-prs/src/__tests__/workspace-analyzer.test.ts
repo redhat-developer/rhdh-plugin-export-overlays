@@ -121,6 +121,7 @@ spec:
     expect(res.isCandidate).toBe(true);
     expect(res.workspaceName).toBe("homepage");
     expect(res.canonicalWorkspaceName).toBe("homepage");
+    expect(res.workspaces).toHaveLength(1);
     expect(res.prSourceJson?.["repo-ref"]).toBe("b2110290c8af66dece1dd421f3c34956ba81779d");
     expect(res.prPackages).toHaveLength(1);
     expect(res.prPackages[0]?.packageName).toBe("@red-hat-developer-hub/backstage-plugin-homepage");

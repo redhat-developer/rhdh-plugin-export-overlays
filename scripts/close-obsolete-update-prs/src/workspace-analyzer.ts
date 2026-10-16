@@ -9,13 +9,19 @@ import { parse as parseYaml } from "yaml";
 import type { GitHubClient } from "./github-client.ts";
 import { isPlainObject } from "./helpers.ts";
 import { resolveCurrentWorkspaceName } from "./renames.ts";
-import type { PackageVersion, PullRequestSummary, SourceJson } from "./types.ts";
+import type {
+  PackageVersion,
+  PullRequestSummary,
+  SourceJson,
+  WorkspaceSourceInfo,
+} from "./types.ts";
 
 export interface WorkspaceAnalysisResult {
   isCandidate: boolean;
   skipReason?: string;
   workspaceName?: string;
   canonicalWorkspaceName?: string;
+  workspaces: WorkspaceSourceInfo[];
   prSourceJson?: SourceJson;
   mainSourceJson?: SourceJson;
   prPackages: PackageVersion[];
@@ -52,6 +58,7 @@ export class WorkspaceAnalyzer {
       return {
         isCandidate: false,
         skipReason: candidateCheck.skipReason,
+        workspaces: [],
         prPackages: [],
         mainPackages: [],
       };
@@ -62,6 +69,7 @@ export class WorkspaceAnalyzer {
       return {
         isCandidate: false,
         skipReason: "PR does not modify any workspaces/*/source.json",
+        workspaces: [],
         prPackages: [],
         mainPackages: [],
       };
@@ -73,6 +81,7 @@ export class WorkspaceAnalyzer {
       return {
         isCandidate: false,
         skipReason: `Could not parse head repo '${prRepo}'`,
+        workspaces: [],
         prPackages: [],
         mainPackages: [],
       };
@@ -89,6 +98,7 @@ export class WorkspaceAnalyzer {
 
     const prPackages: PackageVersion[] = [];
     const mainPackages: PackageVersion[] = [];
+    const workspaces: WorkspaceSourceInfo[] = [];
     let prSourceJson: SourceJson | undefined;
     let mainSourceJson: SourceJson | undefined;
 
@@ -97,6 +107,12 @@ export class WorkspaceAnalyzer {
     );
 
     for (const data of workspaceData) {
+      workspaces.push({
+        workspaceName: data.rawWorkspace,
+        canonicalWorkspaceName: data.canonicalWorkspace,
+        prSourceJson: data.prSourceJson,
+        mainSourceJson: data.mainSourceJson,
+      });
       if (data.prSourceJson) prSourceJson = data.prSourceJson;
       if (data.mainSourceJson) mainSourceJson = data.mainSourceJson;
       prPackages.push(...data.prPackages);
@@ -107,6 +123,7 @@ export class WorkspaceAnalyzer {
       isCandidate: true,
       workspaceName: affectedWorkspaces.join(", "),
       canonicalWorkspaceName: affectedWorkspaces.map(resolveCurrentWorkspaceName).join(", "),
+      workspaces,
       prSourceJson,
       mainSourceJson,
       prPackages,
@@ -156,6 +173,8 @@ export class WorkspaceAnalyzer {
     rawWorkspace: string,
     files: string[],
   ): Promise<{
+    rawWorkspace: string;
+    canonicalWorkspace: string;
     prSourceJson?: SourceJson;
     mainSourceJson?: SourceJson;
     prPackages: PackageVersion[];
@@ -201,7 +220,14 @@ export class WorkspaceAnalyzer {
       mainMetadataFiles,
     );
 
-    return { prSourceJson, mainSourceJson, prPackages, mainPackages };
+    return {
+      rawWorkspace,
+      canonicalWorkspace,
+      prSourceJson,
+      mainSourceJson,
+      prPackages,
+      mainPackages,
+    };
   }
 
   private async fetchSourceJson(
