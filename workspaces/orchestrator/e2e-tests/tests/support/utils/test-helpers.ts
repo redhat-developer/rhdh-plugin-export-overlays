@@ -56,15 +56,21 @@ export type PolicySpec = {
   effect: string;
 };
 
+export type PermissionMappingEntry = {
+  name: string;
+  action: "read" | "update";
+};
+
 export type WorkflowConditionSpec = {
-  permissionMapping: Array<"read" | "update">;
+  // REST API requires {name, action} — plain action strings are rejected (RBAC #9809).
+  permissionMapping: PermissionMappingEntry[];
   workflowIds: string[];
 };
 
 type RoleConditionRecord = {
   id?: number | string;
   roleEntityRef?: string;
-  permissionMapping?: string[];
+  permissionMapping?: Array<string | PermissionMappingEntry>;
   conditions?: RoleConditionCriteria;
 };
 
@@ -99,12 +105,18 @@ export function greetingWorkflowConditions(
   readEffect: "allow" | "deny",
   useEffect: "allow" | "deny",
 ): WorkflowConditionSpec[] {
-  const permissionMapping: Array<"read" | "update"> = [];
+  const permissionMapping: PermissionMappingEntry[] = [];
   if (readEffect === "allow") {
-    permissionMapping.push("read");
+    permissionMapping.push({
+      name: "orchestrator.workflow",
+      action: "read",
+    });
   }
   if (useEffect === "allow") {
-    permissionMapping.push("update");
+    permissionMapping.push({
+      name: "orchestrator.workflow.use",
+      action: "update",
+    });
   }
   if (permissionMapping.length === 0) {
     return [];
@@ -155,15 +167,34 @@ function collectWorkflowIds(
   return nested.flatMap((item) => collectWorkflowIds(item));
 }
 
+function normalizePermissionMappingEntry(
+  entry: string | PermissionMappingEntry,
+): { name?: string; action: string } {
+  if (typeof entry === "string") {
+    return { action: entry };
+  }
+  return { name: entry.name, action: entry.action };
+}
+
 function conditionMatchesSpec(
   actual: RoleConditionRecord,
   expected: WorkflowConditionSpec,
 ): boolean {
-  const mapping = actual.permissionMapping ?? [];
-  if (
-    mapping.length !== expected.permissionMapping.length ||
-    !expected.permissionMapping.every((action) => mapping.includes(action))
-  ) {
+  const mapping = (actual.permissionMapping ?? []).map(
+    normalizePermissionMappingEntry,
+  );
+  if (mapping.length !== expected.permissionMapping.length) {
+    return false;
+  }
+  const mappingMatches = expected.permissionMapping.every((expectedEntry) =>
+    mapping.some(
+      (actualEntry) =>
+        actualEntry.action === expectedEntry.action &&
+        (actualEntry.name === undefined ||
+          actualEntry.name === expectedEntry.name),
+    ),
+  );
+  if (!mappingMatches) {
     return false;
   }
   const workflowIds = collectWorkflowIds(actual.conditions);
@@ -395,18 +426,102 @@ export async function launchGreetingTemplateFromSelfService(
   ).openGreetingTemplateFromSelfService();
 }
 
+const SCAFFOLDER_TERMINAL_STATUSES = new Set([
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+function scaffolderTaskIdFromUrl(url: string): string | undefined {
+  return url.match(/\/create\/tasks\/([^/?#]+)/)?.[1];
+}
+
+async function isScaffolderTaskTerminalViaApi(
+  page: Page,
+  taskId: string,
+): Promise<boolean> {
+  try {
+    const response = await page.request.get(
+      `/api/scaffolder/v2/tasks/${taskId}`,
+    );
+    if (!response.ok()) {
+      return false;
+    }
+    const body = (await response.json()) as { status?: string };
+    return SCAFFOLDER_TERMINAL_STATUSES.has(body.status ?? "");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Scaffolder task completion signals are inconsistent under load/RBAC:
+ * - success often hides the button bar (no "Start Over")
+ * - step logs can stay empty even when the progress bar is at 100%
+ * Prefer API task status; keep UI markers as a fast path.
+ */
+async function isScaffolderTerminalVisible(page: Page): Promise<boolean> {
+  if (
+    await page
+      .getByText(/Completed|succeeded|finished/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return true;
+  }
+  if (
+    await page
+      .getByText(/409 Conflict/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return true;
+  }
+  if (
+    await page
+      .getByRole("button", { name: "Start Over" })
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return true;
+  }
+  // Backstage: on success Cancel is gone and progress reaches 100%.
+  const progressDone = await page
+    .locator('[role="progressbar"][aria-valuenow="100"]')
+    .first()
+    .isVisible()
+    .catch(() => false);
+  const cancelVisible = await page
+    .getByRole("button", { name: /^Cancel$/i })
+    .isVisible()
+    .catch(() => false);
+  return progressDone && !cancelVisible;
+}
+
 export async function waitForScaffolderTerminalState(
   page: Page,
   timeoutMs = 120_000,
 ): Promise<void> {
-  const completed = page.getByText(/Completed|succeeded|finished/i);
-  const conflictError = page.getByText(/409 Conflict/i);
-  const startOver = page.getByRole("button", { name: "Start Over" });
-  await completed
-    .or(conflictError)
-    .or(startOver)
-    .first()
-    .waitFor({ state: "visible", timeout: timeoutMs });
+  await expect
+    .poll(
+      async () => {
+        if (await isScaffolderTerminalVisible(page)) {
+          return true;
+        }
+        const taskId = scaffolderTaskIdFromUrl(page.url());
+        if (taskId && (await isScaffolderTaskTerminalViaApi(page, taskId))) {
+          return true;
+        }
+        return false;
+      },
+      {
+        timeout: timeoutMs,
+        intervals: [500, 1_000, 2_000],
+      },
+    )
+    .toBe(true);
 }
 
 export async function clickCreateAndWaitForScaffolderTerminalState(
@@ -416,6 +531,8 @@ export async function clickCreateAndWaitForScaffolderTerminalState(
   const createButton = page.getByRole("button", { name: /Create/i });
   await createButton.waitFor({ state: "visible", timeout: 10_000 });
   await createButton.click();
+  // Task id is required for the API fallback in waitForScaffolderTerminalState.
+  await expect(page).toHaveURL(/\/create\/tasks\//, { timeout: 30_000 });
   await waitForScaffolderTerminalState(page, timeoutMs);
 }
 
