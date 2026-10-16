@@ -23,11 +23,7 @@ export class NpmClient {
     }
 
     try {
-      const encodedName = packageName.startsWith("@")
-        ? `@${encodeURIComponent(packageName.slice(1))}`
-        : encodeURIComponent(packageName);
-
-      const url = `${this.registryUrl}/${encodedName}`;
+      const url = this.buildPackageUrl(packageName);
       const response = await fetch(url, {
         headers: {
           Accept: "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*",
@@ -35,12 +31,10 @@ export class NpmClient {
         },
       });
 
-      if (response.status === 404) {
-        this.cache.set(packageName, null);
-        return null;
-      }
-
       if (!response.ok) {
+        if (response.status === 404) {
+          this.cache.set(packageName, null);
+        }
         return null;
       }
 
@@ -54,31 +48,33 @@ export class NpmClient {
       const latestTag =
         distTags && typeof distTags["latest"] === "string" ? distTags["latest"] : undefined;
 
-      if (latestTag) {
-        this.cache.set(packageName, latestTag);
-        return latestTag;
-      }
-
-      const versionsObj = isPlainObject(data["versions"]) ? data["versions"] : undefined;
-      const versions = versionsObj ? Object.keys(versionsObj) : [];
-      if (versions.length > 0) {
-        const stableVersions = versions.filter((v) => {
-          const parsed = semver.parse(v);
-          return parsed !== null && parsed.prerelease.length === 0;
-        });
-        const candidates = stableVersions.length > 0 ? stableVersions : versions;
-        candidates.sort(compareVersions);
-        const highest = candidates.at(-1);
-        if (highest) {
-          this.cache.set(packageName, highest);
-          return highest;
-        }
-      }
-
-      this.cache.set(packageName, null);
-      return null;
+      const result = latestTag ?? this.extractHighestVersion(data["versions"]);
+      this.cache.set(packageName, result);
+      return result;
     } catch {
       return null;
     }
+  }
+
+  private buildPackageUrl(packageName: string): string {
+    const encodedName = packageName.startsWith("@")
+      ? `@${encodeURIComponent(packageName.slice(1))}`
+      : encodeURIComponent(packageName);
+    return `${this.registryUrl}/${encodedName}`;
+  }
+
+  private extractHighestVersion(versionsObj: unknown): string | null {
+    if (!isPlainObject(versionsObj)) return null;
+    const versions = Object.keys(versionsObj);
+    if (versions.length === 0) return null;
+
+    const stableVersions = versions.filter((v) => {
+      const parsed = semver.parse(v);
+      return parsed !== null && parsed.prerelease.length === 0;
+    });
+
+    const candidates = stableVersions.length > 0 ? stableVersions : versions;
+    candidates.sort(compareVersions);
+    return candidates.at(-1) ?? null;
   }
 }

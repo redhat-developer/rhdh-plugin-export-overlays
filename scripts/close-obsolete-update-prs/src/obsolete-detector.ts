@@ -113,19 +113,7 @@ export class ObsoleteDetector {
 
   private compareRepoRefs(analysis: WorkspaceAnalysisResult): PackageComparison[] {
     const comparisons: PackageComparison[] = [];
-    const workspacesToCheck =
-      analysis.workspaces && analysis.workspaces.length > 0
-        ? analysis.workspaces
-        : analysis.prSourceJson && analysis.mainSourceJson
-          ? [
-              {
-                workspaceName: analysis.workspaceName ?? "unknown",
-                canonicalWorkspaceName: analysis.canonicalWorkspaceName ?? "unknown",
-                prSourceJson: analysis.prSourceJson,
-                mainSourceJson: analysis.mainSourceJson,
-              },
-            ]
-          : [];
+    const workspacesToCheck = this.resolveWorkspacesToCheck(analysis);
 
     for (const ws of workspacesToCheck) {
       if (!ws.prSourceJson || !ws.mainSourceJson) {
@@ -150,6 +138,23 @@ export class ObsoleteDetector {
     }
 
     return comparisons;
+  }
+
+  private resolveWorkspacesToCheck(analysis: WorkspaceAnalysisResult) {
+    if (analysis.workspaces && analysis.workspaces.length > 0) {
+      return analysis.workspaces;
+    }
+    if (analysis.prSourceJson && analysis.mainSourceJson) {
+      return [
+        {
+          workspaceName: analysis.workspaceName ?? "unknown",
+          canonicalWorkspaceName: analysis.canonicalWorkspaceName ?? "unknown",
+          prSourceJson: analysis.prSourceJson,
+          mainSourceJson: analysis.mainSourceJson,
+        },
+      ];
+    }
+    return [];
   }
 
   private buildObsoleteReason(comparisons: PackageComparison[]): string {
