@@ -489,6 +489,12 @@ export function registerOrchestratorRbacTests(): void {
         });
 
         test(`Validate ${scenario.id} behavior`, async ({}) => {
+          if (scenario.id === "RHIDP-11839") {
+            test.skip(
+              !!process.env.E2E_NIGHTLY_MODE,
+              "Choose button disabled for users without workflow permissions",
+            );
+          }
           test.setTimeout(scenario.testTimeoutMs);
           const orchestratorPo = createOrchestratorPO(page, uiHelper);
 
