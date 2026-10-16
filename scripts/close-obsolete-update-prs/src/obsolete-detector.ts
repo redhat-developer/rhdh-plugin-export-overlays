@@ -9,7 +9,7 @@ import type { GitHubClient } from "./github-client.ts";
 import type { NpmClient } from "./npm-client.ts";
 import { resolveCurrentPackageName } from "./renames.ts";
 import { cleanVersion, isNewerVersion } from "./semver-compare.ts";
-import type { PackageComparison, PRVerdict, PullRequestSummary } from "./types.ts";
+import type { PackageComparison, PackageVersion, PRVerdict, PullRequestSummary } from "./types.ts";
 import type { WorkspaceAnalysisResult } from "./workspace-analyzer.ts";
 
 export class ObsoleteDetector {
@@ -33,96 +33,12 @@ export class ObsoleteDetector {
       };
     }
 
-    const comparisons: PackageComparison[] = [];
-
-    // 1. Evaluate packages in metadata
-    if (analysis.prPackages.length > 0) {
-      for (const prPkg of analysis.prPackages) {
-        const canonicalName = resolveCurrentPackageName(prPkg.packageName);
-        let upstreamVersion: string | undefined;
-        let source: PackageComparison["source"] = "overlays-main";
-        let details: string | undefined;
-
-        // A. Check against main branch in overlays
-        const mainPkg = analysis.mainPackages.find(
-          (p) => p.packageName === prPkg.packageName || p.packageName === canonicalName,
-        );
-
-        if (mainPkg) {
-          upstreamVersion = mainPkg.version;
-          source = "overlays-main";
-          details = `Target branch 'main' has version ${mainPkg.version}`;
-        }
-
-        // B. Check against NPM registry
-        const npmVersion = await this.npmClient.getLatestVersion(canonicalName);
-        if (npmVersion) {
-          if (!upstreamVersion || isNewerVersion(npmVersion, upstreamVersion)) {
-            upstreamVersion = npmVersion;
-            source = "npm";
-            details = `NPM registry has released version ${npmVersion}`;
-          }
-        }
-
-        const latestVersion = upstreamVersion ?? prPkg.version;
-        const isPackageObsolete = isNewerVersion(latestVersion, prPkg.version);
-
-        // C. If package was renamed, note that in details
-        if (canonicalName !== prPkg.packageName) {
-          source = "renamed";
-          details = details
-            ? `${details} (package renamed to ${canonicalName})`
-            : `Package renamed to ${canonicalName}`;
-        }
-
-        comparisons.push({
-          packageName: prPkg.packageName,
-          prVersion: prPkg.version,
-          latestVersion,
-          source,
-          isObsolete: isPackageObsolete,
-          details,
-        });
-      }
-    } else if (analysis.prSourceJson && analysis.mainSourceJson) {
-      // 2. If no metadata files were modified, check source.json repo-ref if it's a version tag
-      const prRef = analysis.prSourceJson["repo-ref"];
-      const mainRef = analysis.mainSourceJson["repo-ref"];
-
-      const prClean = cleanVersion(prRef);
-      const mainClean = cleanVersion(mainRef);
-
-      if (prClean && mainClean && isNewerVersion(mainClean, prClean)) {
-        comparisons.push({
-          packageName: `${analysis.workspaceName} (repo-ref)`,
-          prVersion: prRef,
-          latestVersion: mainRef,
-          source: "overlays-main",
-          isObsolete: true,
-          details: `source.json repo-ref on 'main' (${mainRef}) is newer than PR (${prRef})`,
-        });
-      }
-    }
-
-    // Determine overall verdict
-    // Obsolete if:
-    // - At least one package/ref is strictly older than latest
-    // - AND no package in the PR is newer than latest
+    const comparisons = await this.buildComparisons(analysis);
     const hasOlder = comparisons.some((c) => isNewerVersion(c.latestVersion, c.prVersion));
     const hasNewer = comparisons.some((c) => isNewerVersion(c.prVersion, c.latestVersion));
     const isObsolete = hasOlder && !hasNewer;
 
-    let reason: string | undefined;
-    if (isObsolete) {
-      const obsoletePkgs = comparisons
-        .filter((c) => isNewerVersion(c.latestVersion, c.prVersion))
-        .map(
-          (c) =>
-            `${c.packageName} (requested: ${c.prVersion}, latest: ${c.latestVersion} [${c.source}])`,
-        )
-        .join(", ");
-      reason = `Superseded by newer upstream release(s): ${obsoletePkgs}`;
-    }
+    const reason = isObsolete ? this.buildObsoleteReason(comparisons) : undefined;
 
     return {
       pr,
@@ -132,5 +48,103 @@ export class ObsoleteDetector {
       reason,
       comparisons,
     };
+  }
+
+  private async buildComparisons(analysis: WorkspaceAnalysisResult): Promise<PackageComparison[]> {
+    if (analysis.prPackages.length > 0) {
+      const canonicalNames = analysis.prPackages.map((p) =>
+        resolveCurrentPackageName(p.packageName),
+      );
+      const npmVersions = await Promise.all(
+        canonicalNames.map((name) => this.npmClient.getLatestVersion(name)),
+      );
+
+      return analysis.prPackages.map((prPkg, idx) =>
+        this.comparePackage(prPkg, analysis.mainPackages, npmVersions[idx] ?? null),
+      );
+    }
+
+    const refComparison = this.compareRepoRef(analysis);
+    return refComparison ? [refComparison] : [];
+  }
+
+  private comparePackage(
+    prPkg: PackageVersion,
+    mainPackages: PackageVersion[],
+    npmVersion: string | null,
+  ): PackageComparison {
+    const canonicalName = resolveCurrentPackageName(prPkg.packageName);
+    let upstreamVersion: string | undefined;
+    let source: PackageComparison["source"] = "overlays-main";
+    let details: string | undefined;
+
+    const mainPkg = mainPackages.find(
+      (p) => p.packageName === prPkg.packageName || p.packageName === canonicalName,
+    );
+
+    if (mainPkg) {
+      upstreamVersion = mainPkg.version;
+      details = `Target branch 'main' has version ${mainPkg.version}`;
+    }
+
+    if (npmVersion && (!upstreamVersion || isNewerVersion(npmVersion, upstreamVersion))) {
+      upstreamVersion = npmVersion;
+      source = "npm";
+      details = `NPM registry has released version ${npmVersion}`;
+    }
+
+    const latestVersion = upstreamVersion ?? prPkg.version;
+    const isPackageObsolete = isNewerVersion(latestVersion, prPkg.version);
+
+    if (canonicalName !== prPkg.packageName) {
+      source = "renamed";
+      details = details
+        ? `${details} (package renamed to ${canonicalName})`
+        : `Package renamed to ${canonicalName}`;
+    }
+
+    return {
+      packageName: prPkg.packageName,
+      prVersion: prPkg.version,
+      latestVersion,
+      source,
+      isObsolete: isPackageObsolete,
+      details,
+    };
+  }
+
+  private compareRepoRef(analysis: WorkspaceAnalysisResult): PackageComparison | null {
+    if (!analysis.prSourceJson || !analysis.mainSourceJson) {
+      return null;
+    }
+
+    const prRef = analysis.prSourceJson["repo-ref"];
+    const mainRef = analysis.mainSourceJson["repo-ref"];
+    const prClean = cleanVersion(prRef);
+    const mainClean = cleanVersion(mainRef);
+
+    if (prClean && mainClean && isNewerVersion(mainClean, prClean)) {
+      return {
+        packageName: `${analysis.workspaceName} (repo-ref)`,
+        prVersion: prRef,
+        latestVersion: mainRef,
+        source: "overlays-main",
+        isObsolete: true,
+        details: `source.json repo-ref on 'main' (${mainRef}) is newer than PR (${prRef})`,
+      };
+    }
+
+    return null;
+  }
+
+  private buildObsoleteReason(comparisons: PackageComparison[]): string {
+    const obsoletePkgs = comparisons
+      .filter((c) => isNewerVersion(c.latestVersion, c.prVersion))
+      .map(
+        (c) =>
+          `${c.packageName} (requested: ${c.prVersion}, latest: ${c.latestVersion} [${c.source}])`,
+      )
+      .join(", ");
+    return `Superseded by newer upstream release(s): ${obsoletePkgs}`;
   }
 }

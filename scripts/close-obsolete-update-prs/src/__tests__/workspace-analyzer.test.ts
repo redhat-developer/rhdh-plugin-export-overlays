@@ -33,6 +33,7 @@ describe("WorkspaceAnalyzer", () => {
     number: 123,
     title: "Update `homepage` workspace to commit `abc` on branch `main`",
     headRef: "workspaces/main__homepage",
+    headSha: "headsha123",
     baseRef: "main",
     labels: ["workspace-update"],
     author: "app/github-actions",

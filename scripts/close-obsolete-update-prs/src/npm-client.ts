@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  */
 
-import { isPlainObject } from "./helpers.ts";
+import { isPlainObject, trimTrailingSlashes } from "./helpers.ts";
 import { compareVersions } from "./semver-compare.ts";
 
 export class NpmClient {
@@ -13,7 +13,7 @@ export class NpmClient {
   private readonly cache = new Map<string, string | null>();
 
   constructor(registryUrl: string = "https://registry.npmjs.org") {
-    this.registryUrl = registryUrl.replace(/\/+$/, "");
+    this.registryUrl = trimTrailingSlashes(registryUrl);
   }
 
   async getLatestVersion(packageName: string): Promise<string | null> {
@@ -62,7 +62,7 @@ export class NpmClient {
       const versions = versionsObj ? Object.keys(versionsObj) : [];
       if (versions.length > 0) {
         versions.sort(compareVersions);
-        const highest = versions[versions.length - 1];
+        const highest = versions.at(-1);
         if (highest) {
           this.cache.set(packageName, highest);
           return highest;

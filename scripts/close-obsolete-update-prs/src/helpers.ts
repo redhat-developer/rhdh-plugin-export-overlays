@@ -15,3 +15,11 @@ export function errorProperty(error: unknown, key: string): unknown {
   }
   return Reflect.get(error, key);
 }
+
+export function trimTrailingSlashes(url: string): string {
+  let result = url;
+  while (result.endsWith("/")) {
+    result = result.slice(0, -1);
+  }
+  return result;
+}
