@@ -47,3 +47,26 @@ def test_prepare_smoke_tests_guards_against_metadata_only_changes():
     condition = prepare_job["if"]
     assert "only-metadata-changed" in condition
 
+
+def test_prepare_smoke_tests_invokes_build_smoke_test_config_script():
+    workflow = _workflow(".github/workflows/pr-actions.yaml")
+    prepare_job = workflow["jobs"]["prepareSmokeTests"]
+    build_step = next(s for s in prepare_job["steps"] if s.get("id") == "build-dynamic-plugins")
+    assert build_step["run"].strip() == "./scripts/build-smoke-test-config.sh"
+
+
+def test_add_smoke_test_result_comment_concurrency_uses_parse_pr_number():
+    workflow = _workflow(".github/workflows/pr-actions.yaml")
+    job = workflow["jobs"]["addSmokeTestResultComment"]
+    concurrency_group = job["concurrency"]["group"]
+    assert "needs.parse.outputs.pr-number" in concurrency_group
+    assert "needs.prepare.outputs.pr-number" not in concurrency_group
+
+
+def test_workspace_tests_invokes_build_smoke_test_config_script():
+    workflow = _workflow(".github/workflows/workspace-tests.yaml")
+    job = workflow["jobs"]["prepare-test-config"]
+    build_step = next(s for s in job["steps"] if s.get("id") == "build-dynamic-plugins")
+    assert build_step["run"].strip() == "./scripts/build-smoke-test-config.sh"
+
+

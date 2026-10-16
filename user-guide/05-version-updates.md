@@ -84,7 +84,7 @@ When any of these signals appear:
 2. **Find** a compatible plugin release
 3. **Update** `source.json:repo-ref` and `repo-backstage-version`
 4. **Update** `metadata/*.yaml:spec.version` and `spec.backstage.supportedVersions`
-5. **Test** with `/publish` and `/smoketest`
+5. **Test** with `/publish` (smoke tests run automatically)
 
 ---
 
@@ -148,6 +148,7 @@ git push origin update-your-plugin-version
 
 # Open PR, then comment:
 # /publish
+# Smoke tests run automatically after publish; use /smoketest only to re-run:
 # /smoketest
 # or: /smoketest pr-4929-90eff067
 ```
@@ -166,7 +167,7 @@ When the target Backstage version introduces breaking changes that affect your p
 3. If no compatible version exists yet:
    - Request or contribute a fix upstream
    - As a temporary measure, create a patch to restore compatibility (see [06 - Patch Management](./06-patch-management.md))
-4. **Test** with `/publish` and `/smoketest` before merging
+4. **Test** with `/publish` before merging (smoke tests run automatically; use `/smoketest` only to re-run)
 5. **Document** any migration notes or known limitations in the PR description
 
 ---
@@ -398,8 +399,8 @@ git push origin backport-plugin-update-1.6
 
 ### Validation
 - [ ] Created PR
-- [ ] /publish completed successfully
-- [ ] /smoketest passed
+- [ ] /publish completed successfully (smoke tests run automatically)
+- [ ] Smoke tests passed (or re-run via /smoketest)
 - [ ] Manual testing completed (if best-effort match)
 - [ ] PR approved and merged
 ```
