@@ -50,56 +50,67 @@ Options:
 `);
 }
 
+function applyOption(arg: string, nextValue: string | undefined, opts: DetectorOptions): number {
+  switch (arg) {
+    case "--repo":
+      opts.repo = nextValue ?? "";
+      return 1;
+    case "--base":
+      opts.baseBranch = nextValue ?? "main";
+      return 1;
+    case "--pr": {
+      const parsedPr = Number.parseInt(nextValue ?? "", 10);
+      opts.prNumber = Number.isSafeInteger(parsedPr) && parsedPr > 0 ? parsedPr : undefined;
+      return 1;
+    }
+    case "--dry-run":
+      opts.dryRun = true;
+      return 0;
+    case "--token":
+      opts.token = nextValue ?? "";
+      return 1;
+    case "--npm-registry":
+      opts.npmRegistry = nextValue ?? opts.npmRegistry;
+      return 1;
+    case "--verbose":
+      opts.verbose = true;
+      return 0;
+    default:
+      if (arg.startsWith("--dry-run=")) {
+        opts.dryRun = arg.slice(10) === "true";
+      }
+      return 0;
+  }
+}
+
 export function parseArgs(argv: string[]): DetectorOptions {
   if (argv.includes("--help") || argv.includes("-h")) {
     printHelp();
     process.exit(0);
   }
 
-  let repo = process.env["GITHUB_REPOSITORY"] || "";
-  let baseBranch = "main";
-  let prNumber: number | undefined;
-  let dryRun = false;
-  let token = process.env["GITHUB_TOKEN"] || process.env["GH_TOKEN"] || "";
-  let npmRegistry = "https://registry.npmjs.org";
-  let verbose = false;
+  const options: DetectorOptions = {
+    repo: process.env["GITHUB_REPOSITORY"] || "",
+    baseBranch: "main",
+    dryRun: false,
+    token: process.env["GITHUB_TOKEN"] || process.env["GH_TOKEN"] || "",
+    npmRegistry: "https://registry.npmjs.org",
+    verbose: false,
+  };
 
-  for (let i = 0; i < argv.length; i++) {
+  let i = 0;
+  while (i < argv.length) {
     const arg = argv[i] ?? "";
-    if (arg === "--repo") {
-      repo = argv[++i] ?? "";
-    } else if (arg === "--base") {
-      baseBranch = argv[++i] ?? "main";
-    } else if (arg === "--pr") {
-      const parsedPr = Number.parseInt(argv[++i] ?? "", 10);
-      prNumber = Number.isSafeInteger(parsedPr) && parsedPr > 0 ? parsedPr : undefined;
-    } else if (arg === "--dry-run") {
-      dryRun = true;
-    } else if (arg.startsWith("--dry-run=")) {
-      dryRun = arg.slice(10) === "true";
-    } else if (arg === "--token") {
-      token = argv[++i] ?? "";
-    } else if (arg === "--npm-registry") {
-      npmRegistry = argv[++i] ?? npmRegistry;
-    } else if (arg === "--verbose") {
-      verbose = true;
-    }
+    const consumed = applyOption(arg, argv[i + 1], options);
+    i += 1 + consumed;
   }
 
-  if (!repo) {
+  if (!options.repo) {
     logError("Error: --repo <owner/repo> or $GITHUB_REPOSITORY is required");
     process.exit(1);
   }
 
-  return {
-    repo,
-    baseBranch,
-    prNumber,
-    dryRun,
-    token,
-    npmRegistry,
-    verbose,
-  };
+  return options;
 }
 
 export async function run(options: DetectorOptions): Promise<PRVerdict[]> {
