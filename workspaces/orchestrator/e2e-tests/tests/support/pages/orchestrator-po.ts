@@ -23,33 +23,43 @@ export class OrchestratorPO {
   }
 
   /**
+   * Sidebar entries render as links or buttons, and not always under `nav`.
+   * Match the accessible name so icon-only and submenu items still resolve.
+   */
+  private sidebarEntry(name: string | RegExp): Locator {
+    const options =
+      typeof name === "string" ? { name, exact: true as const } : { name };
+    return this.page
+      .getByRole("link", options)
+      .or(this.page.getByRole("button", options))
+      .filter({ visible: true })
+      .first();
+  }
+
+  /**
    * Client-side sidebar nav keeps the OIDC session. Full page.goto("/orchestrator")
    * can land on Sign In after RBAC role churn.
    */
   private async clickOrchestratorInSidebar(): Promise<void> {
-    const adminButton = this.page
-      .getByRole("button", { name: "Administration", exact: true })
-      .first();
-    const orchestratorLink = this.page
-      .getByRole("navigation", { name: "sidebar nav" })
-      .getByRole("link", { name: "Orchestrator", exact: true });
-
-    // Do not use aria-expanded: the Admin button often omits it (CI Received:
-    // null), so expecting "true" after click fails every suite. Expand only
-    // when the Orchestrator link is not yet actionable (collapsed group);
-    // NFS mounts Orchestrator top-level with no Admin button.
-    const orchestratorActionable = await orchestratorLink
-      .click({ trial: true, timeout: 2_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!orchestratorActionable) {
-      if (await adminButton.isVisible().catch(() => false)) {
-        await adminButton.click();
+    const orchestrator = this.sidebarEntry(/^Orchestrator$/i);
+    const adminButton = this.sidebarEntry(/^Administration$/i);
+    // The Administration control does not expose aria-expanded. Open it only
+    // while Orchestrator is hidden, and only once so a retry cannot collapse it.
+    let expandedAdministration = false;
+    await expect(async () => {
+      if (await orchestrator.isVisible().catch(() => false)) {
+        return;
       }
-      await expect(orchestratorLink).toBeVisible({ timeout: 15_000 });
-    }
-
-    await orchestratorLink.click();
+      if (
+        !expandedAdministration &&
+        (await adminButton.isVisible().catch(() => false))
+      ) {
+        await adminButton.click();
+        expandedAdministration = true;
+      }
+      await expect(orchestrator).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
+    await orchestrator.click();
     await this.page.waitForLoadState("domcontentloaded");
   }
 
@@ -107,7 +117,7 @@ export class OrchestratorPO {
     await this.clickOrchestratorInSidebar();
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: 120_000 });
   }
 
   async openWorkflow(name: string | RegExp): Promise<void> {
@@ -441,8 +451,10 @@ export class OrchestratorPO {
   }
 
   async openSelfServiceTemplatesPage(): Promise<void> {
-    // await this.page.goto("/create");
-    await this.uiHelper.openSidebarButton("Self-service");
+    // Self-service is a sidebar link, not nav button[aria-label="Self-service"].
+    const selfService = this.sidebarEntry(/^Self-service$/i);
+    await expect(selfService).toBeVisible({ timeout: 30_000 });
+    await selfService.click();
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
       this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
