@@ -32,8 +32,8 @@ export function trimTrailingSlashes(url: string): string {
   return result;
 }
 
-const ESCAPE_CHAR = String.fromCharCode(27);
-const ANSI_ESCAPE_REGEX = new RegExp(`${ESCAPE_CHAR}\\[[0-9;]*[a-zA-Z]`, "g");
+const ESCAPE_CHAR = String.fromCodePoint(27);
+const ANSI_ESCAPE_REGEX = new RegExp(String.raw`${ESCAPE_CHAR}\[[0-9;]*[a-zA-Z]`, "g");
 
 /**
  * Sanitizes input strings before logging to prevent log injection (CWE-117 / S5145),
