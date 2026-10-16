@@ -11,6 +11,7 @@ import {
   compareVersions,
   isEqualVersion,
   isNewerVersion,
+  isSemverTag,
 } from "../semver-compare.ts";
 
 describe("semver-compare", () => {
@@ -29,6 +30,25 @@ describe("semver-compare", () => {
 
     it("returns null on invalid non-version strings", () => {
       expect(cleanVersion("not-a-version")).toBeNull();
+    });
+  });
+
+  describe("isSemverTag", () => {
+    it("returns true for valid semver tags and versions", () => {
+      expect(isSemverTag("v1.54.9")).toBe(true);
+      expect(isSemverTag("1.54.9")).toBe(true);
+      expect(isSemverTag("v2.0.0-alpha.1")).toBe(true);
+    });
+
+    it("returns false for commit SHAs", () => {
+      expect(isSemverTag("ced5f7734fd8893d01f8c176cdc5f905d8ef6225")).toBe(false);
+      expect(isSemverTag("8b568c1")).toBe(false);
+      expect(isSemverTag("34d4c8f")).toBe(false);
+    });
+
+    it("returns false for branch names or non-version refs", () => {
+      expect(isSemverTag("main")).toBe(false);
+      expect(isSemverTag("feature/plugin-update")).toBe(false);
     });
   });
 

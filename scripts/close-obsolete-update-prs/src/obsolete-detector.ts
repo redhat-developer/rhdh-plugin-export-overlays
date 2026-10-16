@@ -7,9 +7,15 @@
 
 import type { NpmClient } from "./npm-client.ts";
 import { resolveCurrentPackageName } from "./renames.ts";
-import { cleanVersion, isNewerVersion } from "./semver-compare.ts";
-import type { PackageComparison, PackageVersion, PRVerdict, PullRequestSummary } from "./types.ts";
-import type { WorkspaceAnalysisResult } from "./workspace-analyzer.ts";
+import { cleanVersion, isNewerVersion, isSemverTag } from "./semver-compare.ts";
+import type {
+  PackageComparison,
+  PackageVersion,
+  PRVerdict,
+  PullRequestSummary,
+  WorkspaceAnalysisResult,
+  WorkspaceSourceInfo,
+} from "./types.ts";
 
 export class ObsoleteDetector {
   private readonly npmClient: NpmClient;
@@ -122,6 +128,12 @@ export class ObsoleteDetector {
 
       const prRef = ws.prSourceJson["repo-ref"];
       const mainRef = ws.mainSourceJson["repo-ref"];
+
+      // Only compare repo-ref when both are valid semver tags (skip commit SHAs)
+      if (!isSemverTag(prRef) || !isSemverTag(mainRef)) {
+        continue;
+      }
+
       const prClean = cleanVersion(prRef);
       const mainClean = cleanVersion(mainRef);
 
@@ -140,7 +152,7 @@ export class ObsoleteDetector {
     return comparisons;
   }
 
-  private resolveWorkspacesToCheck(analysis: WorkspaceAnalysisResult) {
+  private resolveWorkspacesToCheck(analysis: WorkspaceAnalysisResult): WorkspaceSourceInfo[] {
     if (analysis.workspaces && analysis.workspaces.length > 0) {
       return analysis.workspaces;
     }

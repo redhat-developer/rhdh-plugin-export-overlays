@@ -13,20 +13,11 @@ import type {
   PackageVersion,
   PullRequestSummary,
   SourceJson,
+  WorkspaceAnalysisResult,
   WorkspaceSourceInfo,
 } from "./types.ts";
 
-export interface WorkspaceAnalysisResult {
-  isCandidate: boolean;
-  skipReason?: string;
-  workspaceName?: string;
-  canonicalWorkspaceName?: string;
-  workspaces: WorkspaceSourceInfo[];
-  prSourceJson?: SourceJson;
-  mainSourceJson?: SourceJson;
-  prPackages: PackageVersion[];
-  mainPackages: PackageVersion[];
-}
+export type { WorkspaceAnalysisResult };
 
 interface WorkspaceFetchContext {
   owner: string;
@@ -210,8 +201,10 @@ export class WorkspaceAnalyzer {
       metadataFiles,
     );
 
+    const prefix = `workspaces/${rawWorkspace}/`;
+    const canonicalPrefix = `workspaces/${canonicalWorkspace}/`;
     const mainMetadataFiles = metadataFiles.map((f) =>
-      f.replace(`workspaces/${rawWorkspace}/`, `workspaces/${canonicalWorkspace}/`),
+      f.startsWith(prefix) ? `${canonicalPrefix}${f.slice(prefix.length)}` : f,
     );
     const mainPackages = await this.fetchPackages(
       ctx.owner,
