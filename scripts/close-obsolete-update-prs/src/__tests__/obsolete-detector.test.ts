@@ -27,11 +27,27 @@ class MockNpmClient extends NpmClient {
 
 class MockGitHubClient extends GitHubClient {}
 
+function createAnalysis(
+  workspaceName: string,
+  prVersion: string,
+  mainVersion: string,
+  packageName: string = `@red-hat-developer-hub/backstage-plugin-${workspaceName}`,
+): WorkspaceAnalysisResult {
+  return {
+    isCandidate: true,
+    workspaceName,
+    canonicalWorkspaceName: workspaceName,
+    prPackages: [{ packageName, version: prVersion }],
+    mainPackages: [{ packageName, version: mainVersion }],
+  };
+}
+
 describe("ObsoleteDetector", () => {
   const basePr: PullRequestSummary = {
     number: 4420,
     title: "Update `homepage` workspace to commit `123` for backstage `1.54.6` on branch `main`",
     headRef: "workspaces/main__homepage",
+    headSha: "homepage_sha_123",
     baseRef: "main",
     labels: ["workspace-update"],
     author: "app/github-actions",
@@ -40,27 +56,8 @@ describe("ObsoleteDetector", () => {
   };
 
   it("marks PR obsolete when overlays main has a newer package version", async () => {
-    const npmClient = new MockNpmClient();
-    const githubClient = new MockGitHubClient();
-    const detector = new ObsoleteDetector(npmClient, githubClient);
-
-    const analysis: WorkspaceAnalysisResult = {
-      isCandidate: true,
-      workspaceName: "homepage",
-      canonicalWorkspaceName: "homepage",
-      prPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-homepage",
-          version: "1.13.4",
-        },
-      ],
-      mainPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-homepage",
-          version: "3.1.0",
-        },
-      ],
-    };
+    const detector = new ObsoleteDetector(new MockNpmClient(), new MockGitHubClient());
+    const analysis = createAnalysis("homepage", "1.13.4", "3.1.0");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
 
@@ -75,26 +72,8 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-homepage": "3.1.0",
     });
-    const githubClient = new MockGitHubClient();
-    const detector = new ObsoleteDetector(npmClient, githubClient);
-
-    const analysis: WorkspaceAnalysisResult = {
-      isCandidate: true,
-      workspaceName: "homepage",
-      canonicalWorkspaceName: "homepage",
-      prPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-homepage",
-          version: "1.13.4",
-        },
-      ],
-      mainPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-homepage",
-          version: "1.13.4",
-        },
-      ],
-    };
+    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const analysis = createAnalysis("homepage", "1.13.4", "1.13.4");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
 
@@ -107,8 +86,7 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-homepage": "3.1.0",
     });
-    const githubClient = new MockGitHubClient();
-    const detector = new ObsoleteDetector(npmClient, githubClient);
+    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
 
     const analysis: WorkspaceAnalysisResult = {
       isCandidate: true,
@@ -142,26 +120,8 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-x2a": "2.0.2",
     });
-    const githubClient = new MockGitHubClient();
-    const detector = new ObsoleteDetector(npmClient, githubClient);
-
-    const analysis: WorkspaceAnalysisResult = {
-      isCandidate: true,
-      workspaceName: "x2a",
-      canonicalWorkspaceName: "x2a",
-      prPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-x2a",
-          version: "2.0.2",
-        },
-      ],
-      mainPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-x2a",
-          version: "2.0.0",
-        },
-      ],
-    };
+    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const analysis = createAnalysis("x2a", "2.0.2", "2.0.0");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
 
@@ -172,26 +132,8 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-x2a": "2.0.0",
     });
-    const githubClient = new MockGitHubClient();
-    const detector = new ObsoleteDetector(npmClient, githubClient);
-
-    const analysis: WorkspaceAnalysisResult = {
-      isCandidate: true,
-      workspaceName: "x2a",
-      canonicalWorkspaceName: "x2a",
-      prPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-x2a",
-          version: "2.0.2",
-        },
-      ],
-      mainPackages: [
-        {
-          packageName: "@red-hat-developer-hub/backstage-plugin-x2a",
-          version: "2.0.0",
-        },
-      ],
-    };
+    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const analysis = createAnalysis("x2a", "2.0.2", "2.0.0");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
 
@@ -203,8 +145,7 @@ describe("ObsoleteDetector", () => {
       "@scope/pkg-a": "1.2.0",
       "@scope/pkg-b": "1.0.0",
     });
-    const githubClient = new MockGitHubClient();
-    const detector = new ObsoleteDetector(npmClient, githubClient);
+    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
 
     // Multi-package: pkg-a is older in PR (1.1.0 vs 1.2.0), pkg-b is equal (1.0.0 vs 1.0.0)
     // -> PR should be obsolete
@@ -245,9 +186,7 @@ describe("ObsoleteDetector", () => {
   });
 
   it("detects obsolete PR via source.json repo-ref tag when no metadata files changed", async () => {
-    const npmClient = new MockNpmClient();
-    const githubClient = new MockGitHubClient();
-    const detector = new ObsoleteDetector(npmClient, githubClient);
+    const detector = new ObsoleteDetector(new MockNpmClient(), new MockGitHubClient());
 
     const analysis: WorkspaceAnalysisResult = {
       isCandidate: true,

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  */
 
-import { errorProperty, isPlainObject } from "./helpers.ts";
+import { errorProperty, isPlainObject, trimTrailingSlashes } from "./helpers.ts";
 import type { PullRequestSummary } from "./types.ts";
 
 export class GitHubClient {
@@ -14,7 +14,7 @@ export class GitHubClient {
 
   constructor(token?: string, apiBase: string = "https://api.github.com") {
     this.token = token || process.env["GITHUB_TOKEN"] || process.env["GH_TOKEN"];
-    this.apiBase = apiBase.replace(/\/+$/, "");
+    this.apiBase = trimTrailingSlashes(apiBase);
   }
 
   private get headers(): Record<string, string> {
@@ -81,6 +81,7 @@ export class GitHubClient {
 
         const head = isPlainObject(item["head"]) ? item["head"] : {};
         const headRef = typeof head["ref"] === "string" ? head["ref"] : "";
+        const headSha = typeof head["sha"] === "string" ? head["sha"] : headRef;
         const headRepoObj = isPlainObject(head["repo"]) ? head["repo"] : undefined;
         const headRepo =
           headRepoObj && typeof headRepoObj["full_name"] === "string"
@@ -105,6 +106,7 @@ export class GitHubClient {
           number,
           title,
           headRef,
+          headSha,
           headRepo,
           baseRef,
           labels,
@@ -136,6 +138,7 @@ export class GitHubClient {
 
     const head = isPlainObject(data["head"]) ? data["head"] : {};
     const headRef = typeof head["ref"] === "string" ? head["ref"] : "";
+    const headSha = typeof head["sha"] === "string" ? head["sha"] : headRef;
     const headRepoObj = isPlainObject(head["repo"]) ? head["repo"] : undefined;
     const headRepo =
       headRepoObj && typeof headRepoObj["full_name"] === "string"
@@ -160,6 +163,7 @@ export class GitHubClient {
       number,
       title,
       headRef,
+      headSha,
       headRepo,
       baseRef,
       labels,

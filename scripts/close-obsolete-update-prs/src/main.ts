@@ -15,21 +15,8 @@ import { ObsoleteDetector } from "./obsolete-detector.ts";
 import type { DetectorOptions, PRVerdict, PullRequestSummary } from "./types.ts";
 import { WorkspaceAnalyzer } from "./workspace-analyzer.ts";
 
-export function parseArgs(argv: string[]): DetectorOptions {
-  let repo = process.env.GITHUB_REPOSITORY || "";
-  let baseBranch = "main";
-  let prNumber: number | undefined;
-  let dryRun = false;
-  let token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "";
-  let npmRegistry = "https://registry.npmjs.org";
-  let verbose = false;
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (!arg) continue;
-
-    if (arg === "--help" || arg === "-h") {
-      console.log(`
+function printHelp(): void {
+  console.log(`
 Usage: close-obsolete-update-prs [options]
 
 Options:
@@ -42,22 +29,39 @@ Options:
   --verbose                 Enable verbose logging
   --help, -h                Show this help message
 `);
-      process.exit(0);
-    } else if (arg === "--repo") {
-      repo = argv[++i] || "";
+}
+
+export function parseArgs(argv: string[]): DetectorOptions {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    printHelp();
+    process.exit(0);
+  }
+
+  let repo = process.env["GITHUB_REPOSITORY"] || "";
+  let baseBranch = "main";
+  let prNumber: number | undefined;
+  let dryRun = false;
+  let token = process.env["GITHUB_TOKEN"] || process.env["GH_TOKEN"] || "";
+  let npmRegistry = "https://registry.npmjs.org";
+  let verbose = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i] ?? "";
+    if (arg === "--repo") {
+      repo = argv[++i] ?? "";
     } else if (arg === "--base") {
-      baseBranch = argv[++i] || "main";
+      baseBranch = argv[++i] ?? "main";
     } else if (arg === "--pr") {
-      const val = argv[++i];
-      if (val) prNumber = parseInt(val, 10);
+      const parsedPr = Number.parseInt(argv[++i] ?? "", 10);
+      prNumber = Number.isNaN(parsedPr) ? undefined : parsedPr;
     } else if (arg === "--dry-run") {
       dryRun = true;
     } else if (arg.startsWith("--dry-run=")) {
-      dryRun = arg.split("=")[1] === "true";
+      dryRun = arg.slice(10) === "true";
     } else if (arg === "--token") {
-      token = argv[++i] || "";
+      token = argv[++i] ?? "";
     } else if (arg === "--npm-registry") {
-      npmRegistry = argv[++i] || npmRegistry;
+      npmRegistry = argv[++i] ?? npmRegistry;
     } else if (arg === "--verbose") {
       verbose = true;
     }
@@ -85,6 +89,35 @@ export async function run(options: DetectorOptions): Promise<PRVerdict[]> {
     throw new Error(`Invalid repo format '${options.repo}'. Expected 'owner/repo'.`);
   }
 
+  logBanner(options);
+
+  const githubClient = new GitHubClient(options.token);
+  const npmClient = new NpmClient(options.npmRegistry);
+  const analyzer = new WorkspaceAnalyzer(githubClient);
+  const detector = new ObsoleteDetector(npmClient, githubClient);
+  const executor = new ActionExecutor(githubClient);
+
+  const prsToEvaluate = await fetchCandidatePrs(
+    githubClient,
+    owner,
+    repoName,
+    options.baseBranch,
+    options.prNumber,
+  );
+
+  const verdicts = await Promise.all(
+    prsToEvaluate.map((pr) =>
+      processCandidatePr(pr, owner, repoName, options, analyzer, detector, executor, githubClient),
+    ),
+  );
+
+  printSummary(verdicts, options);
+  writeStepSummary(verdicts, options);
+
+  return verdicts;
+}
+
+function logBanner(options: DetectorOptions): void {
   console.log(`\n=== Obsolete Plugin Update PR Detector ===`);
   console.log(`Repository:   ${options.repo}`);
   console.log(`Base Branch:  ${options.baseBranch}`);
@@ -95,81 +128,78 @@ export async function run(options: DetectorOptions): Promise<PRVerdict[]> {
     console.log(`Scope:        All open PRs targeting '${options.baseBranch}'`);
   }
   console.log(`==========================================\n`);
+}
 
-  const githubClient = new GitHubClient(options.token);
-  const npmClient = new NpmClient(options.npmRegistry);
-  const analyzer = new WorkspaceAnalyzer(githubClient);
-  const detector = new ObsoleteDetector(npmClient, githubClient);
-  const executor = new ActionExecutor(githubClient);
+async function fetchCandidatePrs(
+  githubClient: GitHubClient,
+  owner: string,
+  repo: string,
+  baseBranch: string,
+  prNumber?: number,
+): Promise<PullRequestSummary[]> {
+  if (prNumber) {
+    const singlePr = await githubClient.getPR(owner, repo, prNumber);
+    return [singlePr];
+  }
 
-  let prsToEvaluate: PullRequestSummary[] = [];
-
-  if (options.prNumber) {
-    const singlePr = await githubClient.getPR(owner, repoName, options.prNumber);
-    prsToEvaluate = [singlePr];
-  } else {
-    const allOpenPrs = await githubClient.listOpenPRs(owner, repoName, options.baseBranch);
-    // Filter for candidate branches or labels
-    prsToEvaluate = allOpenPrs.filter((pr) => {
-      const isWorkspaceBranch =
-        pr.headRef.startsWith("workspaces/main__") ||
-        pr.headRef.endsWith("/update-main") ||
-        pr.title.startsWith("Update `") ||
-        pr.labels.includes("workspace-update");
-      return isWorkspaceBranch;
-    });
-    console.log(
-      `Found ${allOpenPrs.length} open PR(s), ${prsToEvaluate.length} matched update candidate criteria.`,
+  const allOpenPrs = await githubClient.listOpenPRs(owner, repo, baseBranch);
+  const candidates = allOpenPrs.filter((pr) => {
+    return (
+      pr.headRef.startsWith("workspaces/main__") ||
+      pr.headRef.endsWith("/update-main") ||
+      pr.title.startsWith("Update `") ||
+      pr.labels.includes("workspace-update")
     );
+  });
+  console.log(
+    `Found ${allOpenPrs.length} open PR(s), ${candidates.length} matched update candidate criteria.`,
+  );
+  return candidates;
+}
+
+async function processCandidatePr(
+  pr: PullRequestSummary,
+  owner: string,
+  repo: string,
+  options: DetectorOptions,
+  analyzer: WorkspaceAnalyzer,
+  detector: ObsoleteDetector,
+  executor: ActionExecutor,
+  githubClient: GitHubClient,
+): Promise<PRVerdict> {
+  console.log(`Evaluating PR #${pr.number}: ${pr.title}`);
+  const files = await githubClient.getPRFiles(owner, repo, pr.number);
+  const analysis = await analyzer.analyzePR(owner, repo, pr, files, options.baseBranch);
+
+  if (!analysis.isCandidate) {
+    if (options.verbose) {
+      console.log(`  -> Skipped candidate: ${analysis.skipReason}`);
+    }
+    return {
+      pr,
+      isCandidate: false,
+      skipReason: analysis.skipReason,
+      isObsolete: false,
+      comparisons: [],
+      actionTaken: "skipped",
+    };
   }
 
-  const verdicts: PRVerdict[] = [];
+  const verdict = await detector.evaluatePR(pr, analysis);
 
-  for (const pr of prsToEvaluate) {
-    console.log(`Evaluating PR #${pr.number}: ${pr.title}`);
-    const files = await githubClient.getPRFiles(owner, repoName, pr.number);
-    const analysis = await analyzer.analyzePR(owner, repoName, pr, files, options.baseBranch);
-
-    if (!analysis.isCandidate) {
-      if (options.verbose) {
-        console.log(`  -> Skipped candidate: ${analysis.skipReason}`);
-      }
-      verdicts.push({
-        pr,
-        isCandidate: false,
-        skipReason: analysis.skipReason,
-        isObsolete: false,
-        comparisons: [],
-        actionTaken: "skipped",
-      });
-      continue;
-    }
-
-    const verdict = await detector.evaluatePR(pr, analysis);
-
-    if (verdict.isObsolete) {
-      console.log(`  -> OBSOLETE: ${verdict.reason}`);
-      const executed = await executor.execute(owner, repoName, verdict, options.dryRun);
-      verdicts.push(executed);
-      if (options.dryRun) {
-        console.log(`  -> [DRY-RUN] Previewed closure for PR #${pr.number}`);
-      } else {
-        console.log(`  -> Closed PR #${pr.number} and labeled 'superseded'`);
-      }
+  if (verdict.isObsolete) {
+    console.log(`  -> OBSOLETE: ${verdict.reason}`);
+    const executed = await executor.execute(owner, repo, verdict, options.dryRun);
+    if (options.dryRun) {
+      console.log(`  -> [DRY-RUN] Previewed closure for PR #${pr.number}`);
     } else {
-      console.log(`  -> Still current or newer than upstream (retaining open)`);
-      verdicts.push({
-        ...verdict,
-        actionTaken: "skipped",
-      });
+      console.log(`  -> Closed PR #${pr.number} and labeled 'superseded'`);
     }
+    return executed;
   }
 
-  // Print summary
-  printSummary(verdicts, options);
-  writeStepSummary(verdicts, options);
-
-  return verdicts;
+  console.log(`  -> Still current or newer than upstream (retaining open)`);
+  return { ...verdict, actionTaken: "skipped" };
 }
 
 function printSummary(verdicts: PRVerdict[], options: DetectorOptions): void {
@@ -195,7 +225,7 @@ function printSummary(verdicts: PRVerdict[], options: DetectorOptions): void {
 }
 
 function writeStepSummary(verdicts: PRVerdict[], options: DetectorOptions): void {
-  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  const summaryPath = process.env["GITHUB_STEP_SUMMARY"];
   if (!summaryPath) return;
 
   const obsolete = verdicts.filter((v) => v.isObsolete);
@@ -240,11 +270,13 @@ function isInvokedDirectly(): boolean {
   }
 }
 
-// Run CLI when invoked directly
+// Run CLI when invoked directly with top-level await
 if (isInvokedDirectly()) {
   const options = parseArgs(process.argv.slice(2));
-  run(options).catch((err) => {
-    console.error(`Fatal error: ${err.message}`);
+  try {
+    await run(options);
+  } catch (err: unknown) {
+    console.error(`Fatal error: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
-  });
+  }
 }

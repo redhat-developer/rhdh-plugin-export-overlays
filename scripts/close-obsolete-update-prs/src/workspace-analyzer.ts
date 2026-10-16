@@ -22,6 +22,8 @@ export interface WorkspaceAnalysisResult {
   mainPackages: PackageVersion[];
 }
 
+const SOURCE_JSON_PATTERN = /^workspaces\/([^/]+)\/source\.json$/;
+
 export class WorkspaceAnalyzer {
   private readonly githubClient: GitHubClient;
 
@@ -36,40 +38,17 @@ export class WorkspaceAnalyzer {
     files: string[],
     baseRef: string = "main",
   ): Promise<WorkspaceAnalysisResult> {
-    // 1. Must target baseRef
-    if (pr.baseRef !== baseRef) {
+    const candidateCheck = this.checkCandidatePr(pr, files, baseRef);
+    if (!candidateCheck.isCandidate) {
       return {
         isCandidate: false,
-        skipReason: `PR targets '${pr.baseRef}', not '${baseRef}'`,
+        skipReason: candidateCheck.skipReason,
         prPackages: [],
         mainPackages: [],
       };
     }
 
-    // 2. Check for manual framework changes (e.g. versions.json, workflow files)
-    const touchesFrameworkFiles = files.some(
-      (f) => f === "versions.json" || f.startsWith(".github/workflows/"),
-    );
-    if (touchesFrameworkFiles) {
-      return {
-        isCandidate: false,
-        skipReason:
-          "PR modifies framework or workflow files (not purely automated workspace update)",
-        prPackages: [],
-        mainPackages: [],
-      };
-    }
-
-    // 3. Find modified workspaces/*/source.json
-    const affectedWorkspaces = [
-      ...new Set(
-        files
-          .map((f) => f.match(/^workspaces\/([^/]+)\/source\.json$/))
-          .filter((m): m is RegExpMatchArray => m !== null)
-          .map((m) => m[1]!),
-      ),
-    ];
-
+    const affectedWorkspaces = this.findAffectedWorkspaces(files);
     if (affectedWorkspaces.length === 0) {
       return {
         isCandidate: false,
@@ -95,109 +74,26 @@ export class WorkspaceAnalyzer {
     let prSourceJson: SourceJson | undefined;
     let mainSourceJson: SourceJson | undefined;
 
-    for (const rawWorkspace of affectedWorkspaces) {
-      const canonicalWorkspace = resolveCurrentWorkspaceName(rawWorkspace);
-
-      // Read PR source.json from PR head
-      const prSourceJsonContent = await this.githubClient.getFileContent(
-        prOwner,
-        prRepoName,
-        `workspaces/${rawWorkspace}/source.json`,
-        pr.headRef,
-      );
-
-      if (prSourceJsonContent) {
-        try {
-          const parsed: unknown = JSON.parse(prSourceJsonContent);
-          if (
-            isPlainObject(parsed) &&
-            typeof parsed["repo"] === "string" &&
-            typeof parsed["repo-ref"] === "string"
-          ) {
-            prSourceJson = {
-              repo: parsed["repo"],
-              "repo-ref": parsed["repo-ref"],
-              "repo-flat":
-                typeof parsed["repo-flat"] === "boolean" ? parsed["repo-flat"] : undefined,
-              "repo-backstage-version":
-                typeof parsed["repo-backstage-version"] === "string"
-                  ? parsed["repo-backstage-version"]
-                  : undefined,
-            };
-          }
-        } catch {
-          // malformed json
-        }
-      }
-
-      // Read main source.json from base branch
-      const mainSourceJsonContent = await this.githubClient.getFileContent(
-        owner,
-        repo,
-        `workspaces/${canonicalWorkspace}/source.json`,
-        baseRef,
-      );
-
-      if (mainSourceJsonContent) {
-        try {
-          const parsed: unknown = JSON.parse(mainSourceJsonContent);
-          if (
-            isPlainObject(parsed) &&
-            typeof parsed["repo"] === "string" &&
-            typeof parsed["repo-ref"] === "string"
-          ) {
-            mainSourceJson = {
-              repo: parsed["repo"],
-              "repo-ref": parsed["repo-ref"],
-              "repo-flat":
-                typeof parsed["repo-flat"] === "boolean" ? parsed["repo-flat"] : undefined,
-              "repo-backstage-version":
-                typeof parsed["repo-backstage-version"] === "string"
-                  ? parsed["repo-backstage-version"]
-                  : undefined,
-            };
-          }
-        } catch {
-          // malformed json
-        }
-      }
-
-      // Extract package versions in PR from metadata files modified in PR
-      const metadataFiles = files.filter(
-        (f) =>
-          f.startsWith(`workspaces/${rawWorkspace}/metadata/`) &&
-          (f.endsWith(".yaml") || f.endsWith(".yml")),
-      );
-
-      for (const file of metadataFiles) {
-        const content = await this.githubClient.getFileContent(
+    const workspaceData = await Promise.all(
+      affectedWorkspaces.map((rawWorkspace) =>
+        this.fetchWorkspaceData(
+          owner,
+          repo,
           prOwner,
           prRepoName,
-          file,
-          pr.headRef,
-        );
-        if (!content) continue;
-        const parsed = this.parsePackageMetadata(content);
-        if (parsed) {
-          parsed.metadataFile = file;
-          prPackages.push(parsed);
-        }
-      }
+          pr.headSha,
+          baseRef,
+          rawWorkspace,
+          files,
+        ),
+      ),
+    );
 
-      // Extract package versions on main
-      for (const file of metadataFiles) {
-        const mainPath = file.replace(
-          `workspaces/${rawWorkspace}/`,
-          `workspaces/${canonicalWorkspace}/`,
-        );
-        const content = await this.githubClient.getFileContent(owner, repo, mainPath, baseRef);
-        if (!content) continue;
-        const parsed = this.parsePackageMetadata(content);
-        if (parsed) {
-          parsed.metadataFile = mainPath;
-          mainPackages.push(parsed);
-        }
-      }
+    for (const data of workspaceData) {
+      if (data.prSourceJson) prSourceJson = data.prSourceJson;
+      if (data.mainSourceJson) mainSourceJson = data.mainSourceJson;
+      prPackages.push(...data.prPackages);
+      mainPackages.push(...data.mainPackages);
     }
 
     return {
@@ -209,6 +105,139 @@ export class WorkspaceAnalyzer {
       prPackages,
       mainPackages,
     };
+  }
+
+  private checkCandidatePr(
+    pr: PullRequestSummary,
+    files: string[],
+    baseRef: string,
+  ): { isCandidate: boolean; skipReason?: string } {
+    if (pr.baseRef !== baseRef) {
+      return {
+        isCandidate: false,
+        skipReason: `PR targets '${pr.baseRef}', not '${baseRef}'`,
+      };
+    }
+
+    const touchesFrameworkFiles = files.some(
+      (f) => f === "versions.json" || f.startsWith(".github/workflows/"),
+    );
+    if (touchesFrameworkFiles) {
+      return {
+        isCandidate: false,
+        skipReason:
+          "PR modifies framework or workflow files (not purely automated workspace update)",
+      };
+    }
+
+    return { isCandidate: true };
+  }
+
+  private findAffectedWorkspaces(files: string[]): string[] {
+    const matched = new Set<string>();
+    for (const file of files) {
+      const match = SOURCE_JSON_PATTERN.exec(file);
+      if (match?.[1]) {
+        matched.add(match[1]);
+      }
+    }
+    return [...matched];
+  }
+
+  private async fetchWorkspaceData(
+    owner: string,
+    repo: string,
+    prOwner: string,
+    prRepoName: string,
+    headRef: string,
+    baseRef: string,
+    rawWorkspace: string,
+    files: string[],
+  ): Promise<{
+    prSourceJson?: SourceJson;
+    mainSourceJson?: SourceJson;
+    prPackages: PackageVersion[];
+    mainPackages: PackageVersion[];
+  }> {
+    const canonicalWorkspace = resolveCurrentWorkspaceName(rawWorkspace);
+
+    const [prSourceJson, mainSourceJson] = await Promise.all([
+      this.fetchSourceJson(prOwner, prRepoName, `workspaces/${rawWorkspace}/source.json`, headRef),
+      this.fetchSourceJson(owner, repo, `workspaces/${canonicalWorkspace}/source.json`, baseRef),
+    ]);
+
+    const metadataFiles = files.filter(
+      (f) =>
+        f.startsWith(`workspaces/${rawWorkspace}/metadata/`) &&
+        (f.endsWith(".yaml") || f.endsWith(".yml")),
+    );
+
+    const prPackages = await this.fetchPackages(prOwner, prRepoName, headRef, metadataFiles);
+
+    const mainMetadataFiles = metadataFiles.map((f) =>
+      f.replace(`workspaces/${rawWorkspace}/`, `workspaces/${canonicalWorkspace}/`),
+    );
+    const mainPackages = await this.fetchPackages(owner, repo, baseRef, mainMetadataFiles);
+
+    return { prSourceJson, mainSourceJson, prPackages, mainPackages };
+  }
+
+  private async fetchSourceJson(
+    owner: string,
+    repo: string,
+    path: string,
+    ref: string,
+  ): Promise<SourceJson | undefined> {
+    const content = await this.githubClient.getFileContent(owner, repo, path, ref);
+    if (!content) return undefined;
+
+    try {
+      const parsed: unknown = JSON.parse(content);
+      if (
+        isPlainObject(parsed) &&
+        typeof parsed["repo"] === "string" &&
+        typeof parsed["repo-ref"] === "string"
+      ) {
+        return {
+          repo: parsed["repo"],
+          "repo-ref": parsed["repo-ref"],
+          "repo-flat": typeof parsed["repo-flat"] === "boolean" ? parsed["repo-flat"] : undefined,
+          "repo-backstage-version":
+            typeof parsed["repo-backstage-version"] === "string"
+              ? parsed["repo-backstage-version"]
+              : undefined,
+        };
+      }
+    } catch {
+      // malformed json
+    }
+    return undefined;
+  }
+
+  private async fetchPackages(
+    owner: string,
+    repo: string,
+    ref: string,
+    files: string[],
+  ): Promise<PackageVersion[]> {
+    const packages: PackageVersion[] = [];
+    const contents = await Promise.all(
+      files.map((file) => this.githubClient.getFileContent(owner, repo, file, ref)),
+    );
+
+    for (let i = 0; i < files.length; i++) {
+      const content = contents[i];
+      const file = files[i];
+      if (content && file) {
+        const parsed = this.parsePackageMetadata(content);
+        if (parsed) {
+          parsed.metadataFile = file;
+          packages.push(parsed);
+        }
+      }
+    }
+
+    return packages;
   }
 
   parsePackageMetadata(content: string): PackageVersion | null {
