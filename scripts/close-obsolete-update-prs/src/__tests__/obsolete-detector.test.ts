@@ -6,7 +6,6 @@
  */
 
 import { describe, expect, it } from "vite-plus/test";
-import { GitHubClient } from "../github-client.ts";
 import { NpmClient } from "../npm-client.ts";
 import { ObsoleteDetector } from "../obsolete-detector.ts";
 import type { PullRequestSummary } from "../types.ts";
@@ -24,8 +23,6 @@ class MockNpmClient extends NpmClient {
     return this.mockPackages[packageName] ?? null;
   }
 }
-
-class MockGitHubClient extends GitHubClient {}
 
 function createAnalysis(
   workspaceName: string,
@@ -56,7 +53,7 @@ describe("ObsoleteDetector", () => {
   };
 
   it("marks PR obsolete when overlays main has a newer package version", async () => {
-    const detector = new ObsoleteDetector(new MockNpmClient(), new MockGitHubClient());
+    const detector = new ObsoleteDetector(new MockNpmClient());
     const analysis = createAnalysis("homepage", "1.13.4", "3.1.0");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
@@ -72,7 +69,7 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-homepage": "3.1.0",
     });
-    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const detector = new ObsoleteDetector(npmClient);
     const analysis = createAnalysis("homepage", "1.13.4", "1.13.4");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
@@ -86,7 +83,7 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-homepage": "3.1.0",
     });
-    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const detector = new ObsoleteDetector(npmClient);
 
     const analysis: WorkspaceAnalysisResult = {
       isCandidate: true,
@@ -120,7 +117,7 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-x2a": "2.0.2",
     });
-    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const detector = new ObsoleteDetector(npmClient);
     const analysis = createAnalysis("x2a", "2.0.2", "2.0.0");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
@@ -132,7 +129,7 @@ describe("ObsoleteDetector", () => {
     const npmClient = new MockNpmClient({
       "@red-hat-developer-hub/backstage-plugin-x2a": "2.0.0",
     });
-    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const detector = new ObsoleteDetector(npmClient);
     const analysis = createAnalysis("x2a", "2.0.2", "2.0.0");
 
     const verdict = await detector.evaluatePR(basePr, analysis);
@@ -145,7 +142,7 @@ describe("ObsoleteDetector", () => {
       "@scope/pkg-a": "1.2.0",
       "@scope/pkg-b": "1.0.0",
     });
-    const detector = new ObsoleteDetector(npmClient, new MockGitHubClient());
+    const detector = new ObsoleteDetector(npmClient);
 
     // Multi-package: pkg-a is older in PR (1.1.0 vs 1.2.0), pkg-b is equal (1.0.0 vs 1.0.0)
     // -> PR should be obsolete
@@ -186,7 +183,7 @@ describe("ObsoleteDetector", () => {
   });
 
   it("detects obsolete PR via source.json repo-ref tag when no metadata files changed", async () => {
-    const detector = new ObsoleteDetector(new MockNpmClient(), new MockGitHubClient());
+    const detector = new ObsoleteDetector(new MockNpmClient());
 
     const analysis: WorkspaceAnalysisResult = {
       isCandidate: true,

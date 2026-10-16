@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   cleanVersion,
   compareVersions,
