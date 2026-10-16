@@ -8,6 +8,70 @@
 import { errorProperty, isPlainObject, trimTrailingSlashes } from "./helpers.ts";
 import type { PullRequestSummary } from "./types.ts";
 
+const REPO_SLUG_REGEX = /^[a-zA-Z0-9_.-]+$/;
+
+function validateRepoSlug(owner: string, repo: string): void {
+  if (!REPO_SLUG_REGEX.test(owner) || !REPO_SLUG_REGEX.test(repo)) {
+    throw new Error(`Invalid repository identifier: ${owner}/${repo}`);
+  }
+}
+
+function validateId(id: number): number {
+  const n = Math.floor(Math.abs(id));
+  if (!Number.isSafeInteger(n) || n <= 0) {
+    throw new Error(`Invalid numeric ID: ${id}`);
+  }
+  return n;
+}
+
+function extractLabels(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const labels: string[] = [];
+  for (const item of raw) {
+    if (isPlainObject(item) && typeof item["name"] === "string") {
+      labels.push(item["name"]);
+    }
+  }
+  return labels;
+}
+
+function parsePullRequestSummary(item: unknown): PullRequestSummary | null {
+  if (!isPlainObject(item)) return null;
+
+  const number = typeof item["number"] === "number" ? item["number"] : 0;
+  const title = typeof item["title"] === "string" ? item["title"] : "";
+  const htmlUrl = typeof item["html_url"] === "string" ? item["html_url"] : "";
+  const createdAt = typeof item["created_at"] === "string" ? item["created_at"] : "";
+
+  const head = isPlainObject(item["head"]) ? item["head"] : {};
+  const headRef = typeof head["ref"] === "string" ? head["ref"] : "";
+  const headSha = typeof head["sha"] === "string" ? head["sha"] : headRef;
+  const headRepoObj = isPlainObject(head["repo"]) ? head["repo"] : undefined;
+  const headRepo =
+    headRepoObj && typeof headRepoObj["full_name"] === "string"
+      ? headRepoObj["full_name"]
+      : undefined;
+
+  const baseObj = isPlainObject(item["base"]) ? item["base"] : {};
+  const baseRef = typeof baseObj["ref"] === "string" ? baseObj["ref"] : "";
+
+  const userObj = isPlainObject(item["user"]) ? item["user"] : {};
+  const author = typeof userObj["login"] === "string" ? userObj["login"] : "";
+
+  return {
+    number,
+    title,
+    headRef,
+    headSha,
+    headRepo,
+    baseRef,
+    labels: extractLabels(item["labels"]),
+    author,
+    htmlUrl,
+    createdAt,
+  };
+}
+
 export class GitHubClient {
   private readonly token?: string;
   private readonly apiBase: string;
@@ -29,13 +93,23 @@ export class GitHubClient {
   }
 
   private async requestJson(endpoint: string, options: RequestInit = {}): Promise<unknown> {
-    const url = endpoint.startsWith("http") ? endpoint : `${this.apiBase}${endpoint}`;
+    if (endpoint.includes("..")) {
+      throw new Error("Path traversal forbidden");
+    }
+
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    const targetUrl = new URL(cleanEndpoint, `${this.apiBase}/`);
+
+    if (targetUrl.origin !== new URL(this.apiBase).origin) {
+      throw new Error(`Cross-origin API request forbidden: ${targetUrl.origin}`);
+    }
+
     const mergedHeaders = new Headers(this.headers);
     if (options.headers) {
       new Headers(options.headers).forEach((v, k) => mergedHeaders.set(k, v));
     }
 
-    const response = await fetch(url, {
+    const response = await fetch(targetUrl.href, {
       ...options,
       headers: mergedHeaders,
     });
@@ -61,6 +135,7 @@ export class GitHubClient {
     repo: string,
     base: string = "main",
   ): Promise<PullRequestSummary[]> {
+    validateRepoSlug(owner, repo);
     const prs: PullRequestSummary[] = [];
     let page = 1;
     const perPage = 100;
@@ -73,47 +148,10 @@ export class GitHubClient {
       }
 
       for (const item of data) {
-        if (!isPlainObject(item)) continue;
-        const number = typeof item["number"] === "number" ? item["number"] : 0;
-        const title = typeof item["title"] === "string" ? item["title"] : "";
-        const htmlUrl = typeof item["html_url"] === "string" ? item["html_url"] : "";
-        const createdAt = typeof item["created_at"] === "string" ? item["created_at"] : "";
-
-        const head = isPlainObject(item["head"]) ? item["head"] : {};
-        const headRef = typeof head["ref"] === "string" ? head["ref"] : "";
-        const headSha = typeof head["sha"] === "string" ? head["sha"] : headRef;
-        const headRepoObj = isPlainObject(head["repo"]) ? head["repo"] : undefined;
-        const headRepo =
-          headRepoObj && typeof headRepoObj["full_name"] === "string"
-            ? headRepoObj["full_name"]
-            : undefined;
-
-        const baseObj = isPlainObject(item["base"]) ? item["base"] : {};
-        const baseRef = typeof baseObj["ref"] === "string" ? baseObj["ref"] : "";
-
-        const userObj = isPlainObject(item["user"]) ? item["user"] : {};
-        const author = typeof userObj["login"] === "string" ? userObj["login"] : "";
-
-        const rawLabels = Array.isArray(item["labels"]) ? item["labels"] : [];
-        const labels: string[] = [];
-        for (const l of rawLabels) {
-          if (isPlainObject(l) && typeof l["name"] === "string") {
-            labels.push(l["name"]);
-          }
+        const parsed = parsePullRequestSummary(item);
+        if (parsed) {
+          prs.push(parsed);
         }
-
-        prs.push({
-          number,
-          title,
-          headRef,
-          headSha,
-          headRepo,
-          baseRef,
-          labels,
-          author,
-          htmlUrl,
-          createdAt,
-        });
       }
 
       if (data.length < perPage) {
@@ -126,60 +164,25 @@ export class GitHubClient {
   }
 
   async getPR(owner: string, repo: string, pullNumber: number): Promise<PullRequestSummary> {
-    const data = await this.requestJson(`/repos/${owner}/${repo}/pulls/${pullNumber}`);
-    if (!isPlainObject(data)) {
+    validateRepoSlug(owner, repo);
+    const safePullNumber = validateId(pullNumber);
+    const data = await this.requestJson(`/repos/${owner}/${repo}/pulls/${safePullNumber}`);
+    const pr = parsePullRequestSummary(data);
+    if (!pr) {
       throw new Error(`Invalid PR response for #${pullNumber}`);
     }
-
-    const number = typeof data["number"] === "number" ? data["number"] : pullNumber;
-    const title = typeof data["title"] === "string" ? data["title"] : "";
-    const htmlUrl = typeof data["html_url"] === "string" ? data["html_url"] : "";
-    const createdAt = typeof data["created_at"] === "string" ? data["created_at"] : "";
-
-    const head = isPlainObject(data["head"]) ? data["head"] : {};
-    const headRef = typeof head["ref"] === "string" ? head["ref"] : "";
-    const headSha = typeof head["sha"] === "string" ? head["sha"] : headRef;
-    const headRepoObj = isPlainObject(head["repo"]) ? head["repo"] : undefined;
-    const headRepo =
-      headRepoObj && typeof headRepoObj["full_name"] === "string"
-        ? headRepoObj["full_name"]
-        : undefined;
-
-    const baseObj = isPlainObject(data["base"]) ? data["base"] : {};
-    const baseRef = typeof baseObj["ref"] === "string" ? baseObj["ref"] : "";
-
-    const userObj = isPlainObject(data["user"]) ? data["user"] : {};
-    const author = typeof userObj["login"] === "string" ? userObj["login"] : "";
-
-    const rawLabels = Array.isArray(data["labels"]) ? data["labels"] : [];
-    const labels: string[] = [];
-    for (const l of rawLabels) {
-      if (isPlainObject(l) && typeof l["name"] === "string") {
-        labels.push(l["name"]);
-      }
-    }
-
-    return {
-      number,
-      title,
-      headRef,
-      headSha,
-      headRepo,
-      baseRef,
-      labels,
-      author,
-      htmlUrl,
-      createdAt,
-    };
+    return pr;
   }
 
   async getPRFiles(owner: string, repo: string, pullNumber: number): Promise<string[]> {
+    validateRepoSlug(owner, repo);
+    const safePullNumber = validateId(pullNumber);
     const files: string[] = [];
     let page = 1;
     const perPage = 100;
 
     while (true) {
-      const endpoint = `/repos/${owner}/${repo}/pulls/${pullNumber}/files?per_page=${perPage}&page=${page}`;
+      const endpoint = `/repos/${owner}/${repo}/pulls/${safePullNumber}/files?per_page=${perPage}&page=${page}`;
       const data = await this.requestJson(endpoint);
       if (!Array.isArray(data) || data.length === 0) {
         break;
@@ -206,8 +209,10 @@ export class GitHubClient {
     path: string,
     ref: string,
   ): Promise<string | null> {
+    validateRepoSlug(owner, repo);
     try {
-      const endpoint = `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`;
+      const cleanPath = path.split("/").map(encodeURIComponent).join("/");
+      const endpoint = `/repos/${owner}/${repo}/contents/${cleanPath}?ref=${encodeURIComponent(ref)}`;
       const data = await this.requestJson(endpoint);
       if (!isPlainObject(data) || data["type"] !== "file" || typeof data["content"] !== "string") {
         return null;
@@ -225,7 +230,9 @@ export class GitHubClient {
   }
 
   async addComment(owner: string, repo: string, issueNumber: number, body: string): Promise<void> {
-    await this.requestJson(`/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
+    validateRepoSlug(owner, repo);
+    const safeIssueNumber = validateId(issueNumber);
+    await this.requestJson(`/repos/${owner}/${repo}/issues/${safeIssueNumber}/comments`, {
       method: "POST",
       body: JSON.stringify({ body }),
     });
@@ -237,7 +244,9 @@ export class GitHubClient {
     issueNumber: number,
     labels: string[],
   ): Promise<void> {
-    await this.requestJson(`/repos/${owner}/${repo}/issues/${issueNumber}/labels`, {
+    validateRepoSlug(owner, repo);
+    const safeIssueNumber = validateId(issueNumber);
+    await this.requestJson(`/repos/${owner}/${repo}/issues/${safeIssueNumber}/labels`, {
       method: "POST",
       body: JSON.stringify({ labels }),
     });
@@ -250,6 +259,7 @@ export class GitHubClient {
     color: string,
     description: string,
   ): Promise<void> {
+    validateRepoSlug(owner, repo);
     try {
       await this.requestJson(`/repos/${owner}/${repo}/labels/${encodeURIComponent(name)}`);
     } catch (err: unknown) {
@@ -265,7 +275,9 @@ export class GitHubClient {
   }
 
   async closePR(owner: string, repo: string, pullNumber: number): Promise<void> {
-    await this.requestJson(`/repos/${owner}/${repo}/pulls/${pullNumber}`, {
+    validateRepoSlug(owner, repo);
+    const safePullNumber = validateId(pullNumber);
+    await this.requestJson(`/repos/${owner}/${repo}/pulls/${safePullNumber}`, {
       method: "PATCH",
       body: JSON.stringify({ state: "closed" }),
     });

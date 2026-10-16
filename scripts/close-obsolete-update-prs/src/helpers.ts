@@ -23,3 +23,16 @@ export function trimTrailingSlashes(url: string): string {
   }
   return result;
 }
+
+/**
+ * Sanitizes input strings before logging to prevent log injection (CWE-117 / S5145).
+ * Replaces newlines, carriage returns, and control characters with a safe space.
+ */
+export function sanitizeLog(text: string | number | undefined | null): string {
+  if (text === null || text === undefined) {
+    return "";
+  }
+  return String(text)
+    .replace(/[\r\n]/g, " ")
+    .trim();
+}
