@@ -86,6 +86,7 @@ describe("ActionExecutor", () => {
 
     const comment = executor.formatComment(obsoleteVerdict);
     expect(comment).toContain("### Obsolete Plugin Update Pull Request");
+    expect(comment).toContain("**Workspace:** `homepage`");
     expect(comment).toContain("@red-hat-developer-hub/backstage-plugin-homepage");
     expect(comment).toContain("1.13.4");
     expect(comment).toContain("3.1.0");

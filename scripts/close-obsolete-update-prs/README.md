@@ -62,3 +62,13 @@ vp exec close-obsolete-update-prs --repo redhat-developer/rhdh-plugin-export-ove
 | `--token <token>`      | GitHub token                                        | `$GITHUB_TOKEN` or `$GH_TOKEN` |
 | `--npm-registry <url>` | Custom npm registry URL                             | `https://registry.npmjs.org`   |
 | `--verbose`            | Enable verbose diagnostic logging                   | `false`                        |
+
+## Maintaining Workspace & Package Renames
+
+Whenever a workspace directory is renamed or merged under `workspaces/` (e.g. `marketplace` -> `extensions`),
+or when an exported package is renamed upstream (e.g. `@red-hat-developer-hub/backstage-plugin-dynamic-home-page` ->
+`@red-hat-developer-hub/backstage-plugin-homepage`), add an entry to `WORKSPACE_RENAMES` or `PACKAGE_RENAMES` in
+`src/renames.ts`.
+
+This enables the detector to correlate older update PRs referencing the legacy workspace or package
+names with their modern counterparts on `main` and npm.

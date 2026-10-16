@@ -5,7 +5,6 @@
  * you may not use this file except in compliance with the License.
  */
 
-import type { GitHubClient } from "./github-client.ts";
 import type { NpmClient } from "./npm-client.ts";
 import { resolveCurrentPackageName } from "./renames.ts";
 import { cleanVersion, isNewerVersion } from "./semver-compare.ts";
@@ -14,11 +13,9 @@ import type { WorkspaceAnalysisResult } from "./workspace-analyzer.ts";
 
 export class ObsoleteDetector {
   private readonly npmClient: NpmClient;
-  private readonly githubClient: GitHubClient;
 
-  constructor(npmClient: NpmClient, githubClient: GitHubClient) {
+  constructor(npmClient: NpmClient) {
     this.npmClient = npmClient;
-    this.githubClient = githubClient;
   }
 
   async evaluatePR(pr: PullRequestSummary, analysis: WorkspaceAnalysisResult): Promise<PRVerdict> {

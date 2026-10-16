@@ -84,6 +84,7 @@ export class GitHubClient {
   private get headers(): Record<string, string> {
     const h: Record<string, string> = {
       Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
       "User-Agent": "close-obsolete-update-prs",
     };
     if (this.token) {

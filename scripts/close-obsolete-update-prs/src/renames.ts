@@ -6,7 +6,13 @@
  */
 
 /**
- * Historical workspace renames in rhdh-plugin-export-overlays.
+ * MAINTENANCE NOTE:
+ * Whenever an existing workspace directory in workspaces/ is renamed or merged
+ * (e.g. marketplace -> extensions), add an entry to WORKSPACE_RENAMES below.
+ * This ensures that lingering automated update PRs opened against the legacy
+ * workspace directory name are mapped to the new workspace and accurately evaluated.
+ *
+ * Historical workspace renames in rhdh-plugin-export-overlays:
  * Maps legacy workspace directory name -> current workspace directory name.
  */
 export const WORKSPACE_RENAMES: Readonly<Record<string, string>> = {
@@ -21,7 +27,13 @@ export const WORKSPACE_RENAMES: Readonly<Record<string, string>> = {
 };
 
 /**
- * Historical package renames in rhdh-plugins and community ecosystems.
+ * MAINTENANCE NOTE:
+ * Whenever an exported package is renamed upstream in rhdh-plugins or community
+ * repositories (e.g. dynamic-home-page -> homepage), add an entry to PACKAGE_RENAMES.
+ * This allows the detector to match PRs proposing the legacy package name against
+ * newer releases of the renamed package.
+ *
+ * Historical package renames in rhdh-plugins and community ecosystems:
  * Maps legacy package name -> current package name.
  */
 export const PACKAGE_RENAMES: Readonly<Record<string, string>> = {
