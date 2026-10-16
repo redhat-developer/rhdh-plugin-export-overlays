@@ -105,14 +105,32 @@ async function assertRbacScenario(
 ): Promise<void> {
   const orchestratorPo = createOrchestratorPO(page, uiHelper);
   await page.reload();
-  await orchestratorPo.openWorkflowsPage();
+
+  const landingState = await orchestratorPo.navigateToOrchestrator();
 
   if (!scenario.expectWorkflowVisible) {
+    if (landingState === "denied") {
+      // Global Denied: redirected to sign-in — access denied as expected.
+      return;
+    }
+    // Greeting Denied: reached the workflow list but the specific
+    // workflow should be hidden.
     await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
     await uiHelper.verifyTableIsEmpty();
     return;
   }
 
+  if (landingState === "detail") {
+    // Global Read-Only: the plugin auto-navigated to the single visible
+    // workflow's detail page. Verify the heading and run-button state.
+    await expect(
+      page.getByRole("heading", { name: /Greeting workflow/i }),
+    ).toBeVisible();
+    await orchestratorPo.verifyRunButtonState(scenario.expectRunState);
+    return;
+  }
+
+  // Standard list flow: workflow list is visible.
   await orchestratorPo.openWorkflow("Greeting workflow");
   await expect(
     page.getByRole("heading", { name: /Greeting workflow/i }),
