@@ -17,11 +17,10 @@ function validateRepoSlug(owner: string, repo: string): void {
 }
 
 function validateId(id: number): number {
-  const n = Math.floor(Math.abs(id));
-  if (!Number.isSafeInteger(n) || n <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     throw new Error(`Invalid numeric ID: ${id}`);
   }
-  return n;
+  return id;
 }
 
 function extractLabels(raw: unknown): string[] {

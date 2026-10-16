@@ -61,8 +61,7 @@ export class ObsoleteDetector {
       );
     }
 
-    const refComparison = this.compareRepoRef(analysis);
-    return refComparison ? [refComparison] : [];
+    return this.compareRepoRefs(analysis);
   }
 
   private comparePackage(
@@ -92,12 +91,12 @@ export class ObsoleteDetector {
 
     const latestVersion = upstreamVersion ?? prPkg.version;
     const isPackageObsolete = isNewerVersion(latestVersion, prPkg.version);
+    const isRenamed = canonicalName !== prPkg.packageName;
 
-    if (canonicalName !== prPkg.packageName) {
-      source = "renamed";
+    if (isRenamed) {
       details = details
-        ? `${details} (package renamed to ${canonicalName})`
-        : `Package renamed to ${canonicalName}`;
+        ? `${details} (renamed to ${canonicalName})`
+        : `Renamed to ${canonicalName}`;
     }
 
     return {
@@ -105,33 +104,52 @@ export class ObsoleteDetector {
       prVersion: prPkg.version,
       latestVersion,
       source,
+      isRenamed,
+      renamedTo: isRenamed ? canonicalName : undefined,
       isObsolete: isPackageObsolete,
       details,
     };
   }
 
-  private compareRepoRef(analysis: WorkspaceAnalysisResult): PackageComparison | null {
-    if (!analysis.prSourceJson || !analysis.mainSourceJson) {
-      return null;
+  private compareRepoRefs(analysis: WorkspaceAnalysisResult): PackageComparison[] {
+    const comparisons: PackageComparison[] = [];
+    const workspacesToCheck =
+      analysis.workspaces && analysis.workspaces.length > 0
+        ? analysis.workspaces
+        : analysis.prSourceJson && analysis.mainSourceJson
+          ? [
+              {
+                workspaceName: analysis.workspaceName ?? "unknown",
+                canonicalWorkspaceName: analysis.canonicalWorkspaceName ?? "unknown",
+                prSourceJson: analysis.prSourceJson,
+                mainSourceJson: analysis.mainSourceJson,
+              },
+            ]
+          : [];
+
+    for (const ws of workspacesToCheck) {
+      if (!ws.prSourceJson || !ws.mainSourceJson) {
+        continue;
+      }
+
+      const prRef = ws.prSourceJson["repo-ref"];
+      const mainRef = ws.mainSourceJson["repo-ref"];
+      const prClean = cleanVersion(prRef);
+      const mainClean = cleanVersion(mainRef);
+
+      if (prClean && mainClean && isNewerVersion(mainClean, prClean)) {
+        comparisons.push({
+          packageName: `${ws.workspaceName} (repo-ref)`,
+          prVersion: prRef,
+          latestVersion: mainRef,
+          source: "overlays-main",
+          isObsolete: true,
+          details: `source.json repo-ref on 'main' (${mainRef}) is newer than PR (${prRef})`,
+        });
+      }
     }
 
-    const prRef = analysis.prSourceJson["repo-ref"];
-    const mainRef = analysis.mainSourceJson["repo-ref"];
-    const prClean = cleanVersion(prRef);
-    const mainClean = cleanVersion(mainRef);
-
-    if (prClean && mainClean && isNewerVersion(mainClean, prClean)) {
-      return {
-        packageName: `${analysis.workspaceName} (repo-ref)`,
-        prVersion: prRef,
-        latestVersion: mainRef,
-        source: "overlays-main",
-        isObsolete: true,
-        details: `source.json repo-ref on 'main' (${mainRef}) is newer than PR (${prRef})`,
-      };
-    }
-
-    return null;
+    return comparisons;
   }
 
   private buildObsoleteReason(comparisons: PackageComparison[]): string {
