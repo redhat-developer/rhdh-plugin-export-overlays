@@ -49,11 +49,13 @@ def test_prepare_smoke_tests_guards_against_metadata_only_changes():
     assert "only-metadata-changed" in condition
 
 
-def test_prepare_smoke_tests_invokes_build_smoke_test_config_script():
+def test_prepare_smoke_tests_inlines_test_config_generation():
     workflow = _workflow(".github/workflows/pr-actions.yaml")
     prepare_job = workflow["jobs"]["prepareSmokeTests"]
     build_step = next(s for s in prepare_job["steps"] if s.get("id") == "build-dynamic-plugins")
-    assert build_step["run"].strip() == "./scripts/build-smoke-test-config.sh"
+    assert "Build dynamic-plugins.test.yaml" in build_step["name"]
+    assert "OUT_FILE=" in build_step["run"]
+    assert "./scripts" not in build_step["run"]
 
 
 def test_add_smoke_test_result_comment_concurrency_uses_parse_pr_number():
@@ -64,10 +66,12 @@ def test_add_smoke_test_result_comment_concurrency_uses_parse_pr_number():
     assert "needs.prepare.outputs.pr-number" not in concurrency_group
 
 
-def test_workspace_tests_invokes_build_smoke_test_config_script():
+def test_workspace_tests_inlines_test_config_generation():
     workflow = _workflow(".github/workflows/workspace-tests.yaml")
     job = workflow["jobs"]["prepare-test-config"]
     build_step = next(s for s in job["steps"] if s.get("id") == "build-dynamic-plugins")
-    assert build_step["run"].strip() == "./scripts/build-smoke-test-config.sh"
+    assert "Build dynamic-plugins.test.yaml" in build_step["name"]
+    assert "OUT_FILE=" in build_step["run"]
+    assert "./scripts" not in build_step["run"]
 
 
