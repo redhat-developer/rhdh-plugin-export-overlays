@@ -26,6 +26,11 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
     },
     {
+      name: "backstage-gitlab-pqc",
+      testMatch: /tests\/specs\/gitlab-pqc\.spec\.ts/,
+    },
+
+    {
       name: "backstage-gitlab-events-discovery",
       testMatch: /tests\/specs\/gitlab-events-discovery\.spec\.ts/,
     },

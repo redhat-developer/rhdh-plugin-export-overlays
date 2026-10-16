@@ -1,0 +1,16 @@
+apiVersion: rhdh.redhat.com/v1alpha5
+kind: Backstage
+metadata:
+  name: developer-hub
+spec:
+  application:
+    extraEnvs:
+      envs:
+        - name: OPENSSL_CONF
+          value: /opt/app-root/src/openssl-pq/openssl-pq.cnf
+          containers:
+            - backstage-backend
+    extraFiles:
+      mountPath: /opt/app-root/src/openssl-pq
+      configMaps:
+        - name: openssl-pq
