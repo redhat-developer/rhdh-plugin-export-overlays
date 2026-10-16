@@ -10,7 +10,7 @@ import { appendFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ActionExecutor } from "./executor.ts";
 import { GitHubClient } from "./github-client.ts";
-import { sanitizeLog } from "./helpers.ts";
+import { sanitizeLog, sanitizeNumber } from "./helpers.ts";
 import { NpmClient } from "./npm-client.ts";
 import { ObsoleteDetector } from "./obsolete-detector.ts";
 import type { DetectorOptions, PRVerdict, PullRequestSummary } from "./types.ts";
@@ -26,8 +26,16 @@ interface ExecutionContext {
   githubClient: GitHubClient;
 }
 
+function logInfo(message: string): void {
+  console.log(sanitizeLog(message));
+}
+
+function logError(message: string): void {
+  console.error(sanitizeLog(message));
+}
+
 function printHelp(): void {
-  console.log(`
+  logInfo(`
 Usage: close-obsolete-update-prs [options]
 
 Options:
@@ -79,7 +87,7 @@ export function parseArgs(argv: string[]): DetectorOptions {
   }
 
   if (!repo) {
-    console.error("Error: --repo <owner/repo> or $GITHUB_REPOSITORY is required");
+    logError("Error: --repo <owner/repo> or $GITHUB_REPOSITORY is required");
     process.exit(1);
   }
 
@@ -135,16 +143,16 @@ export async function run(options: DetectorOptions): Promise<PRVerdict[]> {
 }
 
 function logBanner(options: DetectorOptions): void {
-  console.log(`\n=== Obsolete Plugin Update PR Detector ===`);
-  console.log(`Repository:   ${sanitizeLog(options.repo)}`);
-  console.log(`Base Branch:  ${sanitizeLog(options.baseBranch)}`);
-  console.log(`Dry Run:      ${options.dryRun ? "YES (preview only)" : "NO (live closures)"}`);
+  logInfo(`\n=== Obsolete Plugin Update PR Detector ===`);
+  logInfo(`Repository:   ${options.repo}`);
+  logInfo(`Base Branch:  ${options.baseBranch}`);
+  logInfo(`Dry Run:      ${options.dryRun ? "YES (preview only)" : "NO (live closures)"}`);
   if (options.prNumber) {
-    console.log(`Scope:        PR #${options.prNumber} only`);
+    logInfo(`Scope:        PR #${sanitizeNumber(options.prNumber)} only`);
   } else {
-    console.log(`Scope:        All open PRs targeting '${sanitizeLog(options.baseBranch)}'`);
+    logInfo(`Scope:        All open PRs targeting '${options.baseBranch}'`);
   }
-  console.log(`==========================================\n`);
+  logInfo(`==========================================\n`);
 }
 
 async function fetchCandidatePrs(
@@ -168,7 +176,7 @@ async function fetchCandidatePrs(
       pr.labels.includes("workspace-update")
     );
   });
-  console.log(
+  logInfo(
     `Found ${allOpenPrs.length} open PR(s), ${candidates.length} matched update candidate criteria.`,
   );
   return candidates;
@@ -178,9 +186,9 @@ async function processCandidatePr(
   pr: PullRequestSummary,
   ctx: ExecutionContext,
 ): Promise<PRVerdict> {
-  const safeTitle = sanitizeLog(pr.title);
-  console.log(`Evaluating PR #${pr.number}: ${safeTitle}`);
-  const files = await ctx.githubClient.getPRFiles(ctx.owner, ctx.repo, pr.number);
+  const safeNumber = sanitizeNumber(pr.number);
+  logInfo(`Evaluating PR #${safeNumber}: ${pr.title}`);
+  const files = await ctx.githubClient.getPRFiles(ctx.owner, ctx.repo, safeNumber);
   const analysis = await ctx.analyzer.analyzePR(
     ctx.owner,
     ctx.repo,
@@ -191,7 +199,7 @@ async function processCandidatePr(
 
   if (!analysis.isCandidate) {
     if (ctx.options.verbose) {
-      console.log(`  -> Skipped candidate: ${sanitizeLog(analysis.skipReason)}`);
+      logInfo(`  -> Skipped candidate: ${analysis.skipReason ?? "not a candidate"}`);
     }
     return {
       pr,
@@ -206,17 +214,17 @@ async function processCandidatePr(
   const verdict = await ctx.detector.evaluatePR(pr, analysis);
 
   if (verdict.isObsolete) {
-    console.log(`  -> OBSOLETE: ${sanitizeLog(verdict.reason)}`);
+    logInfo(`  -> OBSOLETE: ${verdict.reason ?? "superseded"}`);
     const executed = await ctx.executor.execute(ctx.owner, ctx.repo, verdict, ctx.options.dryRun);
     if (ctx.options.dryRun) {
-      console.log(`  -> [DRY-RUN] Previewed closure for PR #${pr.number}`);
+      logInfo(`  -> [DRY-RUN] Previewed closure for PR #${safeNumber}`);
     } else {
-      console.log(`  -> Closed PR #${pr.number} and labeled 'superseded'`);
+      logInfo(`  -> Closed PR #${safeNumber} and labeled 'superseded'`);
     }
     return executed;
   }
 
-  console.log(`  -> Still current or newer than upstream (retaining open)`);
+  logInfo(`  -> Still current or newer than upstream (retaining open)`);
   return { ...verdict, actionTaken: "skipped" };
 }
 
@@ -224,22 +232,23 @@ function printSummary(verdicts: PRVerdict[], options: DetectorOptions): void {
   const obsolete = verdicts.filter((v) => v.isObsolete);
   const skipped = verdicts.filter((v) => !v.isObsolete);
 
-  console.log(`\n================ Summary ================`);
-  console.log(`Total PRs Evaluated: ${verdicts.length}`);
-  console.log(`Obsolete PRs:        ${obsolete.length}`);
-  console.log(`Current / Skipped:   ${skipped.length}`);
+  logInfo(`\n================ Summary ================`);
+  logInfo(`Total PRs Evaluated: ${verdicts.length}`);
+  logInfo(`Obsolete PRs:        ${obsolete.length}`);
+  logInfo(`Current / Skipped:   ${skipped.length}`);
 
   if (obsolete.length > 0) {
-    console.log(`\nObsolete Pull Requests:`);
+    logInfo(`\nObsolete Pull Requests:`);
     for (const v of obsolete) {
       const mode = options.dryRun ? "[WOULD CLOSE]" : "[CLOSED]";
-      console.log(`  - ${mode} PR #${v.pr.number}: ${sanitizeLog(v.pr.title)}`);
+      const safeNumber = sanitizeNumber(v.pr.number);
+      logInfo(`  - ${mode} PR #${safeNumber}: ${v.pr.title}`);
       if (v.reason) {
-        console.log(`      Reason: ${sanitizeLog(v.reason)}`);
+        logInfo(`      Reason: ${v.reason}`);
       }
     }
   }
-  console.log(`=========================================\n`);
+  logInfo(`=========================================\n`);
 }
 
 function writeStepSummary(verdicts: PRVerdict[], options: DetectorOptions): void {
@@ -262,8 +271,9 @@ function writeStepSummary(verdicts: PRVerdict[], options: DetectorOptions): void
     md += `|---|---|---|---|\n`;
     for (const v of obsolete) {
       const action = options.dryRun ? "⚠️ Would Close" : "🛑 Closed";
+      const safeNumber = sanitizeNumber(v.pr.number);
       const details = sanitizeLog(v.reason ?? "Superseded by newer release");
-      md += `| [#${v.pr.number}](${v.pr.htmlUrl}) | ${sanitizeLog(v.pr.title)} | ${action} | ${details} |\n`;
+      md += `| [#${safeNumber}](${v.pr.htmlUrl}) | ${sanitizeLog(v.pr.title)} | ${action} | ${details} |\n`;
     }
   } else {
     md += `✅ No obsolete plugin update pull requests found.\n`;
@@ -294,8 +304,7 @@ if (isInvokedDirectly()) {
   try {
     await run(options);
   } catch (err: unknown) {
-    const message = sanitizeLog(err instanceof Error ? err.message : String(err));
-    console.error(`Fatal error: ${message}`);
+    logError(`Fatal error: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 }
