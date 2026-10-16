@@ -227,4 +227,34 @@ describe("ObsoleteDetector", () => {
     expect(verdict.isObsolete).toBe(true);
     expect(verdict.comparisons[0]?.latestVersion).toBe("v1.54.9");
   });
+
+  it("skips commit SHA repo-refs in source.json without false coercion", async () => {
+    const detector = new ObsoleteDetector(new MockNpmClient());
+
+    const analysis: WorkspaceAnalysisResult = {
+      isCandidate: true,
+      workspaceName: "homepage",
+      canonicalWorkspaceName: "homepage",
+      workspaces: [
+        {
+          workspaceName: "homepage",
+          canonicalWorkspaceName: "homepage",
+          prSourceJson: {
+            repo: "https://github.com/redhat-developer/rhdh-plugins",
+            "repo-ref": "34d4c8fa40b1234567890abcdef1234567890abc",
+          },
+          mainSourceJson: {
+            repo: "https://github.com/redhat-developer/rhdh-plugins",
+            "repo-ref": "8b568c110dc2c6cc2ce5bf443bc978c89c608b59",
+          },
+        },
+      ],
+      prPackages: [],
+      mainPackages: [],
+    };
+
+    const verdict = await detector.evaluatePR(basePr, analysis);
+    expect(verdict.isObsolete).toBe(false);
+    expect(verdict.comparisons).toHaveLength(0);
+  });
 });
