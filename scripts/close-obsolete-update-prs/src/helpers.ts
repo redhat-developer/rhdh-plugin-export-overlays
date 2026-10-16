@@ -36,3 +36,11 @@ export function sanitizeLog(text: string | number | undefined | null): string {
     .replace(/[\r\n]/g, " ")
     .trim();
 }
+
+export function sanitizeNumber(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n <= 0) {
+    return 0;
+  }
+  return Math.trunc(n);
+}

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  */
 
-import { errorProperty, isPlainObject, trimTrailingSlashes } from "./helpers.ts";
+import { errorProperty, isPlainObject, sanitizeNumber, trimTrailingSlashes } from "./helpers.ts";
 import type { PullRequestSummary } from "./types.ts";
 
 const REPO_SLUG_REGEX = /^[a-zA-Z0-9_.-]+$/;
@@ -38,7 +38,7 @@ function extractLabels(raw: unknown): string[] {
 function parsePullRequestSummary(item: unknown): PullRequestSummary | null {
   if (!isPlainObject(item)) return null;
 
-  const number = typeof item["number"] === "number" ? item["number"] : 0;
+  const number = sanitizeNumber(item["number"]);
   const title = typeof item["title"] === "string" ? item["title"] : "";
   const htmlUrl = typeof item["html_url"] === "string" ? item["html_url"] : "";
   const createdAt = typeof item["created_at"] === "string" ? item["created_at"] : "";
