@@ -300,6 +300,7 @@ GHCR_KNOWN_REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage
 QUAY_KNOWN_REF = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--1.5.4"
 
 
+@pytest.mark.network
 class TestFetchImageMetadata:
     """Tests for _fetch_image_metadata against real registries."""
 
@@ -355,6 +356,7 @@ class TestFetchImageMetadata:
 # get_image_metadata — fallback chain
 # ---------------------------------------------------------------------------
 
+@pytest.mark.network
 class TestGetImageMetadata:
     """Tests for get_image_metadata including the fallback path."""
 
@@ -399,6 +401,7 @@ class TestGetImageMetadata:
 # resolve_fallback_tag
 # ---------------------------------------------------------------------------
 
+@pytest.mark.network
 class TestResolveFallbackTag:
     """Tests for resolve_fallback_tag against real registries."""
 

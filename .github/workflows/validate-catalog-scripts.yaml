@@ -23,6 +23,11 @@ on:
       - 'scripts/requirements-dev.txt'
       - '.github/workflows/validate-catalog-scripts.yaml'
   workflow_dispatch:
+    inputs:
+      include_network_tests:
+        description: 'Also run the tests that call real container registries (ghcr.io, quay.io)'
+        type: boolean
+        default: false
 
 concurrency:
   group: validate-catalog-scripts-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -49,4 +54,11 @@ jobs:
 
       - name: Run tests
         working-directory: scripts
-        run: python -m pytest tests/ -v
+        env:
+          INCLUDE_NETWORK_TESTS: ${{ github.event.inputs.include_network_tests }}
+        run: |
+          if [ "$INCLUDE_NETWORK_TESTS" = "true" ]; then
+            python -m pytest tests/ -v
+          else
+            python -m pytest tests/ -v -m 'not network'
+          fi
