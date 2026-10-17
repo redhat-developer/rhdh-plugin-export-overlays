@@ -153,6 +153,11 @@ test.describe("Lightspeed UI", () => {
   });
 
   test.describe("Chatbot display modes", () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Intelligent assistant Options menu restructured: MCP settings renamed, saved prompts and screen context items removed",
+    );
+
     test.beforeEach(async () => {
       await gotoCatalogAuthenticated(page);
     });
