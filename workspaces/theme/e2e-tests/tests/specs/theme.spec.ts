@@ -49,10 +49,7 @@ test.describe("Theme Plugin tests", () => {
 
   test("Verify logo link", async ({ page }) => {
     const logo = page.getByTestId("home-logo").first();
-    const link = page
-      .getByTestId("sidebar-root")
-      .getByRole("link")
-      .filter({ has: logo, visible: true });
+    const link = page.getByRole("link").filter({ has: logo, visible: true });
     await expect(link).toHaveAttribute("href", "/");
     await logo.click();
     await expect(page).toHaveURL("/");
