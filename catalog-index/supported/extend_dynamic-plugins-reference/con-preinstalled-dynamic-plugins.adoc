@@ -1,0 +1,56 @@
+:_mod-docs-content-type: CONCEPT
+
+// Generated from the catalog index by scripts/generate-dynamic-plugin-tables/src/cli.ts.
+
+[id="preinstalled-dynamic-plugins_{context}"]
+= Preinstalled dynamic plugins
+
+[role="_abstract"]
+{product} is preinstalled with a selection of dynamic plugins.
+
+The following 19 preinstalled dynamic plugins are enabled by default:
+
+* `@backstage-community/plugin-analytics-provider-segment`
+* `@backstage-community/plugin-scaffolder-backend-module-regex`
+* `@backstage/plugin-org`
+* `@backstage/plugin-techdocs`
+* `@backstage/plugin-techdocs-backend`
+* `@backstage/plugin-techdocs-module-addons-contrib`
+* `@red-hat-developer-hub/backstage-plugin-adoption-insights`
+* `@red-hat-developer-hub/backstage-plugin-adoption-insights-backend`
+* `@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights`
+* `@red-hat-developer-hub/backstage-plugin-app-auth`
+* `@red-hat-developer-hub/backstage-plugin-app-defaults`
+* `@red-hat-developer-hub/backstage-plugin-app-integrations`
+* `@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions`
+* `@red-hat-developer-hub/backstage-plugin-extensions`
+* `@red-hat-developer-hub/backstage-plugin-extensions-backend`
+* `@red-hat-developer-hub/backstage-plugin-global-header`
+* `@red-hat-developer-hub/backstage-plugin-homepage`
+* `@red-hat-developer-hub/backstage-plugin-homepage-backend`
+* `@red-hat-developer-hub/backstage-plugin-quickstart`
+
+The dynamic plugins that require custom configuration are disabled by default.
+
+Upon application startup, for each plugin that is disabled by default, the `install-dynamic-plugins init container` within the {product-short} pod log displays a message similar to the following:
+
+[source,yaml]
+----
+======= Skipping disabled dynamic plugin oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:7ce49f710341da267433d45d9632de972522579126e6971957997269c7303e08
+----
+
+To enable this plugin, add a package with the same name to the Helm chart and change the value in the `disabled` field to `false`. For example:
+
+[source,yaml]
+----
+global:
+  dynamic:
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:7ce49f710341da267433d45d9632de972522579126e6971957997269c7303e08
+        disabled: false
+----
+
+[NOTE]
+The default configuration for a plugin is extracted from the `dynamic-plugins.default.yaml` file, however, you can use a `pluginConfig` entry to override the default configuration.

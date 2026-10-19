@@ -1,8 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.1-bs_1.54.9-7455af5",
-    "last-successful-publish": "7455af515842cb034022d58ce1406ca8819d90c3"
-  },
+  "metadata": {},
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -12,7 +9,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4d903e2099651f34534b0ea5b38ef77f116ba0efea3dc5e997797a760c78ad7f"
+          "digest": "sha256:7516cc7e7e2a0331afbb98185cfe615cb75934dc6529f9248aa434aab015324c"
         },
         "dpdy": {
           "status": "skip"
@@ -34,7 +31,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ab319ae8d1684a5c0be312d77656adffd727f013736f3c269f4489e6e8699439"
+          "digest": "sha256:aa6d59145275a173616ff6161ea1e3f691e9084fecd0a46863a06fc5b35868a6"
         },
         "dpdy": {
           "status": "skip"
@@ -56,7 +53,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6e36d2430f723dc88b4df55c9f440e7bed562f015f543840b009bd2b3a931483"
+          "digest": "sha256:6378aafe28ba48896f77c901417c45a5a91dec5461e6b3dd65574f36569b1809"
         },
         "dpdy": {
           "status": "skip"
@@ -78,7 +75,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d90196d093fa6138c9f4342e4a4975838f2611a6cae441c18dc210a7f1c61638"
+          "digest": "sha256:40c44547ec0f75b0e66a88359bc807ddabe2a6795fcc6cb7d6dae8c03557e0d9"
         },
         "dpdy": {
           "status": "skip"
@@ -100,7 +97,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b71cbdcaeda822ba3c4f66cc50fd33c3da70acebe9e49e76e34fb441e3f19d67"
+          "digest": "sha256:6171ce5f69556410b39b65f84333182408c691091f9013fda16f56e5d3b42f5f"
         },
         "dpdy": {
           "status": "skip"
@@ -122,7 +119,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:abb633bed440fc898fc04888b17fb8bc3f9ee669202f1604f1052485bb05f2b6"
+          "digest": "sha256:650a1da88d032d3007ac1c811d13fbb1a9ef80b4027cedccd871ebdebbdb7676"
         },
         "dpdy": {
           "status": "skip"
@@ -144,7 +141,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cd677acea06601d9fd58b85e304dab013128f80e8fe8420144ebdecba42ab73a"
+          "digest": "sha256:310b25f8774f47c9647b25fd7e7d1e754bb23d628e541a1bae0adc56b8798579"
         },
         "dpdy": {
           "status": "skip"
@@ -166,7 +163,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:461ca69246733310aa82e3d40d681ae0ad624890e3029993e0e86d2e6683baa5"
+          "digest": "sha256:d4e5dc6d741be36f72476cce703b4902b9aeb194b56c8aceefb58793503b5a35"
         },
         "dpdy": {
           "status": "skip"
@@ -188,7 +185,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:acd42664dfefe50c10c7e797f9bc58729dd02bd82ab487534e42876076469633"
+          "digest": "sha256:7831ce09c3c842b5ee86c6f68d0d86f5dd3b802a2aa8583563a50040c21f0c0f"
         },
         "dpdy": {
           "status": "skip"
@@ -210,7 +207,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:97a4c9f2ed73a2c4c6c6f8abd804da9753c1a56b83b5795b3be98281bdfae812"
+          "digest": "sha256:21da8b0a5f5a2a829db1a68927ae9329b8ce1e3fed50076561563b64cbb5da6a"
         },
         "dpdy": {
           "status": "skip"
@@ -232,7 +229,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d11b7194e500639632ff72d8b97dcf43eaa9ce7280ac8b72447d8819084b86fc"
+          "digest": "sha256:acc9f1ef56b992fa9466410caafc530bcb51a0849f2a42240d16fa44900a57c3"
         },
         "dpdy": {
           "status": "skip"
@@ -254,7 +251,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2aa0950b649e3b5e0ebf40b6a33329ff6b379c8dd7947b8cf7b015591885c974"
+          "digest": "sha256:d85297e0d429eb673c0f55c3127acb39aef25f01818b07f8007ab8cfc362bc9b"
         },
         "dpdy": {
           "status": "skip"
@@ -276,7 +273,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5190086dcf25a1c517c57cb5178d336b4b3edd2f80a8887824c98a604c6c6af4"
+          "digest": "sha256:ee7d5e120afee381ee9bdd420e0256a2819e7e530597c23c177fff9f01582192"
         },
         "dpdy": {
           "status": "skip"
@@ -298,7 +295,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:560b85bda736ea0ecf499a53766714c2386e478c100f1e3c8a461acbb735e422"
+          "digest": "sha256:5043b2dcb4eeb7a0b428cd5215b5104697c536bef74e65ea7455e145a636dd56"
         },
         "dpdy": {
           "status": "skip"
@@ -320,7 +317,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ca84019e475feaf274f70ced60c0fc232bef350f4f9f17b3a27aa682f68c1204"
+          "digest": "sha256:07dc7a5d7cd61ae3457022b7e374590aea73b8efb94d00d96a70416fb1e87d96"
         },
         "dpdy": {
           "status": "skip"
@@ -342,7 +339,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:bdd5b27f14bab43452e875cce7ca43e60592f4061ca602b2ff1188ea5a04d400"
+          "digest": "sha256:eccb4be809b80c5277fd11ab8144f52abcb46970bd7e748186fc8fdf5b04253e"
         },
         "dpdy": {
           "status": "skip"
@@ -364,7 +361,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8a4354165c039b538603f0b3bd75daa91ec81b5846e4c824f61992d632c331b6"
+          "digest": "sha256:5cb125e854a91f9b9c219bfc12cd9145cf7a1c2f2a34c1b9079a0352437baca8"
         },
         "dpdy": {
           "status": "skip"
@@ -386,7 +383,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:40cb6112c8ee31143e965d886f4f7c99f24f5c98b95ae8cbbc72f3c13e20824f"
+          "digest": "sha256:cc13dfae7cc5dde982642caf139839d7af7483ca5097169ab5b26a986c83074a"
         },
         "dpdy": {
           "status": "skip"
@@ -408,7 +405,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6cd50ef7068cbccef91fe9d80e5db70d464098d34a911436b0ac8de8dd43cda5"
+          "digest": "sha256:6be1be261986b59b2ad081ea1c9e5da82d00513acc77e12bfb91bbca200340c6"
         },
         "dpdy": {
           "status": "skip"
@@ -430,7 +427,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0db9de8a051f4cc54e2d0ec46d6bf852e2f02e9dc1ee69988a26034803945292"
+          "digest": "sha256:965de7970dc4f7c2626842d78f213af4f94256283ffa3c6b5130ff209fd94f30"
         },
         "dpdy": {
           "status": "skip"
@@ -452,7 +449,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8c894f333484ee36e2df60e65f26fb162b52122645a083d338c5ac3b9b1288b3"
+          "digest": "sha256:ae04869c287a84ca92c19849e5f4000b391c6e59e8f034c6a859a22c7b9796a1"
         },
         "dpdy": {
           "status": "skip"
@@ -474,7 +471,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:856720619ab6fc6b8a1cd8a77f1ce7f16f5141da697c2e0cfb9450744dc9cc4b"
+          "digest": "sha256:e8a72ea6a926121b5f215d2d23b41873abfed10701ebccaf14016500bccfc485"
         },
         "dpdy": {
           "status": "skip"
@@ -496,7 +493,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:26e752d8a05b4582b3a66df1fe21fe64f21257279f69fa4866e2c9ce4c76ac22"
+          "digest": "sha256:8a90cd4409e41c00e9e0f92481ca8a5fd4f071ea60b51b96a2c6591a7c5ae42a"
         },
         "dpdy": {
           "status": "skip"
@@ -518,7 +515,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ac11eebdcba6a02e84588fe934926b2df317b6c44955ff3c30506c6e26ea6fa9"
+          "digest": "sha256:0b1c40b31ce833b41bc0d3ae24ae377e78f9824b390788b4c54ea4169075fecc"
         },
         "dpdy": {
           "status": "skip"
@@ -540,7 +537,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c9cdd386670554ffbb81fc9a8a59d593d692cde7ad7b3e8f6ef4b2032ba9d4db"
+          "digest": "sha256:a8f9c94dc8e9c3b61f945dbfd13c677dcd81bdca2dccbc4a2ffb57c268f0fc36"
         },
         "dpdy": {
           "status": "skip"
@@ -562,7 +559,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b6411de986090dbea41186cab2c19b119f206d15d4dbc21026eaa06ed257409e"
+          "digest": "sha256:03cb7df59d2bbd4143d76410c1417fa89678ec0ede30c5b3d88ee14c6db5d70c"
         },
         "dpdy": {
           "status": "skip"
@@ -584,7 +581,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:12fe71dc7330fa25df2e6f6a89691c96cdc8e2c747f0db98cb42a49efb583773"
+          "digest": "sha256:b48be690b2eb67450c3b5bf6ba51680558327d1b6f38354403130acf27e1ae58"
         },
         "dpdy": {
           "status": "skip"
@@ -606,7 +603,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a50d130d8f894ddcaca9bf0b55eb0d7b725bd41db91ce0eb791cdafc8a405ade"
+          "digest": "sha256:37949ac997f21df0cd5dd9c7085b76adb06dfb828379ec4f31c426d699d65c53"
         },
         "dpdy": {
           "status": "skip"
@@ -628,7 +625,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:34d7052354459ea88e9907d35fae45adaac602d602d837b9b706516da18ad9bf"
+          "digest": "sha256:e01ce6c1df0df9f4b0be9475b713d4d19881b97c8aea2fdca596651f6052f4a6"
         },
         "dpdy": {
           "status": "skip"
@@ -650,7 +647,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1ab70c90d99c638f66ec3b40f705d3486a5d14e4b6987a808f22c0486e9e025d"
+          "digest": "sha256:8e0ba36898f36fb8f1cd6deb28bd8d2c334b8717e1ffab83708040ca780a9ff6"
         },
         "dpdy": {
           "status": "skip"
@@ -672,7 +669,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:03d2d77de68542e976a118d3d2ecf7c49bc95f07cd06b89ef02cafbe61a9558c"
+          "digest": "sha256:8b2c89352714edce2bc101840bbbb6a4010769ab54701c3dc35de988ce274ec8"
         },
         "dpdy": {
           "status": "skip"
@@ -694,7 +691,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ad4387548127614e2c025b77ee8117c3885b13f65f286cb8f0676fe96a364271"
+          "digest": "sha256:a869293d2c71cd9cca6e6af4e31f50c938f15fdd6df487e3d8398fd89b39cd37"
         },
         "dpdy": {
           "status": "skip"
@@ -716,7 +713,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d8a7c1cbb6c93be912ccbb4055bb99b3f2c0ff235e420a3eddd958cffe3ef6ad"
+          "digest": "sha256:f1ea8ae80f315a7e6cbf1393a71bd08858f7efbefc599f8b3b7376e9f29698ff"
         },
         "dpdy": {
           "status": "skip"
@@ -738,7 +735,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:88676d935c6cdfc2e8fe203150bb25499928d0b516d1f5f76592e5434e1f45e7"
+          "digest": "sha256:471e8c56b21c463be51e832811bf010aa1867e77f62db8c92a76ba5a72abd6c7"
         },
         "dpdy": {
           "status": "skip"
@@ -760,7 +757,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a3f2500d167f3c00f5c829bc3146f8f1b12f8183130e799a426aac25a7cd96ce"
+          "digest": "sha256:a8fc5fb336f34eec303a85132e8a6bb8733d98e96aafddb9e7e180c98c19e038"
         },
         "dpdy": {
           "status": "skip"
@@ -782,7 +779,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4b0a227782e85d6c8d049e77b1b7648401efc64e86454453e220fceca4994c09"
+          "digest": "sha256:782c980db24791f0bf6091c946d1b5623cc83beaf2ca71aadb5ddb7273ab4599"
         },
         "dpdy": {
           "status": "skip"
@@ -804,7 +801,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:95129eabd61c96ad113ceac6dc92cc51f9f5072c28761ae69b065a306ca01691"
+          "digest": "sha256:4ac095128c5cb2eeef364cd9cd77ac4d8238e19fa8d2712eff169303d4490016"
         },
         "dpdy": {
           "status": "skip"
