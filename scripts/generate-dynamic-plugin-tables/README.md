@@ -23,8 +23,15 @@ node /path/to/overlays/scripts/generate-dynamic-plugin-tables/src/cli.ts \
 
 By default, output goes to `<index-dir>/extend_dynamic-plugins-reference/`.
 Use `--output-dir` to write elsewhere and `--default-packages-file` when
-productized defaults live outside the index. Supported mode generates GA,
-Technology Preview, Deprecated, and Preinstalled pages plus `rhdh-supported-plugins.csv`.
+productized defaults live outside the index. CLI paths must resolve inside the
+directory from which the command is run, including through symlinks. Run it
+from a directory containing the index, output, and any external defaults.
+Pass `--debug` to print each added row with its destination page, package,
+version, support level, OCI path, tag, and CSV inclusion. The catalog index
+workflow enables this for build logs.
+
+Supported mode generates GA, Technology Preview, Deprecated, and Preinstalled
+pages plus `rhdh-supported-plugins.csv`.
 Community mode generates `ref-community-supported-plugins.adoc` and
 `rhdh-community-plugins.csv`. Both CSVs use the same columns; the community
 CSV sets `Default` to `N/A` because that index has no default package config.
