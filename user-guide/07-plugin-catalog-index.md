@@ -182,10 +182,10 @@ The final step that produces the catalog index:
 
 1. Copies `catalog-entities/extensions/` (Plugin entities, collections) to the output directory
 2. Copies `workspaces/*/metadata/*.yaml` (Package entities) to the `packages` directory of the catalog index output directory
-3. Scrubs entities to only include packages matching the package list filter
-4. Verifies each plugin's OCI image exists in the registry
+3. Uses the package list filter to select entries for `index.json`; copied Package entities outside that selection can remain in the directory
+4. Verifies each selected plugin's OCI image exists in the registry
 5. Generates `index.json` with digest-based references
-6. Updates Package entity files and DPDY with OCI references and Tag/Build date comments
+6. Updates selected Package entity files and DPDY with OCI references and Tag/Build date comments
 7. Regenerates `all.yaml` location files
 
 ### Step 5: Validation (`validateCatalogIndex.py`)
@@ -324,8 +324,26 @@ The generated `catalog-index/<tier>/` directory contains:
 | `catalog-entities/extensions/plugins/*.yaml`     | Plugin entity definitions (descriptions, icons, categories)                               |
 | `catalog-entities/extensions/collections/*.yaml` | Collection groupings (featured, recommended, etc.)                                        |
 | `dynamic-plugins.default.yaml`                   | Default plugin configuration (supported tier only)                                        |
+| `extend_dynamic-plugins-reference/*.adoc`      | Generated plugin reference pages for this tier                                          |
+| `extend_dynamic-plugins-reference/rhdh-supported-plugins.csv` | Supported plugin inventory (supported tier only)                         |
+| `extend_dynamic-plugins-reference/rhdh-community-plugins.csv` | Community and Developer Preview plugin inventory (community tier only)   |
 | `build-info.json`                                | Build metadata (date, versions, source commit)                                            |
 | `build-report.json`                              | Detailed per-plugin build status with stage tracking (not included in final OCI artifact) |
+
+After validation, `scripts/generateDynamicPluginsTables.py` renders the supported
+GA, technology preview, deprecated, and preinstalled pages plus the supported CSV,
+or the community supported page and community CSV, into each tier's index directory.
+Both CSVs use the same columns. The community CSV marks Default as `N/A` because
+the community index has no default package configuration. The renderer selects
+packages from that tier's `index.json` and reads their resolved Package entities;
+the supported pages also read `default.packages.yaml` for enabled/disabled status.
+Package entities copied into the output but absent from the index do not appear
+in the tables. The renderer works with a productized supported index as well:
+
+```bash
+python scripts/generateDynamicPluginsTables.py \
+  --tier supported --index-dir /path/to/productized/catalog-index
+```
 
 
 ---
