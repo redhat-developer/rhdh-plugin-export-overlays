@@ -1326,6 +1326,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"generate-dynamic-plugin-tables@workspace:generate-dynamic-plugin-tables":
+  version: 0.0.0-use.local
+  resolution: "generate-dynamic-plugin-tables@workspace:generate-dynamic-plugin-tables"
+  dependencies:
+    "@types/node": "catalog:"
+    typescript: "catalog:"
+    vite-plus: "catalog:"
+    yaml: "npm:^2.9.1"
+  bin:
+    generate-dynamic-plugin-tables: src/cli.ts
+  languageName: unknown
+  linkType: soft
+
 "glob-parent@npm:~5.1.2":
   version: 5.1.2
   resolution: "glob-parent@npm:5.1.2"

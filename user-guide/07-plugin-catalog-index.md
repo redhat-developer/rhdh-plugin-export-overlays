@@ -317,7 +317,7 @@ The generated `catalog-index/<tier>/` directory contains:
 | `build-info.json`                                | Build metadata (date, versions, source commit)                                            |
 | `build-report.json`                              | Detailed per-plugin build status with stage tracking (not included in final OCI artifact) |
 
-After validation, `scripts/generateDynamicPluginsTables.py` renders the supported
+After validation, `scripts/generate-dynamic-plugin-tables/src/cli.ts` renders the supported
 GA, technology preview, deprecated, and preinstalled pages plus the supported CSV,
 or the community supported page and community CSV, into each tier's index directory.
 Both CSVs use the same columns. The community CSV marks Default as `N/A` because
@@ -328,7 +328,7 @@ Package entities copied into the output but absent from the index do not appear
 in the tables. The renderer works with a productized supported index as well:
 
 ```bash
-python scripts/generateDynamicPluginsTables.py \
+node scripts/generate-dynamic-plugin-tables/src/cli.ts \
   --tier supported --index-dir /path/to/productized/catalog-index
 ```
 

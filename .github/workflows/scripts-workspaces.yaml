@@ -7,6 +7,7 @@ on:
       - 'release-*'
     paths:
       - 'scripts/**'
+      - '.github/workflows/generate-catalog-index.yaml'
       - '.github/workflows/scripts-workspaces.yaml'
   workflow_dispatch:
 

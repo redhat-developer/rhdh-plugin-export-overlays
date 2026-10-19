@@ -52,8 +52,8 @@ jobs:
     permissions:
       contents: write
     outputs:
-      supported-ok: ${{ steps.gen-supported.outputs.ok }}
-      community-ok: ${{ steps.gen-community.outputs.ok }}
+      supported-ok: ${{ steps.gen-supported.outputs.ok == 'true' && steps.docs-supported.outcome == 'success' }}
+      community-ok: ${{ steps.gen-community.outputs.ok == 'true' && steps.docs-community.outcome == 'success' }}
       supported-clean: ${{ steps.gen-supported.outputs.clean }}
       community-clean: ${{ steps.gen-community.outputs.clean }}
       backstage-version: ${{ steps.versions.outputs.backstage-version }}
@@ -144,6 +144,15 @@ jobs:
           chmod +x "$HOME/.local/bin/yq_mf"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/yq_mf" --version
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: scripts/package.json
+
+      - name: Install table generator dependencies
+        working-directory: scripts
+        run: corepack yarn workspaces focus generate-dynamic-plugin-tables --production
 
       - name: Read versions
         id: versions
@@ -237,13 +246,10 @@ jobs:
             --validate-mode gate \
             "${PREV_ARGS[@]}" \
             "${STRICT_ARGS[@]}" \
-            $RHDH_VERSION_ARG \
-            && python scripts/generateDynamicPluginsTables.py \
-              --tier supported \
-              --index-dir catalog-index/supported; then
+            $RHDH_VERSION_ARG; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Supported catalog or documentation table generation failed"
+            echo "::warning::Supported catalog generation failed"
             echo "ok=false" >> "$GITHUB_OUTPUT"
             echo "clean=false" >> "$GITHUB_OUTPUT"
           fi
@@ -282,13 +288,10 @@ jobs:
             --packages-file rhdh-community-packages.txt \
             --report-file catalog-index/community/build-report.json \
             --validate-mode gate \
-            "${STRICT_ARGS[@]}" \
-            && python scripts/generateDynamicPluginsTables.py \
-              --tier community \
-              --index-dir catalog-index/community; then
+            "${STRICT_ARGS[@]}"; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Community catalog or documentation table generation failed"
+            echo "::warning::Community catalog generation failed"
             echo "ok=false" >> "$GITHUB_OUTPUT"
             echo "clean=false" >> "$GITHUB_OUTPUT"
           fi
@@ -305,13 +308,32 @@ jobs:
             fi
           fi
 
+      - name: Generate supported documentation tables
+        id: docs-supported
+        if: steps.gen-supported.outputs.ok == 'true'
+        # Let both tiers finish; Check generation results fails the job if needed.
+        continue-on-error: true
+        run: |
+          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+            --tier supported \
+            --index-dir catalog-index/supported
+
+      - name: Generate community documentation tables
+        id: docs-community
+        if: steps.gen-community.outputs.ok == 'true'
+        continue-on-error: true
+        run: |
+          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+            --tier community \
+            --index-dir catalog-index/community
+
       - name: Write build-info.json
         env:
           BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
           RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
           SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok == 'true' && steps.docs-supported.outcome == 'success' }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok == 'true' && steps.docs-community.outcome == 'success' }}
           SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
         run: |
           BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -370,13 +392,16 @@ jobs:
 
       - name: Check generation results
         env:
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_INDEX_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_INDEX_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_TABLE_OK: ${{ steps.docs-supported.outcome }}
+          COMMUNITY_TABLE_OK: ${{ steps.docs-community.outcome }}
           SUPPORTED_CLEAN: ${{ steps.gen-supported.outputs.clean }}
           COMMUNITY_CLEAN: ${{ steps.gen-community.outputs.clean }}
         run: |
-          if [[ "${SUPPORTED_OK}" != "true" || "${COMMUNITY_OK}" != "true" ]]; then
-            echo "::error::Catalog generation failed (supported=$SUPPORTED_OK, community=$COMMUNITY_OK)"
+          if [[ "${SUPPORTED_INDEX_OK}" != "true" || "${COMMUNITY_INDEX_OK}" != "true" || \
+                "${SUPPORTED_TABLE_OK}" != "success" || "${COMMUNITY_TABLE_OK}" != "success" ]]; then
+            echo "::error::Catalog or documentation generation failed (supported index=${SUPPORTED_INDEX_OK:-skipped}, table=${SUPPORTED_TABLE_OK:-skipped}; community index=${COMMUNITY_INDEX_OK:-skipped}, table=${COMMUNITY_TABLE_OK:-skipped})"
             exit 1
           fi
 
