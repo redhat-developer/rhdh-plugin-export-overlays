@@ -60,9 +60,7 @@ test.describe("Default Global Header", () => {
     uiHelper,
   }) => {
     await uiHelper.clickLink({ ariaLabel: "Self-service" });
-    await expect(
-      page.getByRole("link", { name: "Self-service" }),
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/create/);
   });
 
   test("Verify that clicking on Support button in HelpDropdown opens a new tab", async ({
