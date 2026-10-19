@@ -421,6 +421,7 @@ jobs:
             --build-arg TIER=supported \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
+            -t "plugin-catalog-index:${RHDH_VERSION}" \
             -t "plugin-catalog-index:latest" \
             .
 
@@ -435,7 +436,7 @@ jobs:
 
           echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
+          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "${RHDH_VERSION}" "latest"; do
             podman tag "plugin-catalog-index:${tag}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
             podman push "${SUPPORTED_CATALOG_INDEX}:${tag}"
             echo "Pushed ${SUPPORTED_CATALOG_INDEX}:${tag}"
@@ -474,6 +475,7 @@ jobs:
             --build-arg TIER=community \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
+            -t "plugin-catalog-index:${RHDH_VERSION}" \
             -t "plugin-catalog-index:latest" \
             .
 
@@ -488,7 +490,7 @@ jobs:
 
           echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
+          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "${RHDH_VERSION}" "latest"; do
             podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
             podman push "${COMMUNITY_CATALOG_INDEX}:${tag}"
             echo "Pushed ${COMMUNITY_CATALOG_INDEX}:${tag}"

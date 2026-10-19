@@ -361,7 +361,7 @@ Plugins with Red Hat support (GA or Tech Preview heading to GA).
 - **Filter**: Union of `default.packages.yaml` (GA only) + `rhdh-supported-packages.txt` (GA + TP)
 - **Registry**: `quay.io/rhdh` (plugins registry) / `quay.io/rhdh-community` (catalog index image registry)
 - **Published to**: `quay.io/rhdh-community/plugin-catalog-index`
-- **Tags**: `bs_{backstage_version}-{short_sha}`, `bs_{backstage_version}`, `latest`
+- **Tags**: `{rhdh_version}-bs_{backstage_version}-{short_sha}`, `{rhdh_version}-bs_{backstage_version}`, `{rhdh_version}`, `latest`
 - **Includes DPDY**: Yes
 
 ### Curated Optional Extras Catalog
@@ -371,8 +371,15 @@ Curated Optional Extras (community, developer preview, and non-core) plugins. Th
 - **Filter**: `rhdh-community-packages.txt`
 - **Registry**: `ghcr.io/redhat-developer/rhdh-plugin-export-overlays`
 - **Published to**: `ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index`
-- **Tags**: `bs_{backstage_version}-{short_sha}`, `bs_{backstage_version}`, `latest`
+- **Tags**: `{rhdh_version}-bs_{backstage_version}-{short_sha}`, `{rhdh_version}-bs_{backstage_version}`, `{rhdh_version}`, `latest`
 - **Includes DPDY**: No
+
+The version-only tag (for example, `:2.1`) points to the latest published
+catalog image for that RHDH release line. Documentation can reference
+`quay.io/rhdh-community/plugin-catalog-index:2.1` or
+`ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.1`
+without tracking the Backstage version. The Backstage-specific tags remain
+available for consumers that need them.
 
 ---
 
