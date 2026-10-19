@@ -325,8 +325,8 @@ The generated `catalog-index/<tier>/` directory contains:
 | `catalog-entities/extensions/collections/*.yaml` | Collection groupings (featured, recommended, etc.)                                        |
 | `dynamic-plugins.default.yaml`                   | Default plugin configuration (supported tier only)                                        |
 | `extend_dynamic-plugins-reference/*.adoc`      | Generated plugin reference pages for this tier                                          |
-| `extend_dynamic-plugins-reference/rhdh-supported-plugins.csv` | Supported plugin inventory (supported tier only)                         |
-| `extend_dynamic-plugins-reference/rhdh-community-plugins.csv` | Community and Developer Preview plugin inventory (community tier only)   |
+| `extend_dynamic-plugins-reference/rhdh-supported-plugins.csv` | GA and Technology Preview Supported plugin inventory (supported tiers only)                         |
+| `extend_dynamic-plugins-reference/rhdh-community-plugins.csv` | Community and Developer Preview plugin inventory (unsupported tiers only)   |
 | `build-info.json`                                | Build metadata (date, versions, source commit)                                            |
 | `build-report.json`                              | Detailed per-plugin build status with stage tracking (not included in final OCI artifact) |
 
