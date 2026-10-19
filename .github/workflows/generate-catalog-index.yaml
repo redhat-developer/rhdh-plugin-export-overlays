@@ -22,7 +22,7 @@ on:
         type: string
         default: ''
       target-branch:
-        description: 'Target branch to push catalog-index to (default: catalog-index-{source-branch})'
+        description: 'Target catalog-index-* branch to push the generated catalog-index to (default: catalog-index-{source-branch})'
         required: false
         type: string
         default: ''
@@ -60,53 +60,49 @@ jobs:
       rhdh-version: ${{ steps.versions.outputs.rhdh-version }}
       source-branch: ${{ steps.branches.outputs.source-branch }}
       target-branch: ${{ steps.branches.outputs.target-branch }}
-      moving-tag: ${{ steps.moving-tag.outputs.tag }}
+      floating-tag: ${{ steps.branches.outputs.floating-tag }}
 
     steps:
-      - name: Determine branches
+      - name: Determine branches and floating tag
         id: branches
         env:
-          SOURCE_BRANCH: ${{ inputs.source-branch }}
+          SOURCE_BRANCH_INPUT: ${{ inputs.source-branch }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
-          if [[ -z "${SOURCE_BRANCH}" ]]; then
-            SOURCE_BRANCH="${GITHUB_REF_NAME}"
+          SOURCE_BRANCH="${SOURCE_BRANCH_INPUT:-${GITHUB_REF#refs/heads/}}"
+          TARGET_BRANCH="${TARGET_BRANCH:-catalog-index-$SOURCE_BRANCH}"
+          if [[ "$SOURCE_BRANCH" == refs/* ]] || \
+             ! git check-ref-format --branch "$SOURCE_BRANCH" >/dev/null; then
+            echo "::error::Invalid source branch"
+            exit 1
           fi
-          if [[ -z "${TARGET_BRANCH}" ]]; then
-            TARGET_BRANCH="catalog-index-${SOURCE_BRANCH}"
+          if [[ "$TARGET_BRANCH" != catalog-index-* ]] || \
+             ! git check-ref-format --branch "$TARGET_BRANCH" >/dev/null; then
+            echo "::error::Invalid catalog-index-* target branch"
+            exit 1
           fi
-          echo "source-branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "Source branch: $SOURCE_BRANCH"
-          echo "Target branch: $TARGET_BRANCH"
+          LATEST_STABLE_BRANCH=$(git ls-remote --heads "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" \
+            'refs/heads/release-*' \
+            | awk '$2 ~ /^refs\/heads\/release-[0-9]+\.[0-9]+$/ { sub(/^refs\/heads\//, "", $2); print $2 }' \
+            | sort -V | tail -n 1)
+          FLOATING_TAG=""
+          if [[ "$SOURCE_BRANCH" == "main" ]]; then
+            FLOATING_TAG=next
+          elif [[ "$SOURCE_BRANCH" == "$LATEST_STABLE_BRANCH" ]]; then
+            FLOATING_TAG=latest
+          fi
+          {
+            echo "source-branch=$SOURCE_BRANCH"
+            echo "target-branch=$TARGET_BRANCH"
+            echo "floating-tag=$FLOATING_TAG"
+          } >> "$GITHUB_OUTPUT"
+          echo "Source: $SOURCE_BRANCH; target: $TARGET_BRANCH; floating tag: ${FLOATING_TAG:-<none>}"
 
       - name: Checkout source branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.branches.outputs.source-branch }}
           fetch-depth: 0
-
-      - name: Determine moving catalog tag
-        id: moving-tag
-        env:
-          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
-        run: |
-          # fetch-depth: 0 populates origin/release-* for the same version-aware selection as midstream.
-          if ! LATEST_STABLE_BRANCH=$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release-*' \
-            | sed 's|^origin/||' \
-            | grep -E '^release-[0-9]+\.[0-9]+$' \
-            | sort -uV | tail -n 1); then
-            LATEST_STABLE_BRANCH=""
-            echo "::warning::Could not determine the latest release branch; skipping latest tag"
-          fi
-          MOVING_TAG=""
-          if [[ "$SOURCE_BRANCH" == "main" ]]; then
-            MOVING_TAG=next
-          elif [[ -n "$LATEST_STABLE_BRANCH" && "$SOURCE_BRANCH" == "$LATEST_STABLE_BRANCH" ]]; then
-            MOVING_TAG=latest
-          fi
-          echo "tag=$MOVING_TAG" >> "$GITHUB_OUTPUT"
-          echo "Latest release branch: ${LATEST_STABLE_BRANCH:-<unknown>}; source branch: $SOURCE_BRANCH; moving tag: ${MOVING_TAG:-<none>}"
 
       - name: Sync to target branch
         env:
@@ -161,7 +157,7 @@ jobs:
         run: |
           BS_VERSION=$(jq -r '.backstage' versions.json)
 
-          # Fetch RHDH version from the source branch, not GITHUB_REF_NAME: a
+          # Fetch RHDH version from the selected source branch: a
           # workflow_dispatch of this file from main with source-branch=release-*
           # must tag the previous index with the release line.
           RHDH_FULL_VERSION=$(curl -sSLf \
@@ -317,7 +313,8 @@ jobs:
         run: |
           node scripts/generate-dynamic-plugin-tables/src/cli.ts \
             --tier supported \
-            --index-dir catalog-index/supported
+            --index-dir catalog-index/supported \
+            --debug
 
       # consumed downstream in https://github.com/redhat-developer/red-hat-developers-documentation-rhdh/
       - name: Generate community documentation tables
@@ -327,7 +324,8 @@ jobs:
         run: |
           node scripts/generate-dynamic-plugin-tables/src/cli.ts \
             --tier community \
-            --index-dir catalog-index/community
+            --index-dir catalog-index/community \
+            --debug
 
       - name: Write build-info.json
         env:
@@ -476,14 +474,14 @@ jobs:
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
-          MOVING_TAG: ${{ needs.generate.outputs.moving-tag }}
+          FLOATING_TAG: ${{ needs.generate.outputs.floating-tag }}
           QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
           SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
           TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
-          if [[ -n "$MOVING_TAG" ]]; then TAGS+=("$MOVING_TAG"); fi
+          if [[ -n "$FLOATING_TAG" ]]; then TAGS+=("$FLOATING_TAG"); fi
 
           echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
@@ -531,14 +529,14 @@ jobs:
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
-          MOVING_TAG: ${{ needs.generate.outputs.moving-tag }}
+          FLOATING_TAG: ${{ needs.generate.outputs.floating-tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_ACTOR: ${{ github.actor }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
           SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
           TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
-          if [[ -n "$MOVING_TAG" ]]; then TAGS+=("$MOVING_TAG"); fi
+          if [[ -n "$FLOATING_TAG" ]]; then TAGS+=("$FLOATING_TAG"); fi
 
           echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
