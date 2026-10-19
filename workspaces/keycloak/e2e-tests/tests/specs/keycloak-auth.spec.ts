@@ -197,7 +197,13 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    const isLoggedIn = await page
+      .locator('button[data-testid="user-settings-menu"]')
+      .isVisible()
+      .catch(() => false);
+    if (isLoggedIn) {
+      await loginHelper.signOut();
+    }
   });
 
   test("Guest provider is not offered in production", async ({
