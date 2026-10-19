@@ -1,3 +1,4 @@
+# Format, lint, type-check, and unit-test the TypeScript workspaces in scripts/.
 name: Scripts workspaces
 
 on:
@@ -7,7 +8,6 @@ on:
       - 'release-*'
     paths:
       - 'scripts/**'
-      - '.github/workflows/generate-catalog-index.yaml'
       - '.github/workflows/scripts-workspaces.yaml'
   workflow_dispatch:
 
