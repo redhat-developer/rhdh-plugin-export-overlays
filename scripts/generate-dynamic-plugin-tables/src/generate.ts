@@ -14,13 +14,14 @@
  * Supported output also intersects index entries with default.packages.yaml.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, join } from "node:path";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 export type Tier = "supported" | "community";
 type RowGroup = "ga" | "technology-preview" | "deprecated";
+type DebugLog = (message: string) => void;
 
 /** Documentation row combining an index entry with its matching Package entity. */
 export type Plugin = {
@@ -59,6 +60,37 @@ const TEMPLATES_DIR = fileURLToPath(new URL("../templates/", import.meta.url));
 const COMMUNITY_SUPPORT = new Set(["community", "dev-preview"]);
 const SUPPORTED_SUPPORT = new Set(["generally-available", "tech-preview"]);
 const VARIABLE_PATTERN = /\$\{([^}]+)\}/g;
+
+/**
+ * Resolve a CLI path beneath root, following symlinks in existing components.
+ * Missing components are kept so a nested output directory can be created.
+ * Catalog paths derived from the CLI index are checked too: they may be symlinks.
+ */
+export function requireContained(flag: string, arg: string, root: string = process.cwd()): string {
+  const base = realpathSync(root);
+  let existing = resolve(base, arg);
+  const missing: string[] = [];
+  while (true) {
+    try {
+      existing = realpathSync(existing);
+      break;
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+      const parent = dirname(existing);
+      if (parent === existing) throw error;
+      missing.unshift(basename(existing));
+      existing = parent;
+    }
+  }
+
+  const resolved = resolve(existing, ...missing);
+  if (resolved !== base && !resolved.startsWith(`${base}${sep}`)) {
+    throw new Error(
+      `${flag} must resolve inside ${base}: ${JSON.stringify(arg)} resolves to ${resolved}`,
+    );
+  }
+  return resolved;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -120,7 +152,8 @@ function loadEntities(
     (name) => name.endsWith(".yaml") && name !== "all.yaml",
   );
   for (const filename of paths) {
-    const path = join(packagesDir, filename);
+    // A catalog YAML symlink must stay inside the selected Package directory.
+    const path = requireContained("Package entity", filename, packagesDir);
     const selectedFile = selectedImageKeys.has(basename(filename, ".yaml"));
     let entity: unknown;
     try {
@@ -170,8 +203,8 @@ function requiredString(value: unknown, field: string, imageKey: string): string
  *   -> table Path "oci://ghcr.io/org/plugin@sha256:abc"
  */
 export function loadPlugins(indexDir: string, tier: Tier): Plugin[] {
-  // Parse index.json as image keys -> published index entries.
-  const indexFile = join(indexDir, "index.json");
+  // Parse index.json as image keys -> published index entries; reject external symlinks.
+  const indexFile = requireContained("Catalog index", "index.json", indexDir);
   if (!isFile(indexFile)) throw new TableGenerationError(`Catalog index is missing: ${indexFile}`);
   let index: unknown;
   try {
@@ -186,7 +219,11 @@ export function loadPlugins(indexDir: string, tier: Tier): Plugin[] {
   // Index key "org-plugin" -> Package spec.packageName "@org/plugin".
   // Load only entities named by the published index.
   const entities = loadEntities(
-    join(indexDir, "catalog-entities", "extensions", "packages"),
+    requireContained(
+      "Package entity directory",
+      join("catalog-entities", "extensions", "packages"),
+      indexDir,
+    ),
     new Set(Object.keys(index)),
   );
   const expectedSupport = tier === "supported" ? SUPPORTED_SUPPORT : COMMUNITY_SUPPORT;
@@ -285,7 +322,7 @@ function emptyPage(name: string, sentence: string): string {
 
 /** "first|second\nthird" -> "first\\|second third" inside one table cell. */
 function adocCell(value: string): string {
-  return value.replaceAll("\n", " ").replaceAll("|", "\\|");
+  return value.replaceAll("\n", " ").replaceAll("|", String.raw`\|`);
 }
 
 /** ["TOKEN", "URL"] -> two code paragraphs inside one AsciiDoc cell. */
@@ -308,7 +345,8 @@ function csvContent(rows: string[][]): string {
  * title "3Scale" -> AsciiDoc |*3Scale* and CSV Name "3Scale".
  * Developer Preview packages retain their own Support Level label in the CSV.
  */
-function renderCommunity(plugins: Plugin[]): Record<string, string> {
+function renderCommunity(plugins: Plugin[], debug?: DebugLog): Record<string, string> {
+  const name = "ref-community-supported-plugins";
   const rows: string[] = [];
   const csvRows: string[][] = [];
   for (const plugin of plugins.toSorted(
@@ -330,8 +368,20 @@ function renderCommunity(plugins: Plugin[]): Record<string, string> {
       plugin.variables.map((variable) => `\`${variable}\``).join(";"),
       "N/A", // This tier has no default.packages.yaml or DPDY.
     ]);
+    debug?.(
+      `Add ${name}.adoc and rhdh-community-plugins.csv: ${JSON.stringify({
+        title: plugin.title,
+        package: plugin.package,
+        role: plugin.role,
+        version: plugin.version,
+        support: plugin.support,
+        lifecycle: plugin.lifecycle,
+        path: plugin.reference,
+        tag: plugin.tag,
+        requiredVariables: plugin.variables,
+      })}`,
+    );
   }
-  const name = "ref-community-supported-plugins";
   const content = rows.length
     ? template(name, {
         "%%COMMUNITY_TABLE_COUNT%%": String(rows.length),
@@ -467,6 +517,7 @@ function compareSupportedPlugins(left: Plugin, right: Plugin): number {
 function renderSupported(
   plugins: Plugin[],
   defaults: Map<string, "enabled" | "disabled">,
+  debug?: DebugLog,
 ): Record<string, string> {
   const selected = plugins
     .filter((plugin) => defaults.has(plugin.package))
@@ -485,7 +536,9 @@ function renderSupported(
   let disabledReference: string | undefined;
 
   for (const plugin of selected) {
+    const name = prettyName(plugin.package);
     const label = supportLabel(plugin.support);
+    const role = plugin.role.includes("front") ? "Frontend" : "Backend";
     const status = defaults.get(plugin.package)!;
     if (status === "enabled") enabled.add(plugin.package);
     else disabledReference ??= plugin.reference;
@@ -494,17 +547,18 @@ function renderSupported(
     if (plugin.lifecycle === "deprecated") group = "deprecated";
     else if (plugin.support === "tech-preview") group = "technology-preview";
     groups[group].push(
-      `|${adocCell(prettyName(plugin.package))} ` +
+      `|${adocCell(name)} ` +
         `|\`https://npmjs.com/package/${plugin.package}/v/${plugin.version}[${plugin.package}]\` ` +
         `|${adocCell(plugin.version)}\n|\`${plugin.reference}\`\n\n` +
         `${adocVariables(plugin)}|${adocCell(plugin.tag)}\n`,
     );
     // RHIDP-4196: TechDocs stays in the pages and enabled list, but not CSV.
-    if (!plugin.package.toLowerCase().includes("techdocs")) {
+    const includeCsv = !plugin.package.toLowerCase().includes("techdocs");
+    if (includeCsv) {
       csvRows[group].push([
-        prettyName(plugin.package),
+        name,
         plugin.package,
-        plugin.role.includes("front") ? "Frontend" : "Backend",
+        role,
         plugin.version,
         label,
         plugin.lifecycle,
@@ -513,6 +567,21 @@ function renderSupported(
         status === "enabled" ? "Enabled" : "Disabled",
       ]);
     }
+    debug?.(
+      `Add ref-${group}-plugins.adoc: ${JSON.stringify({
+        name,
+        package: plugin.package,
+        role,
+        version: plugin.version,
+        support: label,
+        lifecycle: plugin.lifecycle,
+        path: plugin.reference,
+        tag: plugin.tag,
+        requiredVariables: plugin.variables,
+        default: status,
+        csv: includeCsv,
+      })}`,
+    );
   }
 
   const outputs: Record<string, string> = {};
@@ -585,11 +654,16 @@ export function renderTables(
   tier: Tier,
   indexDir: string,
   defaultsFile?: string,
+  debug?: DebugLog,
 ): Record<string, string> {
   const plugins = loadPlugins(indexDir, tier);
-  if (tier === "community") return renderCommunity(plugins);
+  debug?.(`Loaded ${plugins.length} ${tier} indexed packages`);
+  if (tier === "community") return renderCommunity(plugins, debug);
   return renderSupported(
     plugins,
-    loadDefaults(defaultsFile ?? join(indexDir, "default.packages.yaml")),
+    loadDefaults(
+      defaultsFile ?? requireContained("Package defaults", "default.packages.yaml", indexDir),
+    ),
+    debug,
   );
 }

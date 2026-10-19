@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: EPL-2.0
  */
 
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { stringify as stringifyYaml } from "yaml";
-import { CSV_COLUMNS, renderTables } from "./generate.ts";
+import { CSV_COLUMNS, renderTables, requireContained } from "./generate.ts";
 
 const temporaryDirs: string[] = [];
 
@@ -22,6 +22,34 @@ function temporaryIndex(): string {
 afterEach(() => {
   for (const directory of temporaryDirs.splice(0))
     rmSync(directory, { recursive: true, force: true });
+});
+
+describe("table generator paths", () => {
+  it("accepts missing output directories beneath the selected root", () => {
+    const root = temporaryIndex();
+    expect(requireContained("--output-dir", ".", root)).toBe(root);
+    expect(requireContained("--output-dir", "nested/docs", root)).toBe(
+      join(root, "nested", "docs"),
+    );
+    expect(requireContained("--output-dir", `../${basename(root)}/docs`, root)).toBe(
+      join(root, "docs"),
+    );
+  });
+
+  it("rejects paths that escape the root directly or through a symlink", () => {
+    const root = temporaryIndex();
+    const outside = temporaryIndex();
+    expect(() => requireContained("--index-dir", outside, root)).toThrow(
+      /--index-dir must resolve inside/,
+    );
+    expect(() => requireContained("--output-dir", `${root}-sibling`, root)).toThrow(
+      /--output-dir must resolve inside/,
+    );
+    symlinkSync(outside, join(root, "linked"), "dir");
+    expect(() => requireContained("--output-dir", "linked/docs", root)).toThrow(
+      /--output-dir must resolve inside/,
+    );
+  });
 });
 
 type PackageOptions = {
@@ -211,6 +239,14 @@ describe("generate dynamic plugin tables", () => {
     const directory = temporaryIndex();
     addIndex(directory, { "org-foo": indexEntry("org-foo", "community") });
     expect(() => renderTables("community", directory)).toThrow(/no Package entity/);
+  });
+
+  it("rejects an index file symlink that escapes the selected catalog", () => {
+    const directory = temporaryIndex();
+    const outside = temporaryIndex();
+    addIndex(outside, {});
+    symlinkSync(join(outside, "index.json"), join(directory, "index.json"));
+    expect(() => renderTables("community", directory)).toThrow(/Catalog index must resolve inside/);
   });
 
   it("renders an explicit empty community page and a header-only CSV", () => {
