@@ -44,9 +44,14 @@ export async function deployRhdh(
   await rhdh.deploy();
 }
 
+const LOGIN_MAX_ATTEMPTS = 3;
+
 /**
  * Creates a browser context pointed at `rhdhUrl`, initialises all scorecard helpers,
  * and logs in as a Keycloak user. Returns the context and all helper instances.
+ *
+ * Login is retried up to {@link LOGIN_MAX_ATTEMPTS} times because the Keycloak
+ * SSO popup can occasionally time out in CI environments.
  */
 export async function createScorecardContext(
   browser: Browser,
@@ -58,7 +63,31 @@ export async function createScorecardContext(
   const catalog = new CatalogPage(page);
   const scorecard = scorecardHelpers(page, uiHelper);
   const aggregated = aggregatedScorecardHelpers(page);
-  await new LoginHelper(page).loginAsKeycloakUser();
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= LOGIN_MAX_ATTEMPTS; attempt++) {
+    try {
+      await new LoginHelper(page).loginAsKeycloakUser();
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < LOGIN_MAX_ATTEMPTS) {
+        console.warn(
+          `[scorecard] Keycloak login attempt ${attempt}/${LOGIN_MAX_ATTEMPTS} failed, retrying…`,
+          error,
+        );
+        await page.reload();
+      }
+    }
+  }
+  if (lastError) {
+    throw new Error(
+      `Keycloak login failed after ${LOGIN_MAX_ATTEMPTS} attempts`,
+      { cause: lastError },
+    );
+  }
+
   await uiHelper.goToPageUrl("/catalog", "Catalog");
   return { context, page, catalog, scorecard, aggregated };
 }
