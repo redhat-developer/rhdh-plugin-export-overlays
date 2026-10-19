@@ -1,8 +1,11 @@
 import { Page, Locator } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 export const ORCHESTRATOR_COMPONENTS = {
+  // List page exposes both a tab and a CardHeader "Workflows (N)". Prefer the
+  // tab alone — `.or(getByText(...))` matches both and trips Playwright strict
+  // mode (ci #4199: resolved to 2 elements).
   workflowsHeading: (page: Page): Locator =>
-    page.getByText(/Workflows \(\d+\)/).last(),
+    page.getByRole("tab", { name: /Workflows \(\d+\)/ }),
   workflowLink: (page: Page, workflowName: string | RegExp): Locator =>
     page.getByRole("link", { name: workflowName }),
   runButton: (page: Page): Locator =>

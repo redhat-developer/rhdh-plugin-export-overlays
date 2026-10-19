@@ -4,6 +4,7 @@
   "private": true,
   "description": "Yarn workspaces root for TypeScript CLIs and tooling under scripts/.",
   "workspaces": [
+    "generate-dynamic-plugin-tables",
     "validate-app-config-examples"
   ],
   "type": "module",

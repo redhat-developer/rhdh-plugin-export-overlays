@@ -33,32 +33,84 @@ export class OrchestratorPO {
     });
   }
 
+  /**
+   * Sidebar entries render as links or buttons, and not always under `nav`.
+   * Match the accessible name so icon-only and submenu items still resolve.
+   */
+  private sidebarEntry(name: string | RegExp): Locator {
+    const options =
+      typeof name === "string" ? { name, exact: true as const } : { name };
+    return this.page
+      .getByRole("link", options)
+      .or(this.page.getByRole("button", options))
+      .filter({ visible: true })
+      .first();
+  }
+
+  /**
+   * Client-side sidebar nav keeps the OIDC session. Full page.goto("/orchestrator")
+   * can land on Sign In after RBAC role churn.
+   */
+  private async clickOrchestratorInSidebar(): Promise<void> {
+    const orchestrator = this.sidebarEntry(/^Orchestrator$/i);
+    const adminButton = this.sidebarEntry(/^Administration$/i);
+    // The Administration control does not expose aria-expanded. Open it only
+    // while Orchestrator is hidden, and only once so a retry cannot collapse it.
+    let expandedAdministration = false;
+    await expect(async () => {
+      if (await orchestrator.isVisible().catch(() => false)) {
+        return;
+      }
+      if (
+        !expandedAdministration &&
+        (await adminButton.isVisible().catch(() => false))
+      ) {
+        await adminButton.click();
+        expandedAdministration = true;
+      }
+      await expect(orchestrator).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
+    await orchestrator.click();
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
   async openWorkflowsPage(): Promise<void> {
-    await this.page.goto("/orchestrator");
-    await expect(this.page).toHaveURL("/orchestrator");
-    await expect(
-      ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible({ timeout: 120_000 });
+    const heading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
+    const orchestratorCrumb = ORCHESTRATOR_COMPONENTS.breadcrumbNav(
+      this.page,
+    ).getByRole("link", { name: /^Orchestrator$/i });
+
+    await this.clickOrchestratorInSidebar();
+
+    // After RBAC role churn, the SPA can leave a stale workflow-detail view
+    // (breadcrumb Orchestrator > Greeting workflow) without the Workflows (N)
+    // list tab. Prefer breadcrumb back to the list; retry sidebar if needed.
+    if (!(await heading.isVisible().catch(() => false))) {
+      if (await orchestratorCrumb.isVisible().catch(() => false)) {
+        await orchestratorCrumb.click();
+        await this.page.waitForLoadState("domcontentloaded");
+      } else if (
+        await this.page
+          .getByRole("heading", { name: /workflow/i })
+          .first()
+          .isVisible()
+          .catch(() => false)
+      ) {
+        await this.clickOrchestratorInSidebar();
+      }
+    }
+
+    await expect(heading).toBeVisible({ timeout: 120_000 });
     await expect(this.page.getByRole("tablist", { name: "tabs" })).toBeVisible({
       timeout: 30_000,
     });
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
-    const adminButton = this.page
-      .getByRole("button", { name: "Administration" })
-      .first();
-    const orchestratorLink = this.page
-      .locator('nav a:has-text("Orchestrator")')
-      .first();
-    if (!(await orchestratorLink.isVisible().catch(() => false))) {
-      await adminButton.waitFor({ state: "visible", timeout: 120_000 });
-      await adminButton.click();
-    }
-    await this.uiHelper.openSidebar("Orchestrator");
+    await this.clickOrchestratorInSidebar();
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 120_000 });
   }
 
   async openWorkflow(name: string | RegExp): Promise<void> {
@@ -386,7 +438,10 @@ export class OrchestratorPO {
   }
 
   async openGreetingTemplateFromSelfService(): Promise<void> {
-    await this.page.goto("/create");
+    // Self-service is a sidebar link, not nav button[aria-label="Self-service"].
+    const selfService = this.sidebarEntry(/^Self-service$/i);
+    await expect(selfService).toBeVisible({ timeout: 30_000 });
+    await selfService.click();
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
       this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),

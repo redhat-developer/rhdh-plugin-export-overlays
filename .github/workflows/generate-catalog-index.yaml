@@ -22,7 +22,7 @@ on:
         type: string
         default: ''
       target-branch:
-        description: 'Target branch to push catalog-index to (default: catalog-index-{source-branch})'
+        description: 'Target catalog-index-* branch to push the generated catalog-index to (default: catalog-index-{source-branch})'
         required: false
         type: string
         default: ''
@@ -52,32 +52,51 @@ jobs:
     permissions:
       contents: write
     outputs:
-      supported-ok: ${{ steps.gen-supported.outputs.ok }}
-      community-ok: ${{ steps.gen-community.outputs.ok }}
+      supported-ok: ${{ steps.gen-supported.outputs.ok == 'true' && steps.docs-supported.outcome == 'success' }}
+      community-ok: ${{ steps.gen-community.outputs.ok == 'true' && steps.docs-community.outcome == 'success' }}
       supported-clean: ${{ steps.gen-supported.outputs.clean }}
       community-clean: ${{ steps.gen-community.outputs.clean }}
       backstage-version: ${{ steps.versions.outputs.backstage-version }}
       rhdh-version: ${{ steps.versions.outputs.rhdh-version }}
       source-branch: ${{ steps.branches.outputs.source-branch }}
       target-branch: ${{ steps.branches.outputs.target-branch }}
+      floating-tag: ${{ steps.branches.outputs.floating-tag }}
 
     steps:
-      - name: Determine branches
+      - name: Determine branches and floating tag
         id: branches
         env:
-          SOURCE_BRANCH: ${{ inputs.source-branch }}
+          SOURCE_BRANCH_INPUT: ${{ inputs.source-branch }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
-          if [[ -z "${SOURCE_BRANCH}" ]]; then
-            SOURCE_BRANCH="${GITHUB_REF_NAME}"
+          SOURCE_BRANCH="${SOURCE_BRANCH_INPUT:-${GITHUB_REF#refs/heads/}}"
+          TARGET_BRANCH="${TARGET_BRANCH:-catalog-index-$SOURCE_BRANCH}"
+          if [[ "$SOURCE_BRANCH" == refs/* ]] || \
+             ! git check-ref-format --branch "$SOURCE_BRANCH" >/dev/null; then
+            echo "::error::Invalid source branch"
+            exit 1
           fi
-          if [[ -z "${TARGET_BRANCH}" ]]; then
-            TARGET_BRANCH="catalog-index-${SOURCE_BRANCH}"
+          if [[ "$TARGET_BRANCH" != catalog-index-* ]] || \
+             ! git check-ref-format --branch "$TARGET_BRANCH" >/dev/null; then
+            echo "::error::Invalid catalog-index-* target branch"
+            exit 1
           fi
-          echo "source-branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "Source branch: $SOURCE_BRANCH"
-          echo "Target branch: $TARGET_BRANCH"
+          LATEST_STABLE_BRANCH=$(git ls-remote --heads "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" \
+            'refs/heads/release-*' \
+            | awk '$2 ~ /^refs\/heads\/release-[0-9]+\.[0-9]+$/ { sub(/^refs\/heads\//, "", $2); print $2 }' \
+            | sort -V | tail -n 1)
+          FLOATING_TAG=""
+          if [[ "$SOURCE_BRANCH" == "main" ]]; then
+            FLOATING_TAG=next
+          elif [[ "$SOURCE_BRANCH" == "$LATEST_STABLE_BRANCH" ]]; then
+            FLOATING_TAG=latest
+          fi
+          {
+            echo "source-branch=$SOURCE_BRANCH"
+            echo "target-branch=$TARGET_BRANCH"
+            echo "floating-tag=$FLOATING_TAG"
+          } >> "$GITHUB_OUTPUT"
+          echo "Source: $SOURCE_BRANCH; target: $TARGET_BRANCH; floating tag: ${FLOATING_TAG:-<none>}"
 
       - name: Checkout source branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -122,6 +141,15 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/yq_mf" --version
 
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: scripts/package.json
+
+      - name: Install table generator dependencies
+        working-directory: scripts
+        run: corepack yarn workspaces focus generate-dynamic-plugin-tables --production
+
       - name: Read versions
         id: versions
         env:
@@ -129,7 +157,7 @@ jobs:
         run: |
           BS_VERSION=$(jq -r '.backstage' versions.json)
 
-          # Fetch RHDH version from the source branch, not GITHUB_REF_NAME: a
+          # Fetch RHDH version from the selected source branch: a
           # workflow_dispatch of this file from main with source-branch=release-*
           # must tag the previous index with the release line.
           RHDH_FULL_VERSION=$(curl -sSLf \
@@ -276,13 +304,36 @@ jobs:
             fi
           fi
 
+      - name: Generate supported documentation tables
+        id: docs-supported
+        if: steps.gen-supported.outputs.ok == 'true'
+        # Let both tiers finish; check generation results fails the job if needed. 
+        # This doc is not consumed downstream; instead we use the product-built version with quay / r.a.r.c links
+        continue-on-error: true
+        run: |
+          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+            --tier supported \
+            --index-dir catalog-index/supported \
+            --debug
+
+      # consumed downstream in https://github.com/redhat-developer/red-hat-developers-documentation-rhdh/
+      - name: Generate community documentation tables
+        id: docs-community
+        if: steps.gen-community.outputs.ok == 'true'
+        continue-on-error: true
+        run: |
+          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+            --tier community \
+            --index-dir catalog-index/community \
+            --debug
+
       - name: Write build-info.json
         env:
           BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
           RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
           SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok == 'true' && steps.docs-supported.outcome == 'success' }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok == 'true' && steps.docs-community.outcome == 'success' }}
           SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
         run: |
           BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -341,13 +392,16 @@ jobs:
 
       - name: Check generation results
         env:
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_INDEX_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_INDEX_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_TABLE_OK: ${{ steps.docs-supported.outcome }}
+          COMMUNITY_TABLE_OK: ${{ steps.docs-community.outcome }}
           SUPPORTED_CLEAN: ${{ steps.gen-supported.outputs.clean }}
           COMMUNITY_CLEAN: ${{ steps.gen-community.outputs.clean }}
         run: |
-          if [[ "${SUPPORTED_OK}" != "true" || "${COMMUNITY_OK}" != "true" ]]; then
-            echo "::error::Catalog generation failed (supported=$SUPPORTED_OK, community=$COMMUNITY_OK)"
+          if [[ "${SUPPORTED_INDEX_OK}" != "true" || "${COMMUNITY_INDEX_OK}" != "true" || \
+                "${SUPPORTED_TABLE_OK}" != "success" || "${COMMUNITY_TABLE_OK}" != "success" ]]; then
+            echo "::error::Catalog or documentation generation failed (supported index=${SUPPORTED_INDEX_OK:-skipped}, table=${SUPPORTED_TABLE_OK:-skipped}; community index=${COMMUNITY_INDEX_OK:-skipped}, table=${COMMUNITY_TABLE_OK:-skipped})"
             exit 1
           fi
 
@@ -414,23 +468,25 @@ jobs:
             -f Dockerfile.catalog-index \
             --build-arg TIER=supported \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
-            -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to quay.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
+          FLOATING_TAG: ${{ needs.generate.outputs.floating-tag }}
           QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
+          TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
+          if [[ -n "$FLOATING_TAG" ]]; then TAGS+=("$FLOATING_TAG"); fi
 
           echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
-            podman tag "plugin-catalog-index:${tag}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
+          for tag in "${TAGS[@]}"; do
+            podman tag "plugin-catalog-index:${SOURCE_TAG}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
             podman push "${SUPPORTED_CATALOG_INDEX}:${tag}"
             echo "Pushed ${SUPPORTED_CATALOG_INDEX}:${tag}"
           done
@@ -467,23 +523,25 @@ jobs:
             -f Dockerfile.catalog-index \
             --build-arg TIER=community \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
-            -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to ghcr.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
+          FLOATING_TAG: ${{ needs.generate.outputs.floating-tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_ACTOR: ${{ github.actor }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
+          TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
+          if [[ -n "$FLOATING_TAG" ]]; then TAGS+=("$FLOATING_TAG"); fi
 
           echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
-            podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
+          for tag in "${TAGS[@]}"; do
+            podman tag "plugin-catalog-index:${SOURCE_TAG}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
             podman push "${COMMUNITY_CATALOG_INDEX}:${tag}"
             echo "Pushed ${COMMUNITY_CATALOG_INDEX}:${tag}"
           done

@@ -56,15 +56,33 @@ export type PolicySpec = {
   effect: string;
 };
 
+export type WorkflowConditionAction = "read" | "update";
+
+export type NamedPermissionMapping = {
+  name: string;
+  action: WorkflowConditionAction;
+};
+
 export type WorkflowConditionSpec = {
-  permissionMapping: Array<"read" | "update">;
+  permissionMapping: WorkflowConditionAction[];
   workflowIds: string[];
 };
+
+/** REST POST/PUT reject action-only strings; map actions to permission names. */
+const ORCHESTRATOR_PERMISSION_BY_ACTION: Record<
+  WorkflowConditionAction,
+  string
+> = {
+  read: "orchestrator.workflow",
+  update: "orchestrator.workflow.use",
+};
+
+type PermissionMappingEntry = string | NamedPermissionMapping;
 
 type RoleConditionRecord = {
   id?: number | string;
   roleEntityRef?: string;
-  permissionMapping?: string[];
+  permissionMapping?: PermissionMappingEntry[];
   conditions?: RoleConditionCriteria;
 };
 
@@ -99,7 +117,7 @@ export function greetingWorkflowConditions(
   readEffect: "allow" | "deny",
   useEffect: "allow" | "deny",
 ): WorkflowConditionSpec[] {
-  const permissionMapping: Array<"read" | "update"> = [];
+  const permissionMapping: WorkflowConditionAction[] = [];
   if (readEffect === "allow") {
     permissionMapping.push("read");
   }
@@ -115,6 +133,26 @@ export function greetingWorkflowConditions(
       workflowIds: [GREETING_WORKFLOW_ID],
     },
   ];
+}
+
+function toNamedPermissionMapping(
+  mapping: WorkflowConditionAction[],
+): NamedPermissionMapping[] {
+  return mapping.map((action) => ({
+    name: ORCHESTRATOR_PERMISSION_BY_ACTION[action],
+    action,
+  }));
+}
+
+function permissionMappingActions(
+  mapping: PermissionMappingEntry[] | undefined,
+): string[] {
+  if (!mapping) {
+    return [];
+  }
+  return mapping
+    .map((entry) => (typeof entry === "string" ? entry : entry.action))
+    .filter((action): action is string => Boolean(action));
 }
 
 export function roleApiName(roleName: string): string {
@@ -159,10 +197,12 @@ function conditionMatchesSpec(
   actual: RoleConditionRecord,
   expected: WorkflowConditionSpec,
 ): boolean {
-  const mapping = actual.permissionMapping ?? [];
+  const actualActions = permissionMappingActions(actual.permissionMapping);
   if (
-    mapping.length !== expected.permissionMapping.length ||
-    !expected.permissionMapping.every((action) => mapping.includes(action))
+    actualActions.length !== expected.permissionMapping.length ||
+    !expected.permissionMapping.every((action) =>
+      actualActions.includes(action),
+    )
   ) {
     return false;
   }
@@ -197,7 +237,8 @@ export async function createOrchestratorWorkflowConditions(
           roleEntityRef: roleName,
           pluginId: "orchestrator",
           resourceType: "orchestrator-workflow",
-          permissionMapping: spec.permissionMapping,
+          // REST API requires {name, action}; action-only is YAML/provider only.
+          permissionMapping: toNamedPermissionMapping(spec.permissionMapping),
           conditions: {
             rule: "IS_ALLOWED_WORKFLOW_ID",
             resourceType: "orchestrator-workflow",
