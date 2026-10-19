@@ -60,6 +60,7 @@ jobs:
       rhdh-version: ${{ steps.versions.outputs.rhdh-version }}
       source-branch: ${{ steps.branches.outputs.source-branch }}
       target-branch: ${{ steps.branches.outputs.target-branch }}
+      moving-tag: ${{ steps.moving-tag.outputs.tag }}
 
     steps:
       - name: Determine branches
@@ -84,6 +85,28 @@ jobs:
         with:
           ref: ${{ steps.branches.outputs.source-branch }}
           fetch-depth: 0
+
+      - name: Determine moving catalog tag
+        id: moving-tag
+        env:
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+        run: |
+          # fetch-depth: 0 populates origin/release-* for the same version-aware selection as midstream.
+          if ! LATEST_STABLE_BRANCH=$(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release-*' \
+            | sed 's|^origin/||' \
+            | grep -E '^release-[0-9]+\.[0-9]+$' \
+            | sort -uV | tail -n 1); then
+            LATEST_STABLE_BRANCH=""
+            echo "::warning::Could not determine the latest release branch; skipping latest tag"
+          fi
+          MOVING_TAG=""
+          if [[ "$SOURCE_BRANCH" == "main" ]]; then
+            MOVING_TAG=next
+          elif [[ -n "$LATEST_STABLE_BRANCH" && "$SOURCE_BRANCH" == "$LATEST_STABLE_BRANCH" ]]; then
+            MOVING_TAG=latest
+          fi
+          echo "tag=$MOVING_TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest release branch: ${LATEST_STABLE_BRANCH:-<unknown>}; source branch: $SOURCE_BRANCH; moving tag: ${MOVING_TAG:-<none>}"
 
       - name: Sync to target branch
         env:
@@ -420,24 +443,25 @@ jobs:
             -f Dockerfile.catalog-index \
             --build-arg TIER=supported \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}" \
-            -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to quay.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
+          MOVING_TAG: ${{ needs.generate.outputs.moving-tag }}
           QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
+          TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
+          if [[ -n "$MOVING_TAG" ]]; then TAGS+=("$MOVING_TAG"); fi
 
           echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "${RHDH_VERSION}" "latest"; do
-            podman tag "plugin-catalog-index:${tag}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
+          for tag in "${TAGS[@]}"; do
+            podman tag "plugin-catalog-index:${SOURCE_TAG}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
             podman push "${SUPPORTED_CATALOG_INDEX}:${tag}"
             echo "Pushed ${SUPPORTED_CATALOG_INDEX}:${tag}"
           done
@@ -474,24 +498,25 @@ jobs:
             -f Dockerfile.catalog-index \
             --build-arg TIER=community \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}" \
-            -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to ghcr.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
+          MOVING_TAG: ${{ needs.generate.outputs.moving-tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_ACTOR: ${{ github.actor }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
+          TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
+          if [[ -n "$MOVING_TAG" ]]; then TAGS+=("$MOVING_TAG"); fi
 
           echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "${RHDH_VERSION}" "latest"; do
-            podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
+          for tag in "${TAGS[@]}"; do
+            podman tag "plugin-catalog-index:${SOURCE_TAG}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
             podman push "${COMMUNITY_CATALOG_INDEX}:${tag}"
             echo "Pushed ${COMMUNITY_CATALOG_INDEX}:${tag}"
           done
