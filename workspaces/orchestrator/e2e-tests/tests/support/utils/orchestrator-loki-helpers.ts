@@ -350,7 +350,8 @@ export async function configureOrchestratorLoki(): Promise<void> {
       error,
     );
     process.env.AUTH_TOKEN = LOKI_PLACEHOLDER_TOKEN;
-    process.env.LOKI_BASE_URL = LOKI_PLACEHOLDER_URL;
+    process.env.LOKI_BASE_URL =
+      process.env.LOKI_BASE_URL?.trim() || LOKI_PLACEHOLDER_URL;
     return;
   }
 

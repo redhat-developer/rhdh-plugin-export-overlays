@@ -60,11 +60,12 @@ test("uses placeholders only when opted in and keeps Loki log checks strict", as
       /Could not obtain OpenShift token/,
     );
 
+    process.env.LOKI_BASE_URL = "http://configured-loki:3100";
     process.env.LOKI_ALLOW_PLACEHOLDER = "true";
     await configureOrchestratorLoki();
 
     assert.equal(process.env.AUTH_TOKEN, "e2e-ci-placeholder");
-    assert.equal(process.env.LOKI_BASE_URL, "http://localhost:3100");
+    assert.equal(process.env.LOKI_BASE_URL, "http://configured-loki:3100");
     assert.equal(existsSync(markerPath), false);
     await assert.rejects(
       waitForLokiWorkflowLogs("test-instance", 0),
