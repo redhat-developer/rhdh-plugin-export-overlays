@@ -24,7 +24,7 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*3Scale*
 |3.17.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend@sha256:207d3d697c129e6074b10c907397ffa0428268bddb528db924e1b2238f69051e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend@sha256:65c5eaefc983aa14e6a804219081dce13b05576a4d80f60085a8e939666d8d6f`
 
 `THREESCALE_ACCESS_TOKEN`
 
@@ -34,13 +34,13 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*ACR*
 |1.28.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr@sha256:4d1fe6d5b310f6c6b0e49dccaf95bf4f6ee1785a75833856a619716749d55b32`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr@sha256:2aa3e56ae61deb0cca93c2ce73159ed493e3fd0a726085ed0993bfef9ddb4fb0`
 
 |bs_1.54.9__1.28.1
 
 |*APIC*
 |1.0.4
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage@sha256:c6501b1bf61cb45cbfbbb98cfed98176620866bd4bf4f3bc9aa77c0914aebe10`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage@sha256:b4ff42544dea18d295cd4ce2515779f58c752d1404db6df43fe7c78387555247`
 
 `APIC_API_KEY`
 
@@ -58,13 +58,13 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*ArgoCD*
 |3.1.3
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd@sha256:d7640da76f0ad8a7a51ac9ffba8960c139263fb782046a774ab3508ac4520dc5`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd@sha256:f1384dd2db3e519ef38db17c79104f43b97316b2023d10a1f7333380a549555d`
 
 |bs_1.54.9__3.1.3
 
 |*ArgoCD Backend*
 |1.7.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend@sha256:b7f74885ebb576d0c114328701f9ee694ac8fbc06e7a6a4246720c4c3d263224`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend@sha256:9dcdf8bf5f0937a62cb289a38b850c4c6e17cad27456f30f57bf408582614c4c`
 
 `ARGOCD_AUTH_TOKEN`
 
@@ -78,7 +78,7 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Azure DevOps Backend*
 |0.32.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops-backend@sha256:1e3c8ba45e72d5d01721c2bbbc24ae6a6807d761c08c8d44dc893b75e4a28891`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops-backend@sha256:6e43e3774a6fee3bdf0651cde33389899d244c0954872165eb88a89cff1a2320`
 
 `AZURE_HOST`
 
@@ -90,13 +90,13 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Azure DevOps Frontend*
 |0.34.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops@sha256:6d0d4cafa9d29d59e6c1f1d9c3e13313a779e9f1449ca127c08dc859ef082f57`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops@sha256:033eaf37612c7774d1c36155d8bcdb1b7c6e417e6c25666fa52fd6f9d53649cc`
 
 |bs_1.54.9__0.34.0
 
 |*Catalog Backend Module Bitbucket Cloud*
 |0.5.14
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud@sha256:9f8749b2a026ee5cc593fcd532f8b33a3cef9fda82893c37e43ac0489f6c01f5`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud@sha256:488b1eb1b0e8b665ee4ed794a0ec55b508165c1029b61830588889d230fb719e`
 
 `BITBUCKET_WORKSPACE`
 
@@ -104,7 +104,7 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Catalog Backend Module Bitbucket Server*
 |0.5.14
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server@sha256:9894178c0dce010bf8efba91868ad234b5522c0eaefea4174bfc8ebfc7d480a5`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server@sha256:f0d4a55d92454de4282f3edd0bce118cc382bb8d81cf4e7e8b7aa46817dc6286`
 
 `BITBUCKET_HOST`
 
@@ -112,49 +112,49 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Datadog*
 |2.8.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-datadog@sha256:3c8cd5c16ae3e159157725c356ebe2c3b6617ebc20813846ac53b883b99c5b58`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-datadog@sha256:891faf8195d3c4433f5150d4f4ef97a2e99f7b707f14123619ec1cf6cb8266c5`
 
 |bs_1.54.9__2.8.0
 
 |*Dynatrace*
 |10.23.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:0026cd944e3a251c5cebc1c493be2d025ae7fb5bf76e1dc77115d81b04331780`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:3651889da28c46573ec89c09f46f00491c7ca2221568957f16e47a91a4a0b606`
 
 |bs_1.54.9__10.23.0
 
 |*GitHub Actions*
 |1.4.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions@sha256:706fdc695e79fade250b6307b8431589fe17dd9912190b3d6076234a00d9cccc`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions@sha256:5ef09e7b1fde24a0a06a131d1ce9314beaa319e232f1002d5652b74f93609db9`
 
 |bs_1.54.9__1.4.0
 
 |*GitHub Insights*
 |3.6.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-insights@sha256:34824beac8f5a22919ad0b4304cf85bac30f0b425cedfa97f56a8fde417d765d`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-insights@sha256:bcca365f61357c51d47212799cbeaa1bd61bfbac89dda36c671b0f6573653160`
 
 |bs_1.54.9__3.6.0
 
 |*GitHub Issues*
 |1.4.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues@sha256:02701bec2eb3c721c1f19466d50ac9aca657793f67ff0264bfdf0ce60a30ca4e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues@sha256:9bb4438b6ec0d1f7e3519b8d9deaac69c6652b35ef58ac728054191c79fc39f6`
 
 |bs_1.54.9__1.4.0
 
 |*GitHub Pull Requests*
 |3.9.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests@sha256:ad20bbdc315a5384f3731b846072a7fd47ba2168a1b88ab2c7417c7e707fe9f1`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests@sha256:877382a4e0d176a7b09c443731acfd932d3785219d55483c9c0e8d13ba8b5c23`
 
 |bs_1.54.9__3.9.0
 
 |*JFrog Artifactory*
 |2.0.3
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory@sha256:9b5f25b67dfa4dc5ef7be3d08ccf25c84e3f31d5d0ad32493b844c3e699a8aee`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory@sha256:f7076ec7f6a345f656280954052b5407a368eae9b6945b6fd1713ac345a149e4`
 
 |bs_1.54.9__2.0.3
 
 |*Jenkins Backend*
 |0.31.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend@sha256:318fdd79bf173cf4d4887c7a052b3783a1905f0fb78ecb9304102c835cfee3a0`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend@sha256:a62363da3cbc7b52adc2232f90ad97e3d3224c24c7fcde74f00e60af5342b00b`
 
 `JENKINS_TOKEN`
 
@@ -166,25 +166,25 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Jenkins Frontend*
 |0.34.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins@sha256:3c726eb8af4c0178c148a1c6e99c3985ad7e56aec17657dadc719939091b583d`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins@sha256:cbfc1ef171d27d95917b2c1220442909175500e7ecc26fa4795563c474194ac2`
 
 |bs_1.54.9__0.34.0
 
 |*Lighthouse*
 |0.26.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse@sha256:0eb04606c0af8861f90f153059828ac668d637a933ce07df96cb3bb9290065d0`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse@sha256:c0155c8bf5da0d47099e7b7858e38a3db6f54e264c1b6f0d9ffca74437b72e1e`
 
 |bs_1.54.9__0.26.0
 
 |*Nexus Repository Manager*
 |1.27.4
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager@sha256:ad5f34137a112511b7acf5dad409ae0aa0574628c43ae06849f7f2dcb95cc064`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager@sha256:0b0adaf1ac6c9653179413a04ef5aad542511d339849de73a495fa478fbd3865`
 
 |bs_1.54.9__1.27.4
 
 |*PagerDuty Backend*
 |0.14.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend@sha256:e8a72ea6a926121b5f215d2d23b41873abfed10701ebccaf14016500bccfc485`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend@sha256:c861f835d5d788d4101a4f8641b04228e0257a2ebe1d85a778249113f7b210a3`
 
 `PAGERDUTY_API_BASE`
 
@@ -198,25 +198,25 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*PagerDuty Frontend*
 |0.21.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:8a90cd4409e41c00e9e0f92481ca8a5fd4f071ea60b51b96a2c6591a7c5ae42a`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:f5f6d5b0da89b25682a970fa4904a5d79e0fb41c5b2f1086d4629d4d63f99dc0`
 
 |bs_1.54.9__0.21.0
 
 |*Quay*
 |1.38.3
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay@sha256:2bf629750068343b9d4694e79982c36b9fcb6e01e94e9e86f21f35c486f32b52`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay@sha256:d232364da3f363ec72278d053260bf8c05b346f5a266e921568da11537f291a6`
 
 |bs_1.54.9__1.38.3
 
 |*Quay Backend*
 |1.18.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend@sha256:929a1e0ca328dc23d73b42293eefb19e75a72382b5c45c94fab7a44b8c95d8ad`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend@sha256:a22601ee480486c5f60d667471ad56d89299a074aab6a16c348985468d3a65cc`
 
 |bs_1.54.9__1.18.1
 
 |*Roadie ArgoCD Backend*
 |4.9.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend@sha256:b14a2e4145d172b59c2b43a992782f7fa0c8d6ae705b83f37c7aaa968e9b281e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend@sha256:0ffafefe9c7c377c3bd3ee0ce6f20ef78dea545d7f3331d3a948131772f6f92e`
 
 `ARGOCD_AUTH_TOKEN`
 
@@ -230,7 +230,7 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Scaffolder Backend ArgoCD*
 |1.9.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd@sha256:8697c6bf70ecb202b3c6d83d3c6ea766a4892a88ec280eded92f37b92c6295c7`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd@sha256:6fb109d9b8cebac4da102c83795283b1f34c9990d897b444e550e31708be8f8a`
 
 `ARGOCD_AUTH_TOKEN`
 
@@ -244,37 +244,37 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Scaffolder Backend Module Azure*
 |0.2.25
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure@sha256:a39a884dcc954789421463c8049e377fd1333e79bd250638058faad62040319e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure@sha256:d0c6cddb2d07673f062f2e8637a3443e1184390c4d14167d517118f9c39ade9f`
 
 |bs_1.54.9__0.2.25
 
 |*Scaffolder Backend Module Bitbucket Cloud*
 |0.3.10
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud@sha256:553d2545199183cd97ce19ad533795fa227fc30c5c666b50bb4b1b51121ab70b`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud@sha256:2bdf72b2c262d504720506b62ecc10e3976d45601197ed8e0715be63f0191467`
 
 |bs_1.54.9__0.3.10
 
 |*Scaffolder Backend Module Bitbucket Server*
 |0.2.25
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server@sha256:0951f2786ddb6f68df2e13c8d95233c5d264011b7e927dfa1e4806eab9f95301`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server@sha256:57a076159639e7e899a8c736478bac378f2f1797f90a9212bede6ef0e6b3eb41`
 
 |bs_1.54.9__0.2.25
 
 |*Scaffolder Backend Module Gerrit*
 |0.2.24
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit@sha256:d6052402290b01031f825da3c04aef038d013a7f0dca9c331e42d670b7b7052f`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit@sha256:2eb088bc44902169854b9607ea4fcc6260086fb9c68ba37aa25237f3029892ef`
 
 |bs_1.54.9__0.2.24
 
 |*Scaffolder Backend Module Quay*
 |2.22.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay@sha256:bf2d3be7d37dce42b727850051533623fe6ba2c88eaa03fc6859b6c5fb6774b4`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay@sha256:af27649954d95032ea9582696b9ba7691b38a2fc18f5572711eb38449d049888`
 
 |bs_1.54.9__2.22.1
 
 |*Scaffolder Backend Module ServiceNow*
 |2.17.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-servicenow@sha256:da805f2c11674a5fac5507efdccb592ecac846c57be00d1dcc3cd6d7fcd37d03`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-servicenow@sha256:37688de575c7dca6ab4dce7ec68fd7b24816a45633d0d673886efc4d07fda812`
 
 `SERVICENOW_BASE_URL`
 
@@ -286,19 +286,19 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*Scaffolder Backend Module SonarQube*
 |2.17.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube@sha256:945f2f5291c683f4c5540f433fb64f115bf5d2bd583cf4e347c743b71690e443`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube@sha256:8b8fec22eac9a35caceb284376805868ae22add028792ad9fa22f88d59058fb9`
 
 |bs_1.54.9__2.17.0
 
 |*Scaffolder Backend Module Utils*
 |4.2.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-utils@sha256:933365248ed11f2d42e6d7353e958e7222fc11871d9ee13e645258d676d5da55`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-utils@sha256:5fd7dc029c278e919d2f11f9fe141bb9ff08742afb0edf9d15792ac8e1e357f2`
 
 |bs_1.54.9__4.2.1
 
 |*SonarQube Backend*
 |1.3.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube-backend@sha256:3609ee86f5afbccb16b0048b8104dbc1e8fa875aacd63b096d0defcf7bbcbfd7`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube-backend@sha256:a79044cc42f65aff549f9a2e7f0d235b0a900fc3f108c555dc67911d760a134c`
 
 `SONARQUBE_TOKEN`
 
@@ -308,13 +308,13 @@ Replace `<tag>` with the version tag corresponding to your {product-short} versi
 
 |*SonarQube Frontend*
 |1.3.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube@sha256:c7162399d38df03c9a60094ed91a4805eb91e3d1f55021ed0caf31956299d52f`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube@sha256:e24423d6eb75b76b38a8703c97d7b6620fcab2c3101037e25f4e7ff15e199e9d`
 
 |bs_1.54.9__1.3.0
 
 |*Tekton*
 |4.0.5
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:a7fc079e4370ffd19fde3b6425d8e56bc912796bf7519ff081544186ecfeb5f8`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:887439c9e01bf1a5d43775b4cd7596a8c464eb800cfefebeb7005e210c2e0524`
 
 |bs_1.54.9__4.0.5
 
