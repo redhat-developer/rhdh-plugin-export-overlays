@@ -74,7 +74,7 @@ This applies both to the remediation steps written into the triage issue and to 
 
 Before implementing any fix that uses `rhdh.configure()` options or framework features, confirm they take effect in nightly mode.
 
-Options that modify auto-generated plugin configuration — `disablePlugins` most obviously — only apply in PR mode (when `GIT_PR_NUMBER` is set) and are silently ignored in nightly and local dev. A fix built on a PR-only feature will not resolve a nightly failure. Cross-check the remediation against the mode tables below before writing it.
+Options that modify auto-generated plugin configuration — `disablePlugins` most obviously — take effect only where auto-generation runs, which is PR mode (when `GIT_PR_NUMBER` is set) and local dev. In nightly mode they are silently ignored. A fix built on generation-only behaviour will not resolve a nightly failure. Cross-check the remediation against the mode tables below before writing it.
 
 ### `disablePlugins`
 

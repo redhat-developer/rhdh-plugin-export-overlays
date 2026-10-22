@@ -89,7 +89,6 @@ merge conflicts, linter suggestions, or other incidental context:
 - `AGENTS.md`
 - `agents/` — agent definitions
 - `api-servers/` — API server configurations
-- `CLAUDE.md`
 - `CODEOWNERS`
 - `Containerfile` — container image definitions
 - `Dockerfile` — container image definitions

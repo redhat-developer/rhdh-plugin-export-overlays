@@ -131,9 +131,6 @@ services:
       - type: bind
         source: <your rhdh cloned repo>/catalog-entities/extensions/plugins/
         target: /extensions/catalog-entities/plugins
-      - type: bind
-        source: <your rhdh cloned repo>/catalog-entities/extensions/packages/
-        target: /extensions/catalog-entities/packages
 ```
 
 ## Troubleshooting
@@ -162,15 +159,12 @@ rhdh  | {"entity":"location:rhdh/plugins","level":"\u001b[33mwarn\u001b[39m","lo
 
 ### Is my plugin here or missing?
 
-You can trace packages back to plugin entries using the VS Code "Find In Folder..." feature. For example:
+Package entities are not in this tree — they are generated from `workspaces/*/metadata/*.yaml` — so trace in the other direction:
 
 1. Given the plugin ID `@backstage-community/plugin-quay` (replace with the plugin ID you need)
-1. Do a "Find in Folder..." search for the `package/` file that contains this entry.
-1. The `/packages/backstage-community-plugin-quay.yaml` contains this entry.
-1. Open this file and look for the `metadata.name` (`backstage-community-plugin-quay`).
-1. Now do a search in the plugins folder for the text `backstage-community-plugin-quay`.
-1. The `plugins/backstage-community-plugin-quay.yaml` contains this text.
-1. You can open the file and edit the text.
+1. Find the plugin YAML under `plugins/` that declares it; its `spec.packages` lists the package names for that plugin.
+1. Each of those names maps to `workspaces/<workspace>/metadata/<name>.yaml`, the `kind: Package` entity.
+1. Edit that metadata file, not anything in this directory.
 
 If you do not find a plugin.yaml associated with this plugin ID then it is probably missing and you need to create one. The
 file `1boilerplate.yaml` has a good starting point for creating these files.
@@ -178,7 +172,7 @@ file `1boilerplate.yaml` has a good starting point for creating these files.
 ## Important Notes
 
 - Plugins are manually created
-- Packages are generated with the command below
+- Packages are not: they come from `workspaces/*/metadata/*.yaml` and are assembled into the catalog index at build time. The RHDH repository generates its own package entities with the command below.
 
 ```bash
 # in rhdh root
