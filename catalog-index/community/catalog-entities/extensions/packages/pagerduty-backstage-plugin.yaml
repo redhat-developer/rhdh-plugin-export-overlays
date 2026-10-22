@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@pagerduty/backstage-plugin"
   # Tag: bs_1.54.9__0.21.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:cbcf264042ee842e8ccdf8d0d595fbb144213bd5191af22d6e2c487e6073f1f5"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:065a2803bff1297d808a8f1fc8a78d2c491cff8a2fa35269b6a0d27d2e23e386"
   version: 0.21.0
   backstage:
     role: frontend-plugin
