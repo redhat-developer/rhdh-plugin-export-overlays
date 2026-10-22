@@ -15,7 +15,7 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 
 - Plugin source code (`workspaces/*/plugins/`)
 - CI configuration (`.github/`)
-- Repository config (`AGENTS.md`, `CODEOWNERS`, `.fullsend/`)
+- Repository config (`AGENTS.md`, `CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
 ## Before anything else: is the workspace systemically broken?
 
