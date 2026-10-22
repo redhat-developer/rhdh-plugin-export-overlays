@@ -8,6 +8,9 @@
     "validate-app-config-examples"
   ],
   "type": "module",
+  "scripts": {
+    "test:source-json": "vp test tests/proposeSourceJsonUpdates.test.ts"
+  },
   "devDependencies": {
     "vite-plus": "catalog:"
   },

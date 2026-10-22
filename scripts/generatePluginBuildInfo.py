@@ -749,7 +749,10 @@ def print_fallback_rebuild_cta(
     print(
         f"{Colors.YELLOW}ACTION REQUIRED:{Colors.NORM} Publish the requested tags "
         f"so the catalog can stop using fallbacks:\n"
-        f"  (container, have_tag, requested_tag)"
+        f"  (container, have_tag, requested_tag)\n"
+        f"  If metadata is newer than overlay source.json repo-ref, "
+        f"proposeSourceJsonUpdates.ts opens an overlays PR (RHIDP-17975) "
+        f"instead of only rebuilding the old pin."
     )
     containers: list[str] = []
     workspaces: set[str] = set()
