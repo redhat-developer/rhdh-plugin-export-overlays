@@ -198,11 +198,11 @@ export class GitHubEventsHelper {
 
     try {
       return await this.myContext.post(this.eventsUrl, requestOptions);
-    } catch (e) {
-      const message = String(e);
+    } catch (error) {
       if (
-        message.includes("socket hang up") ||
-        message.includes("ECONNRESET")
+        error instanceof Error &&
+        (error.message.includes("socket hang up") ||
+          error.message.includes("ECONNRESET"))
       ) {
         // Stale persistent connection closed by remote (e.g. HAProxy).
         // Dispose the old context and create a fresh one before retrying.
@@ -212,7 +212,7 @@ export class GitHubEventsHelper {
         });
         return await this.myContext.post(this.eventsUrl, requestOptions);
       }
-      throw e;
+      throw error;
     }
   }
 
