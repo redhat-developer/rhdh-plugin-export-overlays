@@ -17,6 +17,7 @@ import {
   KEYCLOAK_REFRESH_COOKIE,
   NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
 } from "../support/constants/keycloak-auth";
+import { safeSignOut } from "../support/helpers/keycloak-auth-helpers";
 import {
   catalogEntityExists,
   checkGroupDisplayNamesInCatalog,
@@ -197,7 +198,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Guest provider is not offered in production", async ({
@@ -256,7 +257,7 @@ test.describe("Keycloak auth provider", () => {
     expect(entityNames).toContain(KEYCLOAK_AUTH_USERS.test2.username);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Ingestion of users and groups: verify entities and relationships", async () => {
@@ -353,7 +354,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Login with emailMatchingUserEntityProfileEmail", async ({
@@ -380,7 +381,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Login with emailLocalPartMatchingUserEntityName", async ({
@@ -407,7 +408,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -458,7 +459,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -467,7 +468,7 @@ test.describe("Keycloak auth provider", () => {
     await page.goto("/settings");
     await uiHelper.waitForLoad();
     await expect(page.getByText(/nomatch/i).first()).toBeVisible();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Set sessionDuration and confirm auth cookie duration", async ({
@@ -503,7 +504,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   // Secondary GitHub auth via backstage-plugin-auth-backend-module-github-provider (app-config-rhdh.yaml).
@@ -538,7 +539,7 @@ test.describe("Keycloak auth provider", () => {
       await expectProfile(page, uiHelper, displayName);
       await page.goto("/settings");
       await uiHelper.waitForLoad();
-      await loginHelper.signOut();
+      await safeSignOut(page, loginHelper);
     } finally {
       await clearSession(context);
     }
