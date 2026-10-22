@@ -119,8 +119,7 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       ).toBeVisible();
     },
     async navigateToHome() {
-      await page.goto("/");
-      await uiHelper.waitForLoad();
+      await uiHelper.openSidebar("Home");
     },
     async enterEditMode() {
       await page.getByRole("button", { name: "Edit" }).click();
