@@ -83,7 +83,6 @@ Never modify files under any of the following paths, even if they appear in
 merge conflicts, linter suggestions, or other incidental context:
 
 - `.claude/` — agent settings and configuration
-- `.cursor/` — editor agent configuration
 - `.gitattributes`
 - `.github/` — CI and GitHub configuration
 - `.pre-commit-config.yaml`

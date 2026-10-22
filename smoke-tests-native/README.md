@@ -382,7 +382,7 @@ image).
 | --------------------------------- | -------------------------------------------------------------------------------- |
 | All community packages            | OCI install + dynamic-plugin layout validation                                   |
 | Community backend packages        | real boot via `startTestBackend`                                                 |
-| Catalog-extending backend modules | install + bundle layout, no boot — see `plugin-sweep-excludes.txt` (RHIDP-16017) |
+| Catalog-extending backend modules | real boot via `startTestBackend` — `catalogPlugin` is in `coreFeatures` (RHIDP-16017) |
 | Community frontend packages       | bundle-layout validation only                                                    |
 
 **This is breadth, not depth.** Frontend plugins get no UI render — that is RHIDP-16009,

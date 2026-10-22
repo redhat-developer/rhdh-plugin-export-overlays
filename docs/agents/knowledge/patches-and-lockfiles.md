@@ -105,7 +105,7 @@ Do not approve a fork substitution on build success alone. Acknowledge the subst
 
 ## `cve-backports.yaml` completeness
 
-Every workspace applying CVE patches through `0-cve-yarn-lock.patch` needs a `cve-backports.yaml` in the same `patches/` directory. Auditors read it to understand what was remediated and why; a missing entry means the remediation is invisible.
+No workspace currently carries CVE patches — the existing `patches/*.patch` files are build fixes, so no `cve-backports.yaml` exists yet. This section is the policy for the first one: every workspace applying CVE patches through `0-cve-yarn-lock.patch` needs a `cve-backports.yaml` in the same `patches/` directory. Auditors read it to understand what was remediated and why; a missing entry means the remediation is invisible.
 
 For every package whose version changes in the patch, require an entry with `cve_ids`, `package`, and `patch_version`. A missing entry is **medium severity** — do not downgrade it to informational, and do not approve or apply `ready-for-merge` while entries are missing.
 

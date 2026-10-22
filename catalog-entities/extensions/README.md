@@ -12,53 +12,9 @@ Below are some practical instructions that might help you in the process of crea
 
 > **Before you list a plugin**: the `spec.support` level you declare here carries testing expectations, and they are the same for every owner. See [Getting a Plugin Listed in the Extensions Catalog](https://github.com/redhat-developer/rhdh/blob/main/docs/testing-requirements-matrix.md#getting-a-plugin-listed-in-the-extensions-catalog) for what each level asks for and what counts as evidence, and [Plugin Owner Responsibilities](../../user-guide/03-plugin-owner-responsibilities.md) for the surrounding process.
 
-## `packages/`
+## Package entities
 
-Packages describe the frontend and backend packages that form part of a plugin. The packages folder contains the individual `package.yaml` files where you can set various details about your plugin packages. For example, see the 3scale package details in `packages/backstage-community-plugin-3scale-backend.yaml`
-
-```yaml
-apiVersion: extensions.backstage.io/v1alpha1
-kind: Package # Important to set the kind
-metadata:
-  name: backstage-community-plugin-3scale-backend # This name is important - it provides a linkage from the plugin record
-  namespace: rhdh # This plugin package is built by us and provided in RHDH
-  title: '@backstage-community/plugin-3scale-backend'
-  links: # Links to useful sources etc.
-    - url: https://red.ht/rhdh
-      title: Homepage
-    - url: https://issues.redhat.com/browse/RHDHBUGS
-      title: Issues
-    - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
-  annotations: # Activates backstage features
-    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
-  tags: []
-spec: # Custom information processed by the Extensions plugin
-  packageName: '@backstage-community/plugin-3scale-backend'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0
-  version: 3.2.0 # The plugin version
-  backstage:
-    role: backend-plugin
-    supportedVersions: 1.35.1 # The supported version of Backstage
-  author: Red Hat # The Author of the package
-  support: community # The release status of the package
-  lifecycle: active # The backstage lifecycle stage
-  partOf:
-    - backstage-community-plugin-3scale-backend # Links this package to others in the same group
-  appConfigExamples: # Information on how to configure the plugin (not used yet)
-    - title: Default configuration
-      content:
-        catalog:
-          providers:
-            threeScaleApiEntity:
-              default:
-                baseUrl: ${THREESCALE_BASE_URL}
-                accessToken: ${THREESCALE_ACCESS_TOKEN}
-```
-
-## `packages/all.yaml`
-
-You **must** add your package yaml file to the list in the `packages/all.yaml` file to get it picked up by RHDH and loaded into the catalog. To check if it's loading, check the catalog.
+Package entities (`kind: Package`) are **not** maintained in this tree. They are generated from `workspaces/*/metadata/*.yaml` and merged at build time into the plugin catalog index image — to change package metadata, edit the workspace, not this directory.
 
 ## `plugins/`
 
@@ -162,10 +118,6 @@ catalog:
       target: /extensions/catalog-entities/plugins/all.yaml
       rules:
         - allow: [Location, Plugin]
-    - type: file
-      target: /extensions/catalog-entities/packages/all.yaml
-      rules:
-        - allow: [Location, Package]
 
 ```
 
