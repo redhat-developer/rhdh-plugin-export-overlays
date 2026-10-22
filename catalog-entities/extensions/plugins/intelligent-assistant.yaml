@@ -39,6 +39,11 @@ spec:
     - Start new chats, view chat history, and delete chats
     - Allows users to change the underlying LLM model for responses
     - Generates responses based on comprehensive documentation for RHDH
+    - Screen context shares current page content with the assistant for context-aware answers
+    - Notebooks (Developer Preview) for RAG queries over uploaded documents
+    - MCP tool integration with per-server token management
+    - Multiple display modes: overlay, docked, embedded, and fullscreen
+    - Localized in English, German, Spanish, French, Italian, and Japanese
 
 
   description: |
@@ -55,31 +60,35 @@ spec:
 
       ### Key Features
 
-      - 🤖 **LLM Integration**: Connect to any LLM server with OpenAI API compatibility (by configuring the sidecar server)
-      - 🔒 **Security**: Built-in question validation to restrict chats to Red Hat Developer Hub related topics
+      - 🤖 **LLM Integration**: LLM servers are configured on Lightspeed Core (LCS), which runs as the `lightspeed-core` sidecar in RHDH deployments
+      - 🔒 **Permissions**: Feature-level RBAC permissions (`chat`, `notebooks`, `mcp.tools`, `skills`)
       - 💬 **Conversational Interface**: Chat-based interaction with AI assistance
+      - 🖥️ **Screen Context**: Optionally attach current page content (headings, tables, alerts, optional screenshots) to chat messages
+      - 📓 **Notebooks (Developer Preview)**: RAG queries over uploaded notebook and document files
+      - 🔧 **MCP Tools**: Integrate MCP servers with per-user token configuration from the settings panel
       - 🎯 **Custom Prompts**: Configurable sample and system prompts for better user experience
-      - 🔐 **Permission Framework**: Full RBAC support for access control
+      - 🛡️ **Rate Limiting**: Per-user request rate limits on authenticated endpoints
       - 📊 **Session Management**: Handle user conversations and history
 
       ## Usage
 
 
       ### For Administrators
-      
-      1. **LLM Server Configuration**: Configure the LLM servers with OpenAI API compatibility in the backend plugin configuration
+
+      1. **LLM Server Configuration**: LLM servers are configured on Lightspeed Core (LCS) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart); in standalone Backstage, in the LCS `lightspeed-stack.yaml`
       2. **Configurable Prompts**: Administrators can customize the welcome prompts to guide users with specific tasks or questions and system prompts to set the context for the AI assistant
-      
+      3. **Feature Toggles**: Enable screen context, notebooks, and MCP server integration under the `intelligent-assistant` configuration key
+
       ### For End Users
 
-      1. **Access the Plugin**: Navigate to your Red Hat developer Hub portal and click on the "Intelligent Assistant" item in the navigation sidebar
-      2. **Start Chatting**: Begin asking questions about Red Hat Developer hub, or other development topics (depending on your question validation configuration choice)
+      1. **Access the Plugin**: Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button or the "Intelligent Assistant" item in the navigation sidebar
+      2. **Start Chatting**: Begin asking questions about Red Hat Developer Hub, or other development topics
+      3. **Display Modes**: Switch between overlay, docked, embedded, and fullscreen modes from Settings; the active conversation is preserved across mode switches
       4. **Manage Chats**: Your chat history is maintained for the session, you can start new chats, view history, and delete chats as needed.
-      
+
       ### Supported Topics
 
-      When question validation is enabled (default), the plugin is optimized for:
-      - Red Hat Developer Hub (RHDH)
+      The assistant is optimized for questions about Red Hat Developer Hub (RHDH).
 
       ## Support
 
@@ -107,7 +116,7 @@ spec:
         - dynamic-plugins.default.yaml
       plugins:
         # Frontend plugin
-        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.3!red-hat-developer-hub-backstage-plugin-intelligent-assistant
+        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.54.9__5.3.10!red-hat-developer-hub-backstage-plugin-intelligent-assistant
           enabled: true
           pluginConfig:
             intelligent-assistant:
@@ -119,42 +128,65 @@ spec:
             dynamicPlugins:
               frontend:
                 red-hat-developer-hub.backstage-plugin-intelligent-assistant:
-                  appIcons:
-                    - name: LightspeedIcon
-                      module: LightspeedPlugin
-                      importName: LightspeedIcon
+                  translationResources:
+                    - importName: lightspeedTranslations
+                      module: Alpha
+                      ref: intelligentAssistantTranslationRef
                   dynamicRoutes:
                     - path: /intelligent-assistant
                       importName: LightspeedPage
-                      module: LightspeedPlugin
-                      menuItem:
-                        icon: LightspeedIcon
-                        text: Intelligent Assistant
+                      module: Legacy
+                  mountPoints:
+                    - mountPoint: application/listener
+                      importName: LightspeedFAB
+                      module: Legacy
+                    - mountPoint: application/provider
+                      importName: LightspeedDrawerProvider
+                      module: Legacy
+                    - mountPoint: application/internal/drawer-state
+                      importName: LightspeedDrawerStateExposer
+                      module: Legacy
+                      config:
+                        id: intelligent-assistant
+                    - mountPoint: application/internal/drawer-content
+                      importName: LightspeedChatContainer
+                      module: Legacy
+                      config:
+                        id: intelligent-assistant
+                        priority: 100
         
         # Backend plugin
-        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.0.3!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
+        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.54.9__5.3.10!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
           enabled: true
           pluginConfig:
             intelligent-assistant:
-              # REQUIRED: Configure LLM servers with OpenAI API compatibility
-              servers:
-                - id: ${LIGHTSPEED_SERVER_ID}
-                  url: ${LIGHTSPEED_SERVER_URL}
-                  token: ${LIGHTSPEED_SERVER_TOKEN}
-              
-              # OPTIONAL: Enable/disable question validation (default: true)
-              # When enabled, restricts questions to RHDH-related topics for better security
-              questionValidation: true
-              
-              # OPTIONAL: Custom user prompts displayed to users
-              # If not provided, the plugin uses built-in default user prompts
-              # prompts:
-              #   - title: "Quick Start"
-              #     message: "How do I enable a dynamic plugin?"
-              
               # OPTIONAL: Port for intelligent-assistant service (default: 8080)
-              # servicePort: 8080
-              
+              servicePort: 8080
+
+              # OPTIONAL: Enable screen context (page content shared with the assistant)
+              screen-context:
+                enabled: true
+
+              # OPTIONAL: MCP server name and token for MCP servers defined in Lightspeed Core (LCS) config
+              # mcpServers:
+              #  - name: <mcp server name>
+              #    token: ${MCP_TOKEN}
+
+              # OPTIONAL: Per-user rate limits (defaults: expensive 25/min, general 200/min)
+              # rateLimit:
+              #   expensive:
+              #     max: 25
+              #   general:
+              #     max: 200
+
+              # OPTIONAL: Notebooks feature (Developer Preview) — requires Lightspeed Core
+              # and Llama Stack; model and provider_id must be configured together
+              # notebooks:
+              #   enabled: true
+              #   queryDefaults:
+              #     model: ${NOTEBOOKS_QUERY_MODEL}
+              #     provider_id: ${NOTEBOOKS_QUERY_PROVIDER_ID}
+
               # OPTIONAL: Override default RHDH system prompt
               # systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
       ```
@@ -194,10 +226,47 @@ spec:
 
       #### 3. Add Frontend Components
 
-      **Add Navigation Route** in `packages/app/src/App.tsx`:
+      **NFS (New Frontend System) — recommended.** Import modules from the package root and register them as features in `createApp` in `packages/app/src/App.tsx`:
 
       ```tsx
-      import { LightspeedPage } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant';
+      import { createApp } from '@backstage/frontend-defaults';
+
+      import { appDrawerModule } from '@red-hat-developer-hub/backstage-plugin-app-react/alpha';
+      import {
+        intelligentAssistantFABModule,
+        intelligentAssistantRedirectModule,
+        intelligentAssistantTranslationsModule,
+      } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant';
+
+      export default createApp({
+        features: [
+          appDrawerModule,
+          intelligentAssistantFABModule,
+          intelligentAssistantRedirectModule,
+          intelligentAssistantTranslationsModule,
+          // ...other modules
+        ],
+      });
+      ```
+
+      Enable the extensions in `app-config.yaml` (order matters: `app/drawer` must come before `app/intelligent-assistant-fab` for correct React Context nesting):
+
+      ```yaml
+      app:
+        extensions:
+          - app-root-wrapper:app/drawer
+          - app-root-wrapper:app/intelligent-assistant-fab
+          - translation:app/intelligent-assistant-translations
+          - api:app/app-language:
+              config:
+                availableLanguages: ['en', 'de', 'es', 'fr', 'it', 'ja']
+                defaultLanguage: 'en'
+      ```
+
+      **OFS (Old Frontend System / legacy).** Legacy components are available at the `./legacy` subpath. Add a route in `packages/app/src/App.tsx`:
+
+      ```tsx
+      import { LightspeedPage } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant/legacy';
 
       // Add this route within your existing routes
       <Route path="/intelligent-assistant" element={<LightspeedPage />} />
@@ -206,7 +275,7 @@ spec:
       **Add Navigation Menu Item** in `packages/app/src/components/Root/Root.tsx`:
 
       ```tsx
-      import { LightspeedIcon } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant';
+      import { LightspeedIcon } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant/legacy';
 
       // Add this within your existing sidebar items
       <SidebarItem
@@ -217,15 +286,12 @@ spec:
       ```
 
       #### 4. Configure the Plugin
-      **Configure your LLM server** in `app-config.yaml` or `app-config.local.yaml`:
-
+      LLM servers are configured on Lightspeed Core (LCS) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart); in standalone Backstage, in the LCS `lightspeed-stack.yaml`. Plugin-level options go in `app-config.yaml` or `app-config.local.yaml`:
 
       ```yaml
         intelligent-assistant:
-          servers:
-            - id: openai-server
-              url: https://api.openai.com/v1
-              token: ${OPENAI_API_KEY}
+          servicePort: 8080
+          systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
       ```
 
       ## Configuration
@@ -236,79 +302,88 @@ spec:
 
       ```yaml
       intelligent-assistant:
-        # REQUIRED: Configure LLM servers with OpenAI API compatibility
-        servers:
-          - id: <server_id>                    # REQUIRED: Unique identifier for the server
-            url: <server_URL>                  # REQUIRED: Base URL of the LLM server (e.g., https://api.openai.com/v1)
-            token: <api_key>                   # REQUIRED: Authentication token/API key for the server
-        
-        # OPTIONAL: Enable/disable question validation (default: true)
-        # When enabled, restricts questions to RHDH-related topics for better security
-        questionValidation: true
-        
-        # OPTIONAL: Custom users prompts displayed to users
-        # If not provided, the plugin uses built-in default prompts
-        prompts:
+        servicePort: <portNumber>              # OPTIONAL: Port for the intelligent-assistant service (default: 8080)
+        systemPrompt: <system prompt>          # OPTIONAL: Override the default system prompt
+        prompts:                               # OPTIONAL: Custom prompts displayed to users in the chat UI
           - title: <prompt_title>              # REQUIRED: Display title for the prompt
             message: <prompt_message>          # REQUIRED: The actual prompt text/question
-        
-        # OPTIONAL: Backend-only configurations
-        servicePort: 8080                      # OPTIONAL: Port for intelligent-assistant service (default: 8080)
-        systemPrompt: <custom_system_prompt>   # OPTIONAL: Override default RHDH system prompt
+        mcpServers:                            # OPTIONAL: One or more MCP servers
+          - name: <mcp server name>            # REQUIRED: Must match the name configured in LCS
+            token: ${MCP_TOKEN}                # OPTIONAL: Token for the MCP server
+        rateLimit:                             # OPTIONAL: Per-user request rate limits (defaults apply if omitted)
+          expensive:
+            max: 25                            # Max requests/minute per user for expensive endpoints (default: 25)
+          general:
+            max: 200                           # Max requests/minute per user for other authenticated endpoints (default: 200)
+        screen-context:                        # OPTIONAL: Share current page content with the assistant
+          enabled: false                       # Master switch for screen context (default: false)
+          screenshots:
+            enabled: true                      # Screenshot capture within screen context (default: true)
+          dom-extraction:
+            enabled: true                      # DOM text extraction (default: true when screen-context is on)
+            maxChars: 8000                     # Max characters extracted per page (default: 8000)
+        notebooks:                             # OPTIONAL: Notebooks feature (Developer Preview)
+          enabled: false
       ```
 
       #### Configuration Fields
 
       | Field | Type | Required | Default | Description |
       |-------|------|----------|---------|-------------|
-      | `servers` | Array | ✅ Yes | - | Array of LLM server configurations |
-      | `servers[].id` | String | ✅ Yes | - | Unique identifier for the server |
-      | `servers[].url` | String | ✅ Yes | - | Base URL of the LLM server with OpenAI API compatibility |
-      | `servers[].token` | String | ✅ Yes | - | Authentication token or API key for accessing the server |
-      | `questionValidation` | Boolean | ❌ No | `true` | Enable/disable question validation for security |
+      | `servicePort` | Number | ❌ No | `8080` | Port for intelligent-assistant backend service |
+      | `systemPrompt` | String | ❌ No | RHDH default | Custom system prompt to override default behavior |
       | `prompts` | Array | ❌ No | Built-in prompts | Custom welcome prompts for users |
       | `prompts[].title` | String | ✅ Yes* | - | Display title for the prompt (*required if prompts array is provided) |
       | `prompts[].message` | String | ✅ Yes* | - | The actual prompt text/question (*required if prompts array is provided) |
-      | `servicePort` | Number | ❌ No | `8080` | Port for intelligent-assistant backend service |
-      | `systemPrompt` | String | ❌ No | RHDH default | Custom system prompt to override default behavior |
+      | `mcpServers` | Array | ❌ No | - | MCP servers to expose in the assistant settings panel |
+      | `mcpServers[].name` | String | ✅ Yes* | - | MCP server name; must match the name configured in LCS |
+      | `mcpServers[].token` | String | ❌ No | - | Token for the MCP server (users can override per-user) |
+      | `rateLimit.expensive.max` | Number | ❌ No | `25` | Max requests/minute per user for expensive endpoints; `0` disables |
+      | `rateLimit.general.max` | Number | ❌ No | `200` | Max requests/minute per user for other authenticated endpoints; `0` disables |
+      | `screen-context.enabled` | Boolean | ❌ No | `false` | Master switch for screen context (users must still opt in) |
+      | `screen-context.screenshots.enabled` | Boolean | ❌ No | `true` | Screenshot capture within screen context |
+      | `screen-context.dom-extraction.maxChars` | Number | ❌ No | `8000` | Max characters of page text extracted per page |
+      | `notebooks.enabled` | Boolean | ❌ No | `false` | Enable the Notebooks feature (Developer Preview) |
 
       ### Example Configurations
 
-      #### Basic Configuration (Required fields only)
+      #### Minimal Configuration
       ```yaml
       intelligent-assistant:
-        servers:
-          - id: openai-server
-            url: https://api.openai.com/v1
-            token: ${OPENAI_API_KEY}
+        servicePort: 8080
       ```
 
-      #### Local Development Configuration
+      #### Enable Screen Context
       ```yaml
       intelligent-assistant:
-        servers:
-          - id: 'my-llm-server'
-            url: 'http://localhost:11434/v1'
-            token: 'dummy' # dummy token
+        screen-context:
+          enabled: true
+          screenshots:
+            enabled: true
+          dom-extraction:
+            enabled: true
+            maxChars: 8000
       ```
 
-      #### Disable Question Validation
+      #### Enable Notebooks (Developer Preview)
+      Requires Lightspeed Core and an accessible Llama Stack service; `model` and `provider_id` must be configured together and map to a provider enabled in your Lightspeed config.
       ```yaml
       intelligent-assistant:
-        questionValidation: false
-        servers:
-          - id: openai-server
-            url: https://api.openai.com/v1
-            token: ${OPENAI_API_KEY}
+        notebooks:
+          enabled: true
+          queryDefaults:
+            model: ${NOTEBOOKS_QUERY_MODEL}
+            provider_id: ${NOTEBOOKS_QUERY_PROVIDER_ID}
+          # OPTIONAL: Chunking strategy for document processing
+          chunkingStrategy:
+            type: auto # 'auto' or 'static' (default: auto)
+            maxChunkSizeTokens: 512 # For 'static' chunking (default: 512)
+            chunkOverlapTokens: 50 # For 'static' chunking (default: 50)
       ```
 
       #### Custom User Prompts (Welcome Prompts in Intelligent Assistant UI)
       ```yaml
       intelligent-assistant:
-        servers:
-          - id: openai-server
-            url: https://api.openai.com/v1
-            token: ${OPENAI_API_KEY}
         prompts:
           - title: "Get Started with RHDH"
             message: "How can I set up a new component in Red Hat Developer Hub?"
@@ -318,19 +393,34 @@ spec:
             message: "What are the recommended practices for RHDH development?"
       ```
 
+      #### MCP Server Integration
+      ```yaml
+      intelligent-assistant:
+        mcpServers:
+          - name: mcp-integration-tools
+            token: ${MCP_TOKEN}
+      ```
+
       #### Complete Configuration with All Options
       ```yaml
       intelligent-assistant:
-        servers:
-          - id: openai-server
-            url: https://api.openai.com/v1
-            token: ${OPENAI_API_KEY}
-        questionValidation: true
+        servicePort: 8080
+        systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
         prompts:
           - title: "Quick Start"
             message: "How do I enable a dynamic plugin?"
-        servicePort: 8080
-        systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
+        mcpServers:
+          - name: mcp-integration-tools
+            token: ${MCP_TOKEN}
+        rateLimit:
+          expensive:
+            max: 25
+          general:
+            max: 200
+        screen-context:
+          enabled: true
+        notebooks:
+          enabled: true
       ```
 
       ## Permissions
@@ -342,10 +432,22 @@ spec:
       When using the [RBAC permission framework](https://github.com/backstage/community-plugins/tree/main/workspaces/rbac/plugins/rbac-backend#installation), add the following permissions to your `rbac-policy.csv` file:
 
       ```csv
-      # Allow team_a role to read, create, and delete intelligent-assistant chats
-      p, role:default/team_a, intelligent-assistant.chat.read, read, allow
-      p, role:default/team_a, intelligent-assistant.chat.create, create, allow
-      p, role:default/team_a, intelligent-assistant.chat.delete, delete, allow
+      # Allow team_a role to use intelligent-assistant features.
+      # All permissions are granted with the "use" action.
+      p, role:default/team_a, intelligent-assistant.chat, use, allow
+
+      # Required for Notebooks feature (if enabled)
+      p, role:default/team_a, intelligent-assistant.notebooks, use, allow
+
+      # Required for MCP server management (if configured)
+      p, role:default/team_a, intelligent-assistant.mcp.tools, use, allow
+
+      # Required for Skills feature (if enabled)
+      p, role:default/team_a, intelligent-assistant.skills, use, allow
+
+      # Often required when MCP tools query the catalog
+      p, role:default/team_a, catalog.entity.read, read, allow
+      p, role:default/team_a, catalog.location.read, read, allow
 
       # Assign user to team_a role
       g, user:default/<your-user-name>, role:default/team_a
@@ -384,11 +486,9 @@ spec:
         
           ```yaml
           intelligent-assistant:
-            servers:
-              - id: 'my-llm-server'
-                url: 'http://localhost:11434/v1'
-                token: 'dummy' # dummy token
-            questionValidation: true
+            servicePort: 8080
+            screen-context:
+              enabled: true
           ```
 
       4. **Start the development server**:
@@ -403,24 +503,23 @@ spec:
 
       ### Environment Variables
 
-      The following environment variables can be used in configuration:
+      Environment variable substitution works in `app-config.yaml` for any plugin configuration value:
 
-      - `LIGHTSPEED_SERVER_ID`: Server identifier
-      - `LIGHTSPEED_SERVER_URL`: LLM server URL
-      - `LIGHTSPEED_SERVER_TOKEN`: Authentication token
-      - `LIGHTSPEED_SERVICE_PORT`: Service port (default: 8080)
-      - `LIGHTSPEED_QUESTION_VALIDATION`: Enable question validation (default: true)
+      - `MCP_TOKEN`: Token for an MCP server configured under `mcpServers`
+      - `NOTEBOOK_DEFAULT_MODEL` / `NOTEBOOK_PROVIDER`: Notebooks query defaults (Developer Preview)
 
       ### Example with Environment Variables
 
       ```yaml
       intelligent-assistant:
-        servers:
-          - id: ${LIGHTSPEED_SERVER_ID}
-            url: ${LIGHTSPEED_SERVER_URL}
-            token: ${LIGHTSPEED_SERVER_TOKEN}
-        servicePort: ${LIGHTSPEED_SERVICE_PORT:-8080}
-        questionValidation: ${LIGHTSPEED_QUESTION_VALIDATION:-true}
+        mcpServers:
+          - name: mcp-integration-tools
+            token: ${MCP_TOKEN}
+        notebooks:
+          enabled: true
+          queryDefaults:
+            model: ${NOTEBOOK_DEFAULT_MODEL}
+            provider_id: ${NOTEBOOK_PROVIDER}
       ```
 
   
