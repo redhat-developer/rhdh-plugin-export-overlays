@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@roadiehq/scaffolder-backend-argocd"
   # Tag: bs_1.54.9__1.9.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd@sha256:8b2c89352714edce2bc101840bbbb6a4010769ab54701c3dc35de988ce274ec8"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd@sha256:35c8e6791b62d7a263f4a42ca04bb4a19cb056f46cfa272bd676cba17710ea2b"
   version: 1.9.0
   backstage:
     role: backend-plugin-module
