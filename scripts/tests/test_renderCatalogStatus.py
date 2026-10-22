@@ -98,3 +98,85 @@ class TestVersionRegressionSection:
         assert warning is not None
         assert warning.startswith("[version-regression]")
         assert version_regression_warning(_plugin("plugin-b")) is None
+
+
+UPSTREAM_TAGS = (
+    "https://quay.io/repository/rhdh-community/plugin-catalog-index?tab=tags"
+)
+DOWNSTREAM_TAGS = "https://quay.io/repository/rhdh/plugin-catalog-index?tab=tags"
+SOURCE_REPO = "https://github.com/org/repo"
+
+
+def _supported_report(oci_ref: str, metadata=None):
+    return {
+        "summary": {"total": 1, "succeeded": 1, "failed": 0},
+        "metadata": metadata or {},
+        "plugins": {
+            "plugin-a": {
+                "overall": "pass",
+                "package": "@scope/plugin-a",
+                "version": "1.0.0",
+                "workspace": "workspaces/plugin-a",
+                "stages": {"bootstrap": {"oci_ref": oci_ref}},
+            }
+        },
+    }
+
+
+def _render(supported, community=None):
+    return render_status_page(
+        supported,
+        community or {},
+        SOURCE_REPO,
+        "main",
+        "abc1234",
+        "",
+        "",
+        "",
+    )
+
+
+def test_downstream_null_image_links_production_tags():
+    text = _render(_supported_report("quay.io/rhdh/plugin-a:1.0.0"))
+    assert f"[quay.io/rhdh/plugin-catalog-index]({DOWNSTREAM_TAGS})" in text
+    assert "rhdh-community" not in text
+
+    rhec = _render(
+        _supported_report("registry.access.redhat.com/rhdh/plugin-a:1.0.0")
+    )
+    assert f"[quay.io/rhdh/plugin-catalog-index]({DOWNSTREAM_TAGS})" in rhec
+    assert "rhdh-community" not in rhec
+
+
+def test_upstream_null_image_links_community_tags():
+    supported = _supported_report(
+        "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-a:1.0.0"
+    )
+    community = _supported_report(
+        "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-b:1.0.0"
+    )
+    text = _render(supported, community)
+    assert f"[quay.io/rhdh-community/plugin-catalog-index]({UPSTREAM_TAGS})" in text
+    assert DOWNSTREAM_TAGS not in text
+    assert "| Community | 1 | 1 | 0 | 0 | 0 | — | — |" in text
+
+
+def test_unrecognized_ref_falls_back_to_upstream_tags():
+    text = _render(_supported_report(""))
+    assert f"[quay.io/rhdh-community/plugin-catalog-index]({UPSTREAM_TAGS})" in text
+    assert DOWNSTREAM_TAGS not in text
+
+
+def test_published_catalog_image_is_kept():
+    image = "quay.io/rhdh-community/plugin-catalog-index:2.2-bs_1.54.9-abc1234"
+    report = _supported_report(
+        "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-a:1.0.0",
+        metadata={
+            "last-successful-publish": "abc1234def",
+            "catalog-index-image": image,
+        },
+    )
+    text = _render(report)
+    assert f"[{image}](https://{image})" in text
+    assert UPSTREAM_TAGS not in text
+    assert DOWNSTREAM_TAGS not in text

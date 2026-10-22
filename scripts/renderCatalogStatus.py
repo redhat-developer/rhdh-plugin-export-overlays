@@ -475,6 +475,54 @@ def render_last_publish(report: dict, source_repo: str) -> str:
     return "—"
 
 
+UPSTREAM_INDEX_TAGS_URL = (
+    "https://quay.io/repository/rhdh-community/plugin-catalog-index?tab=tags"
+)
+DOWNSTREAM_INDEX_TAGS_URL = (
+    "https://quay.io/repository/rhdh/plugin-catalog-index?tab=tags"
+)
+UPSTREAM_INDEX_IMAGE = "quay.io/rhdh-community/plugin-catalog-index"
+DOWNSTREAM_INDEX_IMAGE = "quay.io/rhdh/plugin-catalog-index"
+# Trailing slash keeps quay.io/rhdh-community from matching the production registry.
+DOWNSTREAM_OCI_PREFIXES = (
+    "quay.io/rhdh/",
+    "registry.access.redhat.com/rhdh/",
+)
+
+
+OCI_SCHEME = "oci://"
+
+
+def _bootstrap_oci_ref(plugin: dict) -> str:
+    ref = plugin.get("stages", {}).get("bootstrap", {}).get("oci_ref", "") or ""
+    if ref.startswith(OCI_SCHEME):
+        return ref[len(OCI_SCHEME):]
+    return ref
+
+
+def is_downstream_build(report: dict) -> bool:
+    """Production plugin registries identify a midstream catalog build.
+
+    ghcr.io refs are an upstream build. A report with no recognizable ref
+    stays upstream.
+    """
+    return any(
+        _bootstrap_oci_ref(plugin).startswith(DOWNSTREAM_OCI_PREFIXES)
+        for plugin in report.get("plugins", {}).values()
+    )
+
+
+def catalog_index_tags_link(report: dict) -> str:
+    """Tags page used when no catalog index image has been published."""
+    if is_downstream_build(report):
+        image = DOWNSTREAM_INDEX_IMAGE
+        url = DOWNSTREAM_INDEX_TAGS_URL
+    else:
+        image = UPSTREAM_INDEX_IMAGE
+        url = UPSTREAM_INDEX_TAGS_URL
+    return f"[{image}]({url})"
+
+
 def render_catalog_image(report: dict, ghcr_version_ids: dict[str, int] | None = None) -> str:
     """Render a link to the catalog index OCI image.
     Only shows the image if the catalog has been successfully published."""
@@ -550,6 +598,8 @@ def render_status_page(
     ])
     if supported_report:
         sup_img = render_catalog_image(supported_report, ghcr_version_ids)
+        if sup_img == "—":
+            sup_img = catalog_index_tags_link(supported_report)
         sup_pub = render_last_publish(supported_report, source_repo)
         sup_fallback = count_fallbacks(supported_report)
         sup_bs_mismatch = count_bs_version_mismatch(supported_report)
