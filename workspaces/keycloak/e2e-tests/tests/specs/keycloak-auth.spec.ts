@@ -17,6 +17,7 @@ import {
   KEYCLOAK_REFRESH_COOKIE,
   NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
 } from "../support/constants/keycloak-auth";
+import { safeSignOut } from "../support/helpers/keycloak-auth-helpers";
 import {
   catalogEntityExists,
   checkGroupDisplayNamesInCatalog,
@@ -43,14 +44,6 @@ test.describe("Keycloak auth provider", () => {
 
   async function clearSession(context: BrowserContext) {
     await context.clearCookies();
-  }
-
-  async function safeSignOut(page: Page, loginHelper: LoginHelper) {
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
   }
 
   async function expectProfile(

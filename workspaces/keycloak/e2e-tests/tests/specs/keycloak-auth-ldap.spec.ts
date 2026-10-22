@@ -11,6 +11,7 @@ import {
   DEFAULT_OPENLDAP_PASSWORD,
 } from "@red-hat-developer-hub/e2e-test-utils/openldap";
 import { KEYCLOAK_AUTH_CONFIG_DIR } from "../support/constants/keycloak-auth";
+import { safeSignOut } from "../support/helpers/keycloak-auth-helpers";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 /**
@@ -23,14 +24,6 @@ test.describe("Keycloak LDAP auth provider", () => {
 
   async function clearSession(context: BrowserContext) {
     await context.clearCookies();
-  }
-
-  async function safeSignOut(page: Page, loginHelper: LoginHelper) {
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
   }
 
   async function expectProfile(
