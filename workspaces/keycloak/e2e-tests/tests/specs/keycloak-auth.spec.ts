@@ -514,6 +514,12 @@ test.describe("Keycloak auth provider", () => {
       await loginHelper.loginAsKeycloakUser(username, password);
       await expectProfile(page, uiHelper, displayName);
 
+      await page.goto("/settings/auth-providers");
+      await uiHelper.waitForLoad();
+
+      const githubSignIn = page.getByTitle("Sign in to GitHub");
+      await expect(githubSignIn).toBeVisible({ timeout: 30_000 });
+
       const ghLogin = await loginHelper.githubLoginFromSettingsPage(
         process.env.VAULT_GH_USER_ID!,
         process.env.VAULT_GH_USER_PASS!,
