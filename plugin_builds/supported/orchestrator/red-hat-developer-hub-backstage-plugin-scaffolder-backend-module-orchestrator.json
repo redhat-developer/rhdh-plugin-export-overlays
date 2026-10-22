@@ -2,7 +2,9 @@
   "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator": {
     "workspacePath": "orchestrator/plugins/scaffolder-backend-module-orchestrator",
     "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.54.9__1.8.1",
-    "digest": "sha256:bf619ad7320bc908b4dfff62468c311b449b2740b61228d8a1d242f830f2d2fc",
+    "fallback": true,
+    "requestedTag": "bs_1.54.9__1.8.2",
+    "digest": "sha256:4587744bdc7e767174f778071ebc80d40679a436cbabeb6fa8c94f9c69d5481d",
     "build-date": "2026-05-26T12:41:42Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
