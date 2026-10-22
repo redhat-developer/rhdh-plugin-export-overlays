@@ -34,6 +34,6 @@ Applied by automation from the change scope: `workspace-update`, `workspace-addi
 
 It is a value in the E2E issue body — `test_fix`, `metadata_config`, or `product_bug` — and it decides what the fix agent may change. See [knowledge/e2e-fix-workflow.md](knowledge/e2e-fix-workflow.md).
 
-## Gap
+## `blocked-by-workspace-failure`
 
-`knowledge/e2e-fix-workflow.md` describes labelling individual issues `blocked-by-workspace-failure` when a workspace is systemically broken but the issues are filed per test. That label does not exist on this repository yet; create it before using option (b).
+`knowledge/e2e-fix-workflow.md` uses this label for option (b), where individual issues are filed for a systemic workspace failure instead of one workspace-level issue. The label exists on this repository: apply it to every issue in the affected workspace so the set is investigated once, and keep `fix_category: product_bug` in each body.

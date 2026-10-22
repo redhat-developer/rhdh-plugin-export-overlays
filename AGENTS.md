@@ -4,7 +4,9 @@ If `FULLSEND_OUTPUT_DIR` is set, read and follow `.fullsend/AGENTS.md` before do
 
 ## Agent-facing material
 
-All agent-facing material lives in four places: this file (pointers and prohibitions), `CONTEXT.md` (orientation), `docs/agents/` (knowledge and tracker config), `.agents/skills/` (symlinks into `.fullsend/skills/`). Bring a new harness in by pointing it at these files.
+All agent-facing material lives in four places: this file (pointers and prohibitions), `CONTEXT.md` (orientation), `docs/agents/` (knowledge and tracker config), `.agents/skills/` (symlinks into `.fullsend/skills/`). `AGENTS.md` is the single entry point: do not commit a second copy under a harness-specific name. A harness that reads only a different filename should import this one locally (`@AGENTS.md`) and keep that shim uncommitted. Bring a new harness in by pointing it at these files.
+
+Knowledge is delivered by following pointers, not by static inclusion. A harness reading `AGENTS.md` gets the prohibitions and the index, then reads `CONTEXT.md` and the knowledge doc for whatever it touches. Duplicating those docs here is not a goal — it would let identical rules drift apart. A harness that cannot follow pointers should be given `CONTEXT.md` as well.
 
 ## Repository knowledge
 

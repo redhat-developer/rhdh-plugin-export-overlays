@@ -191,7 +191,7 @@ E2E tests for these workspaces need mode-aware configuration:
 
 - **PR mode** (`GIT_PR_NUMBER` set) — pass `dynamicPlugins: "tests/config/dynamic-plugins.yaml"` with `plugins: []`. That prevents auto-generation from creating duplicate config keys against the baked-in entry.
 - **Nightly mode** (`E2E_NIGHTLY_MODE=true`, or `JOB_NAME` containing `periodic-`; `GIT_PR_NUMBER` wins) — pass a nightly-specific file such as `dynamic-plugins-nightly.yaml` with `plugins: []`, so metadata auto-generation cannot duplicate the OCI entries. `disablePlugins` has no effect in nightly mode.
-- **Local dev** (neither set) — the plugin loads from defaults; `disablePlugins` has no effect outside PR mode.
+- **Local dev** (neither set) — the plugin loads from defaults; auto-generation runs here too, so `disablePlugins` applies. It is ignored only in nightly mode.
 
 The e2e-test-utils common defaults already set `disabled: true` for some baked-in plugins (quickstart popup suppression). That applies in every mode and is independent of the `disablePlugins` configure option.
 

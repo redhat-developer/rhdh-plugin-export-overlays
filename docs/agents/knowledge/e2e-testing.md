@@ -299,7 +299,7 @@ export default defineConfig({
 
 When a PR adds an `-app-next` project to a workspace that already has a legacy project:
 
-1. Check `docs/nfs-e2e-triage.md` for whether the workspace's NFS migration is complete.
+1. Check [`docs/nfs-e2e-triage.md`](../../nfs-e2e-triage.md) for whether the workspace's NFS migration is complete.
 2. If it is listed as complete — all tests green on the app-next lane — flag that the legacy project should be **removed** rather than kept beside the new one. Keeping both doubles CI cost and invites cross-project races (shared Loki installs, Knative CRDs) that then need serialisation workarounds.
 3. If the status is unclear, ask the author whether the legacy lane is still needed.
 
