@@ -197,11 +197,9 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    const isLoggedIn = await page
-      .locator('button[data-testid="user-settings-menu"]')
-      .isVisible()
-      .catch(() => false);
-    if (isLoggedIn) {
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
       await loginHelper.signOut();
     }
   });
@@ -262,7 +260,11 @@ test.describe("Keycloak auth provider", () => {
     expect(entityNames).toContain(KEYCLOAK_AUTH_USERS.test2.username);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
   });
 
   test("Ingestion of users and groups: verify entities and relationships", async () => {
@@ -359,7 +361,11 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
   });
 
   test("Login with emailMatchingUserEntityProfileEmail", async ({
@@ -386,7 +392,11 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
   });
 
   test("Login with emailLocalPartMatchingUserEntityName", async ({
@@ -413,7 +423,11 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -464,7 +478,11 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -473,7 +491,11 @@ test.describe("Keycloak auth provider", () => {
     await page.goto("/settings");
     await uiHelper.waitForLoad();
     await expect(page.getByText(/nomatch/i).first()).toBeVisible();
-    await loginHelper.signOut();
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
   });
 
   test("Set sessionDuration and confirm auth cookie duration", async ({
@@ -509,7 +531,11 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
   });
 
   // Secondary GitHub auth via backstage-plugin-auth-backend-module-github-provider (app-config-rhdh.yaml).
@@ -544,7 +570,13 @@ test.describe("Keycloak auth provider", () => {
       await expectProfile(page, uiHelper, displayName);
       await page.goto("/settings");
       await uiHelper.waitForLoad();
-      await loginHelper.signOut();
+      if (
+        await page
+          .locator('button[data-testid="user-settings-menu"]')
+          .isVisible()
+      ) {
+        await loginHelper.signOut();
+      }
     } finally {
       await clearSession(context);
     }

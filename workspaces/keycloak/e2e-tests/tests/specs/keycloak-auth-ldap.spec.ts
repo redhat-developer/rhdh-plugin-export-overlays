@@ -105,11 +105,9 @@ test.describe("Keycloak LDAP auth provider", () => {
     await expectProfile(page, uiHelper, "User 1 One");
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    const isLoggedIn = await page
-      .locator('button[data-testid="user-settings-menu"]')
-      .isVisible()
-      .catch(() => false);
-    if (isLoggedIn) {
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
       await loginHelper.signOut();
     }
   });
