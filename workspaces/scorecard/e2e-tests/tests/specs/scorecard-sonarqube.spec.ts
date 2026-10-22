@@ -83,7 +83,7 @@ test.describe.serial("Scorecard SonarQube Tests", () => {
       coverageCard.locator(
         '[data-testid="DangerousOutlinedIcon"], [data-testid="CheckCircleOutlineIcon"]',
       ),
-    ).toBeVisible({ timeout: 120_000 });
+    ).toBeVisible({ timeout: 2 * 60 * 1000 });
 
     await scorecard.expectScorecardValue(
       SONARQUBE_METRICS.codeCoverage.title,
