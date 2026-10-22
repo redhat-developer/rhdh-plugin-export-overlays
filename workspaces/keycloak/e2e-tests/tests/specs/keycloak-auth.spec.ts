@@ -514,11 +514,20 @@ test.describe("Keycloak auth provider", () => {
       await loginHelper.loginAsKeycloakUser(username, password);
       await expectProfile(page, uiHelper, displayName);
 
+      // base-config sets actionTimeout: 10s, which also caps
+      // waitForEvent("popup") inside the login helper.  A cold
+      // auth-providers load can exceed that budget.
+      // TODO: the durable fix belongs in e2e-test-utils —
+      // githubLoginFromSettingsPage should wait for its own button
+      // before starting the popup race (the way githubLogin does).
+      page.setDefaultTimeout(30_000);
+
       await page.goto("/settings/auth-providers");
       await uiHelper.waitForLoad();
 
       const githubSignIn = page.getByTitle("Sign in to GitHub");
-      await expect(githubSignIn).toBeVisible({ timeout: 30_000 });
+      await expect(githubSignIn).toBeEnabled({ timeout: 30_000 });
+      await githubSignIn.scrollIntoViewIfNeeded();
 
       const ghLogin = await loginHelper.githubLoginFromSettingsPage(
         process.env.VAULT_GH_USER_ID!,
