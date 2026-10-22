@@ -47,6 +47,11 @@ on:
         type: boolean
         required: false
         default: false
+      force:
+        description: "Force metadata re-application even when source hasn't changed"
+        type: boolean
+        required: false
+        default: false
 
   workflow_call:
     inputs:
@@ -94,6 +99,10 @@ on:
         type: boolean
         required: false
         default: false
+      force:
+        type: boolean
+        required: false
+        default: false
   
   schedule:
     - cron: '0 12 * * *'
@@ -114,7 +123,7 @@ jobs:
       release-branch-pattern: ${{ steps.read-release-branch-pattern.outputs.RELEASE_BRANCH_PATTERN }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Read Regexps
         id: read-regexps
@@ -182,6 +191,7 @@ jobs:
       verbose: ${{ inputs.verbose != '' && inputs.verbose }}
       debug: ${{ inputs.debug != '' && inputs.debug }}
       allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}
+      force: ${{ inputs.force != '' && inputs.force }}
     permissions:
       contents: write
       pull-requests: write

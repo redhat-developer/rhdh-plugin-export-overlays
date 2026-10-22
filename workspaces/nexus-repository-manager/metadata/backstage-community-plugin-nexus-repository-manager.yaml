@@ -16,28 +16,15 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-nexus-repository-manager"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.49.4__1.23.0!backstage-community-plugin-nexus-repository-manager
-  version: 1.23.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.54.9__1.27.4
+  version: 1.27.4
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.54.9
   author: Red Hat
   support: community
   lifecycle: active
   partOf:
     - nexus-repository-manager
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-nexus-repository-manager:
-              mountPoints:
-                - mountPoint: entity.page.image-registry/cards
-                  importName: NexusRepositoryManagerPage
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      anyOf:
-                        - isNexusRepositoryManagerAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

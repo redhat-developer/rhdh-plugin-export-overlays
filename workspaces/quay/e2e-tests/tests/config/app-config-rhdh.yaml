@@ -13,7 +13,9 @@ catalog:
   rules:
     - allow: [API, Component, Group, Location, Resource, System, Template]
   locations:
+    # Entity with quay.io/repository-slug (isQuayAvailable). RHDH all.yaml no longer
+    # carries that annotation, so the Image Registry tab never mounts.
     - type: url
-      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
+      target: https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/backstage/e2e-tests/tests/config/kubernetes/resources/catalog-component.yaml
     - type: url
       target: https://github.com/backstage/community-plugins/blob/main/workspaces/quay/plugins/quay-actions/examples/templates/01-quay-template.yaml

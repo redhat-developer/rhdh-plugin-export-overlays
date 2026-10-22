@@ -3,6 +3,7 @@ import {
   APIHelper,
   GITHUB_API_ENDPOINTS,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 interface GHIssue {
   pull_request: boolean; // eslint-disable-line @typescript-eslint/naming-convention
@@ -11,7 +12,11 @@ interface GHIssue {
 
 test.describe("Test github-issues", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "github" });
+    await rhdh.configure({
+      auth: "github",
+      appConfig: `${WorkspacePaths.configDir}/github-issues/app-config-rhdh.yaml`,
+      dynamicPlugins: `${WorkspacePaths.configDir}/github-issues/dynamic-plugins.yaml`,
+    });
     await rhdh.deploy();
   });
 
@@ -27,9 +32,9 @@ test.describe("Test github-issues", () => {
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink(component);
 
-    await uiHelper.clickTab("Issues");
     await page.getByRole("button", { name: "Log in" }).click();
     await loginHelper.checkAndReauthorizeGithubApp();
+    await uiHelper.clickLink("GitHub Issues");
 
     const response = (await APIHelper.getGithubPaginatedRequest(
       GITHUB_API_ENDPOINTS.issues("open"),

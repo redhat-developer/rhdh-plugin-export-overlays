@@ -1,0 +1,20 @@
+app:
+  title: RHDH Roadie Plugins Test Instance
+integrations:
+  github:
+    - host: github.com
+      apps:
+        - appId: ${VAULT_GITHUB_APP_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${VAULT_GITHUB_APP_PRIVATE_KEY}
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [Component, System, Group, Resource, Location, Template, API]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml

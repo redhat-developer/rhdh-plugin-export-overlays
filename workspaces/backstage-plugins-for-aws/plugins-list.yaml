@@ -1,0 +1,17 @@
+plugins/ecs/frontend:
+plugins/ecs/backend: --embed-package @aws/aws-core-plugin-for-backstage-common --embed-package @aws/aws-core-plugin-for-backstage-node
+plugins/codebuild/frontend:
+plugins/codebuild/backend: --embed-package @aws/aws-core-plugin-for-backstage-common --embed-package @aws/aws-core-plugin-for-backstage-node
+plugins/codepipeline/frontend:
+plugins/codepipeline/backend: --embed-package @aws/aws-core-plugin-for-backstage-common --embed-package @aws/aws-core-plugin-for-backstage-node
+#plugins/core/catalog-config:
+#plugins/core/scaffolder-actions:
+#plugins/cost-insights/backend:
+#plugins/cost-insights/frontend:
+#plugins/ecr/backend:
+#plugins/ecr/frontend:
+#plugins/genai/agent-langgraph:
+#plugins/genai/backend:
+#plugins/genai/frontend:
+#plugins/securityhub/backend:
+#plugins/securityhub/frontend:

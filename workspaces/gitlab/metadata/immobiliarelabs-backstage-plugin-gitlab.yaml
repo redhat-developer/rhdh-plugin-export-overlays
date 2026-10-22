@@ -16,55 +16,15 @@ metadata:
   tags: []
 spec:
   packageName: "@immobiliarelabs/backstage-plugin-gitlab"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab:bs_1.45.3__6.13.0!immobiliarelabs-backstage-plugin-gitlab
-  version: 6.13.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab:bs_1.49.4__7.0.1
+  version: 7.0.1
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.49.4
   author: Red Hat
   support: community
   lifecycle: active
   partOf:
     - backstage-catalog-cards
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            immobiliarelabs.backstage-plugin-gitlab:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityGitlabMergeRequestStatsCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        lg: span 4
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isGitlabAvailable
-                - mountPoint: entity.page.ci/cards
-                  importName: EntityGitlabPipelinesTable
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGitlabAvailable
-                - mountPoint: entity.page.issues/cards
-                  importName: EntityGitlabIssuesTable
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGitlabAvailable
-                - mountPoint: entity.page.pull-requests/cards
-                  importName: EntityGitlabMergeRequestsTable
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGitlabAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

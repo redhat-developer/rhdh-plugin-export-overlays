@@ -18,11 +18,22 @@ set -euo pipefail
 #   ./run-e2e.sh -w tech-radar --list          # List projects in a workspace
 #   ./run-e2e.sh -w backstage --workers=2      # Combine workspace filter with Playwright args
 #
+#   # Load readable local secrets from Bitwarden for the test process
+#   ./run-e2e.sh --secrets -w tech-radar
+##
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
 #
 #   # Pin a specific npm version of e2e-test-utils (default: "latest" for nightly)
 #   E2E_TEST_UTILS_VERSION=1.1.24 ./run-e2e.sh -w tech-radar
+#
+#   # Use an unpublished git branch of e2e-test-utils (clones and builds locally)
+#   E2E_TEST_UTILS_GIT_REF=owner/rhdh-e2e-test-utils#my-branch ./run-e2e.sh -w tech-radar
+#
+#   # Coverage collection is ENABLED BY DEFAULT
+#   # Requires e2e-test-utils >= 1.x.x for automatic -coverage image swap
+#   # To disable for faster local development:
+#   E2E_COLLECT_COVERAGE=false ./run-e2e.sh -w tech-radar
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,8 +43,8 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
+export RHDH_VERSION="${RHDH_VERSION:-next}"
 
 # Playwright
 export CI="${CI:-true}"                                  # Enables CI mode (forbidOnly, teardown)
@@ -46,24 +57,54 @@ export SKIP_KEYCLOAK_DEPLOYMENT="${SKIP_KEYCLOAK_DEPLOYMENT:-}" # Set "true" to 
 export JOB_NAME="${JOB_NAME:-}"                          # If contains "periodic-", skips metadata injection
 export GIT_PR_NUMBER="${GIT_PR_NUMBER:-}"                 # PR number for OCI URL generation
 
-# Catalog index image — only set if you need to override the default baked into the RHDH chart
-export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
+# CI is also enabled for local runs, so use Prow job metadata to distinguish
+# OpenShift CI. Keep its supplied release branch; default only local runs.
+# Update this default to release-X.Y when cutting a release branch.
+if [[ -z "$JOB_NAME" && -z "${PROW_JOB_ID:-}" ]]; then
+    export RELEASE_BRANCH_NAME="${RELEASE_BRANCH_NAME:-main}"
+fi
 
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
+
+# Readable local secrets
+SECRETS_ENABLED=false
+
+# Coverage collection (Istanbul) — enabled by default
+#
+# PR checks: auto-publish-pr.yaml builds __coverage images
+# (plugin:tag__coverage) that e2e-test-utils automatically swaps in for
+# frontend plugins. Zip bomb detection (RHDHBUGS-3470) is handled at
+# image-build time: instrument-plugin.sh restores the original file for any
+# chunk whose instrumented output would exceed RHDH's per-entry size limit.
+#
+# To disable (faster local dev): E2E_COLLECT_COVERAGE=false
+export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-true}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
 # Pin specific e2e-test-utils version.
 E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
+# Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
+E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
 SELECTED_WORKSPACES=()
 PLAYWRIGHT_ARGS=()
+DRY_RUN_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --secrets)
+            SECRETS_ENABLED=true
+            shift
+            ;;
+        --list)
+            DRY_RUN_MODE=true
+            PLAYWRIGHT_ARGS+=("$1")
+            shift
+            ;;
         -w|--workspace)
             SELECTED_WORKSPACES+=("$2")
             shift 2
@@ -78,6 +119,16 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$DRY_RUN_MODE" != "true" \
+    && "$CI" == "true" \
+    && -z "$GIT_PR_NUMBER" \
+    && ( "$E2E_NIGHTLY_MODE" == "true" || "$E2E_NIGHTLY_MODE" == "1" || "$JOB_NAME" == *periodic-* ) \
+    && -z "${RELEASE_BRANCH_NAME:-}" ]]; then
+    echo "[ERROR] RELEASE_BRANCH_NAME is required for CI nightly/periodic runs."
+    echo "[ERROR] Set it to 'main' or the target release branch."
+    exit 1
+fi
 
 # Auto-skip tests tagged @skip-<job-suffix> based on JOB_NAME.
 # (?!-) ensures exact match — @skip-ocp-helm won't match @skip-ocp-helm-nightly.
@@ -102,12 +153,60 @@ for bin in node yarn jq; do
     command -v "$bin" &>/dev/null || { echo "[ERROR] Missing: $bin"; exit 1; }
 done
 
+NODE_VERSION="$(node --version)"
+REQUIRED_NODE_VERSION="$(jq -r '.node' versions.json)"
+if [[ -z "$REQUIRED_NODE_VERSION" || "$REQUIRED_NODE_VERSION" == "null" ]]; then
+    echo "[ERROR] Could not read the required Node.js version from versions.json."
+    exit 1
+fi
+IFS=. read -r -a NODE_VERSION_PARTS <<< "${NODE_VERSION#v}"
+IFS=. read -r -a REQUIRED_NODE_VERSION_PARTS <<< "$REQUIRED_NODE_VERSION"
+for index in 0 1 2; do
+    if (( NODE_VERSION_PARTS[index] < REQUIRED_NODE_VERSION_PARTS[index] )); then
+        echo "[ERROR] Node.js ${NODE_VERSION#v} is below the minimum ${REQUIRED_NODE_VERSION} specified in versions.json."
+        echo "[ERROR] Switch runtimes before running E2E tests, for example: nvm use ${REQUIRED_NODE_VERSION}"
+        exit 1
+    elif (( NODE_VERSION_PARTS[index] > REQUIRED_NODE_VERSION_PARTS[index] )); then
+        break
+    fi
+done
+if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_VERSION" ]]; then
+    echo "[WARN] Node.js ${NODE_VERSION#v} is not aligned with versions.json (${REQUIRED_NODE_VERSION}); continuing."
+fi
+
+# Validate local secrets before dependency setup; --list never reads secrets.
+if [[ "$SECRETS_ENABLED" == "true" && "$DRY_RUN_MODE" != "true" ]]; then
+    if ! command -v bw &>/dev/null; then
+        echo "[ERROR] --secrets requires the Bitwarden Password Manager CLI (bw) on PATH."
+        echo "[HINT] Install the CLI and add it to PATH: https://bitwarden.com/help/cli/"
+        exit 1
+    fi
+    if [[ ! "${BW_SESSION:-}" =~ [^[:space:]] ]]; then
+        echo "[ERROR] --secrets requires a nonempty, exported BW_SESSION."
+        echo "[HINT] Run 'bw login' if needed, then unlock and export a session in this shell:"
+        echo "[HINT] BW_SESSION=\"\$(env -u BW_CLEANEXIT bw unlock --raw)\" && export BW_SESSION"
+        exit 1
+    fi
+    # BW_CLEANEXIT would turn a locked/unauthenticated result into exit code 0.
+    if ! (
+        unset BW_CLEANEXIT
+        bw unlock --check --nointeraction </dev/null >/dev/null 2>&1
+    ); then
+        echo "[ERROR] Bitwarden session check failed."
+        echo "[HINT] Run 'bw status'. If unauthenticated, run 'bw login'; then unlock and export a fresh session:"
+        echo "[HINT] BW_SESSION=\"\$(env -u BW_CLEANEXIT bw unlock --raw)\" && export BW_SESSION"
+        echo "[HINT] For CLI diagnostics: env -u BW_CLEANEXIT bw unlock --check --nointeraction"
+        exit 1
+    fi
+    echo "[INFO] Bitwarden session is unlocked."
+fi
+
 corepack enable 2>/dev/null || true
-echo "[INFO] Node $(node --version) | Yarn $(yarn --version)"
+echo "[INFO] Node $NODE_VERSION | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
     echo "[INFO] Cluster: $(oc whoami --show-server) ($(oc whoami))"
-elif [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" ]]; then
+elif [[ "$DRY_RUN_MODE" != "true" ]]; then
     echo "[ERROR] Not logged into a cluster. Login with 'oc login' first."
     exit 1
 fi
@@ -145,6 +244,13 @@ fi
 
 # ── Install dependencies (yarn workspaces) ────────────────────────────────────
 
+if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
+    CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
+    rm -rf "$CLONE_DIR"
+    git clone --depth 1 --branch "${E2E_TEST_UTILS_GIT_REF#*#}" \
+        "https://github.com/${E2E_TEST_UTILS_GIT_REF%%#*}.git" "$CLONE_DIR"
+    E2E_TEST_UTILS_PATH="$CLONE_DIR"
+fi
 
 WORKSPACE_PATHS=$(printf ', "workspaces/%s/e2e-tests"' "${E2E_WORKSPACES[@]}")
 WORKSPACE_PATHS="[${WORKSPACE_PATHS:2}]"
@@ -153,7 +259,7 @@ RESOLUTIONS="\"@playwright/test\": \"${PLAYWRIGHT_VERSION}\""
 if [[ -n "$E2E_TEST_UTILS_PATH" ]]; then
     echo "[INFO] Using local e2e-test-utils: $E2E_TEST_UTILS_PATH"
     echo "[INFO] Building local e2e-test-utils..."
-    (cd "$E2E_TEST_UTILS_PATH" && yarn install --immutable && yarn build)
+    (cd "$E2E_TEST_UTILS_PATH" && yarn install --immutable --mode=skip-build && yarn build)
     RESOLUTIONS+=", \"@red-hat-developer-hub/e2e-test-utils\": \"file:${E2E_TEST_UTILS_PATH}\""
 elif [[ -n "$E2E_TEST_UTILS_VERSION" ]]; then
     echo "[INFO] Pinning e2e-test-utils to version: $E2E_TEST_UTILS_VERSION"
@@ -165,13 +271,18 @@ cat > package.json <<EOF
   "name": "overlay-e2e-nightly",
   "private": true,
   "type": "module",
-  "packageManager": "yarn@3.8.7",
+  "packageManager": "yarn@4.17.1",
   "workspaces": ${WORKSPACE_PATHS},
   "resolutions": { ${RESOLUTIONS} }
 }
 EOF
 
-cat > .yarnrc.yml <<< 'nodeLinker: node-modules'
+cat > .yarnrc.yml <<EOF
+nodeLinker: node-modules
+npmPreapprovedPackages:
+  - "@red-hat-developer-hub/e2e-test-utils"
+EOF
+
 GENERATED_FILES+=("package.json" ".yarnrc.yml")
 
 # Clean all node_modules and yarn.lock to ensure fresh resolution
@@ -182,7 +293,7 @@ for ws in "${E2E_WORKSPACES[@]}"; do
 done
 
 echo "[INFO] Installing dependencies (@playwright/test pinned to $PLAYWRIGHT_VERSION)..."
-YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=skip-build
 
 # ── Generate root playwright.config.ts ────────────────────────────────────────
 # Extracts project definitions directly from workspace configs via sed instead of
@@ -194,8 +305,20 @@ for ws in "${E2E_WORKSPACES[@]}"; do
     WS_DIR="workspaces/${ws}/e2e-tests"
     WS_CONFIG="${WS_DIR}/playwright.config.ts"
 
-    # Extract content between "projects: [" and "]," (the project objects)
-    PROJECTS_BLOCK=$(sed -n '/projects: \[/,/^\s*\],/{ /projects: \[/d; /^\s*\],/d; p; }' "$WS_CONFIG")
+    # Extract content between "projects: [" and its matching "]".
+    # Uses awk with bracket-depth tracking so nested arrays (e.g. testMatch: [...])
+    # don't prematurely terminate the extraction.
+    PROJECTS_BLOCK=$(awk '
+      /projects:[[:space:]]*\[/ { inside=1; depth=1; next }
+      inside {
+        for (i=1; i<=length($0); i++) {
+          c = substr($0, i, 1)
+          if (c == "[") depth++
+          if (c == "]") { depth--; if (depth == 0) { inside=0; next } }
+        }
+        if (inside) print
+      }
+    ' "$WS_CONFIG")
 
     if [[ -z "$PROJECTS_BLOCK" ]]; then
         echo "[WARN] No projects found in $WS_CONFIG, skipping"
@@ -219,6 +342,10 @@ for ws in "${E2E_WORKSPACES[@]}"; do
     done <<< "$PROJECTS_BLOCK"
 done
 
+if [[ "${E2E_COLLECT_COVERAGE:-}" == "true" ]]; then
+    echo "[INFO] Coverage collection enabled (E2E_COLLECT_COVERAGE=true)"
+fi
+
 cat > playwright.config.ts <<CONFIGEOF
 // Auto-generated by run-e2e.sh
 import { baseConfig } from '@red-hat-developer-hub/e2e-test-utils/playwright-config';
@@ -235,10 +362,10 @@ CONFIGEOF
 GENERATED_FILES+=("playwright.config.ts")
 echo "[INFO] Generated playwright.config.ts (${#E2E_WORKSPACES[@]} workspaces)"
 
-# ── List mode ─────────────────────────────────────────────────────────────────
-# Skip globalSetup and teardown reporter — just list test names.
+# ── Dry-run mode ──────────────────────────────────────────────────────────────
+# Currently enabled by --list: skip globalSetup and teardown reporter.
 
-if [[ "${PLAYWRIGHT_ARGS[0]:-}" == "--list" ]]; then
+if [[ "$DRY_RUN_MODE" == "true" ]]; then
     # Generate a lightweight config that skips setup/teardown
     sed 's/\.\.\.baseConfig,/...baseConfig, globalSetup: undefined, globalTeardown: undefined, reporter: [["list"]],/' \
         playwright.config.ts > playwright.list.config.ts
@@ -246,8 +373,8 @@ if [[ "${PLAYWRIGHT_ARGS[0]:-}" == "--list" ]]; then
 
     echo ""
     echo "Listing tests:"
-    npx playwright test --list --config playwright.list.config.ts \
-        "${PLAYWRIGHT_ARGS[@]:1}" 2>&1 || true
+    npx playwright test --config playwright.list.config.ts \
+        "${PLAYWRIGHT_ARGS[@]}" 2>&1 || true
     exit 0
 fi
 
@@ -259,7 +386,40 @@ npx playwright install chromium
 
 echo ""
 TEST_EXIT_CODE=0
-npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+if [[ "$SECRETS_ENABLED" == "true" ]]; then
+    SECRETS_EXECUTABLE="$SCRIPT_DIR/node_modules/.bin/rhdh-e2e-secrets"
+    if [[ ! -x "$SECRETS_EXECUTABLE" ]]; then
+        echo "[ERROR] rhdh-e2e-secrets is not installed. Install the pinned e2e-test-utils package first."
+        exit 1
+    fi
+
+    SECRET_ARGS=(exec --profile "$SCRIPT_DIR/e2e-secrets.profile.json")
+    for ws in "${E2E_WORKSPACES[@]}"; do
+        SECRET_ARGS+=(--workspace "$ws")
+    done
+    SECRET_ARGS+=(-- npx playwright test)
+    "$SECRETS_EXECUTABLE" "${SECRET_ARGS[@]}" "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+else
+    npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+fi
+
+# ── Coverage artifacts ───────────────────────────────────────────────────
+# The instrumented plugins emit per-test coverage JSONs (written by the
+# e2e-test-utils fixture) under node_modules/.cache/e2e-test-results/coverage,
+# which Prow publishes as run artifacts. They are deliberately NOT uploaded to
+# Codecov here: refresh-coverage-snapshot.yaml regenerates each workspace's
+# committed snapshot from those artifacts on a passing PR run, and the seed
+# (seed-coverage-main.yaml) re-attributes it to the main commit. Keeping the
+# upload out of the per-PR run means Codecov only ever reflects main, with no
+# orphan flags on PR-head commits. See the E2E coverage section in README.md.
+if [[ "${E2E_COLLECT_COVERAGE:-}" == "true" ]]; then
+    if [[ -d "node_modules/.cache/e2e-test-results/coverage" ]]; then
+        echo "[INFO] Coverage JSONs collected as run artifacts — the snapshot refresh workflow consumes the Prow run's copy (not this local/nightly output), so nothing is uploaded here."
+    else
+        echo "[INFO] Coverage collection enabled but no coverage data found."
+        echo "[INFO] Ensure plugins are loaded from instrumented (-coverage) images."
+    fi
+fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 

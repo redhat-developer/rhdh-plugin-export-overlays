@@ -24,9 +24,77 @@ export class RbacPO {
     await this.page.goto("/rbac");
   }
 
-  public async navigateToRBACPage(timeout?: number) {
-    await this.go();
+  /** Roles list only. Role overview URLs also contain `/rbac`. */
+  private onRolesList(): boolean {
+    const pathname = new URL(this.page.url()).pathname.replace(/\/$/, "");
+    return pathname === "/rbac";
+  }
+
+  /** NFS may render the 403 message across elements; use a partial match. */
+  public async verifyAccessDenied(): Promise<void> {
+    await expect(
+      this.page.getByText(/Insufficient permissions to access this page/i),
+    ).toBeVisible({ timeout: 30_000 });
+  }
+  /**
+   * Opens the RBAC roles list through the sidebar. A `page.goto` reloads the
+   * document and drops the OIDC session, so in-app moves stay client-side.
+   */
+  private async openRbacFromSidebar(): Promise<void> {
+    const administration = this.page.getByRole("button", {
+      name: "Administration",
+      exact: true,
+    });
+    if (
+      (await administration.isVisible().catch(() => false)) &&
+      (await administration.getAttribute("aria-expanded")) !== "true"
+    ) {
+      await administration.click();
+    }
+
+    await this.page
+      .getByRole("navigation", { name: "sidebar nav" })
+      .getByRole("link", { name: "RBAC" })
+      .click();
     await this.uiHelper.waitForLoad();
+  }
+
+  /**
+   * Role overview and edit pages link back with the header type link
+   * (`typeLink=".."`). That is a router link. The sidebar item reloads
+   * `/rbac` and drops the OIDC session.
+   */
+  private async returnViaHeaderTypeLink(): Promise<boolean> {
+    const headerLink = this.page
+      .locator("header")
+      .getByRole("link", { name: "RBAC", exact: true });
+    if (!(await headerLink.isVisible().catch(() => false))) {
+      return false;
+    }
+    await headerLink.click();
+    await this.uiHelper.waitForLoad();
+    return true;
+  }
+
+  public async navigateToRBACPage(timeout?: number) {
+    if (!this.onRolesList()) {
+      const onRbacSubpage = new URL(this.page.url()).pathname.startsWith(
+        "/rbac/",
+      );
+      const returned = onRbacSubpage && (await this.returnViaHeaderTypeLink());
+      if (!returned) {
+        const sidebarVisible = await this.page
+          .getByLabel("sidebar nav")
+          .isVisible()
+          .catch(() => false);
+        if (sidebarVisible) {
+          await this.openRbacFromSidebar();
+        } else {
+          await this.go();
+          await this.uiHelper.waitForLoad();
+        }
+      }
+    }
     await this.uiHelper.verifyHeading("RBAC", timeout);
   }
 
@@ -98,7 +166,10 @@ export class RbacPO {
     await this.switchToOverView();
     await this.uiHelper.verifyText("About");
 
-    await this.uiHelper.verifyText(description);
+    // An empty description matches the hidden toast container.
+    if (description) {
+      await this.uiHelper.verifyText(description);
+    }
 
     for (const heading of headings) {
       await this.uiHelper.verifyHeading(heading);
@@ -135,9 +206,10 @@ export class RbacPO {
     await this.page.click(optionSelector);
   }
 
-  private async clickOpenSidebar() {
+  private async clickOpenSidebar(index = 0) {
     await CONDITIONAL_RULE_COMPONENTS.getRulesSidebar(this.page)
       .getByLabel("Open")
+      .nth(index)
       .click();
   }
 
@@ -179,7 +251,15 @@ export class RbacPO {
   public async navigateToCatalogComponent(
     componentName: string,
   ): Promise<void> {
-    await this.uiHelper.goToPageUrl("/catalog");
+    const catalogLink = this.page
+      .getByRole("navigation", { name: "sidebar nav" })
+      .getByRole("link", { name: "Catalog", exact: true });
+    if (await catalogLink.isVisible().catch(() => false)) {
+      await catalogLink.click();
+      await this.uiHelper.waitForLoad();
+    } else {
+      await this.uiHelper.goToPageUrl("/catalog");
+    }
     await this.uiHelper.selectMuiBox("Kind", "Component");
     await this.uiHelper.searchInputPlaceholder(componentName);
     await expect(
@@ -188,6 +268,7 @@ export class RbacPO {
     await this.page
       .getByRole("link", { name: componentName, exact: true })
       .click();
+    await this.page.waitForURL("**/catalog/**/component/**");
   }
 
   public async verifyComponentOwner(ownerPattern: string): Promise<void> {
@@ -210,7 +291,7 @@ export class RbacPO {
     groups: string[],
     owner?: string,
   ) {
-    if (!this.page.url().includes("rbac")) await this.go();
+    if (!this.page.url().includes("rbac")) await this.navigateToRBACPage();
     await this.create();
     await this.uiHelper.verifyHeading("Create role");
     await ROLE_FORM_COMPONENTS.getRoleNameInput(this.page).fill(name);
@@ -318,7 +399,7 @@ export class RbacPO {
         .getByPlaceholder("string, string")
         .fill("component,template,user,group");
       await CONDITIONAL_RULE_COMPONENTS.getAddRuleButton(this.page).click();
-      await this.page.getByLabel("Open").nth(2).click();
+      await this.clickOpenSidebar(1);
       await CONDITIONAL_RULE_COMPONENTS.getHasSpecButton(this.page).click();
       const keyInput = CONDITIONAL_RULE_COMPONENTS.getKeyInput(this.page);
       await keyInput.click();
@@ -326,7 +407,7 @@ export class RbacPO {
       await keyInput.press("Tab");
       await keyInput.fill("experimental");
       await CONDITIONAL_RULE_COMPONENTS.getAddRuleButton(this.page).click();
-      await this.page.getByLabel("Open").nth(3).click();
+      await this.clickOpenSidebar(2);
       await CONDITIONAL_RULE_COMPONENTS.getHasLabelButton(this.page).click();
       const labelInput = CONDITIONAL_RULE_COMPONENTS.getLabelInput(this.page);
       await labelInput.click();
@@ -335,7 +416,7 @@ export class RbacPO {
       await CONDITIONAL_RULE_COMPONENTS.getAddNestedConditionButton(
         this.page,
       ).click();
-      await this.page.getByLabel("Open").nth(4).click();
+      await this.clickOpenSidebar(3);
       await CONDITIONAL_RULE_COMPONENTS.getHasAnnotationButton(
         this.page,
       ).click();
@@ -395,7 +476,7 @@ export class RbacPO {
     skipVerify?: boolean,
   ) {
     // Ensure we always navigate back to the RBAC page
-    await this.go();
+    await this.navigateToRBACPage();
 
     await this.uiHelper.searchInputAriaLabel(name);
     const button = ROLES_PAGE_COMPONENTS.getDeleteRoleButton(this.page, name);
@@ -443,7 +524,7 @@ export class RbacPO {
   }
 
   async createRBACConditionRole(name: string, users: string[], owner: string) {
-    if (!this.page.url().includes("rbac")) await this.go();
+    if (!this.page.url().includes("rbac")) await this.navigateToRBACPage();
     await this.createRoleUsers(name, users, [], owner);
 
     await this.openPluginsDropdown();
@@ -528,7 +609,7 @@ export class RbacPO {
     await this.selectOption("scaffolder");
 
     // Close the plugins dropdown to access the permissions table
-    await this.page.getByRole("button", { name: "Close" }).click();
+    await this.page.getByRole("button", { name: "Close", exact: true }).click();
 
     // Expand the Scaffolder row to access its permissions
     await this.page

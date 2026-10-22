@@ -14,59 +14,13 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-npm"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-npm:bs_1.49.4__1.20.0!backstage-community-plugin-npm
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-npm:bs_1.49.4__1.20.0
   version: 1.20.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.4
   author: Backstage Community
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-npm:
-              translationResources:
-                - module: alpha
-                  importName: npmTranslations
-                  ref: npmTranslationRef
-              entityTabs:
-                - mountPoint: entity.page.npm
-                  path: /npm
-                  title: npm releases
-                  config:
-                    if:
-                      allOf:
-                        - isNpmAvailable
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityNpmInfoCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        xs: "span 12"
-                        md: "span 8"
-                    if:
-                      allOf:
-                        - isNpmAvailable
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityNpmReleaseOverviewCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        xs: "span 12"
-                        md: "span 8"
-                    if:
-                      allOf:
-                        - isNpmAvailable
-                - mountPoint: entity.page.npm/cards
-                  importName: EntityNpmReleaseTableCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        xs: "span 12"
-                    if:
-                      allOf:
-                        - isNpmAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

@@ -1,7 +1,8 @@
 {
   "extends": "@red-hat-developer-hub/e2e-test-utils/tsconfig",
   "compilerOptions": {
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "lib": ["dom", "es2022"]
   },
   "include": ["**/*.ts", "eslint.config.js"]
 }

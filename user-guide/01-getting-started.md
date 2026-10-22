@@ -34,7 +34,7 @@ rhdh-plugin-export-overlays/
 ├── versions.json              # Target versions (Backstage, Node, CLI)
 ├── workspace-discovery-include # Auto-discovery scope patterns
 ├── workspace-discovery-exclude # Workspaces excluded from auto-discovery
-├── workspaces/                # One folder per source workspace
+├── workspaces/                # One folder per source workspace (overlay export)
 │   └── [workspace-name]/
 │       ├── source.json        # Source repository reference
 │       ├── plugins-list.yaml  # Plugin paths + export args
@@ -48,8 +48,16 @@ rhdh-plugin-export-overlays/
 │       └── smoke-tests/       # Smoke test configuration (optional)
 │           ├── test.env
 │           └── app-config.test.yaml
+├── catalog-entities/          # Catalog Plugin / Collection entities
+│   └── extensions/
+│       ├── plugins/           # Marketplace/catalog Plugin YAML (all models)
+│       └── collections/
 └── .github/workflows/         # CI/CD automation
 ```
+
+> Package entities live in `workspaces/*/metadata/`, not under `catalog-entities/`. A `packages/` directory appears only in **catalog-index pipeline output** (see [07 - Plugin Catalog Index](./07-plugin-catalog-index.md)).
+>
+> Some plugins only contribute a Plugin YAML under `catalog-entities/extensions/plugins/` and are **not** exported via `workspaces/` (OCI is built externally). See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository).
 
 ---
 
@@ -60,6 +68,8 @@ rhdh-plugin-export-overlays/
 A **workspace** maps to a source repository (or a workspace within a monorepo). Each workspace folder contains all configuration needed to build and publish plugins from that source.
 
 **Example:** `workspaces/backstage/` maps to `https://github.com/backstage/backstage`
+
+Workspaces require a **public** `https://github.com/...` source URL that CI can clone. Overlay export does not currently support private source repositories — for those cases, use catalog-only Plugin metadata (see link above).
 
 ### source.json
 
@@ -129,7 +139,7 @@ spec:
 | `main` | Development branch for the **next** platform release |
 | `release-x.y` | Long-running branches for specific platform versions (e.g., `release-1.6`) |
 
-> **Rule:** New workspaces are **only** added to `main`. Release branches receive plugin updates only.
+> **Rule:** New workspaces are **only** added to `main`. Release branches receive plugin updates only, and have no scheduled automatic updates — they must be triggered manually.
 
 ---
 
@@ -142,57 +152,90 @@ spec:
    - [`@red-hat-developer-hub/`](https://github.com/redhat-developer/rhdh-plugins) – RHDH Plugins
    - [`@roadiehq/`](https://github.com/RoadieHQ/roadie-backstage-plugins) – Roadie Backstage Plugins
 2. Plugin is compatible with the target Backstage version
+3. Plugin is licensed under **Apache License 2.0**. Plugins with incompatible licenses cannot be onboarded.
 
-### How Automatic Discovery Works
+### How Automatic Updates and Discovery Work
 
-The overlay repository runs an automated workflow (`update-plugins-repo-refs.yaml`) twice daily. It scans npm registries for new releases of packages matching the scope patterns defined in the `workspace-discovery-include` file:
+The overlay repository runs an automated workflow (`update-plugins-repo-refs.yaml`) **daily on the `main` branch only**. It operates in two complementary modes:
+
+#### 1. Overlay-first package enumeration (all existing workspaces)
+
+The workflow enumerates all existing workspaces directly from the overlay repository, reads each workspace's `source.json`, and scans the source repository tree to discover plugin package names. It then queries npm (`npm view`) for each discovered package to find published versions and check Backstage compatibility. This works for **any workspace regardless of npm scope** — once a workspace is added to the overlay, it will receive automatic version updates. What's avoided is the regexp-based `npm search` step for package name discovery.
+
+#### 2. npm search discovery (new packages)
+
+The workflow also runs `npm search` to discover new packages matching the scope patterns defined in the `workspace-discovery-include` file:
 
 - `@backstage-community/`
 - `@red-hat-developer-hub/`
 - `@roadiehq/`
 
-When a new release is found, the workflow creates or updates a PR with the necessary `source.json`, `plugins-list.yaml`, and `metadata/*.yaml` changes.
+When a new release is found that doesn't correspond to an existing workspace, the workflow can propose adding a new workspace (on `main` only, with `allow-workspace-addition` enabled).
 
-#### Where automatic discovery works
+#### Where automatic updates work
 
-Automatic discovery works for plugins published under the scopes listed above. If a new package version is published to npm under one of those scopes, the workflow will detect it and propose an update.
+- **All existing workspaces** are updated automatically regardless of their npm scope. This includes third-party plugins (e.g., `@immobiliarelabs/`, `@pagerduty/`, `@dynatrace/`) as long as they have a workspace in the overlay.
+- **Plugins under the auto-discovery scopes** are additionally scanned on npm, enabling discovery of new workspaces.
 
 #### Where automatic discovery does not work
 
-- **Plugins outside the supported scopes** (e.g., `@pagerduty/`, `@dynatrace/`, or any other third-party namespace) are not scanned. These must be added manually.
+- **Plugins outside the supported scopes** (e.g., `@pagerduty/`, `@dynatrace/`, or any other third-party namespace), which are part of new workspaces, are not discovered automatically. They must be added manually. However, once added, they **are** updated automatically.
 - **Workspaces listed in `workspace-discovery-exclude`** are skipped entirely by the scheduled run.
 - **Unpublished or pre-release versions** that are not yet on npm will not be discovered.
 - **New workspaces** are only proposed when the scheduled workflow has the `allow-workspace-addition` flag enabled; otherwise only existing workspaces receive updates.
 
-### Option 1: Automatic Discovery (Preferred)
+### Option 1: Automatic Updates (Preferred, `main` only)
 
-If your plugin is published under a supported scope, wait for the daily automation to create a PR. No action is needed on your part.
+If your workspace already exists in the overlay, the daily automation on `main` will detect new published versions and create a PR automatically. No action is needed on your part. For release branches, use Option 2.
 
 ### Option 2: Trigger Workflow Manually
 
-You can trigger the discovery workflow on demand. The `regexps` input accepts either a regular expression or a literal package name.
+You can trigger the update workflow on demand. The two main inputs serve different purposes:
 
-**Wrapping a value in single quotes** tells the workflow to treat it as an exact (literal) package name rather than a regular expression. This is the recommended approach when you want to target a specific plugin package directly, because it avoids accidentally matching other packages with similar names.
+| Input | Purpose | When to use |
+|-------|---------|-------------|
+| `workspace-path` | Update a specific existing workspace | Preferred for updates — works for any scope |
+| `regexps` | Discover new plugins via npm search | For adding workspaces not yet in the overlay |
 
-```bash
-# Target a single package by exact name (recommended — note the single quotes)
-gh workflow run update-plugins-repo-refs.yaml \
-  -f regexps="'@backstage-community/plugin-your-plugin'" \
-  -f single-branch="main"
+> **Important:** When `workspace-path` is set, only that workspace is updated (no npm search runs). When only `regexps` is provided, ALL existing workspaces are updated via overlay-first enumeration, and then npm search runs additionally to discover new workspaces.
 
-# Target multiple packages matching a regex pattern (no quotes)
-gh workflow run update-plugins-repo-refs.yaml \
-  -f regexps="@backstage-community/plugin-catalog-backend-module-.*" \
-  -f single-branch="main"
-```
+#### Update an existing workspace (preferred)
 
-You can also scope the run to a specific workspace:
+Use `workspace-path` to target a specific workspace. This uses overlay-first enumeration and works for **any workspace regardless of npm scope**. Use `single-branch` to target a specific branch (required for release branches, which have no scheduled updates):
 
 ```bash
+# Update on main
 gh workflow run update-plugins-repo-refs.yaml \
   -f workspace-path="workspaces/your-workspace" \
   -f single-branch="main"
+
+# Update on a release branch
+gh workflow run update-plugins-repo-refs.yaml \
+  -f workspace-path="workspaces/your-workspace" \
+  -f single-branch="release-1.6"
 ```
+
+This reads the workspace's `source.json`, scans its source repo for plugin package names, then queries npm for published versions and creates/updates PRs for any new compatible versions.
+
+#### Add a new workspace via discovery
+
+Use `regexps` with `allow-workspace-addition` to discover and add a new plugin not yet in the overlay. **Wrapping a value in single quotes** tells the workflow to treat it as an exact (literal) package name rather than a regular expression:
+
+```bash
+# Add a specific new plugin by exact name (note the single quotes)
+gh workflow run update-plugins-repo-refs.yaml \
+  -f regexps="'@backstage-community/plugin-your-plugin'" \
+  -f single-branch="main" \
+  -f allow-workspace-addition=true
+
+# Discover multiple new packages matching a regex pattern
+gh workflow run update-plugins-repo-refs.yaml \
+  -f regexps="@backstage-community/plugin-catalog-backend-module-.*" \
+  -f single-branch="main" \
+  -f allow-workspace-addition=true
+```
+
+> **Note:** Running with `regexps` alone (without `workspace-path`) also updates all existing workspaces as a side effect, since overlay-first enumeration always runs first.
 
 ### Option 3: Manual PR (Fallback)
 
@@ -226,7 +269,42 @@ Manual PRs should be reserved for situations where automatic discovery does not 
 
    Create one YAML file per plugin following the Package schema.
 
-5. **Open PR against `main`**
+5. **Add a CODEOWNERS entry:**
+
+   Add an entry for your workspace in [`.github/CODEOWNERS`](../.github/CODEOWNERS) so that PRs touching the workspace require review from the right team or individuals. The list is alphabetically ordered.
+
+   ```
+   /workspaces/your-plugin                                                @your-team @your-username
+   ```
+
+6. **Open PR against `main`**
+
+   **Optional — catalog inclusion:** Workspace Package metadata alone does not advertise the plugin in the **Supported Plugins** catalog or the curated **Optional Extras** catalog.
+
+   That requires RHDH PM approval (and a tracking RHDHPLAN feature JIRA), plus Plugin entity YAML under `catalog-entities/extensions/plugins/` (listed in `all.yaml`), the matching package-list file (`rhdh-community-packages.txt` for Optional Extras, or `rhdh-supported-packages.txt` for Supported Plugins).
+
+   For GA only with PM approval, an `enabled:` or `disabled:` entry in `default.packages.yaml` is also required.
+
+   Collection membership under `catalog-entities/extensions/collections/` is a further optional step when PM approves it.
+
+   See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#1-keep-plugin-metadata-and-catalog-curation-files-up-to-date).
+
+### Catalog-only plugins (external OCI build)
+
+If the plugin OCI image is built and published outside this repository, do **not** add a `workspaces/` entry unless you are also moving export into overlays with a public cloneable source.
+
+**Model B is listing-only in the catalog index today** — Plugin YAML alone does not produce installable Package entities or overlay-resolved OCI. See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository) and [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
+
+Instead:
+
+1. Add or update the Plugin entity under `catalog-entities/extensions/plugins/`
+2. Reference it from `catalog-entities/extensions/plugins/all.yaml` (required for the Location to pick it up)
+3. Keep title, description, support level, links, and configuration / external-install guidance accurate
+4. Treat the catalog entry as **listing-only** (omit `packages:` unless you are linking to Package entities that already exist via Model A). Do not assume Plugin YAML alone makes an external OCI image installable from Extensions
+5. **Optional — curated catalogs:** If RHDH PM approves Supported Plugins / Optional Extras inclusion (tracking RHDHPLAN feature JIRA), also update the matching package-list / collection / `default.packages.yaml` entries **when Package entities exist** (Model A or hybrid). Listing-only Model B with no workspace Package metadata skips package-list maintenance
+6. Open a PR against `main`
+
+Owner obligations for that path are documented in [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository).
 
 ---
 
@@ -246,13 +324,24 @@ This builds and publishes test OCI artifacts tagged as `pr_<number>__<version>`.
 
 After `/publish` completes, smoke tests run automatically if:
 - PR touches exactly one workspace
-- Each plugin has a metadata file
+- At least one published plugin has runnable metadata
+
+Published plugins without runnable metadata are skipped individually. Smoke tests are skipped only when no published plugin in the workspace can produce runnable metadata, or when plugin config references environment variables and the workspace `smoke-tests/test.env` file is missing. If the file exists but required variables are missing from it, the workflow fails instead of skipping.
 
 To re-run smoke tests manually:
 
 ```
 /smoketest
 ```
+
+Use this to override the RHDH container image with a PR tag from `quay.io/rhdh-community/rhdh`:
+
+```
+/smoketest pr-4929-90eff067
+```
+
+`/smoketest <tag>` resolves to `quay.io/rhdh-community/rhdh:<tag>`.
+Allowed tags include `pr-4907`, `pr-4929-90eff067`, `next`, `next-1.10-244a2755`, and `next-8a0d43e7`.
 
 Plugin-specific configuration is extracted from `spec.appConfigExamples[0].content` in each plugin's metadata file and placed under `pluginConfig` in the generated config. The optional workspace-level `app-config.test.yaml` is for test-only or shared workspace settings. If a plugin's config references environment variables (e.g., `${API_TOKEN}`), provide them in `workspaces/<ws>/smoke-tests/test.env`.
 
@@ -264,7 +353,7 @@ Use the OCI references from the bot's comment to test in your own Backstage inst
 # dynamic-plugins.yaml
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-your-plugin:pr_123__1.0.0
-    disabled: false
+    enabled: true
 ```
 
 ---

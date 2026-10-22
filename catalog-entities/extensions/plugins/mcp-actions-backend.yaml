@@ -66,9 +66,9 @@ spec:
 
 
  packages: # link to the name used in the associated package documents in ../packages
-   - red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
-   - red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras
-   - red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+   - rhdh-bsp-software-ctlg-mcp-extras
+   - rhdh-bsp-techdocs-mcp-extras
+   - rhdh-bsp-scaffolder-mcp-extras
    - backstage-plugin-mcp-actions-backend
 
  installation: |
@@ -86,8 +86,8 @@ spec:
        - dynamic-plugins.default.yaml
      plugins:
        # MCP server backend plugin
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.48.3__0.1.5!backstage-plugin-mcp-actions-backend
-         disabled: false
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.48.3__0.1.5
+         enabled: true
      ```
 
      If you also wish to install the Red Hat MCP Extras plugins, consult the installation instructions for the `Software Catalog MCP Extras`, `Techdocs MCP Extras`, or `Scaffolder MCP Extras` plugins.

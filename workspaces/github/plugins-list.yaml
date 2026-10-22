@@ -1,3 +1,6 @@
 plugins/github-actions:
 plugins/github-issues:
 plugins/github-pull-requests-board:
+plugins/github-deployments:
+plugins/github-discussions:
+plugins/search-backend-module-github-discussions: --embed-package @backstage-community/plugin-github-discussions-common --suppress-native-package @parcel/watcher

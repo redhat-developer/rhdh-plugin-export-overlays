@@ -8,17 +8,19 @@ metadata:
     - url: https://red.ht/rhdh
       title: Homepage
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations/plugins/translations
   annotations:
-    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations/plugins/translations
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-translations"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-translations:bs_1.45.3__0.2.2!red-hat-developer-hub-backstage-plugin-translations
-  version: 0.2.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-translations:bs_1.54.9__0.6.0
+  version: 0.6.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.54.9
   author: Red Hat
   support: community
   lifecycle: active
+  appConfigNotRequired: true
+  appConfigExamples: []

@@ -199,7 +199,7 @@ async function getPluginDetails(repoUrl, commitSha, pluginPath, shouldCheckImage
     const name = packageJson.name || 'unknown';
     const version = packageJson.version || 'unknown';
     
-    // Check for OCI image only if requested (e.g. for supported/tech-preview plugins)
+    // Check for OCI image only if requested (e.g. for supported plugins)
     let imageUrl = null;
     if (shouldCheckImage) {
       imageUrl = await getOciImageUrl(name, core);
@@ -246,7 +246,6 @@ function getSourceBackstageVersion(sourceData) {
 async function loadPluginLists(core) {
   const supported = [];
   const community = [];
-  const techpreview = [];
 
   const supportedPath = 'rhdh-supported-packages.txt';
   try {
@@ -274,31 +273,15 @@ async function loadPluginLists(core) {
     throw error;
   }
 
-  const techpreviewPath = 'rhdh-techpreview-packages.txt';
-  try {
-    const content = await fs.readFile(techpreviewPath, 'utf-8');
-    techpreview.push(...content
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith('#'))
-    );
-  } catch (error) {
-    core.setFailed(`Error reading ${techpreviewPath}: ${error.message}`);
-    throw error;
-  }
-
-  return { supported, community, techpreview };
+  return { supported, community };
 }
 
-function checkSupportStatus(pluginPath, workspaceName, supportedList, communityList, techpreviewList) {
+function checkSupportStatus(pluginPath, workspaceName, supportedList, communityList) {
   const cleanPluginPath = pluginPath.replace(/^\.?\//, '').replace(/^\//, '');
   const fullPath = `${workspaceName}/${cleanPluginPath}`;
 
   if (supportedList.includes(fullPath)) {
     return 'Supported';
-  }
-  if (techpreviewList.includes(fullPath)) {
-    return 'TechPreview';
   }
   if (communityList.includes(fullPath)) {
     return 'Community';
@@ -306,9 +289,6 @@ function checkSupportStatus(pluginPath, workspaceName, supportedList, communityL
 
   if (supportedList.includes(cleanPluginPath)) {
     return 'Supported';
-  }
-  if (techpreviewList.includes(cleanPluginPath)) {
-    return 'TechPreview';
   }
   if (communityList.includes(cleanPluginPath)) {
     return 'Community';
@@ -446,9 +426,6 @@ function generateMarkdown(branchName, workspacesData, repoName) {
         if (status === 'Supported') {
           icon = '🟢';
           tooltip = 'Red Hat Supported';
-        } else if (status === 'TechPreview') {
-          icon = '🔵';
-          tooltip = 'Tech Preview';
         } else if (status === 'Community') {
           icon = '🟡';
           tooltip = 'Community';
@@ -457,7 +434,7 @@ function generateMarkdown(branchName, workspacesData, repoName) {
           tooltip = 'Unknown';
         }
 
-        // Add OCI image link if available, or fallback to search for Supported/TechPreview
+        // Add OCI image link if available, or fallback to search for Supported
         // For Community/Unknown, link to the general packages page
         let imageLink = '';
         if (imageUrl) {
@@ -500,8 +477,8 @@ module.exports = async ({github, context, core, checkOciImages}) => {
     const workspaceNames = await getWorkspaceList(workspacesDir, core);
     core.info(`Found ${workspaceNames.length} workspaces`);
 
-    const { supported: supportedPlugins, community: communityPlugins, techpreview: techpreviewPlugins } = await loadPluginLists(core);
-    core.info(`Loaded ${supportedPlugins.length} supported, ${techpreviewPlugins.length} tech preview, and ${communityPlugins.length} community plugins`);
+    const { supported: supportedPlugins, community: communityPlugins } = await loadPluginLists(core);
+    core.info(`Loaded ${supportedPlugins.length} supported, and ${communityPlugins.length} community plugins`);
 
     const workspacesData = [];
 
@@ -540,8 +517,8 @@ module.exports = async ({github, context, core, checkOciImages}) => {
             : `workspaces/${wsName}/${cleanPath}`;
 
           // Check support status first to determine if we should check for OCI image
-          const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
-          const shouldCheckImage = checkOciImages && (supportStatus === 'Supported' || supportStatus === 'TechPreview');
+          const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins);
+          const shouldCheckImage = checkOciImages && (supportStatus === 'Supported');
 
           // Uses local git checkout instead of API
           const pluginInfo = await getPluginDetails(repoUrl, commitSha, fullPluginPath, shouldCheckImage, core);
@@ -556,7 +533,7 @@ module.exports = async ({github, context, core, checkOciImages}) => {
         }
       } else {
         for (const pluginPath of plugins) {
-          const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
+          const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins);
           enhancedPlugins.push({
             details: pluginPath,
             imageUrl: null,

@@ -10,7 +10,14 @@ const setupScript = path.join(
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
+    // This skip can be removed once the tech-radar wrapper is removed.
+    test.skip(
+      process.env.E2E_NIGHTLY_MODE === "true",
+      "Tech Radar nightly coverage is blocked by the bundled RHDH Tech Radar wrapper; remove this skip when the wrapper is removed from the product image.",
+    );
+    await rhdh.configure({
+      auth: "keycloak",
+    });
     await $`bash ${setupScript} ${project}`;
     process.env.TECH_RADAR_DATA_URL = (
       await rhdh.k8sClient.getRouteLocation(

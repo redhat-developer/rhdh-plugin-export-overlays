@@ -3,10 +3,15 @@ import {
   APIHelper,
   GITHUB_API_ENDPOINTS,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("Test github-actions", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "github" });
+    await rhdh.configure({
+      auth: "github",
+      appConfig: `${WorkspacePaths.configDir}/github-actions/app-config-rhdh.yaml`,
+      dynamicPlugins: `${WorkspacePaths.configDir}/github-actions/dynamic-plugins.yaml`,
+    });
     await rhdh.deploy();
   });
 
@@ -23,7 +28,6 @@ test.describe("Test github-actions", () => {
     await uiHelper.searchInputPlaceholder(component);
     await uiHelper.clickLink(component);
 
-    await page.locator("a").getByText("CI", { exact: true }).first().click();
     await page.getByRole("button", { name: "Log in" }).click();
     await loginHelper.checkAndReauthorizeGithubApp();
 
@@ -33,6 +37,8 @@ test.describe("Test github-actions", () => {
     );
     const json = await response.json();
     const workflowRuns = json.workflow_runs;
+
+    await page.locator("a").getByText("Github Actions").first().click();
 
     for (const workflowRun of workflowRuns.slice(0, 5)) {
       await uiHelper.verifyText(workflowRun.id);

@@ -1,0 +1,22 @@
+diff --git a/plugins/dql-backend/config.d.ts b/plugins/dql-backend/config.d.ts
+index 403d30a..1334dc1 100644
+--- a/plugins/dql-backend/config.d.ts
++++ b/plugins/dql-backend/config.d.ts
+@@ -16,7 +16,7 @@
+ 
+ export type Config = {
+   dynatrace: {
+-    environments:
++    environments: (
+     {
+       /**
+        * @visibility frontend
+@@ -55,7 +55,7 @@ export type Config = {
+        * @visibility secret
+        */
+       platformToken: string;
+-    }[],
++    })[],
+ 
+     queries?: {
+       [queryId: string]: string;

@@ -1,0 +1,7 @@
+{
+  "extends": "@red-hat-developer-hub/e2e-test-utils/tsconfig",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["**/*.ts"]
+}

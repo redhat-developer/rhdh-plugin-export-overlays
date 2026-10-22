@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mailpit
+  labels:
+    app: mailpit
+    backstage.io/kubernetes-id: developer-hub
+spec:
+  to:
+    kind: Service
+    name: mailpit
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None

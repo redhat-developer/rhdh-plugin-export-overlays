@@ -15,58 +15,16 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/techdocs
   tags: []
 spec:
-  packageName: '@backstage/plugin-techdocs'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-techdocs
-  version: 1.17.2
+  packageName: "@backstage/plugin-techdocs"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs:bs_1.54.9__1.18.0!backstage-plugin-techdocs
+  version: 1.18.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.48.3
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active
   partOf:
     - techdocs
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-techdocs:
-              routeBindings:
-                targets:
-                  - importName: techdocsPlugin
-                bindings:
-                  - bindTarget: catalogPlugin.externalRoutes
-                    bindMap:
-                      viewTechDoc: techdocsPlugin.routes.docRoot
-                  - bindTarget: scaffolderPlugin.externalRoutes
-                    bindMap:
-                      viewTechDoc: techdocsPlugin.routes.docRoot
-              dynamicRoutes:
-                - path: /docs
-                  importName: TechDocsIndexPage
-                  menuItem:
-                    icon: docs
-                    text: Docs
-                    textKey: menuItem.docs
-                - path: /docs/:namespace/:kind/:name/*
-                  importName: TechDocsReaderPage
-              mountPoints:
-                - mountPoint: entity.page.docs/cards
-                  importName: EntityTechdocsContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isTechDocsAvailable
-                - mountPoint: search.page.results
-                  importName: TechDocsSearchResultListItem
-                - mountPoint: search.page.filters
-                  importName: TechdocsSearchFilter
-                - mountPoint: search.page.types
-                  importName: techdocsSearchType
-                  config:
-                    props:
-                      name: Documentation
-                      icon: docs
+  appConfigNotRequired: true
+  appConfigExamples: []

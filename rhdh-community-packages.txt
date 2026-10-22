@@ -1,5 +1,6 @@
-# RHDH Community-Supported package list
-# do not include package for which we never had wrappers / bundled the package in RHDH
+# Optional Extras (including Community and Developer Preview) package list
+# To add new content, please open an RHDHPLAN feature JIRA first.
+
 # NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
 # confirmed Community @ 11/07 meeting
@@ -17,13 +18,19 @@ pagerduty/plugins/backstage-plugin-backend
 scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
 scaffolder-backend-module-sonarqube/plugins/scaffolder-backend-module-sonarqube
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-datadog
-roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
-roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
+
+# 10/01 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
+# https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/4045
+# run ./scripts/nfs-readiness-report.sh --oci --markdown > nfs-readiness-report.md
+# then check for entries with "no-features"; if no longer a problem, can re-enable these
+# roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
+# roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
 
 # confirmed Community @ 11/07 meeting
 # @immobiliarelabs/backstage-plugin-gitlab*
-gitlab/packages/gitlab
-gitlab/packages/gitlab-backend
+# 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
+# gitlab/packages/gitlab
+# gitlab/packages/gitlab-backend
 
 # confirmed Community @ 11/07 meeting; the commercial ones are NOT exported from this repo (only in catalog entities by 3rd party vendor!)
 dynatrace/plugins/dynatrace
@@ -33,8 +40,8 @@ jenkins/plugins/jenkins
 jenkins/plugins/jenkins-backend
 sonarqube/plugins/sonarqube
 sonarqube/plugins/sonarqube-backend
-github-actions/plugins/github-actions
-github-issues/plugins/github-issues
+github/plugins/github-actions
+github/plugins/github-issues
 backstage/plugins/scaffolder-backend-module-azure
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-github-insights
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-github-pull-requests
@@ -49,7 +56,17 @@ argocd/plugins/argocd-backend
 # continue to use wrappers in 1.9; moving to Commmunity in 1.10 (per PM/Eng sync meeting 01/12; on 01/28 PM decided to move these in 1.10, not 1.11)
 # TODO remove from supported / move to community in 1.10 - https://issues.redhat.com/browse/RHIDP-11354
 quay/plugins/quay
+quay/plugins/quay-backend
 quay/plugins/quay-actions
 roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
 tekton/plugins/tekton
+
+# moved from TP to Community in 2.1 - https://redhat.atlassian.net/browse/RHDHPLAN-951
+acr/plugins/acr
+
+# moved from Supported (GA) to Community Optional Extras - https://redhat.atlassian.net/browse/RHIDP-16069
+apiconnect/plugins/apic-backstage
+# 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
+# dynatrace-dql/plugins/dql
+# dynatrace-dql/plugins/dql-backend

@@ -1,0 +1,18 @@
+{
+  "name": "validate-app-config-examples",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Validates Package metadata appConfigExamples: structural checks (RHIDP-12590) plus semantic validation against each plugin's published config schema (RHIDP-13509).",
+  "bin": "src/validate.ts",
+  "type": "module",
+  "dependencies": {
+    "@backstage/config-loader": "^1.11.3",
+    "@backstage/types": "^1.2.2",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

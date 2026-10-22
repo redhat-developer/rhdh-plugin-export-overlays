@@ -63,7 +63,7 @@ spec:
 
 
  packages: # link to the name used in the associated package documents in ../packages
-   - red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
+   - rhdh-bsp-software-ctlg-mcp-extras
 
  installation: |
      ## Installation
@@ -82,8 +82,8 @@ spec:
        - dynamic-plugins.default.yaml
      plugins:
        # MCP extras backend plugin
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras:bs_1.48.3__0.2.1!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
-         disabled: false
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras:bs_1.48.3__0.2.1
+         enabled: true
      ```
 
      ## RHDH Configuration

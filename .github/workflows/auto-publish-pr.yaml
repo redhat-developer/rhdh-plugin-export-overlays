@@ -47,16 +47,19 @@ jobs:
             core.setOutput('overlay-commit', prCommit);
             let workspace = '';
 
+            // Try to extract workspace from branch name (e.g., workspaces/release-1.3__tech-radar)
             const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
             if (matches && matches.length == 2) {
               workspace = `workspaces/${matches[1]}`;
             } else {
-              const prFiles = await github.rest.pulls.listFiles({
+              // Detect modified workspaces from PR files
+              const prFiles = await github.paginate(github.rest.pulls.listFiles, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: prNumber
+                pull_number: prNumber,
+                per_page: 100,
               });
-              const workspaces = [ ... new Set(prFiles.data
+              const workspaces = [ ... new Set(prFiles
                 .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
                 .filter(match => match)
                 .map(match => match[1])
@@ -167,8 +170,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       only-metadata-changed: ${{ steps.check.outputs.only-metadata-changed }}
+      only-e2e-tests-changed: ${{ steps.check.outputs.only-e2e-tests-changed }}
     steps:
-      - name: Check if only metadata files changed
+      - name: Check change scope
         id: check
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -177,17 +181,23 @@ jobs:
         with:
           script: |
             const prNumber = Number(core.getInput('pr_number'));
-            const prFiles = await github.rest.pulls.listFiles({
+            const prFiles = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
+              per_page: 100,
             });
             const workspace = core.getInput('workspace');
             const metadataPrefix = `${workspace}/metadata/`;
-            const onlyMetadata = prFiles.data.length > 0 &&
-              prFiles.data.every(f => f.filename.startsWith(metadataPrefix));
+            const e2eTestsPrefix = `${workspace}/e2e-tests/`;
+            const onlyMetadata = prFiles.length > 0 &&
+              prFiles.every(f => f.filename.startsWith(metadataPrefix));
+            const onlyE2eTests = prFiles.length > 0 &&
+              prFiles.every(f => f.filename.startsWith(e2eTestsPrefix));
             core.setOutput('only-metadata-changed', String(onlyMetadata));
+            core.setOutput('only-e2e-tests-changed', String(onlyE2eTests));
             core.info(`Only metadata changed: ${onlyMetadata}`);
+            core.info(`Only E2E tests changed: ${onlyE2eTests}`);
             if (onlyMetadata) {
               core.info('Build will be skipped - only metadata files were modified.');
             }
@@ -206,10 +216,12 @@ jobs:
       metadata-validation-passed: ${{ steps.validate-metadata.outputs.validation-passed }}
       metadata-validation-errors: ${{ steps.validate-metadata.outputs.validation-errors }}
       metadata-validation-error-count: ${{ steps.validate-metadata.outputs.validation-error-count }}
+      metadata-warning-packages: ${{ steps.extract-metadata-warnings.outputs.metadata-warning-packages }}
+      metadata-warning-count: ${{ steps.extract-metadata-warnings.outputs.metadata-warning-count }}
 
     steps:
       - name: Checkout overlay repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ needs.prepare.outputs.overlay-repo }}
           ref: ${{ needs.prepare.outputs.overlay-branch }}
@@ -240,7 +252,7 @@ jobs:
           echo "node-version=${node_version}" >> $GITHUB_OUTPUT
 
       - name: Checkout plugins repository (flat)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.source-config.outputs.plugins-root == '.'
         with:
           repository: ${{ steps.source-config.outputs.plugins-repo }}
@@ -248,7 +260,7 @@ jobs:
           path: source-repo
 
       - name: Checkout plugins repository (workspace)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.source-config.outputs.plugins-root != '.'
         with:
           repository: ${{ steps.source-config.outputs.plugins-repo }}
@@ -259,7 +271,7 @@ jobs:
           path: source-repo
 
       - name: Setup Node.js ${{ steps.source-config.outputs.node-version }}
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.source-config.outputs.node-version }}
 
@@ -271,6 +283,30 @@ jobs:
           plugins-root: ${{ github.workspace }}/source-repo/${{ steps.source-config.outputs.plugins-root }}
           target-backstage-version: ${{ steps.source-config.outputs.backstage-version }}
           image-repository-prefix: ${{ needs.prepare.outputs.image-repository-prefix }}
+
+      - name: Extract metadata warnings from step summary
+        id: extract-metadata-warnings
+        shell: bash
+        run: |
+          WARNING_PACKAGES=$(
+            awk '
+              /## ⚠️ Metadata Coverage Warnings/ { in_section=1; next }
+              in_section && /^## / { in_section=0 }
+              in_section && /^- `.*`$/ { gsub(/^- `|`$/, ""); print }
+            ' "$GITHUB_STEP_SUMMARY" | sort -u
+          )
+
+          WARNING_COUNT=0
+          if [ -n "$WARNING_PACKAGES" ]; then
+            WARNING_COUNT=$(printf "%s\n" "$WARNING_PACKAGES" | sed '/^$/d' | wc -l | tr -d ' ')
+          fi
+
+          {
+            echo "metadata-warning-count=$WARNING_COUNT"
+            echo "metadata-warning-packages<<EOF"
+            printf "%s\n" "$WARNING_PACKAGES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
   export:
     name: Publish PR Dynamic Plugin Images
@@ -304,6 +340,63 @@ jobs:
       packages: write
       id-token: write
 
+  instrument:
+    name: Instrument plugin images for E2E coverage
+    needs:
+      - prepare
+      - export
+    # Only run if workspace has e2e-tests/ directory
+    if: |
+      always() &&
+      needs.export.result == 'success' &&
+      needs.export.outputs.published-exports != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.overlay-repo }}
+          ref: ${{ needs.prepare.outputs.overlay-branch }}
+
+      - name: Check if workspace has E2E tests
+        id: check-e2e
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          if [[ -d "${WORKSPACE}/e2e-tests" ]]; then
+            echo "has-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "Workspace has E2E tests directory"
+          else
+            echo "has-e2e=false" >> "$GITHUB_OUTPUT"
+            echo "Workspace does not have E2E tests directory - skipping instrumentation"
+          fi
+
+      - name: Log in to GitHub Container Registry
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        env:
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$REGISTRY_PASSWORD" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Setup Node.js
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+
+      - name: Instrument and publish coverage images
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        env:
+          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          echo "Published exports:"
+          echo "$PUBLISHED_EXPORTS"
+          echo ""
+          echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$WORKSPACE"
+
   check-backstage-compatibility:
     name: Check workspace backstage compatibility
     needs:
@@ -319,6 +412,9 @@ jobs:
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
       workspace-path: ${{ needs.prepare.outputs.workspace }}
       artifact-name-suffix: -pr-${{ needs.prepare.outputs.pr-number }}
+      # E2E-only fixes do not change the plugin source and should warn, rather than
+      # fail, when the workspace's declared Backstage version is incompatible.
+      fail-for-required-only: ${{ needs.detect-changes.outputs.only-e2e-tests-changed == 'true' }}
 
   add-completion-comment:
     needs:
@@ -357,6 +453,8 @@ jobs:
           INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed || needs.validate-metadata-only.outputs.metadata-validation-passed }}
           INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors || needs.validate-metadata-only.outputs.metadata-validation-errors }}
           INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count || needs.validate-metadata-only.outputs.metadata-validation-error-count }}
+          INPUT_METADATA_WARNING_PACKAGES: ${{ needs.validate-metadata-only.outputs.metadata-warning-packages }}
+          INPUT_METADATA_WARNING_COUNT: ${{ needs.validate-metadata-only.outputs.metadata-warning-count }}
           INPUT_CHECK_UP_TO_DATE_RESULT: ${{ needs.check-up-to-date.result }}
           INPUT_EXPORT_RESULT: ${{ needs.export.result }}
           INPUT_CHECK_BACKSTAGE_COMPATIBILITY_RESULT: ${{ needs.check-backstage-compatibility.result }}
@@ -417,15 +515,15 @@ jobs:
                   body += '\n\n#### Publishing process\n';
                   body += `❌ Plugins with errors during export or container image publishing:`;
                   failedExports.forEach(line => {
-                    body += `\n  - ${line}`;
+                    body += `\n- ${line}`;
                   });
                 } else {
                   body += '\n\n#### Publishing process\n✅ Finished successfully.';
                 }
                 if (publishedExports.length > 0) {
-                  body += `\n- Published container images:`;
+                  body += `\n\n✅ Published container images:`;
                   publishedExports.forEach(line => {
-                    body += `\n  - ${line}`;
+                    body += `\n- ${line}`;
                   });
                 }
               }
@@ -459,6 +557,16 @@ jobs:
               }
 
               body += metadataSection;
+            }
+
+            const metadataWarningCount = Number(core.getInput('metadata_warning_count') || '0');
+            const metadataWarningPackages = core.getMultilineInput('metadata_warning_packages');
+            if (metadataWarningCount > 0 && metadataWarningPackages.length > 0) {
+              body += '\n\n#### Metadata Coverage Warnings\n';
+              body += `⚠️ Missing metadata file(s) for **${metadataWarningCount}** package(s):`;
+              metadataWarningPackages.forEach(pkg => {
+                body += `\n  - \`${pkg}\``;
+              });
             }
 
             if (publishSuccess) {

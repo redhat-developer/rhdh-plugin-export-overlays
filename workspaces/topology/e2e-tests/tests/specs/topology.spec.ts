@@ -15,13 +15,6 @@ let topology: Topology;
 const deployResources = async (project: string) =>
   await $`bash ${setupScript} ${project}`;
 
-async function navigateToTopology(uiHelper: UIhelper) {
-  await uiHelper.openCatalogSidebar("Component");
-  await uiHelper.searchInputPlaceholder("backstage-janus");
-  await uiHelper.clickLink("backstage-janus");
-  await uiHelper.clickTab("Topology");
-}
-
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
   await page.waitForLoadState();
   const hasIngresses = await page.getByText("Ingresses").isVisible();
@@ -34,7 +27,6 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
-
     await rhdh.configure({ auth: "keycloak" });
 
     const rbacConfigmapPath = WorkspacePaths.resolve(
@@ -62,9 +54,7 @@ test.describe("Test Topology plugin", () => {
     test.setTimeout(150000 + testInfo.retry * 30000);
     await loginHelper.loginAsKeycloakUser("test1", "test1@123");
     topology = new Topology(page);
-    await navigateToTopology(uiHelper);
-    await uiHelper.verifyHeading("backstage-janus");
-    await uiHelper.clickButton("Hide");
+    await topology.navigateToTopologyView();
     await page.getByRole("button", { name: "Fit to Screen" }).click();
     await expect(async () => {
       await page
@@ -133,27 +123,23 @@ test.describe("Test Topology plugin", () => {
   });
 
   test.describe("Test Topology Plugin with RBAC", () => {
-    test("Verify guest user cannot see Topology pods", async ({
+    test("Verify guest user cannot see Topology tab", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
-
       await loginHelper.loginAsGuest();
-      await navigateToTopology(uiHelper);
-      await topo.verifyMissingTopologyPermission();
+      await topo.verifyMissingTopologyTab();
     });
 
     test("Verify limited user can see Topology but cannot view pod logs", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test2", "test2@123");
-      await navigateToTopology(uiHelper);
+      await topo.navigateToTopologyView();
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(false);
@@ -162,12 +148,11 @@ test.describe("Test Topology plugin", () => {
     test("Verify admin user can see Topology pods and view pod logs", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test1", "test1@123");
-      await navigateToTopology(uiHelper);
+      await topo.navigateToTopologyView();
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(true);

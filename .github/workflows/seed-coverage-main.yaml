@@ -1,0 +1,57 @@
+name: Seed E2E coverage to main
+
+# E2E coverage is generated only by the Prow PR e2e jobs (which deploy
+# instrumented plugin images built by /publish) and uploaded against PR-head
+# commits. Squash-merge creates a fresh main commit that never receives an
+# upload, and Codecov carryforward can't cross the squash — so the
+# default-branch view stays empty for rolled-out workspaces.
+#
+# This job re-attributes each committed coverage snapshot
+# (coverage-snapshots/<workspace>.lcov) to the current main commit (via the
+# Codecov CLI --sha), so the Codecov default-branch headline and per-flag trend
+# reflect the workspaces already rolled out. This is how the dashboard is fed —
+# see the E2E coverage section in README.md.
+
+on:
+  # This schedule is the backstop for a push trigger that is itself best-effort
+  # — GitHub has dropped push-event dispatch for a main commit before
+  # (2026-08-04, #3120), creating no runs for ANY push-triggered workflow and
+  # stranding that snapshot until a manual dispatch. The interval is therefore
+  # the worst-case staleness the dashboard can show; the job is a ~20s upload,
+  # so 6h rather than daily.
+  #
+  # Off the hour on purpose: GitHub delays scheduled events under load and the
+  # top of the hour is the peak slot — a backstop should not sit in the slot
+  # most likely to be delayed. Matches house style (e2e-triage-agent.yaml
+  # "15 6 * * *", stale.yaml "30 1 * * *").
+  schedule:
+    - cron: "17 */6 * * *" # Every 6h, at :17
+  push:
+    branches: [main]
+    paths:
+      - "coverage-snapshots/**"
+  workflow_dispatch:
+
+# A push to coverage-snapshots/** landing near the scheduled run could run two
+# seeds against the same main SHA + flag; serialize them. Uploads are idempotent
+# on Codecov's side — this just avoids a wasted double-upload.
+concurrency:
+  group: seed-coverage-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Upload coverage snapshots to the current main commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Seed coverage snapshots
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: ./scripts/seed-main-coverage.sh

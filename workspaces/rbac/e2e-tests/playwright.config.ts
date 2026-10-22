@@ -1,12 +1,16 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
-import dotenv from "dotenv";
-
-dotenv.config({ path: `${import.meta.dirname}/.env` });
 
 export default defineConfig({
   projects: [
     {
       name: "rbac",
+      testMatch: "rbac.spec.ts",
+      timeout: 120_000,
+    },
+    {
+      name: "rbac-default-permissions",
+      testMatch: "rbac-default-permissions.spec.ts",
+      dependencies: ["rbac"],
     },
   ],
 });

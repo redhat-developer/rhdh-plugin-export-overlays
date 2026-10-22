@@ -1,0 +1,35 @@
+# Codecov configuration for E2E plugin coverage.
+#
+# E2E coverage collected from instrumented dynamic plugins is uploaded to this
+# repo's Codecov project, one flag per workspace (e2e-<workspace>) — see
+# scripts/upload-coverage.sh for the attribution model. The lcov references
+# committed anchor files (workspaces/*/coverage-anchors/, one per plugin —
+# Codecov only keeps paths that exist in the git tree), so only the per-flag
+# percentage and trend are meaningful; line-level annotation is not available.
+#
+# Uploads come ONLY from the seed (scripts/seed-main-coverage.sh, run by
+# seed-coverage-main.yaml), attributed to main commits. The per-PR e2e run no
+# longer uploads — it produces coverage artifacts that refresh-coverage-snapshot.yaml
+# turns into committed coverage-snapshots/<ws>.lcov, which the seed then uploads
+# on merge. So Codecov only ever reflects main, with no orphan flags on PR-head
+# commits (which never survive squash-merge anyway).
+
+codecov:
+  require_ci_to_pass: false
+
+coverage:
+  status:
+    # Coverage is informational only — never gate or fail PRs on it.
+    project: off
+    patch: off
+
+# The seed uploads one workspace flag per snapshot. Carry every other workspace's
+# flag forward from the last commit that measured it, so the overall picture
+# doesn't drop to a single flag on each upload.
+flag_management:
+  default_rules:
+    carryforward: true
+
+# No per-PR upload means there's nothing workspace-specific to say on a PR, and a
+# PR comment built from carried-forward main data would only be noise.
+comment: false

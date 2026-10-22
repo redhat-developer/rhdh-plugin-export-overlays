@@ -1,0 +1,37 @@
+app:
+  title: RHDH Backstage GitHub Org Integration Test Instance
+
+catalog:
+  rules:
+    - allow: [API, Component, Group, Location, Resource, System, Template]
+  providers:
+    githubOrg:
+      id: production
+      githubUrl: "${GITHUB_URL}"
+      orgs:
+        - "${GITHUB_ORG}"
+        - "${GITHUB_ORG_2}"
+      schedule:
+        frequency:
+          hours: 24
+        initialDelay:
+          seconds: 15
+        timeout:
+          minutes: 10
+
+integrations:
+  github:
+    - host: github.com
+      apps:
+        - appId: ${VAULT_GITHUB_APP_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${VAULT_GITHUB_APP_PRIVATE_KEY}
+        - appId: ${VAULT_GITHUB_APP_JANUS_TEST_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_JANUS_TEST_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_JANUS_TEST_CLIENT_SECRET}
+          webhookUrl: ${VAULT_GITHUB_APP_WEBHOOK_URL}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: |
+            ${VAULT_GITHUB_APP_JANUS_TEST_PRIVATE_KEY}

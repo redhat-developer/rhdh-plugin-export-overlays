@@ -10,6 +10,8 @@ The latest of these index images will be published to quay. For example, see <ht
 
 Below are some practical instructions that might help you in the process of creating and updating plugins and packages for use in the RHDH Extensions catalog plugin.
 
+> **Before you list a plugin**: the `spec.support` level you declare here carries testing expectations, and they are the same for every owner. See [Getting a Plugin Listed in the Extensions Catalog](https://github.com/redhat-developer/rhdh/blob/main/docs/testing-requirements-matrix.md#getting-a-plugin-listed-in-the-extensions-catalog) for what each level asks for and what counts as evidence, and [Plugin Owner Responsibilities](../../user-guide/03-plugin-owner-responsibilities.md) for the surrounding process.
+
 ## `packages/`
 
 Packages describe the frontend and backend packages that form part of a plugin. The packages folder contains the individual `package.yaml` files where you can set various details about your plugin packages. For example, see the 3scale package details in `packages/backstage-community-plugin-3scale-backend.yaml`
@@ -33,7 +35,7 @@ metadata:
   tags: []
 spec: # Custom information processed by the Extensions plugin
   packageName: '@backstage-community/plugin-3scale-backend'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0!backstage-community-plugin-3scale-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0
   version: 3.2.0 # The plugin version
   backstage:
     role: backend-plugin
@@ -73,7 +75,6 @@ metadata:
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
     extensions.backstage.io/verified-by: Red Hat # Set the verified status
-    # extensions.backstage.io/certified-by: Red Hat # Set the certified status
   links: # Useful links for the plugin card when expanded
     - url: https://red.ht/rhdh
       title: Homepage
@@ -145,7 +146,7 @@ You **must** add your plugin yaml file to the list in the `plugins/all.yaml` fil
 
 # Using RHDH-local
 
-You need to reconfigure a few bits for the rhdh-1.5 image build, but when you do your local edits will show up within 15 secs...
+You need to reconfigure a few bits for a local RHDH image build, but when you do your local edits will show up within 15 secs...
 
 In `app-config.yaml` do this:
 

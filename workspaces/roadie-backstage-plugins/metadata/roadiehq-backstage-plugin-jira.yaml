@@ -16,28 +16,16 @@ metadata:
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-jira"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.45.3__2.14.0!roadiehq-backstage-plugin-jira
-  version: 2.14.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.54.9__2.16.0
+  version: 2.16.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.54.9
   author: Roadie
   support: community
   lifecycle: active
   partOf:
     - jira
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            roadiehq.backstage-plugin-jira:
-              mountPoints:
-                - mountPoint: entity.page.issues/cards
-                  importName: EntityJiraOverviewCard
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isJiraAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []
+

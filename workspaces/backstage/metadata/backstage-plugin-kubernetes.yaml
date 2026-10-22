@@ -16,29 +16,16 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage/plugin-kubernetes"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-kubernetes
-  version: 0.12.17
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes:bs_1.54.9__0.12.22!backstage-plugin-kubernetes
+  version: 0.12.22
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.48.3
+    supportedVersions: 1.54.9
   author: Red Hat
-  support: tech-preview
+  support: generally-available
   lifecycle: active
   partOf:
     - kubernetes
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-kubernetes:
-              mountPoints:
-                - mountPoint: entity.page.kubernetes/cards
-                  importName: EntityKubernetesContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      anyOf:
-                        - hasAnnotation: backstage.io/kubernetes-id
-                        - hasAnnotation: backstage.io/kubernetes-namespace
+  appConfigNotRequired: true
+  appConfigExamples: []
+

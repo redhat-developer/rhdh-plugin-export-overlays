@@ -1,0 +1,7 @@
+plugins:
+  - package: ref://red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
+    enabled: true
+  - package: ref://red-hat-developer-hub-backstage-plugin-extensions-backend
+    enabled: true
+  - package: ref://red-hat-developer-hub-backstage-plugin-extensions
+    enabled: true

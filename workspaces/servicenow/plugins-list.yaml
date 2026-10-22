@@ -1,2 +1,2 @@
 plugins/servicenow:
-plugins/servicenow-backend:
+plugins/servicenow-backend: --embed-package @backstage-community/plugin-servicenow-common

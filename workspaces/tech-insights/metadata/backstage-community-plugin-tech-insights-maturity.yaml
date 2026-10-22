@@ -14,11 +14,14 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-tech-insights-maturity"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights-maturity:bs_1.45.3__0.4.1!backstage-community-plugin-tech-insights-maturity
-  version: 0.4.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights-maturity:bs_1.54.9__0.10.0
+  version: 0.10.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.54.9
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigNotRequired: true
+  appConfigExamples: []
+

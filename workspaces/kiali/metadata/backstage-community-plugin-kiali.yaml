@@ -17,35 +17,15 @@ metadata:
     - software-catalog
 spec:
   packageName: "@backstage-community/plugin-kiali"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali:bs_1.45.3__1.49.0!backstage-community-plugin-kiali
-  version: 1.49.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali:bs_1.54.9__1.51.2
+  version: 1.51.2
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.54.9
   author: Red Hat
   support: community
   lifecycle: active
   partOf:
     - kiali
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-kiali:
-              appIcons:
-                - importName: KialiIcon
-                  name: kialiIcon
-              dynamicRoutes:
-                - importName: KialiPage
-                  menuItem:
-                    icon: kialiIcon
-                    text: Kiali
-                  path: /kiali
-              mountPoints:
-                - config:
-                    if:
-                      anyOf:
-                        - hasAnnotation: backstage.io/kubernetes-namespace
-                  importName: EntityKialiContent
-                  mountPoint: entity.page.kiali/cards
+  appConfigNotRequired: true
+  appConfigExamples: []

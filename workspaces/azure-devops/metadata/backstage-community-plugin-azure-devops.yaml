@@ -16,36 +16,16 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-azure-devops"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.49.4__0.29.0!backstage-community-plugin-azure-devops
-  version: 0.29.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.54.9__0.34.0
+  version: 0.34.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.54.9
   author: Red Hat
   support: community
   lifecycle: active
   partOf:
     - azure-devops
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-azure-devops:
-              mountPoints:
-                - mountPoint: entity.page.ci/cards
-                  importName: EntityAzurePipelinesContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isAzureDevOpsAvailable
-                - mountPoint: entity.page.pull-requests/cards
-                  importName: EntityAzurePullRequestsContent
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isAzureDevOpsAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []
+

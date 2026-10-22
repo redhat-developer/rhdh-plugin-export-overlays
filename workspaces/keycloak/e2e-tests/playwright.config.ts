@@ -1,15 +1,30 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
-import dotenv from "dotenv";
 
-dotenv.config({ path: `${import.meta.dirname}/.env` });
+// Catalog + auth suites need in-cluster Keycloak (globalSetup sets KEYCLOAK_*).
+// Clear any inherited SKIP from guest-auth runs / shell / .env.
+delete process.env.SKIP_KEYCLOAK_DEPLOYMENT;
+
 /**
- * Keycloak catalog integration e2e test configuration.
- * Extends the base config from e2e-test-utils.
+ * Keycloak catalog integration E2E test configuration using the current RHDH frontend.
+ *
+ * Projects:
+ * - keycloak - catalog integration tests
+ * - keycloak-auth — community keycloak auth resolver tests
+ * - keycloak-auth-ldap — LDAP federation + ldapUuidMatchingAnnotation
  */
 export default defineConfig({
   projects: [
     {
       name: "keycloak",
+      testMatch: "**/catalog-users.spec.ts",
+    },
+    {
+      name: "keycloak-auth",
+      testMatch: "**/keycloak-auth.spec.ts",
+    },
+    {
+      name: "keycloak-auth-ldap",
+      testMatch: "**/keycloak-auth-ldap.spec.ts",
     },
   ],
 });

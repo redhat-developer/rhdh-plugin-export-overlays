@@ -22,6 +22,8 @@ metadata:
       url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/customizing_red_hat_developer_hub/proc-customizing-the-tech-radar-page_customizing-the-quickstarts
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
+    - title: Red Hat Developer Hub Life Cycle Support Policy
+      url: https://access.redhat.com/support/policy/updates/developerhub
   tags:
     - discovery
     - guidelines
@@ -62,7 +64,7 @@ spec:
 
     ## Adding The Plugin To Red Hat Developer Hub
 
-    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/extensions-in-rhdh_plugins-in-rhdh)
     for further instructions on how to add, enable, configure, and remove plugins in your instance.
 
     ## Configuring The Plugin ##

@@ -1,0 +1,10 @@
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-techdocs
+    enabled: true
+  - package: ./dynamic-plugins/dist/backstage-plugin-techdocs-backend-dynamic
+    enabled: true
+  - package: ./dynamic-plugins/dist/backstage-plugin-techdocs-module-addons-contrib
+    enabled: true
+  # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false

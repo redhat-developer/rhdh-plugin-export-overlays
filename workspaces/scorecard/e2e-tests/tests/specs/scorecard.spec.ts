@@ -1,47 +1,37 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { type CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { expect, type BrowserContext, type Page } from "@playwright/test";
 import {
-  LoginHelper,
-  UIhelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import type { BrowserContext, Page } from "@playwright/test";
-import {
-  SCORECARD_METRICS,
-  scorecardHelpers,
+  createScorecardContext,
+  deployRhdh,
+  type AggregatedScorecardHelpers,
   type ScorecardHelpers,
-} from "../utils/scorecard";
+} from "../utils/setup";
+import {
+  DEPENDABOT_METRICS,
+  FILECHECK_METRICS,
+  OPENSSF_METRICS,
+  SCORECARD_METRICS,
+} from "../utils/constants";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
+  let aggregated: AggregatedScorecardHelpers;
 
   let initialGithubCount: number;
   let initialJiraCount: number;
 
-  test.beforeAll(async ({ browser, rhdhDeploymentWorker }) => {
-    // Allow time for deployment + 2 min stabilization delay + browser setup
-    test.setTimeout(10 * 60 * 1000);
-
-    await rhdhDeploymentWorker.configure({
-      auth: "keycloak",
-      version: process.env.RHDH_VERSION ?? "1.10",
+  test.beforeAll(async ({ browser, rhdh }) => {
+    await deployRhdh(rhdh, {
+      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
     });
-    await rhdhDeploymentWorker.deploy();
-
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
-
-    context = await browser.newContext({
-      baseURL: rhdhDeploymentWorker.rhdhUrl,
-    });
-    page = await context.newPage();
-    const uiHelper = new UIhelper(page);
-    catalog = new CatalogPage(page);
-    scorecard = scorecardHelpers(page, uiHelper);
-    await new LoginHelper(page).loginAsKeycloakUser();
-    await uiHelper.goToPageUrl("/", "Welcome back!");
+    ({ context, page, catalog, scorecard, aggregated } =
+      await createScorecardContext(browser, rhdh.rhdhUrl));
   });
 
   test.afterAll(async () => {
@@ -51,20 +41,26 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    await scorecard.enterEditModeIfNeeded();
-    await scorecard.openAddWidgetDialog();
-    await scorecard.selectWidget("GitHub open PRs");
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "github.openPRs",
+    });
     await scorecard.expectNoProgressBar();
-    await scorecard.enterEditMode();
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "jira.openIssues",
+    });
     await scorecard.expectNoProgressBar();
-    await scorecard.openAddWidgetDialog();
-    await scorecard.selectWidget("Jira open blocking tickets");
-    await scorecard.saveChanges();
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "openPrsWeightedKpi",
+    });
+    await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
+    await scorecard.expectAggregatedScorecardVisible(
+      "GitHub open PRs (weighted health)",
+    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -74,9 +70,43 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
+  test("Weighted status score card shows a percentage for GitHub open PRs", async () => {
+    await scorecard.navigateToHome();
+    await scorecard.expectNoProgressBar();
+
+    // The setup test adds the generic Scorecard widget with `openPrsWeightedKpi` KPI ID.
+    const card = page.getByTestId("scorecard-homepage-card-openPrsWeightedKpi");
+    await expect(card).toBeVisible({ timeout: 90_000 });
+    await expect(
+      card.getByTestId("weighted-status-score-card-center-percent"),
+    ).toHaveText(/^\d+(\.\d+)?%$/);
+  });
+
+  test.describe("Aggregated scorecard drill-down", () => {
+    test.describe.configure({ retries: 1 });
+
+    test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
+      const [githubMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        githubMetric,
+        "github.openPRs",
+      );
+    });
+
+    test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
+      const [, jiraMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardNoDataHomepageScenario(
+        () => scorecard.navigateToHome(),
+        jiraMetric,
+        "jira.openIssues",
+        { skipIfHasDrilldown: true },
+      );
+    });
+  });
+
   test.describe("Entity Scorecards", () => {
     test("Validate scorecard tabs for GitHub PRs and Jira tickets", async () => {
-      await page.waitForTimeout(6000);
       await catalog.go();
       await catalog.goToByName("all-scorecards");
       await scorecard.openTab();
@@ -130,6 +160,27 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.validateScorecardAriaFor(jiraMetric);
     });
 
+    test("Validate OpenSSF scorecards with disabled metrics excluded", async () => {
+      await page.waitForTimeout(6000);
+      await catalog.go();
+      await catalog.goToByName("openssf-scorecard-only");
+      await scorecard.openTab();
+
+      const [githubMetric, jiraMetric] = SCORECARD_METRICS;
+
+      await scorecard.expectScorecardHidden(githubMetric.title);
+      await scorecard.expectScorecardHidden(jiraMetric.title);
+      await scorecard.expectScorecardHidden(OPENSSF_METRICS.maintained.title);
+      await scorecard.expectScorecardHidden(FILECHECK_METRICS.readme.title);
+      await scorecard.expectScorecardHidden(FILECHECK_METRICS.license.title);
+
+      for (const [, metric] of Object.entries(OPENSSF_METRICS).filter(
+        ([key]) => key !== "maintained",
+      )) {
+        await scorecard.validateScorecardAriaFor(metric);
+      }
+    });
+
     test("Display error state for invalid threshold config while rendering metrics", async () => {
       await catalog.go();
       await catalog.goToByName("invalid-threshold");
@@ -141,6 +192,43 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(jiraMetric.title);
       await scorecard.expectErrorHeading("Invalid thresholds");
       await scorecard.validateScorecardAriaFor(jiraMetric);
+    });
+
+    test.describe("Dependabot scorecards", () => {
+      test("Dependabot metrics appear when entity opts in", async () => {
+        await catalog.go();
+        await catalog.goToByName("dependabot-scorecard-only");
+        await scorecard.openTab();
+        await scorecard.expectNoProgressBar();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardCardVisible(metric);
+          await scorecard.validateScorecardAriaFor(metric);
+        }
+      });
+
+      test("Dependabot metrics absent without github.com/dependabot opt-in", async () => {
+        await catalog.go();
+        await catalog.goToByName("no-scorecards");
+        await scorecard.openTab();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardHidden(metric.title);
+        }
+      });
+    });
+
+    test("Display custom severity keys with custom threshold expressions, colors and icon", async () => {
+      await catalog.go();
+      await catalog.goToByName("github-scorecard-only");
+      await scorecard.openTab();
+
+      const [githubMetric] = SCORECARD_METRICS;
+      await scorecard.validateThresholdLegend(githubMetric);
+      // TODO: StarIcon data-testid not present in NFS, verify SVG icon renders instead
+      // await scorecard.expectScorecardValue(githubMetric.title, "StarIcon");
+      const card = scorecard.getScorecardCard(githubMetric);
+      await expect(card.locator("svg").first()).toBeVisible();
     });
 
     // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed

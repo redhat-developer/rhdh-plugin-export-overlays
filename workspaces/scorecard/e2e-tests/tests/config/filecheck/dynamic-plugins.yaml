@@ -1,0 +1,33 @@
+# Scorecard filecheck e2e tests — only the plugins required for filecheck metric tests.
+# Includes: scorecard frontend/backend, filecheck backend module, and dynamic home page.
+# GitHub, Jira, Dependabot, and OpenSSF backend modules are intentionally excluded.
+plugins:
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard
+    enabled: true
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend
+    enabled: true
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
+    enabled: true
+    pluginConfig:
+      scorecard:
+        metricProviders:
+          filecheck:
+            fileExistence:
+              options:
+                files:
+                  readme: "README.md"
+                  # Not present in janus-qe/overlay-scorecard-plugin-test.
+                  missing: "e2e-absent-file.md"
+              schedule:
+                frequency:
+                  minutes: 10
+                timeout:
+                  minutes: 10
+                initialDelay:
+                  seconds: 120
+  # Homepage 3.1.0 provides the NFS page:homepage extension for Scorecard widgets.
+  # We can use {{inherit}} once RHDH's catalog resolves it for 3.1.0 or newer.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
+    enabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.9__0.9.9
+    enabled: true

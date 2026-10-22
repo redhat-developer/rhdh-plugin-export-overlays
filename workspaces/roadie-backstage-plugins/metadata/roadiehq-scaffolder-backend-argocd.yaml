@@ -17,11 +17,11 @@ metadata:
     - software-templates
 spec:
   packageName: "@roadiehq/scaffolder-backend-argocd"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:bs_1.45.3__1.8.1!roadiehq-scaffolder-backend-argocd
-  version: 1.8.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:bs_1.54.9__1.9.0
+  version: 1.9.0
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.42.5
+    supportedVersions: 1.54.9
   author: Roadie
   support: community
   lifecycle: active
@@ -39,6 +39,3 @@ spec:
                 - name: argoInstance1
                   url: ${ARGOCD_INSTANCE1_URL}
                   token: ${ARGOCD_AUTH_TOKEN}
-                - name: argoInstance2
-                  url: ${ARGOCD_INSTANCE2_URL}
-                  token: ${ARGOCD_AUTH_TOKEN2}

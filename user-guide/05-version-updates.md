@@ -12,12 +12,14 @@ The version of Backstage that the target platform is built on. Defined in `versi
 
 ```json
 {
-  "backstage": "1.45.3",
-  "node": "22.19.0",
-  "cli": "1.9.1",
+  "backstage": "1.54.9",
+  "node": "24.21.0",
+  "cli": "2.1.2",
   "cliPackage": "@red-hat-developer-hub/cli"
 }
 ```
+
+If an open PR targets a release branch and `versions.json` on the PR branch is behind the base branch, you can align it by commenting **`/update-versions`** on the PR (see [PR Commands](./02-export-tools.md#pr-commands) in the export tools guide).
 
 ### Supported Versions (in metadata)
 
@@ -26,7 +28,7 @@ The Backstage version your plugin is compatible with:
 ```yaml
 spec:
   backstage:
-    supportedVersions: 1.42.5  # Plugin was built/tested against this version
+    supportedVersions: 1.54.9  # Plugin was built/tested against this version
 ```
 
 ### Source Backstage Version
@@ -35,7 +37,7 @@ The Backstage version the source repository uses:
 
 ```json
 {
-  "repo-backstage-version": "1.45.0"
+  "repo-backstage-version": "1.54.9"
 }
 ```
 
@@ -49,7 +51,7 @@ Your plugin's source Backstage version should be **less than or equal to** the t
 
 ```
 source repo-backstage-version ≤ versions.json backstage
-            1.45.0            ≤      1.45.3     ✅
+            1.54.0            ≤      1.54.9     ✅
 ```
 
 ### Rule 2: Best-Effort Matching
@@ -92,7 +94,7 @@ When any of these signals appear:
 
 ```bash
 cat versions.json | jq '.backstage'
-# "1.45.3"
+# "1.54.9"
 ```
 
 ### Step 2: Find Compatible Plugin Version
@@ -120,7 +122,7 @@ curl -s "https://raw.githubusercontent.com/backstage/community-plugins/@backstag
   "repo": "https://github.com/backstage/community-plugins",
   "repo-ref": "@backstage-community/plugin-your-plugin@1.2.3",
   "repo-flat": false,
-  "repo-backstage-version": "1.45.0"
+  "repo-backstage-version": "1.54.9"
 }
 ```
 
@@ -132,7 +134,7 @@ For each file in `metadata/*.yaml`:
 spec:
   version: 1.2.3                    # Match new plugin version
   backstage:
-    supportedVersions: 1.45.0       # Match source Backstage version
+    supportedVersions: 1.54.9       # Match source Backstage version
 ```
 
 ### Step 6: Verify and Test
@@ -141,13 +143,17 @@ spec:
 # Create PR and trigger build
 git checkout -b update-your-plugin-version
 git add .
-git commit -m "chore: update your-plugin to 1.2.3 (Backstage 1.45.0)"
+git commit -m "chore: update your-plugin to 1.2.3 (Backstage 1.54.9)"
 git push origin update-your-plugin-version
 
 # Open PR, then comment:
 # /publish
 # /smoketest
+# or: /smoketest pr-4929-90eff067
 ```
+
+`/smoketest <tag>` resolves to `quay.io/rhdh-community/rhdh:<tag>` for the smoke-test run.
+Allowed tags include `pr-4907`, `pr-4929-90eff067`, `next`, `next-1.10-244a2755`, and `next-8a0d43e7`.
 
 ---
 
@@ -165,16 +171,50 @@ When the target Backstage version introduces breaking changes that affect your p
 
 ---
 
+## Overriding Backstage Compatibility via PR Command
+
+When a workspace's source Backstage version (`source.json:repo-backstage-version`) differs from the target version (`versions.json:backstage`), you can use the `/override-backstage` PR command instead of manually creating files.
+
+### What It Does
+
+The command atomically:
+1. Creates (or updates) `backstage.json` in the workspace with the target Backstage version
+2. Rewrites all `metadata/*.yaml` OCI tags from `bs_<old>__` to `bs_<target>__`
+3. Commits both changes to the PR branch
+
+### Usage
+
+Comment on your workspace PR:
+
+```
+/override-backstage
+```
+
+### When to Use
+
+- After the daily automation creates a PR with a plugin whose source Backstage version is older than the target
+- After manually adding a workspace with a version mismatch
+- When `/publish` fails with metadata validation errors about OCI tag mismatches
+
+### Example
+
+| Before | After |
+|--------|-------|
+| No `backstage.json` | `backstage.json` with `{"version": "1.49.4"}` |
+| `dynamicArtifact: oci://...:bs_1.48.3__7.0.1` | `dynamicArtifact: oci://...:bs_1.49.4__7.0.1` |
+
+---
+
 ## Version Fields Reference
 
 ### versions.json (Repository-Wide)
 
 ```json
 {
-  "backstage": "1.45.3",        // Target Backstage version for all plugins
-  "node": "22.19.0",            // Node.js version for builds
-  "cli": "1.9.1",               // CLI tool version
-  "cliPackage": "@red-hat-developer-hub/cli"  // CLI package name
+    "backstage": "1.54.9",
+    "node": "24.21.0",
+    "cli": "2.1.2",
+    "cliPackage": "@red-hat-developer-hub/cli"
 }
 ```
 
@@ -185,7 +225,7 @@ When the target Backstage version introduces breaking changes that affect your p
   "repo": "https://github.com/backstage/community-plugins",
   "repo-ref": "@backstage-community/plugin-x@1.2.3",  // Exact version tag
   "repo-flat": false,
-  "repo-backstage-version": "1.45.0"  // Backstage version at this ref
+  "repo-backstage-version": "1.54.9"  // Backstage version at this ref
 }
 ```
 
@@ -196,29 +236,44 @@ spec:
   version: 1.2.3                    # Plugin version (must match source)
   backstage:
     role: backend-plugin            # Plugin role
-    supportedVersions: 1.45.0       # Backstage version compatibility
+    supportedVersions: 1.54.9       # Backstage version compatibility
 ```
 
 ---
 
 ## Automated Version Updates
 
-### Daily Workflow
+### Daily Workflow (main branch only)
 
-The `update-plugins-repo-refs.yaml` workflow runs daily and:
+The `update-plugins-repo-refs.yaml` workflow runs daily **on the `main` branch only** and:
 
-1. Scans for new plugin releases
-2. Checks compatibility with target Backstage version
-3. Creates/updates PRs with version bumps
+1. **Enumerates plugin package names** from all existing workspaces in the overlay repository (by scanning each workspace's source repo tree)
+2. Queries npm (`npm view`) for published versions of each discovered package
+3. Checks Backstage version compatibility against the target version
+4. Additionally runs `npm search` to discover new plugins under auto-discovery scopes
+5. Creates/updates PRs with version bumps
+
+This means **all existing workspaces are updated regardless of their npm scope** — including third-party plugins like `@immobiliarelabs/`, `@pagerduty/`, or `@dynatrace/`. What the overlay-first approach avoids is the regexp-based `npm search` step for package name discovery; actual version data still comes from npm.
+
+> **Note:** Release branches (`release-x.y`) do not have a scheduled automatic update. Updates to release branches must be triggered manually (see below).
 
 ### Manual Trigger
 
-Use single quotes around the package name for an exact literal match (see [Trigger Workflow Manually](./01-getting-started.md#option-2-trigger-workflow-manually) for details on quoting):
+To **update a specific existing workspace** (works for any scope — preferred for updates):
+
+```bash
+gh workflow run update-plugins-repo-refs.yaml \
+  -f workspace-path="workspaces/your-workspace" \
+  -f single-branch="main"
+```
+
+To **add a new workspace** via npm discovery (see [Trigger Workflow Manually](./01-getting-started.md#option-2-trigger-workflow-manually) for details on quoting):
 
 ```bash
 gh workflow run update-plugins-repo-refs.yaml \
   -f regexps="'@backstage-community/plugin-your-plugin'" \
-  -f single-branch="main"
+  -f single-branch="main" \
+  -f allow-workspace-addition=true
 ```
 
 ---
@@ -276,6 +331,8 @@ This badge shows whether mandatory plugins are compatible with the target versio
 
 ## Release Branch Considerations
 
+To **create** a new `release-x.y` branch from `main`, see [08 - Creating Release Branches](./08-creating-release-branches.md). This section covers how release branches behave and how to **update** them after they exist.
+
 ### main Branch
 
 - Tracks the **next** platform release
@@ -287,10 +344,25 @@ This badge shows whether mandatory plugins are compatible with the target versio
 - Track specific platform releases
 - Only accept updates to **existing** workspaces
 - Must maintain compatibility with that release's Backstage version
+- **No scheduled automatic updates** — must be triggered manually
 
-### Backporting Updates
+### Updating Release Branches
 
-To update a plugin on a release branch:
+#### Option 1: Trigger the workflow manually (preferred)
+
+Use the workflow with `workspace-path` and `single-branch` to update a specific workspace on a release branch:
+
+```bash
+gh workflow run update-plugins-repo-refs.yaml \
+  -f workspace-path="workspaces/your-workspace" \
+  -f single-branch="release-1.6"
+```
+
+This will find the latest compatible version and create/update a PR against that release branch.
+
+#### Option 2: Manual PR
+
+For cases where you need full control over the version (e.g., pinning to a specific commit):
 
 ```bash
 # Checkout release branch

@@ -21,7 +21,7 @@ test.describe("Test Keycloak plugin", () => {
   test.beforeAll(async ({ rhdh }: { rhdh: RHDHDeployment }) => {
     await rhdh.configure({
       auth: "keycloak",
-      valueFile: "tests/config/value_file.yaml",
+      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
     });
     await rhdh.deploy();
 
@@ -40,8 +40,17 @@ test.describe("Test Keycloak plugin", () => {
   });
 
   test.beforeEach(
-    async ({ page, loginHelper }: { page: Page; loginHelper: LoginHelper }) => {
+    async ({
+      page,
+      loginHelper,
+      uiHelper,
+    }: {
+      page: Page;
+      loginHelper: LoginHelper;
+      uiHelper: UIhelper;
+    }) => {
       await loginHelper.loginAsKeycloakUser();
+      await uiHelper.dismissQuickstartIfVisible();
       await CatalogUsersPO.visitBaseURL(page);
     },
   );
@@ -64,9 +73,11 @@ test.describe("Test Keycloak plugin", () => {
 
     for (let i = 0; i < backStageUsersCount; i++) {
       const backStageUser = backStageUsersLocator.nth(i);
-      const backStageUserText = await backStageUser.textContent();
+      // Link href is /catalog/.../user/<metadata.name> (= Keycloak username).
+      const href = await backStageUser.getAttribute("href");
+      const entityName = href?.split("/").filter(Boolean).pop();
       const userFound = keycloakUsers.find(
-        (user) => user.username === backStageUserText,
+        (user) => user.username === entityName,
       );
       expect(userFound).not.toBeNull();
 
@@ -92,8 +103,7 @@ async function checkUserDetails(
   uiHelper: UIhelper,
 ) {
   await CatalogUsersPO.visitUserPage(page, keycloakUser.username);
-  const emailLink = CatalogUsersPO.getEmailLink(page);
-  await expect(emailLink).toBeVisible();
+  // NFS User Overview does not render profile.email as a mailto link.
   await uiHelper.verifyText(
     `${keycloakUser.firstName ?? ""} ${keycloakUser.lastName ?? ""}`.trim(),
   );
@@ -103,8 +113,9 @@ async function checkUserDetails(
     keycloakUser.username,
   );
   for (const group of groups) {
-    const groupLink = CatalogUsersPO.getGroupLink(page, group.name);
-    await expect(groupLink).toBeVisible();
+    await expect(
+      CatalogUsersPO.getGroupLink(page, group.name).first(),
+    ).toBeVisible();
   }
 
   await CatalogUsersPO.visitBaseURL(page);
@@ -124,26 +135,25 @@ test.describe("Test Keycloak plugin metrics", () => {
     const namespace = rhdh.deploymentConfig.namespace;
     const result = await $({
       stdio: ["pipe", "pipe", "pipe"],
-    })`kubectl get svc -n ${namespace} -o json`;
-    const servicesJson = result.stdout ?? "";
-    const services = JSON.parse(servicesJson) as {
+    })`kubectl get pods -n ${namespace} --field-selector=status.phase=Running -o json`;
+    const pods = JSON.parse(result.stdout ?? "") as {
       items?: Array<{
         metadata?: { name?: string };
-        spec?: {
-          ports?: Array<{ port?: number; targetPort?: number | string }>;
-        };
       }>;
     };
-    const hasPort9464 = (p: { port?: number; targetPort?: number | string }) =>
-      Number(p.port) === 9464 || Number(p.targetPort) === 9464;
-    const metricsSvc = services.items?.find((svc) =>
-      svc.spec?.ports?.some(hasPort9464),
-    );
-    const serviceName = metricsSvc?.metadata?.name;
-    if (!serviceName) {
+    const rhdhPod = pods.items?.find((pod) => {
+      const name = pod.metadata?.name ?? "";
+      return (
+        (name.includes("backstage") || name.includes("developer-hub")) &&
+        !name.includes("postgresql") &&
+        !name.includes("psql")
+      );
+    });
+    const podName = rhdhPod?.metadata?.name;
+    if (!podName) {
       throw new Error(
-        `No RHDH metrics service (port 9464) found in namespace ${namespace}. ` +
-          `List services with: kubectl get svc -n ${namespace}`,
+        `No RHDH pod found in namespace ${namespace}. ` +
+          `List pods with: kubectl get pods -n ${namespace}`,
       );
     }
 
@@ -151,7 +161,7 @@ test.describe("Test Keycloak plugin metrics", () => {
       process.env.K8S_CLUSTER_TOKEN && process.env.K8S_CLUSTER_URL
         ? `oc login --token="${process.env.K8S_CLUSTER_TOKEN}" --server="${process.env.K8S_CLUSTER_URL}" --insecure-skip-tls-verify=true && `
         : "";
-    const cmd = `${login}kubectl config set-context --current --namespace="${namespace}" 2>/dev/null; kubectl port-forward service/${serviceName} 9464:9464 --namespace="${namespace}"`;
+    const cmd = `${login}kubectl config set-context --current --namespace="${namespace}" 2>/dev/null; kubectl port-forward pod/${podName} 9464:9464 --namespace="${namespace}"`;
     portForward = spawn("/bin/sh", ["-c", cmd]);
 
     await new Promise<void>((resolve, reject) => {

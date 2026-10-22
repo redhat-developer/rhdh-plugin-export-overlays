@@ -11,7 +11,11 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 // Roles that cannot be deleted and will throw a 403 — skip to avoid noise
-const SKIPPABLE_ROLES: Set<string> = new Set(["rbac_admin", "guests"]);
+const SKIPPABLE_ROLES: Set<string> = new Set([
+  "rbac_admin",
+  "guests",
+  "default-role",
+]);
 
 async function deletePoliciesForRole(
   rbacApi: RbacApiHelper,

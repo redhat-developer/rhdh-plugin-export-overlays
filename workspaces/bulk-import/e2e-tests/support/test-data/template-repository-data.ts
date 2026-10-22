@@ -1,0 +1,38 @@
+import { GITHUB_ORG, PR_BRANCH_NAME } from "../constants/github";
+
+export type RepositoryParameters = {
+  repoUrl: string;
+  branchName: string;
+  targetBranchName: string;
+  name: string;
+  organization: string;
+  gitProviderHost: "github.com" | "gitlab.com";
+};
+
+export function defaultGitHubRepositoryParameters(): RepositoryParameters {
+  const newParams: RepositoryParameters = {
+    repoUrl: "",
+    branchName: PR_BRANCH_NAME,
+    targetBranchName: "main",
+    name: `bulk-import-template-${Date.now()}-${process.pid}`,
+    organization: GITHUB_ORG,
+    gitProviderHost: "github.com",
+  };
+  newParams.repoUrl = `github.com?owner=${newParams.organization}&repo=${newParams.name}`;
+
+  return newParams;
+}
+
+export function defaultGitLabRepositoryParameters(): RepositoryParameters {
+  const newParams: RepositoryParameters = {
+    repoUrl: "",
+    branchName: PR_BRANCH_NAME,
+    targetBranchName: "main",
+    name: "test-repo",
+    organization: "test-org",
+    gitProviderHost: "gitlab.com",
+  };
+  newParams.repoUrl = `gitlab.com?owner=${newParams.organization}&repo=${newParams.name}`;
+
+  return newParams;
+}

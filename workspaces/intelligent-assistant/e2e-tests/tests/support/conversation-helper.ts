@@ -1,0 +1,186 @@
+import { expect, type Page } from "@playwright/test";
+import { selectChatModel } from "./lightspeed-page";
+
+export const CHAT_PROMPT_PLACEHOLDER = "Enter a prompt.";
+const BOT_RESPONSE_TIMEOUT_MS = 180_000;
+
+export async function sendMessage(
+  message: string,
+  page: Page,
+  waitForResponse = true,
+): Promise<void> {
+  const input = page.getByRole("textbox", { name: CHAT_PROMPT_PLACEHOLDER });
+  await input.fill(message);
+  await page.getByRole("button", { name: "Send" }).click();
+  if (waitForResponse) {
+    await waitForChatMessageLoadingHidden(page);
+    const sidePanel = page.locator(".pf-v6-c-drawer__panel-main");
+    await expect(sidePanel).toBeVisible();
+    await expect(
+      sidePanel.getByRole("button", { name: "New chat" }),
+    ).toBeEnabled({ timeout: 60_000 });
+  }
+}
+
+export async function waitForChatMessageLoadingHidden(
+  page: Page,
+  timeout = BOT_RESPONSE_TIMEOUT_MS,
+): Promise<void> {
+  await page
+    .locator(".pf-chatbot__message-loading")
+    .waitFor({ state: "hidden", timeout });
+}
+
+export function chatStopButton(page: Page) {
+  return page.getByRole("button", { name: "Stop" });
+}
+
+export async function expectChatStopButtonVisible(
+  page: Page,
+  timeout = 15_000,
+): Promise<void> {
+  await expect(chatStopButton(page)).toBeVisible({ timeout });
+}
+
+export async function expectChatInputValue(
+  page: Page,
+  value: string,
+): Promise<void> {
+  await expect(
+    page.getByRole("textbox", { name: CHAT_PROMPT_PLACEHOLDER }),
+  ).toHaveValue(value);
+}
+
+export async function startNewChat(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "New chat" }).click();
+  await expect(
+    page.getByRole("textbox", { name: CHAT_PROMPT_PLACEHOLDER }),
+  ).toBeVisible();
+}
+
+/** Starts a blank chat and ensures the default GPT model is selected. */
+export async function startNewChatWithModel(
+  page: Page,
+  modelName?: string,
+): Promise<void> {
+  await startNewChat(page);
+  await selectChatModel(page, modelName);
+}
+
+/** Starts a fresh chat with model selected, then sends a message. */
+export async function sendMessageInNewChat(
+  page: Page,
+  message: string,
+  waitForResponse = true,
+  modelName?: string,
+): Promise<void> {
+  await startNewChatWithModel(page, modelName);
+  await sendMessage(message, page, waitForResponse);
+}
+
+export async function verifyFeedbackButtons(page: Page): Promise<void> {
+  const responseActions = page.locator(".pf-chatbot__response-actions");
+  await expect(responseActions).toBeVisible();
+  for (const name of ["Good Response", "Bad Response", "Copy", "Listen"]) {
+    await expect(responseActions.getByRole("button", { name })).toBeVisible();
+  }
+}
+
+export async function submitFeedback(
+  page: Page,
+  ratingButtonName: "Good Response" | "Bad Response",
+): Promise<void> {
+  await page.getByRole("button", { name: ratingButtonName }).click();
+
+  // NFS: getByLabel("Why did you choose this rating?").locator("li") matches the
+  // focus wrapper but not the label-group chips. The card class is the real root.
+  const feedbackCard = page.locator(".pf-chatbot__feedback-card");
+  await expect(feedbackCard).toBeVisible();
+
+  const quickFeedbackLabels = feedbackCard.locator(
+    ".pf-v6-c-label-group__list-item",
+  );
+  await expect(quickFeedbackLabels).toHaveCount(3);
+  await quickFeedbackLabels.first().click();
+
+  await feedbackCard.getByRole("button", { name: "Submit" }).click();
+
+  const feedbackConfirmationPanel = page.getByLabel("Feedback submitted");
+  await expect(feedbackConfirmationPanel).toBeVisible();
+  await expect(feedbackConfirmationPanel).toContainText(
+    "We've received your response. Thank you for sharing your feedback!",
+  );
+  await feedbackConfirmationPanel.waitFor({ state: "hidden" });
+}
+
+export function lastBotMessage(page: Page) {
+  return page
+    .getByLabel("Scrollable message log")
+    .locator(".pf-chatbot__message--bot:visible")
+    .last();
+}
+
+/** Response body only — excludes model name, timestamp, and action buttons. */
+export function lastBotResponseBody(page: Page) {
+  return lastBotMessage(page)
+    .locator(".pf-chatbot__message-response:visible")
+    .last();
+}
+
+export async function getLastBotResponseText(page: Page): Promise<string> {
+  const textParagraph = lastBotMessage(page)
+    .locator(".pf-chatbot__message-response p:visible")
+    .last();
+
+  let text: string;
+  if ((await textParagraph.count()) > 0) {
+    await expect(textParagraph).toBeVisible();
+    text = (await textParagraph.innerText()).trim();
+  } else {
+    const body = lastBotResponseBody(page);
+    await expect(body).toBeVisible();
+    text = (await body.innerText()).trim();
+  }
+
+  expect(text.length).toBeGreaterThan(0);
+  return text;
+}
+
+/**
+ * Asserts Copy puts the visible bot reply on the clipboard (content is non-deterministic).
+ */
+export async function assertLastBotResponseCopiedToClipboard(
+  page: Page,
+): Promise<void> {
+  const responseText = await getLastBotResponseText(page);
+  const copyButton = lastBotMessage(page)
+    .locator(".pf-chatbot__response-actions")
+    .getByRole("button", { name: "Copy" });
+
+  await copyButton.click();
+
+  const normalizeText = (value: string): string =>
+    value.toLowerCase().replace(/\s+/g, " ").trim();
+
+  // Clipboard writes can lag behind click handling in browsers.
+  await expect
+    .poll(
+      async () =>
+        normalizeText(
+          await page.evaluate(() => navigator.clipboard.readText()),
+        ),
+      { timeout: 10_000 },
+    )
+    .toContain(normalizeText(responseText));
+}
+
+export async function verifySidePanelConversation(page: Page): Promise<void> {
+  const sidePanel = page.locator(".pf-v6-c-drawer__panel-main");
+  await expect(sidePanel).toBeVisible();
+  await expect(sidePanel.getByRole("button", { name: "New chat" })).toBeEnabled(
+    { timeout: 60_000 },
+  );
+  await expect(
+    sidePanel.locator("li.pf-chatbot__menu-item--active"),
+  ).toBeVisible({ timeout: 30_000 });
+}
