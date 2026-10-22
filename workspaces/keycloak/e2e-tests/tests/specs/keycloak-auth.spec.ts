@@ -543,4 +543,108 @@ test.describe("Keycloak auth provider", () => {
       await clearSession(context);
     }
   });
+
+  // Migrated from core RHDH oidc.spec.ts autologout cases.
+  test("Enable autologout and user is logged out after inactivity", async ({
+    page,
+    uiHelper,
+    context,
+    loginHelper,
+  }: {
+    page: Page;
+    uiHelper: UIhelper;
+    context: BrowserContext;
+    loginHelper: LoginHelper;
+  }) => {
+    await applyPatchedAppConfig([
+      ["auth.autologout.enabled", true],
+      ["auth.autologout.idleTimeoutMinutes", 0.5],
+      ["auth.autologout.promptBeforeIdleSeconds", 5],
+    ]);
+
+    try {
+      await clearSession(context);
+      const { username, password } = KEYCLOAK_AUTH_USERS.test1;
+      await loginHelper.loginAsKeycloakUser(username, password);
+
+      await uiHelper.verifyTextVisible(
+        "Logging out due to inactivity",
+        false,
+        60_000,
+      );
+      await expect(
+        page
+          .getByRole("alert")
+          .filter({ hasText: "Logging out due to inactivity" }),
+      ).toBeHidden({ timeout: 30_000 });
+
+      // AutoLogout fires identityApi.signOut() without awaiting it; wait for
+      // the refresh cookie to be cleared before asserting logged-out state.
+      await expect
+        .poll(
+          async () =>
+            (await context.cookies()).find(
+              (cookie) => cookie.name === KEYCLOAK_REFRESH_COOKIE,
+            ),
+          { timeout: 30_000, intervals: [500, 1_000, 2_000] },
+        )
+        .toBeUndefined();
+
+      await page.reload();
+      await uiHelper.waitForLoad(120_000);
+      await expect(
+        page
+          .getByText(/Sign in using Keycloak|Select a sign-in method/i)
+          .first(),
+      ).toBeVisible({ timeout: 30_000 });
+      expect(
+        (await context.cookies()).find(
+          (cookie) => cookie.name === KEYCLOAK_REFRESH_COOKIE,
+        ),
+      ).toBeUndefined();
+    } finally {
+      await clearSession(context);
+    }
+  });
+
+  test('Enable autologout and user stays logged in after clicking "Don\'t log me out"', async ({
+    page,
+    uiHelper,
+    context,
+    loginHelper,
+  }: {
+    page: Page;
+    uiHelper: UIhelper;
+    context: BrowserContext;
+    loginHelper: LoginHelper;
+  }) => {
+    await applyPatchedAppConfig([
+      ["auth.autologout.enabled", true],
+      ["auth.autologout.idleTimeoutMinutes", 0.5],
+      ["auth.autologout.promptBeforeIdleSeconds", 5],
+    ]);
+
+    try {
+      await clearSession(context);
+      const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
+      await loginHelper.loginAsKeycloakUser(username, password);
+
+      await uiHelper.clickButtonByText("Don't log me out", {
+        timeout: 60_000,
+      });
+
+      // AutoLogout only resets on real DOM activity; Playwright navigation does
+      // not. Assert stay-logged-in quickly, then clearSession (UI signOut races
+      // another ~30s idle logout).
+      await page.mouse.move(100, 100);
+      await expectProfile(page, uiHelper, displayName);
+      expect(
+        (await context.cookies()).find(
+          (cookie) => cookie.name === KEYCLOAK_REFRESH_COOKIE,
+        ),
+      ).toBeDefined();
+    } finally {
+      await clearSession(context);
+    }
+  });
 });
