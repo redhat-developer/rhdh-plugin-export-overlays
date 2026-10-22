@@ -237,7 +237,7 @@ test.describe("Admin > Extensions", () => {
       uiHelper,
     }) => {
       test.skip(
-        !!process.env.E2E_NIGHTLY_MODE,
+        process.env.E2E_NIGHTLY_MODE === "true",
         "Extensions editor no longer pre-populates with running plugin config",
       );
       const plugin = "Adoption Insights for Red Hat Developer Hub";
@@ -433,7 +433,7 @@ test.describe("Admin > Extensions", () => {
 
       test("Edit package through side menu", async ({ page, uiHelper }) => {
         test.skip(
-          !!process.env.E2E_NIGHTLY_MODE,
+          process.env.E2E_NIGHTLY_MODE === "true",
           "Extensions editor no longer pre-populates with running plugin config",
         );
         const link = page.getByRole("link", { name: plugin });
@@ -478,7 +478,7 @@ test.describe("Admin > Extensions", () => {
         uiHelper,
       }) => {
         test.skip(
-          !!process.env.E2E_NIGHTLY_MODE,
+          process.env.E2E_NIGHTLY_MODE === "true",
           "Extensions editor no longer pre-populates with running plugin config",
         );
         await extensions.searchPackages(plugin);
