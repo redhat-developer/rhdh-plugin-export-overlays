@@ -45,6 +45,14 @@ test.describe("Keycloak auth provider", () => {
     await context.clearCookies();
   }
 
+  async function safeSignOut(page: Page, loginHelper: LoginHelper) {
+    if (
+      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
+    ) {
+      await loginHelper.signOut();
+    }
+  }
+
   async function expectProfile(
     page: Page,
     uiHelper: UIhelper,
@@ -197,11 +205,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
   });
 
   test("Guest provider is not offered in production", async ({
@@ -260,11 +264,7 @@ test.describe("Keycloak auth provider", () => {
     expect(entityNames).toContain(KEYCLOAK_AUTH_USERS.test2.username);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
   });
 
   test("Ingestion of users and groups: verify entities and relationships", async () => {
@@ -361,11 +361,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
   });
 
   test("Login with emailMatchingUserEntityProfileEmail", async ({
@@ -392,11 +388,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
   });
 
   test("Login with emailLocalPartMatchingUserEntityName", async ({
@@ -423,11 +415,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -478,11 +466,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -491,11 +475,7 @@ test.describe("Keycloak auth provider", () => {
     await page.goto("/settings");
     await uiHelper.waitForLoad();
     await expect(page.getByText(/nomatch/i).first()).toBeVisible();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
   });
 
   test("Set sessionDuration and confirm auth cookie duration", async ({
@@ -531,11 +511,7 @@ test.describe("Keycloak auth provider", () => {
     await expectProfile(page, uiHelper, displayName);
     await page.goto("/settings");
     await uiHelper.waitForLoad();
-    if (
-      await page.locator('button[data-testid="user-settings-menu"]').isVisible()
-    ) {
-      await loginHelper.signOut();
-    }
+    await safeSignOut(page, loginHelper);
   });
 
   // Secondary GitHub auth via backstage-plugin-auth-backend-module-github-provider (app-config-rhdh.yaml).
@@ -570,13 +546,7 @@ test.describe("Keycloak auth provider", () => {
       await expectProfile(page, uiHelper, displayName);
       await page.goto("/settings");
       await uiHelper.waitForLoad();
-      if (
-        await page
-          .locator('button[data-testid="user-settings-menu"]')
-          .isVisible()
-      ) {
-        await loginHelper.signOut();
-      }
+      await safeSignOut(page, loginHelper);
     } finally {
       await clearSession(context);
     }
