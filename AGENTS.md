@@ -35,7 +35,7 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 
 - Plugin source code (`workspaces/*/plugins/`)
 - CI configuration (`.github/`)
-- Repository config (`AGENTS.md`, `CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
+- Repository config (`AGENTS.md`, `CODEOWNERS`, `.fullsend/`)
 
 The triage agent sets `fix_category` in the issue body, and it decides what you may change:
 

@@ -6,13 +6,13 @@ How to review changes to `scripts/`, `smoke-tests-native/`, `.fullsend/`, and th
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
+| `update-plugins-repo-refs.yaml` | Twice daily (12:00 and 19:00 UTC) + manual | Auto-generates PRs for plugin version updates |
 | `publish-workspace-plugins.yaml` | Push to `main` / release branches | Publishes final OCI images, then smoke tests each workspace it just published against its new `bs_*` tag |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
 | `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
 | `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
 | `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
-| `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
+| `check-backstage-compatibility.yaml` | Push to `main` + manual | Gates release branch creation on compatibility |
 | `e2e-code-quality.yaml` | PRs touching `workspaces/*/e2e-tests/` | ESLint, Prettier, and TypeScript on changed E2E workspaces. Failures are merge-blocking |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 

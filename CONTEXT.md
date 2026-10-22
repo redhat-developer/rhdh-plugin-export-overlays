@@ -17,7 +17,7 @@ Package entities live in `workspaces/*/metadata/`, not in `catalog-entities/exte
 
 - **`main`** — development branch for the next RHDH release; all new workspaces go here. **`release-x.y`** branches only take updates to existing workspaces, never new ones.
 - Support levels are tracked in `rhdh-supported-packages.txt` (Red Hat supported — GA, or TP heading to GA) and `rhdh-community-packages.txt` (community supported). The plugin sweep does **not** read those files: it selects from `spec.support` in `workspaces/*/metadata/*.yaml`, which is what the build publishes from, one tier per nightly cron. The two currently disagree (41 workspaces carry a community package; the txt file names 20), so neither is authoritative for the other's purpose.
-- Auto-discovery covers three npm scopes, defined in `plugins-regexps`: `@backstage-community/` (backstage/community-plugins), `@red-hat-developer-hub/` (redhat-developer/rhdh-plugins), and `@roadiehq/` (RoadieHQ/roadie-backstage-plugins).
+- Auto-discovery covers three npm scopes, defined in `workspace-discovery-include`: `@backstage-community/` (backstage/community-plugins), `@red-hat-developer-hub/` (redhat-developer/rhdh-plugins), and `@roadiehq/` (RoadieHQ/roadie-backstage-plugins).
 
 ## Where work runs
 
@@ -35,6 +35,7 @@ OCI packaging and publishing run through GitHub Actions. Workspace E2E tests run
 | E2E test fix workflow | `docs/agents/knowledge/e2e-fix-workflow.md` | triaging a nightly, working a `[fullsend] E2E:` issue, or deciding whether to skip a test |
 | Playwright test authoring | `docs/agents/knowledge/playwright-test-authoring.md` | writing a spec, or reviewing assertions, timeouts, and configurable values in one |
 | Scripts and CI | `docs/agents/knowledge/scripts-and-ci.md` | editing `scripts/`, `.github/workflows/`, `.fullsend/`, `smoke-tests-native/`, or interpreting a CI gate |
+| Code quality | `docs/agents/knowledge/code-quality.md` | writing or editing shell or Python scripts |
 | PR workflow | `docs/agents/knowledge/pr-workflow.md` | opening a PR, splitting work into issues, interpreting a missing `publish` check, or editing `user-guide/` |
 
 ## Other repository documentation
