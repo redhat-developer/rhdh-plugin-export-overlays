@@ -4,7 +4,7 @@ If `FULLSEND_OUTPUT_DIR` is set, read and follow `.fullsend/AGENTS.md` before do
 
 ## Agent-facing material
 
-All agent-facing material lives in four places: this file (pointers and prohibitions), `CONTEXT.md` (orientation), `docs/agents/` (knowledge and tracker config), `.agents/skills/` (skills, symlinked into `.fullsend/skills/`). Bring a new harness in by pointing it at these files.
+All agent-facing material lives in four places: this file (pointers and prohibitions), `CONTEXT.md` (orientation), `docs/agents/` (knowledge and tracker config), `.agents/skills/` (symlinks into `.fullsend/skills/`). Bring a new harness in by pointing it at these files.
 
 ## Repository knowledge
 
@@ -35,7 +35,7 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 
 - Plugin source code (`workspaces/*/plugins/`)
 - CI configuration (`.github/`)
-- Repository config (`AGENTS.md`, `CODEOWNERS`, `.fullsend/`)
+- Repository config (`AGENTS.md`, `CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
 The triage agent sets `fix_category` in the issue body, and it decides what you may change:
 
