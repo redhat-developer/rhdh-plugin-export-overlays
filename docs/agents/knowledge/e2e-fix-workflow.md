@@ -179,6 +179,13 @@ npx prettier --check <changed-files>
 
 ### Choose the skip condition from the failure scope
 
+**Lane-specific** — the failure occurs in one installation method only. CI sets `E2E_NIGHTLY_MODE=true` for both Helm and operator nightlies, so a bare nightly skip silently drops the other lane's coverage:
+
+```typescript
+test.skip(process.env.INSTALLATION_METHOD === "operator", "<root cause summary>");  // operator only
+test.skip(process.env.INSTALLATION_METHOD !== "operator", "<root cause summary>");  // Helm only
+```
+
 **Mode-specific** — the failure occurs only in nightly, for example a plugin present in PR-built images but absent from released OCI refs. Compare against the plugin metadata resolution table: PR mode uses PR-built OCI images while nightly uses the released refs in `spec.dynamicArtifact`, so a plugin can exist in one and not the other.
 
 ```typescript
