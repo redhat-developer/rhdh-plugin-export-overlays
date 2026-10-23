@@ -100,19 +100,11 @@ export function parseSanityCommand(body: string): string | undefined {
   return match && isChartVersion(match[1]) ? match[1] : undefined;
 }
 
-export type CommunityPlugin = {
-  packageName: string;
-  artifact: string;
-  pluginConfig?: Record<string, unknown>;
-};
+export type CommunityPlugin = { packageName: string; artifact: string };
 
 export type DynamicPluginsConfig = {
   includes: string[];
-  plugins: Array<{
-    package: string;
-    enabled: boolean;
-    pluginConfig?: Record<string, unknown>;
-  }>;
+  plugins: Array<{ package: string; enabled: boolean }>;
 };
 
 /**
@@ -139,13 +131,33 @@ export function buildDynamicPluginsConfig(
     if (seen.has(plugin.artifact)) continue;
     if (indexImages.has(imageBaseName(plugin.artifact))) continue;
     seen.add(plugin.artifact);
-    plugins.push({
-      package: plugin.artifact,
-      enabled: true,
-      ...(plugin.pluginConfig ? { pluginConfig: plugin.pluginConfig } : {}),
-    });
+    plugins.push({ package: plugin.artifact, enabled: true });
   }
   return { includes: ["dynamic-plugins.default.yaml"], plugins };
+}
+
+/**
+ * Merge app-config layers, later ones winning. Unlike pluginConfig, which the install
+ * CLI refuses when two plugins set one key differently, app-config layers may
+ * disagree, so every community example can apply at once.
+ */
+export function mergeAppConfig(
+  layers: Record<string, unknown>[],
+): Record<string, unknown> {
+  const merge = (
+    target: Record<string, unknown>,
+    source: Record<string, unknown>,
+  ): Record<string, unknown> => {
+    for (const [key, value] of Object.entries(source)) {
+      const current = target[key];
+      target[key] =
+        isRecord(current) && isRecord(value)
+          ? merge({ ...current }, value)
+          : structuredClone(value);
+    }
+    return target;
+  };
+  return layers.reduce<Record<string, unknown>>((acc, l) => merge(acc, l), {});
 }
 
 /** `oci://reg/ns/name:tag!path` / `…@sha256:…` → `name`. */
@@ -205,7 +217,7 @@ export function notLoaded(
 
 /** Log lines that name a plugin install or startup failure. */
 const FAILURE_LINE =
-  /InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|threw an error during startup|Backend startup failed|Missing required config value/;
+  /InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|threw an error during startup|Backend startup failed|Missing required config value|defined differently|plugin\(s\) failed/;
 
 export function failureLines(log: string): string[] {
   return log.split("\n").filter((line) => FAILURE_LINE.test(line));

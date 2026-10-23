@@ -455,7 +455,9 @@ yarn release-sanity --image <ref> --catalog-index <ref>
 
 Needs docker, helm, skopeo, jq and tar. The report, summary and container log land in
 `release-sanity-out/` (`--out`). Config layers, in merge order: `smoke-tests/app-config.yaml`,
-the dummies from `src/plugin-config.ts`, each workspace's `smoke-tests/app-config.test.yaml`,
+every installed community plugin's first `appConfigExamples` entry (as app-config, not
+pluginConfig: the install CLI rejects two plugins setting one key differently), the dummies
+from `src/plugin-config.ts`, each workspace's `smoke-tests/app-config.test.yaml`,
 and guest sign-in. Each workspace's `test.env` applies, and every `${VAR}` still unset gets
 an `.invalid` URL. Exclusions live in `release-sanity-excludes.txt` (install scope only).
 

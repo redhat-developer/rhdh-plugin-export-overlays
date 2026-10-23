@@ -10,6 +10,7 @@ import {
   buildDynamicPluginsConfig,
   chartStream,
   failureLines,
+  mergeAppConfig,
   imageBaseName,
   imagesFromChartValues,
   newestCiChart,
@@ -112,7 +113,6 @@ test("buildDynamicPluginsConfig enables the index, adds community, and lets the 
       {
         packageName: "a",
         artifact: "oci://ghcr.io/o/r/community-a:bs_1__1!community-a",
-        pluginConfig: { a: 1 },
       },
       // Same image as an index package: the shipped build must win.
       {
@@ -129,7 +129,6 @@ test("buildDynamicPluginsConfig enables the index, adds community, and lets the 
     {
       package: "oci://ghcr.io/o/r/community-a:bs_1__1!community-a",
       enabled: true,
-      pluginConfig: { a: 1 },
     },
   ]);
 });
@@ -219,4 +218,26 @@ test("renderSummary names the culprits", () => {
   assert.match(md, /`2.1-158-CI`/);
   assert.match(md, /`@x\/y` \(x-y\)/);
   assert.match(md, /Run: https:\/\/run/);
+});
+
+test("mergeAppConfig deep-merges objects and lets later layers win", () => {
+  const first = { sonarqube: { baseUrl: "a", token: "t" }, list: [1, 2] };
+  const merged = mergeAppConfig([
+    first,
+    { sonarqube: { baseUrl: "b" }, list: [3] },
+  ]);
+  assert.deepEqual(merged, {
+    sonarqube: { baseUrl: "b", token: "t" },
+    list: [3],
+  });
+  // The inputs are left alone.
+  assert.equal(first.sonarqube.baseUrl, "a");
+});
+
+test("failureLines keeps install CLI config conflicts", () => {
+  const log = [
+    "======= 1 plugin(s) failed:",
+    "  - oci://x: Config key 'sonarqube.baseUrl' defined differently for 2 dynamic plugins",
+  ].join("\n");
+  assert.equal(failureLines(log).length, 2);
 });

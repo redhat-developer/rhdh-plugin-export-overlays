@@ -45,6 +45,7 @@ import {
   imageBaseName,
   imagesFromChartValues,
   isChartVersion,
+  mergeAppConfig,
   newestCiChart,
   notLoaded,
   parseLoadedPlugins,
@@ -254,11 +255,7 @@ async function main(): Promise<number> {
     .filter(
       (p) => excluded(p.packageName) === undefined && !isExcluded(p.artifact),
     )
-    .map((p) => ({
-      packageName: p.packageName,
-      artifact: p.artifact,
-      pluginConfig: firstAppConfigExample(p.workspace, p.file),
-    }));
+    .map((p) => ({ packageName: p.packageName, artifact: p.artifact }));
 
   const dynamicPlugins = buildDynamicPluginsConfig(
     fromIndex,
@@ -288,12 +285,24 @@ async function main(): Promise<number> {
   ];
   writeFileSync(join(out, "dynamic-plugins.yaml"), stringify(dynamicPlugins));
 
-  // Config layers, merged by the backend in this order: the shared smoke base, the
-  // harness dummies, each workspace's own smoke config, then guest sign-in for the
-  // loaded-plugins call. Env: each workspace's test.env, then dummies for the rest.
+  // Config layers, merged by the backend in this order: the shared smoke base, every
+  // installed community plugin's first appConfigExample, the harness dummies, each
+  // workspace's own smoke config, then guest sign-in for the loaded-plugins call.
+  // Env: each workspace's test.env, then dummies for the rest.
   const configDir = join(out, "config");
   mkdirSync(configDir, { recursive: true });
-  const layers = ["dummies.yaml"];
+  const enabledRefs = new Set(requested.map((p) => p.package));
+  writeFileSync(
+    join(configDir, "community-examples.yaml"),
+    stringify(
+      mergeAppConfig(
+        communityEntries
+          .filter((p) => enabledRefs.has(p.artifact))
+          .map((p) => firstAppConfigExample(p.workspace, p.file) ?? {}),
+      ),
+    ),
+  );
+  const layers = ["community-examples.yaml", "dummies.yaml"];
   writeFileSync(
     join(configDir, "dummies.yaml"),
     stringify(buildDummyConfig(requested.map((p) => imageBaseName(p.package)))),
