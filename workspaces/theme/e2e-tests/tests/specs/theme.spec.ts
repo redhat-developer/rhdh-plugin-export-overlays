@@ -36,6 +36,11 @@ test.describe("Theme Plugin tests", () => {
   });
 
   test("Verify that RHDH CompanyLogo is theme-aware", async ({ page }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "global-header ignores app.branding.fullLogo (RHDHBUGS-3670)",
+    );
+
     await themeVerifier.setTheme("Light");
     const logo = page.getByTestId("home-logo").first();
     await expect(logo).toHaveCount(1);
@@ -48,6 +53,11 @@ test.describe("Theme Plugin tests", () => {
   });
 
   test("Verify logo link", async ({ page }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "global-header ignores app.branding.fullLogo (RHDHBUGS-3670)",
+    );
+
     const logo = page.getByTestId("home-logo").first();
     const link = page.getByRole("link").filter({ has: logo, visible: true });
     await expect(link).toHaveAttribute("href", "/");
