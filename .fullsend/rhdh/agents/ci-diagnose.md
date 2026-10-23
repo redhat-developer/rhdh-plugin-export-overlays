@@ -124,28 +124,30 @@ Cross-reference the PR's recent check history to find **pending** checks:
    through the filter:
 
    ```bash
-   # StatusContext checks (Prow, comment-commands)
-   STATUS_JSON=$(gh api "repos/${REPO}/commits/${SHA}/status" \
-     --jq '[.statuses[] | {
-       __typename: "StatusContext",
-       context,
-       state: (.state | ascii_upcase),
-       targetUrl: .target_url
-     }]')
+   # Normalise one commit's check history into the rollup shape the filter reads,
+   # and return its curated red check names.
+   prior_red() {
+     local sha="$1" status_json checks_json
+     status_json=$(gh api "repos/${REPO}/commits/${sha}/status" \
+       --jq '[.statuses[] | {__typename:"StatusContext", context:.context,
+                             state:(.state // "" | ascii_upcase)}]')
+     checks_json=$(gh api "repos/${REPO}/commits/${sha}/check-runs" \
+       --jq '[.check_runs[] | {__typename:"CheckRun", name:.name,
+                              status:(.status // "" | ascii_upcase),
+                              conclusion:(.conclusion // "" | ascii_upcase)}]')
+     echo "{\"statusCheckRollup\": $(jq -s 'add' <<<"${status_json} ${checks_json}")}" \
+       | jq -c -f "${FILTER}" \
+       | jq -c 'map(.name // .context)'
+   }
 
-   # CheckRun checks (GitHub Actions)
-   CHECKS_JSON=$(gh api "repos/${REPO}/commits/${SHA}/check-runs" \
-     --jq '[.check_runs[] | {
-       __typename: "CheckRun",
-       name,
-       status: (.status | ascii_upcase),
-       conclusion: ((.conclusion // "") | ascii_upcase),
-       detailsUrl: .details_url
-     }]')
-
-   # Merge and filter for curated red checks
-   PRIOR_RED=$(echo "{\"statusCheckRollup\": $(echo "${STATUS_JSON} ${CHECKS_JSON}" \
-     | jq -s 'add')}" | jq -c -f "${FILTER}")
+   # Walk back up to 10 prior commits and collect every curated check that failed.
+   PRIOR_FAILED='[]'
+   for SHA in $(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits?per_page=30" \
+       --jq '.[-10:][] | .sha' | grep -v "^${HEAD_SHA}$"); do
+     FAILED=$(prior_red "${SHA}")
+     PRIOR_FAILED=$(jq -c -n --argjson a "${PRIOR_FAILED}" \
+       --argjson b "${FAILED}" '$a + $b')
+   done
    ```
 
 3. A curated check is **pending** if it meets BOTH conditions:
@@ -155,7 +157,12 @@ Cross-reference the PR's recent check history to find **pending** checks:
    Collect these into a sorted `PENDING_NAMES` array:
 
    ```bash
-   PENDING_NAMES=$(... | jq -c 'sort')
+   # Pending = failed somewhere in this PR, absent from HEAD entirely.
+   PENDING_NAMES=$(jq -c -n --argjson failed "${PRIOR_FAILED}" \
+     --argjson head "${HEAD_CURATED}" \
+     '$failed | unique
+      | map(select(. as $n | $head | index($n) | not))
+      | sort')
    echo "Pending curated checks: ${PENDING_NAMES}"
    ```
 
