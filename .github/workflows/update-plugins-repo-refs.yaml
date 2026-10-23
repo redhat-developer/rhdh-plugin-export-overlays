@@ -84,7 +84,7 @@ on:
         default: ""
 
       single-branch:
-        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version. Must be main or one of the latest release-x.y branches.
+        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version. Must be main or a release-x.y branch (one of the latest release branches on manual dispatch).
         type: string
         required: false
         default: ""
