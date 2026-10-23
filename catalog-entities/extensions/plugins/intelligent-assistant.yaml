@@ -60,8 +60,9 @@ spec:
 
       ### Key Features
 
-      - 🤖 **LLM Integration**: LLM servers are configured on Lightspeed Core (LCS), which runs as the `lightspeed-core` sidecar in RHDH deployments
-      - 🔒 **Permissions**: Feature-level RBAC permissions (`chat`, `notebooks`, `mcp.tools`, `skills`)
+      - 🤖 **LLM Integration**: LLM servers are configured on Lightspeed Core (LCORE), which runs as the `lightspeed-core` sidecar in RHDH deployments
+      - 🔒 **Security**: Built-in question validation to restrict chats to Red Hat Developer Hub related topics
+      - 🔒 **Permissions**: Feature-level RBAC permissions
       - 💬 **Conversational Interface**: Chat-based interaction with AI assistance
       - 🖥️ **Screen Context**: Optionally attach current page content (headings, tables, alerts, optional screenshots) to chat messages
       - 📓 **Notebooks (Developer Preview)**: RAG queries over uploaded notebook and document files
@@ -75,20 +76,21 @@ spec:
 
       ### For Administrators
 
-      1. **LLM Server Configuration**: LLM servers are configured on Lightspeed Core (LCS) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart); in standalone Backstage, in the LCS `lightspeed-stack.yaml`
+      1. **LLM Server Configuration**: LLM servers are configured on Lightspeed Core (LCORE) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart, or the `intelligent-assistant` flavour in the Operator's Backstage custom resource); in standalone Backstage, in the LCORE `lightspeed-stack.yaml`
       2. **Configurable Prompts**: Administrators can customize the welcome prompts to guide users with specific tasks or questions and system prompts to set the context for the AI assistant
       3. **Feature Toggles**: Enable screen context, notebooks, and MCP server integration under the `intelligent-assistant` configuration key
 
       ### For End Users
 
-      1. **Access the Plugin**: Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button or the "Intelligent Assistant" item in the navigation sidebar
+      1. **Access the Plugin**: Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button
       2. **Start Chatting**: Begin asking questions about Red Hat Developer Hub, or other development topics
       3. **Display Modes**: Switch between overlay, docked, embedded, and fullscreen modes from Settings; the active conversation is preserved across mode switches
       4. **Manage Chats**: Your chat history is maintained for the session, you can start new chats, view history, and delete chats as needed.
 
       ### Supported Topics
 
-      The assistant is optimized for questions about Red Hat Developer Hub (RHDH).
+      When question validation is enabled, the plugin is optimized for:
+      - Red Hat Developer Hub (RHDH)
 
       ## Support
 
@@ -164,10 +166,10 @@ spec:
               servicePort: 8080
 
               # OPTIONAL: Enable screen context (page content shared with the assistant)
-              screen-context:
-                enabled: true
+              # screen-context:
+              #   enabled: true
 
-              # OPTIONAL: MCP server name and token for MCP servers defined in Lightspeed Core (LCS) config
+              # OPTIONAL: MCP server name and token for MCP servers defined in Lightspeed Core (LCORE) config
               # mcpServers:
               #  - name: <mcp server name>
               #    token: ${MCP_TOKEN}
@@ -286,7 +288,7 @@ spec:
       ```
 
       #### 4. Configure the Plugin
-      LLM servers are configured on Lightspeed Core (LCS) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart); in standalone Backstage, in the LCS `lightspeed-stack.yaml`. Plugin-level options go in `app-config.yaml` or `app-config.local.yaml`:
+      LLM servers are configured on Lightspeed Core (LCORE) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart, or the `intelligent-assistant` flavour in the Operator's Backstage custom resource); in standalone Backstage, in the LCORE `lightspeed-stack.yaml`. Plugin-level options go in `app-config.yaml` or `app-config.local.yaml`:
 
       ```yaml
         intelligent-assistant:
@@ -308,7 +310,7 @@ spec:
           - title: <prompt_title>              # REQUIRED: Display title for the prompt
             message: <prompt_message>          # REQUIRED: The actual prompt text/question
         mcpServers:                            # OPTIONAL: One or more MCP servers
-          - name: <mcp server name>            # REQUIRED: Must match the name configured in LCS
+          - name: <mcp server name>            # REQUIRED: Must match the name configured in LCORE
             token: ${MCP_TOKEN}                # OPTIONAL: Token for the MCP server
         rateLimit:                             # OPTIONAL: Per-user request rate limits (defaults apply if omitted)
           expensive:
@@ -336,7 +338,7 @@ spec:
       | `prompts[].title` | String | ✅ Yes* | - | Display title for the prompt (*required if prompts array is provided) |
       | `prompts[].message` | String | ✅ Yes* | - | The actual prompt text/question (*required if prompts array is provided) |
       | `mcpServers` | Array | ❌ No | - | MCP servers to expose in the assistant settings panel |
-      | `mcpServers[].name` | String | ✅ Yes* | - | MCP server name; must match the name configured in LCS |
+      | `mcpServers[].name` | String | ✅ Yes* | - | MCP server name; must match the name configured in LCORE |
       | `mcpServers[].token` | String | ❌ No | - | Token for the MCP server (users can override per-user) |
       | `rateLimit.expensive.max` | Number | ❌ No | `25` | Max requests/minute per user for expensive endpoints; `0` disables |
       | `rateLimit.general.max` | Number | ❌ No | `200` | Max requests/minute per user for other authenticated endpoints; `0` disables |
@@ -374,11 +376,11 @@ spec:
           queryDefaults:
             model: ${NOTEBOOKS_QUERY_MODEL}
             provider_id: ${NOTEBOOKS_QUERY_PROVIDER_ID}
-          # OPTIONAL: Chunking strategy for document processing
-          chunkingStrategy:
-            type: auto # 'auto' or 'static' (default: auto)
-            maxChunkSizeTokens: 512 # For 'static' chunking (default: 512)
-            chunkOverlapTokens: 50 # For 'static' chunking (default: 50)
+          # OPTIONAL: Chunking strategy for document processing (values shown are the defaults)
+          # chunkingStrategy:
+          #   type: auto # 'auto' or 'static' (default: auto)
+          #   maxChunkSizeTokens: 512 # For 'static' chunking (default: 512)
+          #   chunkOverlapTokens: 50 # For 'static' chunking (default: 50)
       ```
 
       #### Custom User Prompts (Welcome Prompts in Intelligent Assistant UI)
@@ -421,6 +423,9 @@ spec:
           enabled: true
         notebooks:
           enabled: true
+          queryDefaults:
+            model: ${NOTEBOOKS_QUERY_MODEL}
+            provider_id: ${NOTEBOOKS_QUERY_PROVIDER_ID}
       ```
 
       ## Permissions
