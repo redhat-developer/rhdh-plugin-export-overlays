@@ -530,9 +530,18 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 - Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
 ### Skipping tests (product_bug classification)
-When the issue says `fix_category: product_bug`, add `test.skip` instead
-of fixing the test:
+When the issue says `fix_category: product_bug`, add a skip scoped to the lane
+where the bug occurs instead of fixing the test. The CI step sets
+`E2E_NIGHTLY_MODE=true` for both Helm and operator nightlies, so a bare nightly
+skip silently drops the other lane's coverage:
 
+    # Operator-only defect
+    test.skip(process.env.INSTALLATION_METHOD === "operator", "<root cause summary>");
+
+    # Helm-only defect
+    test.skip(process.env.INSTALLATION_METHOD !== "operator", "<root cause summary>");
+
+    # Affects both lanes
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
 ### Verification
