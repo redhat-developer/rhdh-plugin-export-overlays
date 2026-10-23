@@ -9,6 +9,7 @@ on:
     paths:
       - 'scripts/**'
       - '.github/workflows/scripts-workspaces.yaml'
+      - '.github/workflows/close-obsolete-update-prs.yaml'
   workflow_dispatch:
 
 concurrency:
