@@ -529,8 +529,8 @@ test.describe("Keycloak auth provider", () => {
         page.getByRole("heading", { name: displayName, exact: true }),
       ).toBeVisible({ timeout: 30_000 });
 
-      // Navigate to the Auth Providers tab within the SPA.
-      await uiHelper.clickTab("Auth Providers");
+      // Navigate to the Authentication Providers tab within the SPA.
+      await uiHelper.clickTab("Authentication Providers");
       await uiHelper.waitForLoad();
 
       // Wait for the GitHub sign-in control to render.
