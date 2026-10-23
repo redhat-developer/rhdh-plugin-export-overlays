@@ -141,6 +141,8 @@ Use `/update-versions` when CI reports that `versions.json` on your PR does not 
 7. Packages as OCI containers
 8. Publishes to `ghcr.io` with tag `pr_<number>__<version>`
 9. Posts OCI references as a PR comment
+10. Runs workspace smoke tests synchronously downstream within the same workflow run
+11. If smoke tests pass and the workspace contains an `e2e-tests/` directory, automatically triggers `/test e2e-ocp-helm`
 
 ### What `/update-versions` Does
 
