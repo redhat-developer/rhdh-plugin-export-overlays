@@ -951,7 +951,7 @@ class TestRecordInReport:
 # The status page contract
 # ---------------------------------------------------------------------------
 class TestTroubleshootingAnchors:
-    """AGENTS.md: "Anchor slugs must stay in sync with REASON_ANCHORS in the renderer."
+    """CONTEXT.md: "anchor slugs must stay in sync with REASON_ANCHORS in the renderer."
 
     It lives here because this module is what put rule ids into that map: Step 5 writes
     its reason as "[rule-id] message", so the rule id IS the prefix reason_to_link
