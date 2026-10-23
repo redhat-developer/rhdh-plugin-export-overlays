@@ -20,13 +20,13 @@ on:
         required: false
 
       release-branch-pattern:
-        description: A regular expression matched against full branch names (anchored) that defines active release branches; it must only match main or release-x.y branches or the update run will fail. If not provided, the last 2 release branches (release-x.x) will be used. To update a single branch, use single-branch instead.
+        description: Optional override of the regular expression that defines active release branches. Anchor it so it matches full branch names (for example ^release-(2\.1|1\.10)$); it must only select main or release-x.y branches or the update run will fail. If not provided, the last 2 release branches (release-x.x) will be used. To update a single branch, use single-branch instead.
         type: string
         required: false
         default: ""
 
       single-branch:
-        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version.
+        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version. Must be main or one of the latest release-x.y branches.
         type: string
         required: false
         default: ""
@@ -78,13 +78,13 @@ on:
         required: false
 
       release-branch-pattern:
-        description: A regular expression matched against full branch names (anchored) that defines active release branches; it must only match main or release-x.y branches or the update run will fail. If not provided, the last 2 release branches (release-x.x) will be used. To update a single branch, use single-branch instead.
+        description: Optional override of the regular expression that defines active release branches. Anchor it so it matches full branch names (for example ^release-(2\.1|1\.10)$); it must only select main or release-x.y branches or the update run will fail. If not provided, the last 2 release branches (release-x.x) will be used. To update a single branch, use single-branch instead.
         type: string
         required: false
         default: ""
 
       single-branch:
-        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version.
+        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version. Must be main or one of the latest release-x.y branches.
         type: string
         required: false
         default: ""
