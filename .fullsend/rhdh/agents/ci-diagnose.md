@@ -22,7 +22,7 @@ Checks on this repo surface three ways — you must handle all three:
 
 | Type (`type`) | Examples | Where the logs are |
 |---------------|----------|--------------------|
-| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-helm-nightly` | gcsweb/GCS → use the `/e2e-failure-analysis` skill |
+| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-operator` (including nightly) | gcsweb/GCS → use the `/e2e-failure-analysis` skill |
 | `gha_check` — GitHub Actions CheckRun | `E2E Code Quality`, `appConfigExamples coverage`, `Python unit tests`, `smoke` | `gh run view --log-failed` |
 | `status` — comment-command StatusContext | `publish`, `smoketest` | `targetUrl` → GH Actions run log |
 
@@ -311,14 +311,15 @@ gh pr diff "${PR_NUMBER}" --repo "${REPO}" --name-only
 | `pr_regression` | The failure is in / caused by code this PR changed. The diff touches the failing area (same workspace/script/metadata), or the error names a symbol/file the PR modified. **This is the author's to fix.** |
 | `flake` | Transient infra/timing with evidence of transience (OOM, ImagePull, network, a wait that raced) AND no PR code change would prevent it. Re-run likely passes. |
 | `pre_existing` | The same failure is unrelated to this PR's diff — the PR touches nothing near the failing area, and the failure looks like it would occur on `main` too. |
-| `product_bug` | Upstream plugin source is broken (API changed, component missing) — not fixable in this repo. |
+| `product_bug` | A plugin, the operator, or the installer is broken (API changed, component missing, reconciliation defect) — not fixable in this repo. |
 | `config_env` | The *run itself* was misconfigured or missing a resource: missing secret, expired cred, quota, `/publish` never run before `/smoketest`. Fixing it means re-running with the right setup, not editing repo files. |
 | `needs_human` | Genuinely ambiguous after full investigation. Say what's missing. |
 
 **`product_bug` vs `pre_existing`:** these overlap whenever a failure would
 reproduce on `main` too. Tie-break on *where the fix belongs*, not on
 whether it would also fail on `main`: `product_bug` if the root cause is in
-upstream plugin/image source (would be fixed by a change outside this repo);
+upstream plugin/image source or the operator/installer (the fix belongs outside
+this repo);
 `pre_existing` if it's this repo's own CI/config/test code that's broken
 (would be fixed by a change inside this repo, just not by this PR). Both
 still mean "not this PR's fault."
