@@ -20,7 +20,7 @@ on:
         required: false
 
       release-branch-pattern:
-        description: A regular expression that defines active release branches. If not provided, the last 2 release branches (release-x.x) will be used.
+        description: A regular expression matched against full branch names (anchored) that defines active release branches; it must only match mainline branches (main, release-x.y) or the update run will fail. If not provided, the last 2 release branches (release-x.x) will be used. To update a single branch, use single-branch instead.
         type: string
         required: false
         default: ""
@@ -78,7 +78,7 @@ on:
         required: false
 
       release-branch-pattern:
-        description: A regular expression that defines active release branches. If not provided, the last 2 release branches (release-x.x) will be used.
+        description: A regular expression matched against full branch names (anchored) that defines active release branches; it must only match mainline branches (main, release-x.y) or the update run will fail. If not provided, the last 2 release branches (release-x.x) will be used. To update a single branch, use single-branch instead.
         type: string
         required: false
         default: ""
