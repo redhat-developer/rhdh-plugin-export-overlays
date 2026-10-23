@@ -17,7 +17,10 @@ import {
   KEYCLOAK_REFRESH_COOKIE,
   NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
 } from "../support/constants/keycloak-auth";
-import { safeSignOut } from "../support/helpers/keycloak-auth-helpers";
+import {
+  navigateToSettings,
+  safeSignOut,
+} from "../support/helpers/keycloak-auth-helpers";
 import {
   catalogEntityExists,
   checkGroupDisplayNamesInCatalog,
@@ -513,10 +516,11 @@ test.describe("Keycloak auth provider", () => {
 
       await loginHelper.loginAsKeycloakUser(username, password);
 
-      // Navigate to Settings via SPA sidebar — not page.goto() —
-      // so the loaded app retains its authenticated session.
+      // Navigate to Settings via the profile dropdown — not page.goto()
+      // or sidebar — so the loaded app retains its authenticated session.
+      // The NFS sidebar has no Settings item; it lives in the profile dropdown.
       // (page.goto drops the session; same root cause as #4034.)
-      await uiHelper.openSidebar("Settings");
+      await navigateToSettings(page, uiHelper);
       await uiHelper.waitForLoad();
 
       // Assert the authenticated settings page renders the profile.
@@ -590,7 +594,7 @@ test.describe("Keycloak auth provider", () => {
       await page.getByTitle("Sign out from GitHub").click();
 
       // Verify the Keycloak profile is still intact after GitHub sign-out.
-      await uiHelper.openSidebar("Settings");
+      await navigateToSettings(page, uiHelper);
       await uiHelper.waitForLoad();
       await expect(
         page.getByRole("heading", { name: displayName, exact: true }),
