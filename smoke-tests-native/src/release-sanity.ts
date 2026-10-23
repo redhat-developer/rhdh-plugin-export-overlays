@@ -351,8 +351,11 @@ async function main(): Promise<number> {
   );
 
   spawnSync("docker", ["rm", "-f", CONTAINER], { stdio: "ignore" });
+  // The install CLI does not retry, so one registry hiccup among ~170 pulls would fail
+  // the run. It is idempotent and keeps what it already installed, so retry it.
+  const install = `./install-dynamic-plugins.sh ${APP_ROOT}/dynamic-plugins-root`;
   const backendCmd = [
-    `./install-dynamic-plugins.sh ${APP_ROOT}/dynamic-plugins-root`,
+    `{ ${install} || { sleep 15; ${install}; } || { sleep 30; ${install}; }; }`,
     [
       "exec node packages/backend --config app-config.yaml",
       `--config ${APP_ROOT}/dynamic-plugins-root/app-config.dynamic-plugins.yaml`,
