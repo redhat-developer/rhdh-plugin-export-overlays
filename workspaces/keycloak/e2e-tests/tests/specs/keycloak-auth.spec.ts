@@ -488,7 +488,7 @@ test.describe("Keycloak auth provider", () => {
     await clearSession(context);
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
-    await page.reload();
+    await page.reload({ waitUntil: "networkidle" });
 
     const cookies = await context.cookies();
     const authCookie = cookies.find((c) => c.name === KEYCLOAK_REFRESH_COOKIE);

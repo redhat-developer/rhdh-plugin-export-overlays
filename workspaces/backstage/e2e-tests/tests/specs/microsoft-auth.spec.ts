@@ -459,7 +459,7 @@ test.describe(
       );
       expect(login).toBe("Login successful");
 
-      await page.reload();
+      await page.reload({ waitUntil: "networkidle" });
 
       const cookies = await page.context().cookies();
       const authCookie = cookies.find(
