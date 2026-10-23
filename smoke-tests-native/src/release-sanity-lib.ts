@@ -221,6 +221,8 @@ export type SanityReport = {
   loaded: number;
   notLoaded: InstalledPlugin[];
   excluded: string[];
+  /** Requested packages the registry could not serve; not installed. */
+  unresolved: Array<{ ref: string; error: string }>;
   failures: string[];
   /** Set when the backend never became ready. */
   startupError?: string;
@@ -229,6 +231,7 @@ export type SanityReport = {
 export function passed(report: SanityReport): boolean {
   return (
     report.startupError === undefined &&
+    report.unresolved.length === 0 &&
     report.notLoaded.length === 0 &&
     report.installed > 0 &&
     report.installed >= report.requested
@@ -251,6 +254,10 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
   ].filter((line): line is string => line !== undefined);
   if (report.startupError) {
     lines.push("", `**The backend did not start:** ${report.startupError}`);
+  }
+  if (report.unresolved.length) {
+    lines.push("", "**Cannot be pulled (not installed):**");
+    for (const u of report.unresolved) lines.push(`- \`${u.ref}\`: ${u.error}`);
   }
   if (report.installed < report.requested) {
     lines.push(

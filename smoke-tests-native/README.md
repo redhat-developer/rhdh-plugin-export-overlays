@@ -434,6 +434,36 @@ Patterns match the npm package name, and see through the dynamic export's `-dyna
 suffix so one pattern is valid at both scopes (metadata says `@scope/plugin-a`, the
 installed `package.json` says `@scope/plugin-a-dynamic`).
 
+### Release sanity (real RHDH image)
+
+The modes above boot plugins in process with `startTestBackend`. `yarn release-sanity`
+instead boots the **real RHDH image of a release** in a container (docker, or podman as
+docker), with every catalog index package and every community plugin enabled, and fails
+when an installed plugin is missing from `/api/dynamic-plugins-info/loaded-plugins`. It
+replaces the manual sanity plugin check done on each RC.
+
+No plugin version is written anywhere. The image and the catalog index come from a CI chart
+(`helm show values oci://quay.io/rhdh/chart --version <X.Y-N-CI>`), which pins both by
+digest: the same pair the chart's `install.sh` deploys. Community plugins come from each
+package's `spec.dynamicArtifact`.
+
+```bash
+yarn release-sanity                               # newest CI chart of the newest stream
+yarn release-sanity --chart-version 2.2-79-CI     # one RC
+yarn release-sanity --image <ref> --catalog-index <ref>
+```
+
+Needs docker, helm, skopeo, jq and tar. The report, summary and container log land in
+`release-sanity-out/` (`--out`). Config layers, in merge order: `smoke-tests/app-config.yaml`,
+the dummies from `src/plugin-config.ts`, each workspace's `smoke-tests/app-config.test.yaml`,
+and guest sign-in. Each workspace's `test.env` applies, and every `${VAR}` still unset gets
+an `.invalid` URL. Exclusions live in `release-sanity-excludes.txt` (install scope only).
+
+In CI, `.github/workflows/release-plugin-sanity.yaml` runs it daily and when an org member
+or collaborator comments `/sanity <CI chart version>` on the issue labelled
+`release-sanity`; the result is posted back on the issue. For now it accepts only the
+newest stream, whose community metadata is the one on `main`.
+
 ### Test config (parity with the Docker smoke)
 
 Workspaces that ship `smoke-tests/app-config.test.yaml` and/or `smoke-tests/test.env`

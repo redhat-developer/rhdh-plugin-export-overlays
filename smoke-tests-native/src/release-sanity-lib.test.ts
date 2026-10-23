@@ -184,6 +184,7 @@ function report(overrides: Partial<SanityReport> = {}): SanityReport {
     loaded: 2,
     notLoaded: [],
     excluded: [],
+    unresolved: [],
     failures: [],
     ...overrides,
   };
@@ -192,6 +193,12 @@ function report(overrides: Partial<SanityReport> = {}): SanityReport {
 test("passed requires a started backend, every request installed and every install loaded", () => {
   assert.equal(passed(report()), true);
   assert.equal(passed(report({ startupError: "exited" })), false);
+  assert.equal(
+    passed(
+      report({ unresolved: [{ ref: "oci://x", error: "manifest unknown" }] }),
+    ),
+    false,
+  );
   assert.equal(passed(report({ installed: 1 })), false);
   assert.equal(passed(report({ installed: 0, requested: 0 })), false);
   assert.equal(

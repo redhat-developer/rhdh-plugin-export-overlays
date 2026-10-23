@@ -30,7 +30,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { parse, stringify } from "yaml";
+import { partitionResolvable } from "./catalog-index";
 import { excluderFor, loadExclusions } from "./exclusions";
+import { probeRegistry } from "./registry-probe";
 import { buildDummyConfig } from "./plugin-config";
 import { collectPackages } from "./support";
 import { loadEnvFile } from "./test-config";
@@ -263,10 +265,22 @@ async function main(): Promise<number> {
     community,
     isExcluded,
   );
+  // One package the registry cannot serve aborts the whole install, so probe first and
+  // report those instead of losing the run to them.
+  const { unresolved } = await partitionResolvable(
+    dynamicPlugins.plugins
+      .filter((p) => p.enabled && p.package.startsWith("oci://"))
+      .map((p) => p.package),
+    probeRegistry,
+  );
+  const unresolvedRefs = new Set(unresolved.map((u) => u.ref));
+  for (const plugin of dynamicPlugins.plugins) {
+    if (unresolvedRefs.has(plugin.package)) plugin.enabled = false;
+  }
   const requested = dynamicPlugins.plugins.filter((p) => p.enabled);
   const skipped = [
     ...dynamicPlugins.plugins
-      .filter((p) => !p.enabled)
+      .filter((p) => !p.enabled && !unresolvedRefs.has(p.package))
       .map((p) => imageBaseName(p.package)),
     ...communityEntries
       .filter((p) => !community.some((c) => c.artifact === p.artifact))
@@ -393,6 +407,7 @@ async function main(): Promise<number> {
     loaded: loaded.size,
     notLoaded: startupError || apiError ? [] : notLoaded(installed, loaded),
     excluded: [...new Set(skipped)].sort(),
+    unresolved,
     failures: failureLines(fullLog),
     startupError: startupError ?? apiError,
   };
