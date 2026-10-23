@@ -49,47 +49,47 @@ spec:
   description: |
       # Developer Hub Intelligent Assistant
 
-      Red Hat Developer Hub Intelligent Assistant is a virtual assistant powered by generative AI that offers in-depth insights into Red Hat Developer Hub, including its wide range of capabilities. You can interact with this assistant to explore and learn more about Red Hat Developer Hub in greater detail.
+      Red Hat Developer Hub Intelligent Assistant is a virtual assistant powered by generative AI. It answers questions about Red Hat Developer Hub and its capabilities.
 
-      Developer Hub Intelligent Assistant provides a natural language interface within the Red Hat Developer Hub console, helping you easily find information about the product, understand its features, and get answers to your questions as they come up.
+      Developer Hub Intelligent Assistant provides a natural language interface in the Red Hat Developer Hub console. You ask questions about the product and its features and get answers as you work.
 
       Developer Hub Intelligent Assistant consists of two main components:
 
       - **Frontend Plugin** (`@red-hat-developer-hub/backstage-plugin-intelligent-assistant`): Provides the user interface and chat experience
       - **Backend Plugin** (`@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend`): Handles server-side logic, communication with the service sidecar, and API endpoints
 
-      ### Key Features
+      ### Key features
 
-      - 🤖 **LLM Integration**: LLM servers are configured on Lightspeed Core (LCORE), which runs as the `lightspeed-core` sidecar in RHDH deployments
-      - 🔒 **Security**: Built-in question validation to restrict chats to Red Hat Developer Hub related topics
-      - 🔒 **Permissions**: Feature-level RBAC permissions
-      - 💬 **Conversational Interface**: Chat-based interaction with AI assistance
-      - 🖥️ **Screen Context**: Optionally attach current page content (headings, tables, alerts, optional screenshots) to chat messages
-      - 📓 **Notebooks (Developer Preview)**: RAG queries over uploaded notebook and document files
-      - 🔧 **MCP Tools**: Integrate MCP servers with per-user token configuration from the settings panel
-      - 🎯 **Custom Prompts**: Configurable sample and system prompts for better user experience
-      - 🛡️ **Rate Limiting**: Per-user request rate limits on authenticated endpoints
-      - 📊 **Session Management**: Handle user conversations and history
+      - **LLM integration.** Lightspeed Core (LCORE) hosts the LLM servers and runs as the `lightspeed-core` sidecar in RHDH deployments.
+      - **Security.** Question validation restricts chats to Red Hat Developer Hub related topics.
+      - **Permissions.** Feature-level RBAC permissions.
+      - **Conversational interface.** Chat-based interaction with AI assistance.
+      - **Screen context.** Attaches current page content, such as headings, tables, alerts, and optional screenshots, to chat messages.
+      - **Notebooks (Developer Preview).** RAG queries over uploaded notebook and document files.
+      - **MCP tools.** Users configure MCP servers and per-user tokens from the settings panel.
+      - **Custom prompts.** Configurable sample and system prompts.
+      - **Rate limiting.** Per-user request rate limits on authenticated endpoints.
+      - **Session management.** Conversations and history.
 
       ## Usage
 
 
-      ### For Administrators
+      ### For administrators
 
-      1. **LLM Server Configuration**: LLM servers are configured on Lightspeed Core (LCORE) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart, or the `intelligent-assistant` flavour in the Operator's Backstage custom resource); in standalone Backstage, in the LCORE `lightspeed-stack.yaml`
-      2. **Configurable Prompts**: Administrators can customize the welcome prompts to guide users with specific tasks or questions and system prompts to set the context for the AI assistant
-      3. **Feature Toggles**: Enable screen context, notebooks, and MCP server integration under the `intelligent-assistant` configuration key
+      1. **LLM server configuration.** Lightspeed Core (LCORE) hosts the LLM servers. In RHDH deployments it runs as the `lightspeed-core` sidecar, enabled with `intelligentAssistant.enabled` in the Helm chart or the `intelligent-assistant` flavour in the Operator's Backstage custom resource. In standalone Backstage, configure it in the LCORE `lightspeed-stack.yaml`.
+      2. **Configurable prompts.** Administrators can customize the welcome prompts users see and the system prompt that sets the assistant's context.
+      3. **Feature toggles.** Enable screen context, notebooks, and MCP server integration under the `intelligent-assistant` configuration key.
 
-      ### For End Users
+      ### For end users
 
-      1. **Access the Plugin**: Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button
-      2. **Start Chatting**: Begin asking questions about Red Hat Developer Hub, or other development topics
-      3. **Display Modes**: Switch between overlay, docked, embedded, and fullscreen modes from Settings; the active conversation is preserved across mode switches
-      4. **Manage Chats**: Your chat history is maintained for the session, you can start new chats, view history, and delete chats as needed.
+      1. **Access the plugin.** Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button.
+      2. **Start chatting.** Ask questions about Red Hat Developer Hub or other development topics.
+      3. **Display modes.** Switch between overlay, docked, embedded, and fullscreen modes from Settings. The active conversation is preserved across mode switches.
+      4. **Manage chats.** Your chat history is kept for the session. You can start new chats, view history, and delete chats.
 
-      ### Supported Topics
+      ### Supported topics
 
-      When question validation is enabled, the plugin is optimized for:
+      When question validation is enabled, the plugin restricts chats to these topics:
       - Red Hat Developer Hub (RHDH)
 
       ## Support
@@ -109,7 +109,7 @@ spec:
   installation: |
       ## Installation
 
-      ### Dynamic Plugin Installation for Red Hat Developer Hub
+      ### Dynamic plugin installation for Red Hat Developer Hub
 
       Add the following configuration to your dynamic plugin yaml:
 
@@ -181,7 +181,7 @@ spec:
               #   general:
               #     max: 200
 
-              # OPTIONAL: Notebooks feature (Developer Preview) — requires Lightspeed Core
+              # OPTIONAL: Notebooks feature (Developer Preview), requires Lightspeed Core
               # and Llama Stack; model and provider_id must be configured together
               # notebooks:
               #   enabled: true
@@ -193,13 +193,12 @@ spec:
               # systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
       ```
       
-      ### Static Installation for Backstage application.
+      ### Static installation for a Backstage application
 
       This section documents the static method of installing plugin packages in a Backstage application.
       Use this approach only when you want to manually add and configure plugins.
-      Ensure you follow each step carefully to integrate the plugin correctly within your Backstage environment.
       
-      #### 1. Install Plugin Packages
+      #### 1. Install plugin packages
 
       ```bash
       # Install frontend plugin
@@ -209,7 +208,7 @@ spec:
       yarn add --cwd packages/backend @red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend
       ```
 
-      #### 2. Register Backend Plugin
+      #### 2. Register the backend plugin
 
       Add to your `packages/backend/src/index.ts`:
 
@@ -226,9 +225,9 @@ spec:
       backend.start();
       ```
 
-      #### 3. Add Frontend Components
+      #### 3. Add frontend components
 
-      **NFS (New Frontend System) — recommended.** Import modules from the package root and register them as features in `createApp` in `packages/app/src/App.tsx`:
+      **NFS (New Frontend System) is recommended.** Import modules from the package root and register them as features in `createApp` in `packages/app/src/App.tsx`:
 
       ```tsx
       import { createApp } from '@backstage/frontend-defaults';
@@ -251,7 +250,7 @@ spec:
       });
       ```
 
-      Enable the extensions in `app-config.yaml` (order matters: `app/drawer` must come before `app/intelligent-assistant-fab` for correct React Context nesting):
+      Enable the extensions in `app-config.yaml`. `app/drawer` must come before `app/intelligent-assistant-fab` for correct React Context nesting:
 
       ```yaml
       app:
@@ -265,7 +264,7 @@ spec:
                 defaultLanguage: 'en'
       ```
 
-      **OFS (Old Frontend System / legacy).** Legacy components are available at the `./legacy` subpath. Add a route in `packages/app/src/App.tsx`:
+      **OFS (Old Frontend System), legacy.** Legacy components are available at the `./legacy` subpath. Add a route in `packages/app/src/App.tsx`:
 
       ```tsx
       import { LightspeedPage } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant/legacy';
@@ -274,7 +273,7 @@ spec:
       <Route path="/intelligent-assistant" element={<LightspeedPage />} />
       ```
 
-      **Add Navigation Menu Item** in `packages/app/src/components/Root/Root.tsx`:
+      Add a navigation menu item in `packages/app/src/components/Root/Root.tsx`:
 
       ```tsx
       import { LightspeedIcon } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant/legacy';
@@ -287,8 +286,8 @@ spec:
       />
       ```
 
-      #### 4. Configure the Plugin
-      LLM servers are configured on Lightspeed Core (LCORE) — in RHDH deployments it runs as the `lightspeed-core` sidecar (enabled with `intelligentAssistant.enabled` in the Helm chart, or the `intelligent-assistant` flavour in the Operator's Backstage custom resource); in standalone Backstage, in the LCORE `lightspeed-stack.yaml`. Plugin-level options go in `app-config.yaml` or `app-config.local.yaml`:
+      #### 4. Configure the plugin
+      Lightspeed Core (LCORE) hosts the LLM servers. In RHDH deployments it runs as the `lightspeed-core` sidecar, enabled with `intelligentAssistant.enabled` in the Helm chart or the `intelligent-assistant` flavour in the Operator's Backstage custom resource. In standalone Backstage, configure it in the LCORE `lightspeed-stack.yaml`. Plugin-level options go in `app-config.yaml` or `app-config.local.yaml`:
 
       ```yaml
         intelligent-assistant:
@@ -298,7 +297,7 @@ spec:
 
       ## Configuration
 
-      ### Complete Configuration Reference
+      ### Complete configuration reference
 
       Add the following configuration to your `app-config.yaml`:
 
@@ -328,7 +327,7 @@ spec:
           enabled: false
       ```
 
-      #### Configuration Fields
+      #### Configuration fields
 
       | Field | Type | Required | Default | Description |
       |-------|------|----------|---------|-------------|
@@ -347,15 +346,15 @@ spec:
       | `screen-context.dom-extraction.maxChars` | Number | ❌ No | `8000` | Max characters of page text extracted per page |
       | `notebooks.enabled` | Boolean | ❌ No | `false` | Enable the Notebooks feature (Developer Preview) |
 
-      ### Example Configurations
+      ### Example configurations
 
-      #### Minimal Configuration
+      #### Minimal configuration
       ```yaml
       intelligent-assistant:
         servicePort: 8080
       ```
 
-      #### Enable Screen Context
+      #### Enable screen context
       ```yaml
       intelligent-assistant:
         screen-context:
@@ -368,7 +367,7 @@ spec:
       ```
 
       #### Enable Notebooks (Developer Preview)
-      Requires Lightspeed Core and an accessible Llama Stack service; `model` and `provider_id` must be configured together and map to a provider enabled in your Lightspeed config.
+      Notebooks requires Lightspeed Core and an accessible Llama Stack service. Configure `model` and `provider_id` together. Both must map to a provider enabled in your Lightspeed config.
       ```yaml
       intelligent-assistant:
         notebooks:
@@ -383,7 +382,7 @@ spec:
           #   chunkOverlapTokens: 50 # For 'static' chunking (default: 50)
       ```
 
-      #### Custom User Prompts (Welcome Prompts in Intelligent Assistant UI)
+      #### Custom user prompts (welcome prompts in the Intelligent Assistant UI)
       ```yaml
       intelligent-assistant:
         prompts:
@@ -395,7 +394,7 @@ spec:
             message: "What are the recommended practices for RHDH development?"
       ```
 
-      #### MCP Server Integration
+      #### MCP server integration
       ```yaml
       intelligent-assistant:
         mcpServers:
@@ -403,7 +402,7 @@ spec:
             token: ${MCP_TOKEN}
       ```
 
-      #### Complete Configuration with All Options
+      #### Complete configuration with all options
       ```yaml
       intelligent-assistant:
         servicePort: 8080
@@ -432,7 +431,7 @@ spec:
 
       The Intelligent Assistant plugin supports the Backstage permission framework for access control.
 
-      ### RBAC Configuration
+      ### RBAC configuration
 
       When using the [RBAC permission framework](https://github.com/backstage/community-plugins/tree/main/workspaces/rbac/plugins/rbac-backend#installation), add the following permissions to your `rbac-policy.csv` file:
 
@@ -458,7 +457,7 @@ spec:
       g, user:default/<your-user-name>, role:default/team_a
       ```
 
-      ### Permission Configuration
+      ### Permission configuration
 
       Configure the permission system in your application configuration:
 
@@ -472,7 +471,7 @@ spec:
 
       ## Development
 
-      ### Local Development
+      ### Local development
 
       1. **Fork and clone this repository**:
 
@@ -506,14 +505,14 @@ spec:
 
 
 
-      ### Environment Variables
+      ### Environment variables
 
       Environment variable substitution works in `app-config.yaml` for any plugin configuration value:
 
       - `MCP_TOKEN`: Token for an MCP server configured under `mcpServers`
       - `NOTEBOOK_DEFAULT_MODEL` / `NOTEBOOK_PROVIDER`: Notebooks query defaults (Developer Preview)
 
-      ### Example with Environment Variables
+      ### Example with environment variables
 
       ```yaml
       intelligent-assistant:
