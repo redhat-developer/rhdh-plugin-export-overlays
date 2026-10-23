@@ -27,7 +27,7 @@ spec:
   partOf:
     - ai-model-catalog
   appConfigExamples:
-    - title: Default configuration
+    - title: Model card TechDocs configuration
       content:
         catalog:
           providers:
@@ -35,3 +35,15 @@ spec:
               developement:
                 my-cluster:
                   kubeflow-model-catalog-url: http://localhost:9090
+    - title: Skills TechDocs configuration
+      content:
+        catalog:
+          providers:
+            skillsCatalogProvider:
+              default:
+                sources:
+                  - connectorPluginId: my-skills-connector
+                    sourceId: my-source
+                    sourceType: oci
+                defaultOwner: my-team
+                defaultLifecycle: production
