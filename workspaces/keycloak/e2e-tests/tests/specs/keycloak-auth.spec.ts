@@ -17,7 +17,10 @@ import {
   KEYCLOAK_REFRESH_COOKIE,
   NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
 } from "../support/constants/keycloak-auth";
-import { safeSignOut } from "../support/helpers/keycloak-auth-helpers";
+import {
+  navigateToSettings,
+  safeSignOut,
+} from "../support/helpers/keycloak-auth-helpers";
 import {
   catalogEntityExists,
   checkGroupDisplayNamesInCatalog,
@@ -512,17 +515,90 @@ test.describe("Keycloak auth provider", () => {
       const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
 
       await loginHelper.loginAsKeycloakUser(username, password);
-      await expectProfile(page, uiHelper, displayName);
 
-      const ghLogin = await loginHelper.githubLoginFromSettingsPage(
-        process.env.VAULT_GH_USER_ID!,
-        process.env.VAULT_GH_USER_PASS!,
-        process.env.VAULT_GH_2FA_SECRET!,
-      );
-      expect(ghLogin).toBe("Login successful");
+      // Navigate to Settings via the profile dropdown — not page.goto()
+      // or sidebar — so the loaded app retains its authenticated session.
+      // The NFS sidebar has no Settings item; it lives in the profile dropdown.
+      // (page.goto drops the session; same root cause as #4034.)
+      await navigateToSettings(page, uiHelper);
+      await uiHelper.waitForLoad();
+
+      // Assert the authenticated settings page renders the profile.
+      // If this fails, the auth-providers tab cannot work either.
+      await expect(
+        page.getByRole("heading", { name: displayName, exact: true }),
+      ).toBeVisible({ timeout: 30_000 });
+
+      // Navigate to the Authentication Providers tab within the SPA.
+      await uiHelper.clickTab("Authentication Providers");
+      await uiHelper.waitForLoad();
+
+      // Wait for the GitHub sign-in control to render.
+      page.setDefaultTimeout(30_000);
+      const githubSignIn = page.getByTitle("Sign in to GitHub");
+      await expect(githubSignIn).toBeEnabled({ timeout: 30_000 });
+
+      // Drive the GitHub OAuth popup inline — githubLoginFromSettingsPage()
+      // does page.goto("/settings/auth-providers") internally, which would
+      // drop the session. Replicates handleGitHubPopupLogin from test-utils.
+      const [popup] = await Promise.all([
+        page.waitForEvent("popup", { timeout: 30_000 }),
+        githubSignIn.click(),
+        uiHelper.clickButton("Log in"),
+      ]);
+
+      await popup.waitForLoadState("domcontentloaded");
+      try {
+        await popup.waitForEvent("close", { timeout: 5_000 });
+        // Popup auto-closed: already signed in to GitHub.
+      } catch {
+        // Popup stayed open: complete the GitHub login form.
+        try {
+          await popup
+            .locator("#login_field")
+            .fill(process.env.VAULT_GH_USER_ID!, { timeout: 5_000 });
+          const cookieBanner = popup.locator("#wcpConsentBannerCtrl");
+          if (await cookieBanner.isVisible()) {
+            await popup.click('button:has-text("Reject")', {
+              timeout: 5_000,
+            });
+          }
+          await popup
+            .locator("#password")
+            .fill(process.env.VAULT_GH_USER_PASS!, { timeout: 5_000 });
+          await popup
+            .locator("[type='submit'][value='Sign in']:not(webauthn-status *)")
+            .first()
+            .click({ timeout: 5_000 });
+
+          const otp = loginHelper.getGitHub2FAOTP(
+            process.env.VAULT_GH_USER_ID!,
+          );
+          await popup.locator("#app_totp").fill(otp, { timeout: 5_000 });
+          await popup.waitForEvent("close", { timeout: 20_000 });
+        } catch (e) {
+          // GitHub may prompt for OAuth app authorization instead.
+          const authorize = popup.locator("button.js-oauth-authorize-btn");
+          if (await authorize.isVisible()) {
+            await authorize.click();
+          } else {
+            throw e;
+          }
+        }
+      }
+
+      // Assert the GitHub provider is now connected, then disconnect.
+      await expect(page.getByTitle("Sign out from GitHub")).toBeVisible({
+        timeout: 30_000,
+      });
       await page.getByTitle("Sign out from GitHub").click();
 
-      await expectProfile(page, uiHelper, displayName);
+      // Verify the Keycloak profile is still intact after GitHub sign-out.
+      await navigateToSettings(page, uiHelper);
+      await uiHelper.waitForLoad();
+      await expect(
+        page.getByRole("heading", { name: displayName, exact: true }),
+      ).toBeVisible();
       await safeSignOut(page, loginHelper);
     } finally {
       await clearSession(context);
