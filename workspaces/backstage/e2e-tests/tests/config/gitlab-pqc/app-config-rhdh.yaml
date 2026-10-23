@@ -1,0 +1,24 @@
+app:
+  title: RHDH GitLab PQC e2e
+
+integrations:
+  gitlab:
+    - host: ${GITLAB_HOST}
+      token: ${GITLAB_TOKEN}
+
+catalog:
+  providers:
+    gitlab:
+      provider:
+        group: e2e-pqc-group
+        host: ${GITLAB_HOST}
+        schedule:
+          frequency:
+            hours: 24
+          initialDelay:
+            seconds: 5
+          timeout:
+            minutes: 1
+
+permission:
+  enabled: false
