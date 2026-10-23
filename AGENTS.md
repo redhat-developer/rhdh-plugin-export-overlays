@@ -47,11 +47,13 @@ The triage agent sets `fix_category` in the issue body, and it decides what you 
 | `metadata_config` | Incorrect workspace metadata or repo-local config | Fix the metadata/config, or flag for human review |
 | `product_bug` | Upstream plugin code defect you cannot fix | Add `test.skip` |
 
-For `product_bug`, skip with the condition that matches the failure scope:
+For `product_bug`, skip with the condition that matches the failure scope. CI sets `E2E_NIGHTLY_MODE=true` for both Helm and operator nightlies, so a bare nightly skip drops the other lane's coverage:
 
 ```typescript
-test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");  // nightly only
-test.skip(true, "<root cause summary> (release-X.Y)");             // branch-wide
+test.skip(process.env.INSTALLATION_METHOD === "operator", "<root cause summary>");  // operator only
+test.skip(process.env.INSTALLATION_METHOD !== "operator", "<root cause summary>");  // Helm only
+test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");                 // both lanes, nightly
+test.skip(true, "<root cause summary> (release-X.Y)");                             // branch-wide
 ```
 
 Do not add `test.skip` for `metadata_config`. The full procedure — systemic workspace failures, out-of-scope causes, mode-dependent `configure()` options, skip-scope review, and verification commands — is in `docs/agents/knowledge/e2e-fix-workflow.md`.

@@ -138,9 +138,11 @@ All files in `tests/config/` are optional; create one only to override a default
 - `rhdh-secrets.yaml` — Kubernetes Secret manifest injecting env vars into RHDH
 - `dynamic-plugins.yaml` — plugin overrides (usually unnecessary — auto-generated from metadata)
 - `value_file.yaml` — Helm chart value overrides
-- `subscription.yaml` — Operator subscription overrides
+- `subscription.yaml` — Operator `Backstage` CR overrides (not an OLM Subscription)
 
 `dynamic-plugins.yaml` is the usual exception — required when the workspace depends on plugins from other workspaces. See [dynamic-plugins.md](./dynamic-plugins.md#cross-workspace-dependencies).
+
+Helm reads `value_file.yaml`; the operator reads `subscription.yaml` (a `Backstage` CR, not an OLM Subscription). Put shared application settings in `app-config-rhdh.yaml`. The failure-analysis skill's [Installation Methods](../../../.fullsend/skills/e2e-failure-analysis/reference/workspace-analysis.md#installation-methods) section covers operator-specific diagnosis: which diagnostics are captured, flavour/workload/ConfigMap checks, and config-array merging.
 
 **Environment variables in RHDH config** must first be declared in `rhdh-secrets.yaml`:
 
@@ -218,12 +220,12 @@ Use `test:secrets` when secrets must be loaded; it accepts the same Playwright o
 
 ### CI behaviour that leaks into local runs
 
-The current checkout and `e2e-test-utils` 2.2.1 carry these caveats:
+The current checkout carries these caveats:
 
 - The root runner sets an unset or empty `CI` to `"true"`. Use `CI=true` for automatic namespace cleanup, `CI=false` to retain deployments for debugging.
 - `CI=false` is a nonempty string. It still enables `forbidOnly` and ignores `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true`; it does not fully disable CI behaviour.
 - In `backstage`, GitHub-discovery and TechDocs projects use one retry with either string and zero with `CI` unset. GitLab scaffolder resource cleanup defaults to enabled only for `CI=true`; override with `GITLAB_SCAFFOLDER_CLEANUP=true` or `false`.
-- For nightly reproduction with `CI=false`, also set `E2E_NIGHTLY_MODE=true` and `RELEASE_BRANCH_NAME=main` (or the target branch). The shared metadata resolver still requires the branch even though the shell preflight accepts its absence.
+- For local nightly reproduction, set `E2E_NIGHTLY_MODE=true`. The root runner defaults `RELEASE_BRANCH_NAME` to `main` and `RHDH_VERSION` to `next`; when reproducing another release, set both explicitly (for example `RELEASE_BRANCH_NAME=release-2.1 RHDH_VERSION=2.1`). Set the branch explicitly for direct workspace runs with a nonempty `CI`, or when reproducing a Prow job locally.
 - Set `CI` in the launching shell, not in workspace `.env` files: those load after Playwright configuration evaluation and can leave configuration and cleanup using different values.
 
 Direct workspace runs normally need no `CI` setting. `unset CI` clears an inherited value for the rest of that shell; `env -u CI yarn test:secrets --headed` does it for a single command. The root runner restores `CI=true` when `CI` is unset, so clearing it does not enable local mode through `run-e2e.sh`.
@@ -309,13 +311,14 @@ An `-app-next` lane is also where `runOnce` key collisions surface: two projects
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `RHDH_VERSION` | RHDH version to deploy; the root runner sets it, and workspace configuration may override it | Entry-point/config dependent |
+| `RHDH_VERSION` | RHDH version to deploy; workspace configuration may override it | `next` in root runner |
 | `INSTALLATION_METHOD` | `"helm"` or `"operator"` | `"helm"` |
 | `GIT_PR_NUMBER` | PR number — enables PR mode with PR-built OCI images | - |
 | `E2E_NIGHTLY_MODE` | `"true"` or `"1"` — enables nightly mode with released OCI refs | - |
-| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution; required when `CI` is nonempty, including `"false"` | `main` only when `CI` is unset or empty |
+| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution | `main` in local root runs; supplied by Prow jobs |
 | `JOB_NAME` | CI job name; `periodic-` prefix triggers nightly mode | - |
 | `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak in global setup | - |
+| `SKIP_OPERATOR_INSTALLATION` | Reuse an installed operator when `INSTALLATION_METHOD=operator` | Unset (install operator) |
 | `CI` | See [CI behaviour that leaks into local runs](#ci-behaviour-that-leaks-into-local-runs) for cleanup and focused-test behaviour | `true` in root runner |
 | `E2E_TEST_UTILS_PATH` | Local e2e-test-utils build path (takes precedence over version) | - |
 | `E2E_TEST_UTILS_VERSION` | Pin e2e-test-utils npm version | `latest` (nightly) |
@@ -326,9 +329,13 @@ An `-app-next` lane is also where `runOnce` key collisions surface: two projects
 | Job | When | Workspaces | OCI Images |
 |-----|------|-----------|------------|
 | PR check (`e2e-ocp-helm`) | PR with e2e changes | Changed workspace only | PR-built (`pr_` tags) |
-| Nightly (`e2e-ocp-helm-nightly`) | Daily cron / manual | All workspaces | Released (metadata refs) |
+| PR check (`e2e-ocp-operator`) | PR with e2e changes (operator lane) | Changed workspace only | PR-built (`pr_` tags) |
+| Nightly (`e2e-ocp-helm-nightly`) | Mon/Wed/Fri on `main`; weekdays on release branches; manual | All workspaces | Released (metadata refs) |
+| Nightly (`e2e-ocp-operator-nightly`) | Tue/Thu on `main`; weekdays on release branches where enabled; manual | All workspaces | Released (metadata refs) |
 
-Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
+Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` (or `/test e2e-ocp-operator-nightly`) on a PR.
+
+Operator jobs are enabled in OpenShift CI on `main` and `release-2.1`. Diagnose the installation method from the build log, not the job name alone.
 
 ## Runtime reference
 
@@ -382,4 +389,4 @@ The reporter lives in the main Playwright process, survives worker restarts, and
 
 ## Failure analysis
 
-The `e2e-failure-analysis` skill, symlinked into `.agents/skills/` from `.fullsend/skills/`, covers E2E failure investigation: artifact download, diagnostics, grouping by error signature, trace correlation including the Playwright trace CLI, cluster log search, and config comparison.
+The `e2e-failure-analysis` skill, symlinked into `.agents/skills/` from `.fullsend/skills/`, covers E2E failure investigation: artifact download, diagnostics, grouping by error signature, trace correlation including the Playwright trace CLI, cluster log search, and config comparison. Its architecture reference covers Helm and operator configuration differences.
