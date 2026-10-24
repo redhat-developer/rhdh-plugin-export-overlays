@@ -9,6 +9,8 @@ import { strict as assert } from "node:assert";
 import {
   buildDynamicPluginsConfig,
   chartStream,
+  backendStartupFailed,
+  failedPluginIds,
   failureLines,
   mergeAppConfig,
   imageBaseName,
@@ -185,6 +187,7 @@ function report(overrides: Partial<SanityReport> = {}): SanityReport {
     excluded: [],
     unresolved: [],
     failures: [],
+    failedPlugins: [],
     ...overrides,
   };
 }
@@ -240,4 +243,27 @@ test("failureLines keeps install CLI config conflicts", () => {
     "  - oci://x: Config key 'sonarqube.baseUrl' defined differently for 2 dynamic plugins",
   ].join("\n");
   assert.equal(failureLines(log).length, 2);
+});
+
+const CRASH_LOG = [
+  "\u001b[2m2026-10-23T23:51:27Z\u001b[22m \u001b[34mbackstage\u001b[39m \u001b[31merror\u001b[39m Plugin 'mta' threw an error during startup, waiting for 15 other plugins",
+  "error Unhandled rejection Backend startup failed due to the following errors:",
+  "  Plugin 'mta' startup failed; caused by Error: connect ECONNREFUSED",
+].join("\n");
+
+test("failedPluginIds names each plugin that failed startup once", () => {
+  assert.deepEqual(failedPluginIds(CRASH_LOG), ["mta"]);
+  assert.deepEqual(failedPluginIds("info all good"), []);
+});
+
+test("failureLines strips terminal colour codes", () => {
+  const [first] = failureLines(CRASH_LOG);
+  assert.ok(
+    first.startsWith("2026-10-23T23:51:27Z backstage error Plugin 'mta'"),
+  );
+});
+
+test("backendStartupFailed spots the backend giving up", () => {
+  assert.equal(backendStartupFailed(CRASH_LOG), true);
+  assert.equal(backendStartupFailed("Plugin initialization complete"), false);
 });

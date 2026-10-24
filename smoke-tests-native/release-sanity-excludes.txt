@@ -12,3 +12,7 @@
 # initialize, and its failure takes the whole backend down.
 install ^red-hat-developer-hub-backstage-plugin-orchestrator-backend$
 install ^red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki$
+
+# TODO(RHIDP-18207): mta-backend connects to its MTA server while initializing
+# (ECONNREFUSED on the dummy URL) and its failure takes the whole backend down.
+install ^backstage-community-backstage-plugin-mta-backend$

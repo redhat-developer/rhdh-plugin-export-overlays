@@ -219,8 +219,32 @@ export function notLoaded(
 const FAILURE_LINE =
   /InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|threw an error during startup|Backend startup failed|Missing required config value|defined differently|plugin\(s\) failed/;
 
+// eslint-disable-next-line no-control-regex -- matching terminal escapes is the point
+const ANSI_ESCAPE = /\u001b\[[0-9;]*m/g;
+
 export function failureLines(log: string): string[] {
-  return log.split("\n").filter((line) => FAILURE_LINE.test(line));
+  return log
+    .replace(ANSI_ESCAPE, "")
+    .split("\n")
+    .filter((line) => FAILURE_LINE.test(line));
+}
+
+/** Plugin ids the backend named as failing startup, e.g. `mta`. */
+export function failedPluginIds(log: string): string[] {
+  const ids = new Set<string>();
+  for (const match of log
+    .replace(ANSI_ESCAPE, "")
+    .matchAll(
+      /Plugin '([^']+)' (?:threw an error during startup|startup failed)/g,
+    )) {
+    ids.add(match[1]);
+  }
+  return [...ids].sort(compareStrings);
+}
+
+/** The backend gave up starting; it may linger, so this ends the wait early. */
+export function backendStartupFailed(log: string): boolean {
+  return log.includes("Backend startup failed");
 }
 
 export type SanityReport = {
@@ -236,6 +260,8 @@ export type SanityReport = {
   /** Requested packages the registry could not serve; not installed. */
   unresolved: Array<{ ref: string; error: string }>;
   failures: string[];
+  /** Plugin ids the backend reported as failing startup. */
+  failedPlugins: string[];
   /** Set when the backend never became ready. */
   startupError?: string;
 };
@@ -266,6 +292,12 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
   ].filter((line): line is string => line !== undefined);
   if (report.startupError) {
     lines.push("", `**The backend did not start:** ${report.startupError}`);
+  }
+  if (report.failedPlugins.length) {
+    lines.push(
+      "",
+      `**Plugins that failed startup:** ${report.failedPlugins.map((p) => `\`${p}\``).join(", ")}`,
+    );
   }
   if (report.unresolved.length) {
     lines.push("", "**Cannot be pulled (not installed):**");

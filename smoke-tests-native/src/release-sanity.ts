@@ -41,6 +41,8 @@ import {
   DUMMY_ENV_VALUE,
   buildDynamicPluginsConfig,
   chartStream,
+  backendStartupFailed,
+  failedPluginIds,
   failureLines,
   imageBaseName,
   imagesFromChartValues,
@@ -181,11 +183,21 @@ function containerRunning(): boolean {
   return state.stdout.trim() === "true";
 }
 
+function containerLog(): string {
+  const log = spawnSync("docker", ["logs", CONTAINER], {
+    encoding: "utf8",
+    maxBuffer: 256 * 1024 * 1024,
+  });
+  return `${log.stdout}${log.stderr}`;
+}
+
 async function waitForBackend(): Promise<string | undefined> {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (!containerRunning())
       return "the container exited before the backend was ready";
+    if (backendStartupFailed(containerLog()))
+      return "a plugin failed startup and the backend gave up";
     try {
       const res = await fetch(
         `http://localhost:${PORT}/.backstage/health/v1/readiness`,
@@ -400,11 +412,7 @@ async function main(): Promise<number> {
       apiError = err instanceof Error ? err.message : String(err);
     }
   }
-  const log = spawnSync("docker", ["logs", CONTAINER], {
-    encoding: "utf8",
-    maxBuffer: 256 * 1024 * 1024,
-  });
-  const fullLog = `${log.stdout}${log.stderr}`;
+  const fullLog = containerLog();
   writeFileSync(join(out, "container.log"), fullLog);
   if (!args.keep)
     spawnSync("docker", ["rm", "-f", CONTAINER], { stdio: "ignore" });
@@ -421,6 +429,7 @@ async function main(): Promise<number> {
     excluded: [...new Set(skipped)].sort(),
     unresolved,
     failures: failureLines(fullLog),
+    failedPlugins: failedPluginIds(fullLog),
     startupError: startupError ?? apiError,
   };
   writeFileSync(join(out, "report.json"), JSON.stringify(report, null, 2));
