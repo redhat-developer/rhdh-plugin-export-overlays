@@ -6,11 +6,15 @@ name: Release Plugin Sanity
 # the image and index come from a CI chart, community builds from spec.dynamicArtifact.
 #
 # Triggers:
-#   - daily, against the newest CI chart; a failure is posted on the release-sanity
-#     issue;
+#   - daily, against the newest CI chart of main and of each branch in
+#     RELEASE_BRANCHES; a failure is posted on the release-sanity issue;
 #   - `/sanity <chart version>` (e.g. `/sanity 2.2-79-CI`) commented on the issue
 #     labelled `release-sanity`, by an org member or collaborator. The result is posted
 #     back on the issue.
+#
+# A chart runs with the harness, exclusions and community metadata of its own branch:
+# release-X.Y when that branch exists, main otherwise. Scheduled and comment events only
+# run this file from main, so the release branches carry the harness, not the trigger.
 
 on:
   schedule:
@@ -21,9 +25,14 @@ on:
 permissions:
   contents: read
 
+env:
+  # Maintained release branches checked daily besides main. Add a branch when it is cut,
+  # drop it at end of life.
+  RELEASE_BRANCHES: release-2.1
+
 jobs:
-  sanity:
-    name: release-plugin-sanity
+  plan:
+    name: plan
     # Every comment in the repo starts this workflow; only /sanity on the labelled
     # issue gets a job. Authorization is checked in a step, so a refusal is answered.
     if: >-
@@ -32,16 +41,12 @@ jobs:
        !github.event.issue.pull_request &&
        contains(github.event.issue.labels.*.name, 'release-sanity') &&
        startsWith(github.event.comment.body, '/sanity'))
-    # Job-level, so skipped runs never enter the group: one check at a time (each binds
-    # port 7007 and pulls every plugin), queued rather than cancelled.
-    concurrency:
-      group: release-plugin-sanity
-      cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 5
     permissions:
-      contents: read
       issues: write
+    outputs:
+      targets: ${{ steps.targets.outputs.targets }}
     env:
       ISSUE: ${{ github.event.issue.number }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -70,15 +75,56 @@ jobs:
               --body 'Usage: `/sanity <CI chart version>`, for example `/sanity 2.2-79-CI`.'
             exit 1
           fi
-          echo "chart=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          chart="${BASH_REMATCH[1]}"
+          ref=main
+          if git ls-remote --exit-code --heads "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            "release-${chart%%-*}" > /dev/null; then
+            ref="release-${chart%%-*}"
+          fi
+          echo "target=$(jq -nc --arg ref "$ref" --arg chart "$chart" '{ref: $ref, chart: $chart}')" \
+            >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" \
             -f content=eyes --silent || true
           gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Running the release plugin sanity check for \`${BASH_REMATCH[1]}\`: $RUN_URL"
+            --body "Running the release plugin sanity check for \`$chart\` with the \`$ref\` harness: $RUN_URL"
 
+      - name: List the targets
+        id: targets
+        env:
+          TARGET: ${{ steps.command.outputs.target }}
+        run: |
+          if [[ -n "$TARGET" ]]; then
+            echo "targets=[$TARGET]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # shellcheck disable=SC2086 # word-split the space-separated branch list
+          echo "targets=$(printf '%s\n' main $RELEASE_BRANCHES \
+            | jq -Rnc '[inputs | {ref: ., chart: ""}]')" >> "$GITHUB_OUTPUT"
+
+  sanity:
+    name: release-plugin-sanity (${{ matrix.target.ref }})
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.plan.outputs.targets) }}
+    # One check per branch at a time, queued rather than cancelled.
+    concurrency:
+      group: release-plugin-sanity-${{ matrix.target.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ISSUE: ${{ github.event.issue.number }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ matrix.target.ref }}
           persist-credentials: false
 
       - name: Enable Corepack
@@ -98,16 +144,23 @@ jobs:
         id: sanity
         working-directory: smoke-tests-native
         env:
-          CHART: ${{ steps.command.outputs.chart }}
+          CHART: ${{ matrix.target.chart }}
+          REF: ${{ matrix.target.ref }}
         run: |
           # --out must stay inside the working directory (the harness's path rule).
-          args=(--only-newest-stream --out release-sanity-out --run-url "$RUN_URL")
-          if [[ -n "$CHART" ]]; then args+=(--chart-version "$CHART"); fi
+          args=(--out release-sanity-out --run-url "$RUN_URL")
+          if [[ -n "$CHART" ]]; then
+            args+=(--chart-version "$CHART")
+          elif [[ "$REF" == release-* ]]; then
+            args+=(--stream "${REF#release-}")
+          fi
+          # main's metadata builds the newest stream only.
+          if [[ "$REF" == main ]]; then args+=(--only-newest-stream); fi
           yarn release-sanity "${args[@]}"
 
       - name: Publish the result
         # always(): a timeout or cancellation still owes the commenter an answer.
-        if: ${{ always() && steps.command.outcome != 'failure' }}
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.sanity.outcome }}
@@ -130,10 +183,10 @@ jobs:
           fi
 
       - name: Upload the report and container log
-        if: ${{ always() && steps.command.outcome != 'failure' }}
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-plugin-sanity
+          name: release-plugin-sanity-${{ matrix.target.ref }}
           path: |
             smoke-tests-native/release-sanity-out/*.json
             smoke-tests-native/release-sanity-out/*.md

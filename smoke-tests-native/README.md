@@ -466,8 +466,10 @@ an `.invalid` URL. Exclusions live in `release-sanity-excludes.txt` (install sco
 
 In CI, `.github/workflows/release-plugin-sanity.yaml` runs it daily and when an org member
 or collaborator comments `/sanity <CI chart version>` on the issue labelled
-`release-sanity`; the result is posted back on the issue. For now it accepts only the
-newest stream, whose community metadata is the one on `main`.
+`release-sanity`; the result is posted back on the issue. A chart runs with the harness,
+exclusions and community metadata of its own branch: `release-X.Y` when that branch exists,
+`main` otherwise. The daily run covers `main` and each branch listed in the workflow's
+`RELEASE_BRANCHES`.
 
 ### Test config (parity with the Docker smoke)
 
