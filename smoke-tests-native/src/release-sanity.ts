@@ -59,6 +59,7 @@ import {
   mergeAppConfig,
   newestCiChart,
   findNotInstalled,
+  findSharedInstallDirs,
   findNotLoaded,
   installedPlugin,
   isPluginDir,
@@ -515,6 +516,9 @@ async function main(): Promise<number> {
     notInstalled: findNotInstalled(
       requestedPlugins.map((p) => p.package),
       fullLog,
+    ),
+    sharedInstallDirs: findSharedInstallDirs(
+      requestedPlugins.map((p) => p.package),
     ),
     failures: failureLines(fullLog),
     failedPlugins: failedPluginIds(fullLog),

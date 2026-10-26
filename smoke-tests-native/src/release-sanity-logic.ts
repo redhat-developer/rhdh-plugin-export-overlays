@@ -334,6 +334,26 @@ export function findNotInstalled(requested: string[], log: string): string[] {
     .sort(compareStrings);
 }
 
+/** Requested refs that the install CLI extracts into one directory. */
+export type SharedInstallDir = { dir: string; refs: string[] };
+
+/**
+ * Requests that land in the same install directory. The CLI extracts each one there
+ * and reports it installed, so all but one never load and nothing is logged
+ * (RHDHBUGS-3837).
+ */
+export function findSharedInstallDirs(requested: string[]): SharedInstallDir[] {
+  const byDir = new Map<string, string[]>();
+  for (const ref of requested) {
+    const dir = installDirName(ref);
+    byDir.set(dir, [...(byDir.get(dir) ?? []), ref]);
+  }
+  return [...byDir]
+    .filter(([, refs]) => refs.length > 1)
+    .map(([dir, refs]) => ({ dir, refs: refs.sort(compareStrings) }))
+    .sort((a, b) => compareStrings(a.dir, b.dir));
+}
+
 /** Log lines that name a plugin install or startup failure. */
 const FAILURE_LINE =
   /InstallException|Error while adding OCI plugin|[Ff]ailed to load dynamic plugin|threw an error during startup|Backend startup failed|Missing required config value|defined differently|plugin\(s\) failed/;
@@ -387,6 +407,8 @@ export type SanityReport = {
   skipped: string[];
   /** Requested packages the install CLI did not report as installed. */
   notInstalled: string[];
+  /** Requested packages that share an install directory; all but one never load. */
+  sharedInstallDirs: SharedInstallDir[];
   /** Requested packages the registry could not serve; not installed. */
   unresolved: UnresolvedRef[];
   failures: string[];
@@ -404,6 +426,7 @@ export function passed(report: SanityReport): boolean {
     report.checkError === undefined &&
     report.unresolved.length === 0 &&
     report.notInstalled.length === 0 &&
+    report.sharedInstallDirs.length === 0 &&
     report.notLoaded.length === 0 &&
     report.installed > 0
   );
@@ -475,6 +498,17 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
       "",
       "**Requested but not installed:**",
       ...cappedList(report.notInstalled.map((ref) => `\`${ref}\``)),
+    );
+  }
+  if (report.sharedInstallDirs.length) {
+    lines.push(
+      "",
+      "**Requested packages sharing one install directory:**",
+      ...cappedList(
+        report.sharedInstallDirs.map(
+          (s) => `\`${s.dir}\`: ${s.refs.map((r) => `\`${r}\``).join(", ")}`,
+        ),
+      ),
     );
   }
   if (report.notLoaded.length) {
