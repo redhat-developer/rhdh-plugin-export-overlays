@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-tech-radar"
   # Tag: bs_1.54.9__1.22.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:bfa10744c9910ad535f46ed87f570f09d4c2c6d02079d6cddb972e081047c2d3"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:78e921ed882b554ba8eac28aa327c32c4cba524aa79a603d550df0fc522099e2"
   version: 1.22.0
   backstage:
     role: frontend-plugin
