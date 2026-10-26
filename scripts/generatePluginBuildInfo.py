@@ -852,7 +852,8 @@ def print_fallback_rebuild_cta(
     version_args = (
         f"-v {version} --next" if rhdh_branch == DEFAULT_MIDSTREAM_BRANCH else f"-v {version}"
     )
-    package_filter = "|".join(manual)
+    # $ keeps a shorter container name from matching a longer sibling.
+    package_filter = "|".join(f"{name}$" for name in manual)
 
     step = 1
     if stale_workspaces:
@@ -871,8 +872,9 @@ def print_fallback_rebuild_cta(
 
     print(
         f"\n\n{Colors.YELLOW}{step}) Update Konflux PLRs, then run rebuilds:{Colors.NORM}\n"
-        f"   .tekton/updatePLRs.sh --trigger "
-        f"-p '{package_filter}' {version_args}"
+        f"   .tekton/updatePLRs.sh --trigger \\\n"
+        f"     -p '{package_filter}' \\\n"
+        f"     {version_args}"
     )
     step += 1
     print(
