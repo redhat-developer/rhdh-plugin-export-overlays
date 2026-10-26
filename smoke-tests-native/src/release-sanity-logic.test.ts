@@ -398,9 +398,9 @@ test("parseEnvText reads KEY=VALUE, strips quotes, reports malformed lines", () 
 test("installDirName prefers the plugin-path selector", () => {
   assert.equal(
     installDirName(
-      "oci://ghcr.io/o/r/x2a-dcr:bs_1__1!red-hat-developer-hub-backstage-plugin-x2a",
+      "oci://quay.io/o/dynamic-plugins:2.4.2!red-hat-developer-hub-plugin-cost-management",
     ),
-    "red-hat-developer-hub-backstage-plugin-x2a",
+    "red-hat-developer-hub-plugin-cost-management",
   );
   assert.equal(installDirName(`oci://quay.io/rhdh/foo@${DIGEST}`), "foo");
 });

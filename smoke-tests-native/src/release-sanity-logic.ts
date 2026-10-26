@@ -320,7 +320,7 @@ export function findNotLoaded(
 
 /**
  * Requested refs the install CLI never reported as installed. Counted from its log,
- * not from directories: one package does not always make one directory.
+ * not from directories: two refs can share one (see findSharedInstallDirs).
  */
 export function findNotInstalled(requested: string[], log: string): string[] {
   const base = (ref: string) => ref.split("!")[0];
