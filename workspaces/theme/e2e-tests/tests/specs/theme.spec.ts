@@ -37,7 +37,10 @@ test.describe("Theme Plugin tests", () => {
 
   test("Verify that RHDH CompanyLogo is theme-aware", async ({ page }) => {
     await themeVerifier.setTheme("Light");
-    const logo = page.getByTestId("global-header-company-logo").first();
+    const logo = page
+      .getByTestId("global-header-company-logo")
+      .first()
+      .getByRole("img");
     await expect(logo).toHaveCount(1);
     await expect(logo).toHaveAttribute("src", /^data:image\/svg\+xml/);
     const lightSrc = await logo.evaluate((el) => (el as HTMLImageElement).src);
