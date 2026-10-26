@@ -1,7 +1,24 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  AuthApiHelper,
+  CatalogApiHelper,
+  LoginHelper,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { DEFAULT_USERS } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import * as path from "node:path";
-import { createNotification } from "../../support/api/notifications-helper";
+import {
+  createNotification,
+  NOTIFICATIONS_API_TOKEN,
+} from "../../support/api/notifications-helper";
+
+interface NotificationListResponse {
+  notifications: {
+    id: string;
+    user: string | null;
+    payload: { title: string };
+  }[];
+}
 
 test.describe("Backstage Notifications Plugin", () => {
   let notificationPage: NotificationPage;
@@ -87,6 +104,108 @@ test.describe("Backstage Notifications Plugin", () => {
       await notificationPage.notificationContains(
         new RegExp(`${notificationId}.*(a few seconds ago)|(a minute ago)`),
       );
+    });
+  });
+
+  test.describe("Backend delivery", () => {
+    test.afterAll(async () => {
+      await CatalogApiHelper.dispose();
+    });
+
+    test("entity notification is visible only to its recipient", async ({
+      page,
+      browser,
+      request,
+    }) => {
+      test.setTimeout(240_000);
+
+      const baseURL = process.env.RHDH_BASE_URL!;
+      expect(baseURL, "RHDH_BASE_URL is not set after deployment").toBeTruthy();
+
+      await expect
+        .poll(
+          () =>
+            CatalogApiHelper.entityExists(
+              baseURL,
+              NOTIFICATIONS_API_TOKEN,
+              "user",
+              DEFAULT_USERS[0].username,
+            ),
+          {
+            timeout: 120_000,
+            message: "Timed out waiting for user:default/test1 in the catalog",
+          },
+        )
+        .toBe(true);
+
+      const title = await createNotification("Backend entity delivery", {
+        type: "entity",
+        entityRef: "user:default/test1",
+      });
+      const test1Token = await new AuthApiHelper(page).getToken();
+
+      const test2Context = await browser.newContext({
+        baseURL,
+        ignoreHTTPSErrors: true,
+      });
+
+      try {
+        const test2Page = await test2Context.newPage();
+        await new LoginHelper(test2Page).loginAsKeycloakUser(
+          DEFAULT_USERS[1].username,
+          DEFAULT_USERS[1].password,
+        );
+        const test2Token = await new AuthApiHelper(test2Page).getToken();
+
+        const listForUser = async (
+          token: string,
+        ): Promise<NotificationListResponse> => {
+          const response = await request.get(
+            "/api/notifications/notifications",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              params: { search: title },
+            },
+          );
+          expect(
+            response.status(),
+            `list notifications failed: ${await response.text()}`,
+          ).toBe(200);
+          return (await response.json()) as NotificationListResponse;
+        };
+
+        const test1List = await listForUser(test1Token);
+        const test1Matches = test1List.notifications.filter(
+          (notification) => notification.payload.title === title,
+        );
+        expect(test1Matches).toHaveLength(1);
+        expect(test1Matches[0].user).toBe("user:default/test1");
+
+        const test2List = await listForUser(test2Token);
+        expect(
+          test2List.notifications.filter(
+            (notification) => notification.payload.title === title,
+          ),
+        ).toHaveLength(0);
+
+        const detailUrl = `/api/notifications/notifications/${test1Matches[0].id}`;
+        const test1Detail = await request.get(detailUrl, {
+          headers: { Authorization: `Bearer ${test1Token}` },
+        });
+        expect(test1Detail.status()).toBe(200);
+        expect(await test1Detail.json()).toMatchObject({
+          id: test1Matches[0].id,
+          user: "user:default/test1",
+          payload: { title },
+        });
+
+        const test2Detail = await request.get(detailUrl, {
+          headers: { Authorization: `Bearer ${test2Token}` },
+        });
+        expect(test2Detail.status()).toBe(404);
+      } finally {
+        await test2Context.close();
+      }
     });
   });
 });
