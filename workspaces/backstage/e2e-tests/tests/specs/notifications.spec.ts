@@ -21,14 +21,16 @@ interface NotificationListResponse {
 }
 
 const TEST1_USER = DEFAULT_USERS[0];
-const TEST1_ENTITY = `user:default/${TEST1_USER.username}`;
+const TEST2_USER = DEFAULT_USERS[1];
+const USER_NAMESPACE = "default";
+const TEST1_ENTITY = `user:${USER_NAMESPACE}/${TEST1_USER.username}`;
 
 function deployedBaseUrl(): string {
-  const baseURL = process.env.RHDH_BASE_URL;
-  if (!baseURL) {
+  const baseUrl = process.env.RHDH_BASE_URL;
+  if (!baseUrl) {
     throw new Error("RHDH_BASE_URL is not set after deployment");
   }
-  return baseURL;
+  return baseUrl;
 }
 
 test.describe("Backstage Notifications Plugin", () => {
@@ -130,16 +132,17 @@ test.describe("Backstage Notifications Plugin", () => {
     }) => {
       test.setTimeout(240_000);
 
-      const baseURL = deployedBaseUrl();
+      const baseUrl = deployedBaseUrl();
 
       await expect
         .poll(
           () =>
             CatalogApiHelper.entityExists(
-              baseURL,
+              baseUrl,
               NOTIFICATIONS_API_TOKEN,
               "user",
               TEST1_USER.username,
+              USER_NAMESPACE,
             ),
           {
             timeout: 120_000,
@@ -155,15 +158,15 @@ test.describe("Backstage Notifications Plugin", () => {
       const test1Token = await new AuthApiHelper(page).getToken();
 
       const test2Context = await browser.newContext({
-        baseURL,
+        baseURL: baseUrl,
         ignoreHTTPSErrors: true,
       });
 
       try {
         const test2Page = await test2Context.newPage();
         await new LoginHelper(test2Page).loginAsKeycloakUser(
-          DEFAULT_USERS[1].username,
-          DEFAULT_USERS[1].password,
+          TEST2_USER.username,
+          TEST2_USER.password,
         );
         const test2Token = await new AuthApiHelper(test2Page).getToken();
 
