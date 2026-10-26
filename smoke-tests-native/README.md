@@ -469,7 +469,8 @@ or collaborator comments `/sanity <CI chart version>` on the issue labelled
 `release-sanity`; the result is posted back on the issue. A chart runs with the harness,
 exclusions and community metadata of its own branch: `release-X.Y` when that branch exists,
 `main` otherwise. The daily run covers `main` and each branch listed in the workflow's
-`RELEASE_BRANCHES`.
+`RELEASE_BRANCHES`. A release branch must carry this harness: without it a `/sanity` for
+its stream is refused and the daily run skips it with a warning.
 
 ### Test config (parity with the Docker smoke)
 

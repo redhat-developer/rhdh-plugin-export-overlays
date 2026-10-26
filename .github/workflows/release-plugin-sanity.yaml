@@ -14,7 +14,8 @@ name: Release Plugin Sanity
 #
 # A chart runs with the harness, exclusions and community metadata of its own branch:
 # release-X.Y when that branch exists, main otherwise. Scheduled and comment events only
-# run this file from main, so the release branches carry the harness, not the trigger.
+# run this file from main, so the release branches carry the harness, not the trigger;
+# a release branch without it is refused (comment) or skipped (schedule).
 
 on:
   schedule:
@@ -29,6 +30,8 @@ env:
   # Maintained release branches checked daily besides main. Add a branch when it is cut,
   # drop it at end of life.
   RELEASE_BRANCHES: release-2.1
+  ISSUE: ${{ github.event.issue.number }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   plan:
@@ -44,12 +47,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: read
       issues: write
     outputs:
       targets: ${{ steps.targets.outputs.targets }}
-    env:
-      ISSUE: ${{ github.event.issue.number }}
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Authorize and parse the command
         id: command
@@ -75,31 +76,55 @@ jobs:
               --body 'Usage: `/sanity <CI chart version>`, for example `/sanity 2.2-79-CI`.'
             exit 1
           fi
-          chart="${BASH_REMATCH[1]}"
-          ref=main
-          if git ls-remote --exit-code --heads "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            "release-${chart%%-*}" > /dev/null; then
-            ref="release-${chart%%-*}"
-          fi
-          echo "target=$(jq -nc --arg ref "$ref" --arg chart "$chart" '{ref: $ref, chart: $chart}')" \
-            >> "$GITHUB_OUTPUT"
+          echo "chart=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" \
             -f content=eyes --silent || true
-          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Running the release plugin sanity check for \`$chart\` with the \`$ref\` harness: $RUN_URL"
 
       - name: List the targets
         id: targets
         env:
-          TARGET: ${{ steps.command.outputs.target }}
+          GH_TOKEN: ${{ github.token }}
+          CHART: ${{ steps.command.outputs.chart }}
         run: |
-          if [[ -n "$TARGET" ]]; then
-            echo "targets=[$TARGET]" >> "$GITHUB_OUTPUT"
+          # 0 when the path exists at the ref, 1 on 404; any other API error fails the
+          # step instead of silently picking another branch.
+          exists() {
+            local err
+            if err="$(gh api "repos/$GITHUB_REPOSITORY/$1" --silent 2>&1)"; then return 0; fi
+            [[ "$err" == *"HTTP 404"* ]] && return 1
+            echo "$err" >&2
+            exit 1
+          }
+          has_harness() { exists "contents/smoke-tests-native/src/release-sanity.ts?ref=$1"; }
+
+          if [[ -n "$CHART" ]]; then
+            ref=main
+            branch="release-${CHART%%-*}"
+            if exists "branches/$branch"; then
+              if ! has_harness "$branch"; then
+                gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+                  --body "\`$branch\` has no release sanity harness, so \`$CHART\` cannot be checked."
+                exit 1
+              fi
+              ref="$branch"
+            fi
+            echo "targets=$(jq -nc --arg ref "$ref" --arg chart "$CHART" '[{ref: $ref, chart: $chart}]')" \
+              >> "$GITHUB_OUTPUT"
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "Running the release plugin sanity check for \`$CHART\` with the \`$ref\` harness: $RUN_URL"
             exit 0
           fi
-          # shellcheck disable=SC2086 # word-split the space-separated branch list
-          echo "targets=$(printf '%s\n' main $RELEASE_BRANCHES \
-            | jq -Rnc '[inputs | {ref: ., chart: ""}]')" >> "$GITHUB_OUTPUT"
+
+          refs=(main)
+          for branch in $RELEASE_BRANCHES; do
+            if has_harness "$branch"; then
+              refs+=("$branch")
+            else
+              echo "::warning::$branch has no release sanity harness; skipped"
+            fi
+          done
+          echo "targets=$(printf '%s\n' "${refs[@]}" | jq -Rnc '[inputs | {ref: ., chart: ""}]')" \
+            >> "$GITHUB_OUTPUT"
 
   sanity:
     name: release-plugin-sanity (${{ matrix.target.ref }})
@@ -108,18 +133,13 @@ jobs:
       fail-fast: false
       matrix:
         target: ${{ fromJSON(needs.plan.outputs.targets) }}
-    # One check per branch at a time, queued rather than cancelled.
-    concurrency:
-      group: release-plugin-sanity-${{ matrix.target.ref }}
-      cancel-in-progress: false
+    # No concurrency group: each job has its own runner (and port 7007), and a group
+    # would silently drop a queued job whose commenter was already told it is running.
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
       contents: read
       issues: write
-    env:
-      ISSUE: ${{ github.event.issue.number }}
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -164,13 +184,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.sanity.outcome }}
+          CHART: ${{ matrix.target.chart }}
+          REF: ${{ matrix.target.ref }}
         run: |
           OUT=smoke-tests-native/release-sanity-out
           mkdir -p "$OUT"
           summary="$OUT/summary.md"
           if [[ ! -s "$summary" ]]; then
-            printf '### Release plugin sanity: %s\n\nThe check did not produce a report: %s\n' \
-              "${OUTCOME:-error}" "$RUN_URL" > "$summary"
+            printf '### Release plugin sanity (%s): failed\n\nThe check did not produce a report (%s): %s\n' \
+              "${CHART:-$REF}" "${OUTCOME:-not run}" "$RUN_URL" > "$summary"
           fi
           cat "$summary" >> "$GITHUB_STEP_SUMMARY"
           if [[ -z "$ISSUE" && "$OUTCOME" != "success" ]]; then
