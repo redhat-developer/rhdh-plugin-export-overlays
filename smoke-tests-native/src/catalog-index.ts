@@ -57,7 +57,7 @@ export type CatalogIndexOptions = {
   installExcluded?: (imageName: string) => ExclusionRecord | undefined;
 };
 
-export type IndexEntry = {
+type IndexEntry = {
   package?: unknown;
   enabled?: unknown;
   disabled?: unknown;

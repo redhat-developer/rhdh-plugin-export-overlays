@@ -12,7 +12,6 @@
  *
  *   yarn release-sanity                              # newest CI chart of the newest stream
  *   yarn release-sanity --chart-version 2.1-158-CI   # one RC
- *   yarn release-sanity --image <ref> --catalog-index <ref>
  *
  * Needs docker (or podman as docker), helm, skopeo, jq and tar on PATH.
  */
@@ -27,9 +26,10 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
-import { delimiter, dirname, join } from "node:path";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { parse, stringify } from "yaml";
@@ -39,9 +39,12 @@ import { requireContained, resolveContained } from "./paths";
 import { probeRegistry } from "./registry-probe";
 import { buildDummyConfig } from "./plugin-config";
 import { collectPackages } from "./support";
+import type { UnresolvedRef } from "./report";
+import { parseEnvText } from "./test-config";
 import { discoverSmokeTestConfig, type PackageEntry } from "./workspace";
 import {
-  DUMMY_ENV_VALUE,
+  applyProbeResult,
+  buildEnv,
   buildDynamicPluginsConfig,
   chartStream,
   backendStartupFailed,
@@ -54,20 +57,19 @@ import {
   isImageRef,
   mergeAppConfig,
   newestCiChart,
-  notInstalled,
-  notLoaded,
-  parseEnvFile,
+  findNotInstalled,
+  findNotLoaded,
   parseLoadedPlugins,
   passed,
   renderError,
   renderSummary,
-  unsetEnvVars,
+  skippedImages,
   type CommunityPlugin,
   type DynamicPluginsConfig,
   type InstalledPlugin,
   type SanityReport,
 } from "./release-sanity-logic";
-import { compareStrings, isRecord } from "./util";
+import { isRecord } from "./util";
 
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = dirname(HARNESS_ROOT);
@@ -97,10 +99,12 @@ const { values: args } = parseArgs({
  */
 function tool(name: "docker" | "helm" | "skopeo"): string {
   for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    // An empty entry would resolve against the cwd, defeating the point.
+    if (!isAbsolute(dir)) continue;
     const candidate = join(dir, name);
     try {
       accessSync(candidate, constants.X_OK);
-      return candidate;
+      if (statSync(candidate).isFile()) return candidate;
     } catch {
       // not in this directory
     }
@@ -123,10 +127,11 @@ function resolveTarget(): {
   if (args.stream && args["chart-version"]) {
     throw new Error("--stream and --chart-version are mutually exclusive");
   }
+  let chartTags: string[] | undefined;
   const tags = (): string[] =>
-    JSON.parse(
+    (chartTags ??= JSON.parse(
       run(tool("skopeo"), ["list-tags", "--no-creds", `docker://${CHART}`]),
-    ).Tags as string[];
+    ).Tags as string[]);
   // Rebuilt from its numbers, so only a well-formed version reaches helm.
   const chartVersion = args["chart-version"]
     ? normalizeChartVersion(args["chart-version"])
@@ -252,15 +257,19 @@ async function loadedPlugins(): Promise<Set<string>> {
 const outArg = resolveContained(args.out);
 
 function removeContainer(): void {
-  spawnSync(tool("docker"), ["rm", "-f", CONTAINER], { stdio: "ignore" });
+  try {
+    spawnSync(tool("docker"), ["rm", "-f", CONTAINER], { stdio: "ignore" });
+  } catch {
+    // No docker means no container to remove; the run's own error says why.
+  }
 }
 
 type PluginPlan = {
   indexFile: string;
   dynamicPlugins: DynamicPluginsConfig;
-  requested: DynamicPluginsConfig["plugins"];
+  requestedPlugins: DynamicPluginsConfig["plugins"];
   skipped: string[];
-  unresolved: Array<{ ref: string; error: string }>;
+  unresolved: UnresolvedRef[];
   communityEntries: PackageEntry[];
 };
 
@@ -289,10 +298,13 @@ async function planPlugins(
     (p) => p.support === "community" && p.artifact.startsWith("oci://"),
   );
   const community: CommunityPlugin[] = communityEntries
-    .filter((p) => installExcluder(p.packageName) === undefined)
+    .filter(
+      (p) =>
+        installExcluder(p.packageName) === undefined && !isExcluded(p.artifact),
+    )
     .map((p) => ({ packageName: p.packageName, artifact: p.artifact }));
 
-  const dynamicPlugins = buildDynamicPluginsConfig(
+  const candidates = buildDynamicPluginsConfig(
     fromIndex,
     community,
     isExcluded,
@@ -300,29 +312,25 @@ async function planPlugins(
   // One package the registry cannot serve aborts the whole install, so probe first and
   // report those instead of losing the run to them.
   const { unresolved } = await partitionResolvable(
-    dynamicPlugins.plugins
+    candidates.plugins
       .filter((p) => p.enabled && p.package.startsWith("oci://"))
       .map((p) => p.package),
     probeRegistry,
   );
   const unresolvedRefs = new Set(unresolved.map((u) => u.ref));
-  for (const plugin of dynamicPlugins.plugins) {
-    if (unresolvedRefs.has(plugin.package)) plugin.enabled = false;
-  }
-  const requested = dynamicPlugins.plugins.filter((p) => p.enabled);
-  const skipped = [
-    ...dynamicPlugins.plugins
-      .filter((p) => !p.enabled && !unresolvedRefs.has(p.package))
-      .map((p) => imageBaseName(p.package)),
-    ...communityEntries
-      .filter((p) => !community.some((c) => c.artifact === p.artifact))
-      .map((p) => imageBaseName(p.artifact)),
-  ];
+  const dynamicPlugins = applyProbeResult(candidates, unresolvedRefs);
+  const requestedPlugins = dynamicPlugins.plugins.filter((p) => p.enabled);
+  const skipped = skippedImages(
+    dynamicPlugins,
+    unresolvedRefs,
+    communityEntries.map((p) => p.artifact),
+    community.map((c) => c.artifact),
+  );
   writeFileSync(join(out, "dynamic-plugins.yaml"), stringify(dynamicPlugins));
   return {
     indexFile,
     dynamicPlugins,
-    requested,
+    requestedPlugins,
     skipped,
     unresolved,
     communityEntries,
@@ -332,7 +340,7 @@ async function planPlugins(
 /** Writes the config layers and env file the container starts with; returns the layers. */
 function writeConfigAndEnv(
   out: string,
-  { indexFile, dynamicPlugins, requested, communityEntries }: PluginPlan,
+  { indexFile, dynamicPlugins, requestedPlugins, communityEntries }: PluginPlan,
 ): string[] {
   // Config layers, merged by the backend in this order: the shared smoke base, every
   // installed community plugin's first appConfigExample, the harness dummies, each
@@ -340,7 +348,7 @@ function writeConfigAndEnv(
   // Env: each workspace's test.env, then dummies for the rest.
   const configDir = join(out, "config");
   mkdirSync(configDir, { recursive: true });
-  const enabledRefs = new Set(requested.map((p) => p.package));
+  const enabledRefs = new Set(requestedPlugins.map((p) => p.package));
   writeFileSync(
     join(configDir, "community-examples.yaml"),
     stringify(
@@ -355,10 +363,10 @@ function writeConfigAndEnv(
   writeFileSync(
     join(configDir, "dummies.yaml"),
     stringify(
-      buildDummyConfig(requested.map((p) => installDirName(p.package))),
+      buildDummyConfig(requestedPlugins.map((p) => installDirName(p.package))),
     ),
   );
-  const env: Record<string, string> = {};
+  const fileEnv: Record<string, string> = {};
   for (const ws of new Set(communityEntries.map((p) => p.workspace))) {
     const { appConfig, testEnv } = discoverSmokeTestConfig(REPO_ROOT, ws);
     if (appConfig) {
@@ -369,12 +377,9 @@ function writeConfigAndEnv(
       );
     }
     if (testEnv) {
-      // A variable already set in the environment (a real token) wins over the
-      // committed placeholder, as in the Docker smoke.
-      for (const [key, value] of Object.entries(
-        parseEnvFile(readFileSync(testEnv, "utf8")),
-      )) {
-        env[key] = process.env[key] ?? value;
+      for (const [key, value] of parseEnvText(readFileSync(testEnv, "utf8"))
+        .entries) {
+        fileEnv[key] = value;
       }
     }
   }
@@ -391,16 +396,11 @@ function writeConfigAndEnv(
   const configTexts = layers.map((l) =>
     readFileSync(join(configDir, l), "utf8"),
   );
-  for (const name of unsetEnvVars(
-    [
-      readFileSync(indexFile, "utf8"),
-      stringify(dynamicPlugins),
-      ...configTexts,
-    ],
-    new Set(Object.keys(env)),
-  )) {
-    env[name] = DUMMY_ENV_VALUE;
-  }
+  const env = buildEnv(fileEnv, process.env, [
+    readFileSync(indexFile, "utf8"),
+    stringify(dynamicPlugins),
+    ...configTexts,
+  ]);
   writeFileSync(
     join(out, "release-sanity.env"),
     Object.entries(env)
@@ -474,19 +474,19 @@ async function main(): Promise<number> {
   );
 
   const plan = await planPlugins(out, target.catalogIndex);
-  const { requested, skipped, unresolved } = plan;
+  const { requestedPlugins, skipped, unresolved } = plan;
   const layers = writeConfigAndEnv(out, plan);
 
   startContainer(out, target, layers);
 
   const startupError = await waitForBackend();
   let loaded = new Set<string>();
-  let apiError: string | undefined;
+  let checkError: string | undefined;
   if (!startupError) {
     try {
       loaded = await loadedPlugins();
     } catch (err) {
-      apiError = err instanceof Error ? err.message : String(err);
+      checkError = err instanceof Error ? err.message : String(err);
     }
   }
   const fullLog = containerLog();
@@ -497,19 +497,21 @@ async function main(): Promise<number> {
     chartVersion: target.chartVersion,
     image: target.image,
     catalogIndex: target.catalogIndex,
-    requested: requested.length,
+    requested: requestedPlugins.length,
     installed: installed.length,
     loaded: loaded.size,
-    notLoaded: startupError || apiError ? [] : notLoaded(installed, loaded),
-    skipped: [...new Set(skipped)].sort(compareStrings),
+    notLoaded:
+      startupError || checkError ? [] : findNotLoaded(installed, loaded),
+    skipped,
     unresolved,
-    notInstalled: notInstalled(
-      requested.map((p) => p.package),
+    notInstalled: findNotInstalled(
+      requestedPlugins.map((p) => p.package),
       fullLog,
     ),
     failures: failureLines(fullLog),
     failedPlugins: failedPluginIds(fullLog),
-    startupError: startupError ?? apiError,
+    startupError,
+    checkError,
   };
   writeFileSync(join(out, "report.json"), JSON.stringify(report, null, 2));
   const summary = renderSummary(report, args["run-url"]);

@@ -450,10 +450,14 @@ package's `spec.dynamicArtifact`.
 ```bash
 yarn release-sanity                               # newest CI chart of the newest stream
 yarn release-sanity --chart-version 2.2-79-CI     # one RC
+yarn release-sanity --stream 2.1                  # newest CI chart of the 2.1 stream
+yarn release-sanity --keep                        # leave the container running to inspect it
 ```
 
 Needs docker, helm, skopeo, jq and tar. The report, summary and container log land in
-`release-sanity-out/` (`--out`, which must stay inside the working directory). Config layers, in merge order: `smoke-tests/app-config.yaml`,
+`release-sanity-out/` (`--out`, which must stay inside the working directory).
+
+Config layers, in merge order: `smoke-tests/app-config.yaml`,
 every installed community plugin's first `appConfigExamples` entry (as app-config, not
 pluginConfig: the install CLI rejects two plugins setting one key differently), the dummies
 from `src/plugin-config.ts`, each workspace's `smoke-tests/app-config.test.yaml`,

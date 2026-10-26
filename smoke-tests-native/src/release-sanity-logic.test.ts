@@ -9,8 +9,12 @@ import { strict as assert } from "node:assert";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadExclusions } from "./exclusions";
+import { parseEnvText } from "./test-config";
 import {
+  DUMMY_ENV_VALUE,
+  applyProbeResult,
   backendStartupFailed,
+  buildEnv,
   buildDynamicPluginsConfig,
   chartStream,
   failedPluginIds,
@@ -22,14 +26,14 @@ import {
   mergeAppConfig,
   newestCiChart,
   normalizeChartVersion,
-  notInstalled,
-  notLoaded,
-  parseEnvFile,
+  findNotInstalled,
+  findNotLoaded,
   parseLoadedPlugins,
   passed,
   renderError,
   renderSummary,
   shortError,
+  skippedImages,
   unsetEnvVars,
   type SanityReport,
 } from "./release-sanity-logic";
@@ -164,7 +168,7 @@ test("notLoaded returns installed plugins missing from the loaded set", () => {
     { name: "b", dirName: "b-dir" },
     { name: "a", dirName: "a-dir" },
   ];
-  assert.deepEqual(notLoaded(installed, new Set(["b"])), [
+  assert.deepEqual(findNotLoaded(installed, new Set(["b"])), [
     { name: "a", dirName: "a-dir" },
   ]);
 });
@@ -181,6 +185,7 @@ test("failureLines keeps only install and startup failures", () => {
 
 function report(overrides: Partial<SanityReport> = {}): SanityReport {
   return {
+    chartVersion: "2.2-79-CI",
     image: "img",
     catalogIndex: "idx",
     requested: 2,
@@ -279,7 +284,10 @@ test("notInstalled reads the install log, ignoring the plugin-path selector", ()
     "======= Skipping disabled plugin oci://q/c:tag",
   ].join("\n");
   assert.deepEqual(
-    notInstalled(["oci://q/b:tag", "oci://q/a@sha256:1", "oci://q/c:tag"], log),
+    findNotInstalled(
+      ["oci://q/b:tag", "oci://q/a@sha256:1", "oci://q/c:tag"],
+      log,
+    ),
     ["oci://q/c:tag"],
   );
 });
@@ -315,9 +323,16 @@ test("buildDynamicPluginsConfig lists a ref the index declares twice once", () =
   assert.deepEqual(config.plugins, [{ package: ref, enabled: true }]);
 });
 
-test("parseEnvFile reads KEY=VALUE, strips quotes, skips comments", () => {
+test("parseEnvText reads KEY=VALUE, strips quotes, reports malformed lines", () => {
   const text = "# comment\nA=1\nB=\"two words\"\n\nC='x=y'\nmalformed\n";
-  assert.deepEqual(parseEnvFile(text), { A: "1", B: "two words", C: "x=y" });
+  assert.deepEqual(parseEnvText(text), {
+    entries: [
+      ["A", "1"],
+      ["B", "two words"],
+      ["C", "x=y"],
+    ],
+    malformed: ["malformed"],
+  });
 });
 
 test("installDirName prefers the plugin-path selector", () => {
@@ -332,7 +347,7 @@ test("installDirName prefers the plugin-path selector", () => {
 
 test("notInstalled accepts the CLI's already-installed line", () => {
   const log = "\t==> oci://q/a:tag!a: already installed, skipping";
-  assert.deepEqual(notInstalled(["oci://q/a:tag"], log), []);
+  assert.deepEqual(findNotInstalled(["oci://q/a:tag"], log), []);
 });
 
 test("failureLines reports a message repeated every few seconds once", () => {
@@ -372,7 +387,67 @@ test("isImageRef accepts registry refs and rejects anything that could be an opt
   assert.equal(isImageRef("quay.io/rhdh/plugin-catalog-index:2.1"), true);
   assert.equal(isImageRef("localhost:5000/ns/img:tag"), true);
   assert.equal(isImageRef("--privileged"), false);
+  assert.equal(isImageRef("--rm/x"), false);
+  assert.equal(isImageRef("-v/etc:x"), false);
   assert.equal(isImageRef("quay.io/rhdh/x:1 --rm"), false);
   assert.equal(isImageRef("img"), false);
   assert.equal(isImageRef("quay.io/rhdh/x@sha256:short"), false);
+});
+
+test("applyProbeResult switches off unresolved refs and leaves the input alone", () => {
+  const config = buildDynamicPluginsConfig(
+    ["oci://q/a:1", "oci://q/b:1"],
+    [],
+    () => false,
+  );
+  const probed = applyProbeResult(config, new Set(["oci://q/b:1"]));
+  assert.deepEqual(probed.plugins, [
+    { package: "oci://q/a:1", enabled: true },
+    { package: "oci://q/b:1", enabled: false },
+  ]);
+  assert.equal(config.plugins[1].enabled, true);
+});
+
+test("skippedImages lists exclusions, not unresolved refs, once and sorted", () => {
+  const config = {
+    includes: [],
+    plugins: [
+      { package: "oci://q/excluded:1", enabled: false },
+      { package: "oci://q/unresolved:1", enabled: false },
+      { package: "oci://q/kept:1", enabled: true },
+    ],
+  };
+  assert.deepEqual(
+    skippedImages(
+      config,
+      new Set(["oci://q/unresolved:1"]),
+      ["oci://g/community-b:1", "oci://g/community-a:1", "oci://g/kept-c:1"],
+      ["oci://g/kept-c:1"],
+    ),
+    ["community-a", "community-b", "excluded"],
+  );
+});
+
+test("buildEnv lets the environment win, then fills referenced variables", () => {
+  const env = buildEnv(
+    { TOKEN: "placeholder", URL: "http://example" },
+    { TOKEN: "real-secret", UNRELATED: "x" },
+    ["token: ${TOKEN} url: ${URL} other: ${MISSING}"],
+  );
+  assert.deepEqual(env, {
+    TOKEN: "real-secret",
+    URL: "http://example",
+    MISSING: DUMMY_ENV_VALUE,
+  });
+});
+
+test("a check error is not reported as a backend that did not start", () => {
+  const failed = report({ checkError: "guest sign-in responded 401" });
+  assert.equal(passed(failed), false);
+  const md = renderSummary(failed);
+  assert.match(
+    md,
+    /The check could not finish:\*\* guest sign-in responded 401/,
+  );
+  assert.doesNotMatch(md, /did not start/);
 });

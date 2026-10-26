@@ -11,6 +11,7 @@
  */
 
 import { parse } from "yaml";
+import type { UnresolvedRef } from "./report";
 import { compareStrings, isRecord } from "./util";
 
 /** A CI chart version as quay.io/rhdh/chart tags it, e.g. `2.1-158-CI`. */
@@ -72,7 +73,7 @@ export function newestCiChart(tags: string[], stream?: string): string {
  * take before it reaches docker or skopeo.
  */
 const IMAGE_REF_RE =
-  /^[a-z0-9.-]+(?::\d+)?(?:\/[a-z0-9._-]+)+(?::[A-Za-z0-9._-]{1,128})?(?:@sha256:[a-f0-9]{64})?$/;
+  /^[a-z0-9][a-z0-9.-]*(?::\d+)?(?:\/[a-z0-9._-]+)+(?::[A-Za-z0-9._-]{1,128})?(?:@sha256:[a-f0-9]{64})?$/;
 
 export function isImageRef(value: string): boolean {
   return IMAGE_REF_RE.test(value);
@@ -163,6 +164,8 @@ export function mergeAppConfig(
   ): Record<string, unknown> => {
     for (const [key, value] of Object.entries(source)) {
       const current = target[key];
+      // Arrays replace rather than concatenate (unlike plugin-config's deepMerge):
+      // two examples listing the same instance must not configure it twice.
       target[key] =
         isRecord(current) && isRecord(value)
           ? merge({ ...current }, value)
@@ -171,20 +174,6 @@ export function mergeAppConfig(
     return target;
   };
   return layers.reduce<Record<string, unknown>>((acc, l) => merge(acc, l), {});
-}
-
-/** KEY=VALUE pairs of an env file, quotes stripped; comments and blanks skipped. */
-export function parseEnvFile(text: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const raw of text.split("\n")) {
-    const line = raw.trim();
-    const eq = line.indexOf("=");
-    if (!line || line.startsWith("#") || eq <= 0) continue;
-    let value = line.slice(eq + 1).trim();
-    if (/^(["']).*\1$/.test(value)) value = value.slice(1, -1);
-    env[line.slice(0, eq).trim()] = value;
-  }
-  return env;
 }
 
 /**
@@ -220,6 +209,61 @@ export function unsetEnvVars(texts: string[], provided: Set<string>): string[] {
  */
 export const DUMMY_ENV_VALUE = "https://release-sanity.invalid";
 
+/** The config with every unresolved ref switched off: one would abort the install. */
+export function applyProbeResult(
+  config: DynamicPluginsConfig,
+  unresolvedRefs: Set<string>,
+): DynamicPluginsConfig {
+  return {
+    ...config,
+    plugins: config.plugins.map((p) =>
+      unresolvedRefs.has(p.package) ? { ...p, enabled: false } : p,
+    ),
+  };
+}
+
+/**
+ * Image names left out by an exclusion: index packages switched off for any reason
+ * but an unresolved ref, plus community artifacts dropped before the config was built.
+ */
+export function skippedImages(
+  config: DynamicPluginsConfig,
+  unresolvedRefs: Set<string>,
+  communityArtifacts: string[],
+  keptArtifacts: string[],
+): string[] {
+  const kept = new Set(keptArtifacts);
+  const names = [
+    ...config.plugins
+      .filter((p) => !p.enabled && !unresolvedRefs.has(p.package))
+      .map((p) => imageBaseName(p.package)),
+    ...communityArtifacts
+      .filter((ref) => !kept.has(ref))
+      .map((ref) => imageBaseName(ref)),
+  ];
+  return [...new Set(names)].sort(compareStrings);
+}
+
+/**
+ * The container's env: each test.env value, unless the environment already sets the
+ * variable (a real token wins over the committed placeholder), then a dummy for every
+ * variable the config still references.
+ */
+export function buildEnv(
+  fileEnv: Record<string, string>,
+  processEnv: Record<string, string | undefined>,
+  referencedTexts: string[],
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fileEnv)) {
+    env[key] = processEnv[key] ?? value;
+  }
+  for (const name of unsetEnvVars(referencedTexts, new Set(Object.keys(env)))) {
+    env[name] = DUMMY_ENV_VALUE;
+  }
+  return env;
+}
+
 /** The `name` of every loaded plugin in a /loaded-plugins response. */
 export function parseLoadedPlugins(body: unknown): Set<string> {
   if (!Array.isArray(body)) {
@@ -242,7 +286,7 @@ export function parseLoadedPlugins(body: unknown): Set<string> {
 export type InstalledPlugin = { name: string; dirName: string };
 
 /** Installed plugins the backend did not load. */
-export function notLoaded(
+export function findNotLoaded(
   installed: InstalledPlugin[],
   loaded: Set<string>,
 ): InstalledPlugin[] {
@@ -255,7 +299,7 @@ export function notLoaded(
  * Requested refs the install CLI never reported as installed. Counted from its log,
  * not from directories: one package does not always make one directory.
  */
-export function notInstalled(requested: string[], log: string): string[] {
+export function findNotInstalled(requested: string[], log: string): string[] {
   const base = (ref: string) => ref.split("!")[0];
   const installed = new Set(
     [
@@ -308,7 +352,7 @@ export function backendStartupFailed(log: string): boolean {
 }
 
 export type SanityReport = {
-  chartVersion?: string;
+  chartVersion: string;
   image: string;
   catalogIndex: string;
   /** Packages requested: index (enabled) + community. */
@@ -321,17 +365,20 @@ export type SanityReport = {
   /** Requested packages the install CLI did not report as installed. */
   notInstalled: string[];
   /** Requested packages the registry could not serve; not installed. */
-  unresolved: Array<{ ref: string; error: string }>;
+  unresolved: UnresolvedRef[];
   failures: string[];
   /** Plugin ids the backend reported as failing startup. */
   failedPlugins: string[];
   /** Set when the backend never became ready. */
   startupError?: string;
+  /** Set when the backend was up but the check could not read its plugins. */
+  checkError?: string;
 };
 
 export function passed(report: SanityReport): boolean {
   return (
     report.startupError === undefined &&
+    report.checkError === undefined &&
     report.unresolved.length === 0 &&
     report.notInstalled.length === 0 &&
     report.notLoaded.length === 0 &&
@@ -372,7 +419,7 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
   const lines = [
     `### Release plugin sanity: ${passed(report) ? "passed" : "failed"}`,
     "",
-    report.chartVersion ? `- Chart: \`${report.chartVersion}\`` : undefined,
+    `- Chart: \`${report.chartVersion}\``,
     `- Image: \`${report.image}\``,
     `- Catalog index: \`${report.catalogIndex}\``,
     `- Plugins: ${report.requested} requested, ${report.installed} installed, ${report.loaded} loaded`,
@@ -383,6 +430,9 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
   ].filter((line): line is string => line !== undefined);
   if (report.startupError) {
     lines.push("", `**The backend did not start:** ${report.startupError}`);
+  }
+  if (report.checkError) {
+    lines.push("", `**The check could not finish:** ${report.checkError}`);
   }
   if (report.failedPlugins.length) {
     const ids = report.failedPlugins.map((p) => `\`${p}\``).join(", ");
