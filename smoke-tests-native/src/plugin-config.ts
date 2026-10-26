@@ -122,6 +122,11 @@ const configOverrides: Record<string, JsonObject> = {
       ],
     },
   },
+  // Its frontend schema requires dynatrace.baseUrl as soon as any plugin (dql) writes a
+  // `dynatrace` section.
+  "backstage-community-plugin-dynatrace": {
+    dynatrace: { baseUrl: "http://localhost:8081" },
+  },
   "dynatrace-backstage-plugin-dql-backend": {
     dynatrace: {
       environments: [

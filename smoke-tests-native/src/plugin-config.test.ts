@@ -88,3 +88,15 @@ test("two plugins contributing to one section concatenate rather than clobber", 
     { host: "extra.com", token: "t" },
   ]);
 });
+
+test("dynatrace and dql share one section: the dummies satisfy both schemas", () => {
+  // dql writes dynatrace.environments; the community dynatrace frontend then requires
+  // dynatrace.baseUrl, and the app backend refuses to start without it.
+  const merged = buildMergedConfig([
+    loaded("backstage-community-plugin-dynatrace"),
+    loaded("dynatrace-backstage-plugin-dql-backend"),
+  ]);
+  const dynatrace = merged.dynatrace as JsonObject;
+  assert.equal(dynatrace.baseUrl, "http://localhost:8081");
+  assert.ok(Array.isArray(dynatrace.environments), "dql environments missing");
+});
