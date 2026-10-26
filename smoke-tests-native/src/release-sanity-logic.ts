@@ -16,15 +16,23 @@ import { compareStrings, isRecord } from "./util";
 /** A CI chart version as quay.io/rhdh/chart tags it, e.g. `2.1-158-CI`. */
 const CHART_VERSION_RE = /^(\d+\.\d+)-(\d+)-CI$/;
 
-export function isChartVersion(value: string): boolean {
-  return CHART_VERSION_RE.test(value);
-}
-
 /** `2.1-158-CI` → `2.1`. */
 export function chartStream(chartVersion: string): string {
   const match = CHART_VERSION_RE.exec(chartVersion);
   if (!match) throw new Error(`not a CI chart version: '${chartVersion}'`);
   return match[1];
+}
+
+/** `2.1-158-CI`, rebuilt from its numbers; throws on anything else. */
+export function normalizeChartVersion(value: string): string {
+  const match = CHART_VERSION_RE.exec(value);
+  if (!match) {
+    throw new Error(
+      `--chart-version must look like 2.1-158-CI, got '${value}'`,
+    );
+  }
+  const [major, minor] = match[1].split(".").map(Number);
+  return `${major}.${minor}-${Number(match[2])}-CI`;
 }
 
 function compareStreams(a: string, b: string): number {
@@ -48,17 +56,15 @@ export function newestCiChart(tags: string[], stream?: string): string {
       stream: match[1],
       build: Number(match[2]),
     }));
-  const target =
-    stream ??
-    builds
-      .map((b) => b.stream)
-      .sort(compareStreams)
-      .at(-1);
+  const streams = builds.map((b) => b.stream);
+  streams.sort(compareStreams);
+  const target = stream ?? streams.at(-1);
   const inStream = builds.filter((b) => b.stream === target);
   if (inStream.length === 0) {
     throw new Error(`no CI chart found for stream '${target ?? "<none>"}'`);
   }
-  return inStream.sort((a, b) => a.build - b.build).at(-1)!.tag;
+  inStream.sort((a, b) => a.build - b.build);
+  return inStream.at(-1)!.tag;
 }
 
 /**
@@ -75,10 +81,12 @@ export function isImageRef(value: string): boolean {
 export type ChartImages = { image: string; catalogIndex: string };
 
 function imageRef(node: unknown, path: string): string {
-  if (!isRecord(node)) throw new Error(`chart values: ${path} is missing`);
+  if (!isRecord(node)) throw new TypeError(`chart values: ${path} is missing`);
   const { registry, repository, digest, tag } = node;
   if (typeof registry !== "string" || typeof repository !== "string") {
-    throw new Error(`chart values: ${path}.registry/repository are missing`);
+    throw new TypeError(
+      `chart values: ${path}.registry/repository are missing`,
+    );
   }
   if (typeof digest === "string" && digest !== "") {
     return `${registry}/${repository}@${digest}`;
@@ -95,7 +103,7 @@ function imageRef(node: unknown, path: string): string {
  */
 export function imagesFromChartValues(valuesYaml: string): ChartImages {
   const values: unknown = parse(valuesYaml);
-  if (!isRecord(values)) throw new Error("chart values are not a mapping");
+  if (!isRecord(values)) throw new TypeError("chart values are not a mapping");
   const catalogIndex = isRecord(values.catalogIndex)
     ? values.catalogIndex.image
     : undefined;
@@ -199,9 +207,7 @@ export function imageBaseName(ref: string): string {
 export function unsetEnvVars(texts: string[], provided: Set<string>): string[] {
   const names = new Set<string>();
   for (const text of texts) {
-    for (const match of text.matchAll(
-      /(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g,
-    )) {
+    for (const match of text.matchAll(/(?<!\$)\$\{([A-Za-z_]\w*)\}/g)) {
       if (!provided.has(match[1])) names.add(match[1]);
     }
   }
@@ -217,12 +223,14 @@ export const DUMMY_ENV_VALUE = "https://release-sanity.invalid";
 /** The `name` of every loaded plugin in a /loaded-plugins response. */
 export function parseLoadedPlugins(body: unknown): Set<string> {
   if (!Array.isArray(body)) {
-    throw new Error(`loaded-plugins: expected an array, got ${typeof body}`);
+    throw new TypeError(
+      `loaded-plugins: expected an array, got ${typeof body}`,
+    );
   }
   const names = new Set<string>();
   for (const item of body) {
     if (!isRecord(item) || typeof item.name !== "string") {
-      throw new Error(
+      throw new TypeError(
         `loaded-plugins: item without a name: ${JSON.stringify(item)}`,
       );
     }
@@ -333,13 +341,10 @@ export function passed(report: SanityReport): boolean {
 
 /** The cause at the end of a skopeo error, e.g. `manifest unknown`. */
 export function shortError(error: string): string {
-  return (
-    error
-      .split(": ")
-      .at(-1)
-      ?.replace(/["\\]+$/, "")
-      .trim() || error
-  );
+  let cause = error.split(": ").at(-1) ?? "";
+  while (cause.endsWith('"') || cause.endsWith("\\"))
+    cause = cause.slice(0, -1);
+  return cause.trim() || error;
 }
 
 // Bounded so a summary stays far below GitHub's 65536-character comment limit.
@@ -372,7 +377,7 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
     `- Catalog index: \`${report.catalogIndex}\``,
     `- Plugins: ${report.requested} requested, ${report.installed} installed, ${report.loaded} loaded`,
     report.skipped.length
-      ? `- Excluded: ${report.skipped.map((e) => `\`${e}\``).join(", ")}`
+      ? "- Excluded: " + report.skipped.map((e) => `\`${e}\``).join(", ")
       : undefined,
     runUrl ? `- Run: ${runUrl}` : undefined,
   ].filter((line): line is string => line !== undefined);
@@ -384,20 +389,25 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
     lines.push("", `**Plugins that failed startup:** ${ids}`);
   }
   if (report.unresolved.length) {
-    lines.push("", "**Cannot be pulled (not installed):**");
     lines.push(
+      "",
+      "**Cannot be pulled (not installed):**",
       ...cappedList(
         report.unresolved.map((u) => `\`${u.ref}\`: ${shortError(u.error)}`),
       ),
     );
   }
   if (report.notInstalled.length) {
-    lines.push("", "**Requested but not installed:**");
-    lines.push(...cappedList(report.notInstalled.map((ref) => `\`${ref}\``)));
+    lines.push(
+      "",
+      "**Requested but not installed:**",
+      ...cappedList(report.notInstalled.map((ref) => `\`${ref}\``)),
+    );
   }
   if (report.notLoaded.length) {
-    lines.push("", "**Installed but not loaded:**");
     lines.push(
+      "",
+      "**Installed but not loaded:**",
       ...cappedList(
         report.notLoaded.map((p) => `\`${p.name}\` (${p.dirName})`),
       ),

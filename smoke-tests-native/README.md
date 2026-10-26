@@ -450,7 +450,6 @@ package's `spec.dynamicArtifact`.
 ```bash
 yarn release-sanity                               # newest CI chart of the newest stream
 yarn release-sanity --chart-version 2.2-79-CI     # one RC
-yarn release-sanity --image <ref> --catalog-index <ref>
 ```
 
 Needs docker, helm, skopeo, jq and tar. The report, summary and container log land in

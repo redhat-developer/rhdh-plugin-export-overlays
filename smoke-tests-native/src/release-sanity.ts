@@ -39,7 +39,7 @@ import { requireContained, resolveContained } from "./paths";
 import { probeRegistry } from "./registry-probe";
 import { buildDummyConfig } from "./plugin-config";
 import { collectPackages } from "./support";
-import { discoverSmokeTestConfig } from "./workspace";
+import { discoverSmokeTestConfig, type PackageEntry } from "./workspace";
 import {
   DUMMY_ENV_VALUE,
   buildDynamicPluginsConfig,
@@ -50,7 +50,7 @@ import {
   imageBaseName,
   imagesFromChartValues,
   installDirName,
-  isChartVersion,
+  normalizeChartVersion,
   isImageRef,
   mergeAppConfig,
   newestCiChart,
@@ -63,6 +63,7 @@ import {
   renderSummary,
   unsetEnvVars,
   type CommunityPlugin,
+  type DynamicPluginsConfig,
   type InstalledPlugin,
   type SanityReport,
 } from "./release-sanity-logic";
@@ -81,8 +82,6 @@ const { values: args } = parseArgs({
   options: {
     "chart-version": { type: "string" },
     stream: { type: "string" },
-    image: { type: "string" },
-    "catalog-index": { type: "string" },
     out: { type: "string", default: "release-sanity-out" },
     "run-url": { type: "string" },
     keep: { type: "boolean", default: false },
@@ -117,33 +116,21 @@ function run(cmd: string, argv: string[]): string {
 }
 
 function resolveTarget(): {
-  chartVersion?: string;
+  chartVersion: string;
   image: string;
   catalogIndex: string;
 } {
   if (args.stream && args["chart-version"]) {
     throw new Error("--stream and --chart-version are mutually exclusive");
   }
-  for (const flag of ["image", "catalog-index"] as const) {
-    const value = args[flag];
-    if (value !== undefined && !isImageRef(value)) {
-      throw new Error(`--${flag} is not an image reference: '${value}'`);
-    }
-  }
-  if (args.image && args["catalog-index"]) {
-    return { image: args.image, catalogIndex: args["catalog-index"] };
-  }
-  let chartVersion = args["chart-version"];
-  if (chartVersion !== undefined && !isChartVersion(chartVersion)) {
-    throw new Error(
-      `--chart-version must look like 2.1-158-CI, got '${chartVersion}'`,
-    );
-  }
   const tags = (): string[] =>
     JSON.parse(
       run(tool("skopeo"), ["list-tags", "--no-creds", `docker://${CHART}`]),
     ).Tags as string[];
-  if (!chartVersion) chartVersion = newestCiChart(tags(), args.stream);
+  // Rebuilt from its numbers, so only a well-formed version reaches helm.
+  const chartVersion = args["chart-version"]
+    ? normalizeChartVersion(args["chart-version"])
+    : newestCiChart(tags(), args.stream);
   if (args["only-newest-stream"]) {
     const newest = chartStream(newestCiChart(tags()));
     if (chartStream(chartVersion) !== newest) {
@@ -152,7 +139,7 @@ function resolveTarget(): {
       );
     }
   }
-  const images = imagesFromChartValues(
+  const { image, catalogIndex } = imagesFromChartValues(
     run(tool("helm"), [
       "show",
       "values",
@@ -161,16 +148,11 @@ function resolveTarget(): {
       chartVersion,
     ]),
   );
-  const target = {
-    chartVersion,
-    image: args.image ?? images.image,
-    catalogIndex: args["catalog-index"] ?? images.catalogIndex,
-  };
-  // Chart values become docker and skopeo arguments; hold them to the same shape.
-  for (const ref of [target.image, target.catalogIndex]) {
+  // Chart values become docker and skopeo arguments; hold them to one shape.
+  for (const ref of [image, catalogIndex]) {
     if (!isImageRef(ref)) throw new Error(`chart values: bad image '${ref}'`);
   }
-  return target;
+  return { chartVersion, image, catalogIndex };
 }
 
 function firstAppConfigExample(
@@ -273,24 +255,23 @@ function removeContainer(): void {
   spawnSync(tool("docker"), ["rm", "-f", CONTAINER], { stdio: "ignore" });
 }
 
-async function main(): Promise<number> {
-  const out = requireContained("--out", args.out);
-  const pluginsRoot = join(out, "dynamic-plugins-root");
-  // A previous run's plugins would be reported as "already installed" rather than
-  // installed, and counted again by the directory scan.
-  rmSync(pluginsRoot, { recursive: true, force: true });
-  mkdirSync(pluginsRoot, { recursive: true });
-  // The image runs as a non-root user that has to write into the bind mount.
-  chmodSync(pluginsRoot, 0o777);
+type PluginPlan = {
+  indexFile: string;
+  dynamicPlugins: DynamicPluginsConfig;
+  requested: DynamicPluginsConfig["plugins"];
+  skipped: string[];
+  unresolved: Array<{ ref: string; error: string }>;
+  communityEntries: PackageEntry[];
+};
 
-  const target = resolveTarget();
-  console.log(
-    `Chart: ${target.chartVersion ?? "-"}\nImage: ${target.image}\nCatalog index: ${target.catalogIndex}`,
-  );
-
+/** Every index and community package, probed, with the ones that cannot run left off. */
+async function planPlugins(
+  out: string,
+  catalogIndex: string,
+): Promise<PluginPlan> {
   const indexFile = join(out, "dynamic-plugins.default.yaml");
   run(join(REPO_ROOT, "scripts", "extractCatalogIndex.sh"), [
-    target.catalogIndex,
+    catalogIndex,
     indexFile,
   ]);
   const fromIndex = readIndexEntries(indexFile)
@@ -338,7 +319,21 @@ async function main(): Promise<number> {
       .map((p) => imageBaseName(p.artifact)),
   ];
   writeFileSync(join(out, "dynamic-plugins.yaml"), stringify(dynamicPlugins));
+  return {
+    indexFile,
+    dynamicPlugins,
+    requested,
+    skipped,
+    unresolved,
+    communityEntries,
+  };
+}
 
+/** Writes the config layers and env file the container starts with; returns the layers. */
+function writeConfigAndEnv(
+  out: string,
+  { indexFile, dynamicPlugins, requested, communityEntries }: PluginPlan,
+): string[] {
   // Config layers, merged by the backend in this order: the shared smoke base, every
   // installed community plugin's first appConfigExample, the harness dummies, each
   // workspace's own smoke config, then guest sign-in for the loaded-plugins call.
@@ -364,7 +359,7 @@ async function main(): Promise<number> {
     ),
   );
   const env: Record<string, string> = {};
-  for (const ws of [...new Set(communityEntries.map((p) => p.workspace))]) {
+  for (const ws of new Set(communityEntries.map((p) => p.workspace))) {
     const { appConfig, testEnv } = discoverSmokeTestConfig(REPO_ROOT, ws);
     if (appConfig) {
       layers.push(`workspace-${ws}.yaml`);
@@ -412,7 +407,16 @@ async function main(): Promise<number> {
       .map(([k, v]) => `${k}=${v}`)
       .join("\n") + "\n",
   );
+  return layers;
+}
 
+/** Starts the image: install every plugin (retried), then boot with the config layers. */
+function startContainer(
+  out: string,
+  target: { image: string; catalogIndex: string },
+  layers: string[],
+): void {
+  const pluginsRoot = join(out, "dynamic-plugins-root");
   removeContainer();
   // The install CLI does not retry, so one registry hiccup among ~170 pulls would fail
   // the run. It is idempotent and keeps what it already installed, so retry it.
@@ -441,7 +445,7 @@ async function main(): Promise<number> {
     "-v",
     `${join(HARNESS_ROOT, "..", "smoke-tests", "app-config.yaml")}:${APP_ROOT}/app-config.yaml:ro`,
     "-v",
-    `${configDir}:${APP_ROOT}/release-sanity-config:ro`,
+    `${join(out, "config")}:${APP_ROOT}/release-sanity-config:ro`,
     "-v",
     `${join(out, "dynamic-plugins.yaml")}:${APP_ROOT}/dynamic-plugins.yaml:ro`,
     "-v",
@@ -452,6 +456,28 @@ async function main(): Promise<number> {
     "-c",
     backendCmd,
   ]);
+}
+
+async function main(): Promise<number> {
+  const out = requireContained("--out", args.out);
+  const pluginsRoot = join(out, "dynamic-plugins-root");
+  // A previous run's plugins would be reported as "already installed" rather than
+  // installed, and counted again by the directory scan.
+  rmSync(pluginsRoot, { recursive: true, force: true });
+  mkdirSync(pluginsRoot, { recursive: true });
+  // The image runs as a non-root user that has to write into the bind mount.
+  chmodSync(pluginsRoot, 0o777);
+
+  const target = resolveTarget();
+  console.log(
+    `Chart: ${target.chartVersion}\nImage: ${target.image}\nCatalog index: ${target.catalogIndex}`,
+  );
+
+  const plan = await planPlugins(out, target.catalogIndex);
+  const { requested, skipped, unresolved } = plan;
+  const layers = writeConfigAndEnv(out, plan);
+
+  startContainer(out, target, layers);
 
   const startupError = await waitForBackend();
   let loaded = new Set<string>();
@@ -492,21 +518,18 @@ async function main(): Promise<number> {
   return passed(report) ? 0 : 1;
 }
 
-main()
-  .catch((err: unknown) => {
-    // Still leave a summary, so the issue says why instead of "no report".
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(message);
-    if (outArg) {
-      mkdirSync(outArg, { recursive: true });
-      writeFileSync(
-        join(outArg, "summary.md"),
-        renderError(message, args["run-url"]) + "\n",
-      );
-    }
-    return 2;
-  })
-  .then((code) => {
-    if (!args.keep) removeContainer();
-    process.exit(code);
-  });
+const code = await main().catch((err: unknown) => {
+  // Still leave a summary, so the issue says why instead of "no report".
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(message);
+  if (outArg) {
+    mkdirSync(outArg, { recursive: true });
+    writeFileSync(
+      join(outArg, "summary.md"),
+      renderError(message, args["run-url"]) + "\n",
+    );
+  }
+  return 2;
+});
+if (!args.keep) removeContainer();
+process.exit(code);

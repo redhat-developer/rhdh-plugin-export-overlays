@@ -18,10 +18,10 @@ import {
   imageBaseName,
   imagesFromChartValues,
   installDirName,
-  isChartVersion,
   isImageRef,
   mergeAppConfig,
   newestCiChart,
+  normalizeChartVersion,
   notInstalled,
   notLoaded,
   parseEnvFile,
@@ -291,10 +291,14 @@ test("shortError keeps the cause of a skopeo failure", () => {
   assert.equal(shortError("no answer within 30s"), "no answer within 30s");
 });
 
-test("isChartVersion accepts only X.Y-N-CI", () => {
-  assert.equal(isChartVersion("2.2-79-CI"), true);
-  assert.equal(isChartVersion("2.2-79"), false);
-  assert.equal(isChartVersion("2.2-79-CI; echo"), false);
+test("normalizeChartVersion rebuilds a CI chart version and rejects anything else", () => {
+  assert.equal(normalizeChartVersion("2.2-79-CI"), "2.2-79-CI");
+  assert.equal(normalizeChartVersion("2.02-079-CI"), "2.2-79-CI");
+  assert.throws(() => normalizeChartVersion("2.2-79"), /must look like/);
+  assert.throws(
+    () => normalizeChartVersion("2.2-79-CI; echo"),
+    /must look like/,
+  );
 });
 
 test("release-sanity-excludes.txt parses, and every entry is install-scoped", () => {
