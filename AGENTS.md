@@ -80,6 +80,7 @@ On a PR, comment:
 | `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
 | `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
 | `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
+| `release-plugin-sanity.yaml` | Daily + `/sanity <chart>` on the `release-sanity` issue | Boots the real RHDH image of a CI chart with every catalog index and community plugin, and fails when one does not load (`yarn release-sanity`) |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
