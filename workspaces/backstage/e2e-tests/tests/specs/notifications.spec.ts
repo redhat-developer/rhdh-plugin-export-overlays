@@ -20,6 +20,17 @@ interface NotificationListResponse {
   }[];
 }
 
+const TEST1_USER = DEFAULT_USERS[0];
+const TEST1_ENTITY = `user:default/${TEST1_USER.username}`;
+
+function deployedBaseUrl(): string {
+  const baseURL = process.env.RHDH_BASE_URL;
+  if (!baseURL) {
+    throw new Error("RHDH_BASE_URL is not set after deployment");
+  }
+  return baseURL;
+}
+
 test.describe("Backstage Notifications Plugin", () => {
   let notificationPage: NotificationPage;
 
@@ -119,8 +130,7 @@ test.describe("Backstage Notifications Plugin", () => {
     }) => {
       test.setTimeout(240_000);
 
-      const baseURL = process.env.RHDH_BASE_URL!;
-      expect(baseURL, "RHDH_BASE_URL is not set after deployment").toBeTruthy();
+      const baseURL = deployedBaseUrl();
 
       await expect
         .poll(
@@ -129,18 +139,18 @@ test.describe("Backstage Notifications Plugin", () => {
               baseURL,
               NOTIFICATIONS_API_TOKEN,
               "user",
-              DEFAULT_USERS[0].username,
+              TEST1_USER.username,
             ),
           {
             timeout: 120_000,
-            message: "Timed out waiting for user:default/test1 in the catalog",
+            message: `Timed out waiting for ${TEST1_ENTITY} in the catalog`,
           },
         )
         .toBe(true);
 
       const title = await createNotification("Backend entity delivery", {
         type: "entity",
-        entityRef: "user:default/test1",
+        entityRef: TEST1_ENTITY,
       });
       const test1Token = await new AuthApiHelper(page).getToken();
 
@@ -179,7 +189,7 @@ test.describe("Backstage Notifications Plugin", () => {
           (notification) => notification.payload.title === title,
         );
         expect(test1Matches).toHaveLength(1);
-        expect(test1Matches[0].user).toBe("user:default/test1");
+        expect(test1Matches[0].user).toBe(TEST1_ENTITY);
 
         const test2List = await listForUser(test2Token);
         expect(
@@ -195,7 +205,7 @@ test.describe("Backstage Notifications Plugin", () => {
         expect(test1Detail.status()).toBe(200);
         expect(await test1Detail.json()).toMatchObject({
           id: test1Matches[0].id,
-          user: "user:default/test1",
+          user: TEST1_ENTITY,
           payload: { title },
         });
 
