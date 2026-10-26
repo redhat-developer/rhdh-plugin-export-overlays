@@ -675,7 +675,7 @@ class TestFallbackRebuildCta:
         assert "./build/ci/update-index.sh" not in out
         fetch_version.assert_not_called()
 
-    def test_cta_includes_midstream_steps_when_in_midstream(self, capsys):
+    def test_cta_includes_midstream_steps_when_in_midstream(self, capsys, tmp_path):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
              patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"), \
              patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
@@ -687,7 +687,8 @@ class TestFallbackRebuildCta:
                         "2.0.0--0.19.1",
                         "extensions",
                     ),
-                ]
+                ],
+                repo_root=tmp_path,
             )
         out = capsys.readouterr().out
         assert "sync-midstream.sh --force-clone 'extensions' --yes" in out
@@ -697,12 +698,13 @@ class TestFallbackRebuildCta:
         ) in out
         assert "./build/ci/update-index.sh" in out
 
-    def test_cta_uses_package_version_on_release_branch(self, capsys):
+    def test_cta_uses_package_version_on_release_branch(self, capsys, tmp_path):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1.10-rhel-9"), \
              patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="1.10.3"), \
              patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
-                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0", "topology")]
+                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0", "topology")],
+                repo_root=tmp_path,
             )
         out = capsys.readouterr().out
         assert "-p 'backstage-community-plugin-topology' -v 1.10.3" in out
@@ -710,17 +712,97 @@ class TestFallbackRebuildCta:
         assert "sync-midstream.sh --force-clone 'topology' --yes" in out
         assert "./build/ci/update-index.sh" in out
 
-    def test_cta_uses_release_version_without_next_on_release_branch(self, capsys):
+    def test_cta_uses_release_version_without_next_on_release_branch(self, capsys, tmp_path):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="release-2.1"), \
              patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.1.0") as fetch_version, \
              patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
-                [("backstage-community-plugin-topology", "2.1.0--1.5.4", "2.1.0--1.6.0", "topology")]
+                [("backstage-community-plugin-topology", "2.1.0--1.5.4", "2.1.0--1.6.0", "topology")],
+                repo_root=tmp_path,
             )
         out = capsys.readouterr().out
         assert "-p 'backstage-community-plugin-topology' -v 2.1.0" in out
         assert "--next" not in out
         fetch_version.assert_called_once_with("release-2.1")
+
+    def test_cta_skips_sync_when_package_json_already_matches(self, capsys, tmp_path):
+        orchestrator = tmp_path / "workspaces" / "orchestrator" / "plugins" / "orchestrator"
+        widgets = tmp_path / "workspaces" / "orchestrator" / "plugins" / "orchestrator-form-widgets"
+        nested = tmp_path / "workspaces" / "orchestrator" / "node_modules" / "old"
+        orchestrator.mkdir(parents=True)
+        widgets.mkdir(parents=True)
+        nested.mkdir(parents=True)
+        (orchestrator / "package.json").write_text('{"version": "6.2.5"}\n')
+        (widgets / "package.json").write_text('{"version": "2.2.2"}\n')
+        (nested / "package.json").write_text('{"version": "0.0.1"}\n')
+        with patch("generatePluginBuildInfo._in_midstream_repo", return_value=True), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version") as fetch_version:
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [
+                    (
+                        "red-hat-developer-hub-backstage-plugin-orchestrator",
+                        "2.2.0--6.2.4",
+                        "2.2.0--6.2.5",
+                        "orchestrator",
+                    ),
+                    (
+                        "red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets",
+                        "2.2.0--2.2.1",
+                        "2.2.0--2.2.2",
+                        "orchestrator",
+                    ),
+                ],
+                repo_root=tmp_path,
+            )
+        out = capsys.readouterr().out
+        assert "No midstream sync is required" in out
+        assert "sync-midstream.sh" not in out
+        assert "updatePLRs.sh" not in out
+        assert "./build/ci/update-index.sh" not in out
+        fetch_version.assert_not_called()
+
+    def test_cta_syncs_only_the_workspace_missing_the_requested_version(self, capsys, tmp_path):
+        ready = tmp_path / "workspaces" / "orchestrator" / "plugins" / "orchestrator"
+        ready.mkdir(parents=True)
+        (ready / "package.json").write_text('{"version": "6.2.5"}\n')
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.2.0"), \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [
+                    (
+                        "red-hat-developer-hub-backstage-plugin-orchestrator",
+                        "2.2.0--6.2.4",
+                        "2.2.0--6.2.5",
+                        "orchestrator",
+                    ),
+                    (
+                        "backstage-community-plugin-topology",
+                        "2.2.0--1.5.4",
+                        "2.2.0--1.6.0",
+                        "topology",
+                    ),
+                ],
+                repo_root=tmp_path,
+            )
+        out = capsys.readouterr().out
+        assert "sync-midstream.sh --force-clone 'topology' --yes" in out
+        assert "orchestrator" not in out.split("sync-midstream.sh", 1)[1].split("\n", 1)[0]
+        assert "-p 'backstage-community-plugin-topology' -v 2.2.0 --next" in out
+        assert "red-hat-developer-hub-backstage-plugin-orchestrator|" not in out
+        assert "without a sync" in out
+
+    def test_node_modules_version_does_not_count_as_synced(self, tmp_path):
+        nested = tmp_path / "workspaces" / "orchestrator" / "node_modules" / "orchestrator"
+        nested.mkdir(parents=True)
+        (nested / "package.json").write_text('{"version": "6.2.5"}\n')
+        ready, manual, stale = generatePluginBuildInfo.split_fallback_rebuild(
+            [("plugin", "2.2.0--6.2.4", "2.2.0--6.2.5", "orchestrator")],
+            tmp_path,
+        )
+        assert ready == []
+        assert manual == ["plugin"]
+        assert stale == {"orchestrator"}
 
 
 class TestRecordImageMetadataReport:
