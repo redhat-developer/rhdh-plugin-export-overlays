@@ -49,6 +49,7 @@ import {
   isChartVersion,
   mergeAppConfig,
   newestCiChart,
+  notInstalled,
   notLoaded,
   parseLoadedPlugins,
   passed,
@@ -428,6 +429,10 @@ async function main(): Promise<number> {
     notLoaded: startupError || apiError ? [] : notLoaded(installed, loaded),
     excluded: [...new Set(skipped)].sort(),
     unresolved,
+    notInstalled: notInstalled(
+      requested.map((p) => p.package),
+      fullLog,
+    ),
     failures: failureLines(fullLog),
     failedPlugins: failedPluginIds(fullLog),
     startupError: startupError ?? apiError,

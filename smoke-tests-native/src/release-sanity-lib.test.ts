@@ -16,11 +16,13 @@ import {
   imageBaseName,
   imagesFromChartValues,
   newestCiChart,
+  notInstalled,
   notLoaded,
   parseLoadedPlugins,
   parseSanityCommand,
   passed,
   renderSummary,
+  shortError,
   unsetEnvVars,
   type SanityReport,
 } from "./release-sanity-lib";
@@ -186,6 +188,7 @@ function report(overrides: Partial<SanityReport> = {}): SanityReport {
     notLoaded: [],
     excluded: [],
     unresolved: [],
+    notInstalled: [],
     failures: [],
     failedPlugins: [],
     ...overrides,
@@ -201,7 +204,7 @@ test("passed requires a started backend, every request installed and every insta
     ),
     false,
   );
-  assert.equal(passed(report({ installed: 1 })), false);
+  assert.equal(passed(report({ notInstalled: ["oci://x"] })), false);
   assert.equal(passed(report({ installed: 0, requested: 0 })), false);
   assert.equal(
     passed(report({ notLoaded: [{ name: "a", dirName: "a" }] })),
@@ -266,4 +269,23 @@ test("failureLines strips terminal colour codes", () => {
 test("backendStartupFailed spots the backend giving up", () => {
   assert.equal(backendStartupFailed(CRASH_LOG), true);
   assert.equal(backendStartupFailed("Plugin initialization complete"), false);
+});
+
+test("notInstalled reads the install log, ignoring the plugin-path selector", () => {
+  const log = [
+    "\t==> Installed oci://q/a@sha256:1!a",
+    "\t==> Installed oci://q/b:tag!b-plugin",
+    "======= Skipping disabled plugin oci://q/c:tag",
+  ].join("\n");
+  assert.deepEqual(
+    notInstalled(["oci://q/b:tag", "oci://q/a@sha256:1", "oci://q/c:tag"], log),
+    ["oci://q/c:tag"],
+  );
+});
+
+test("shortError keeps the cause of a skopeo failure", () => {
+  const error =
+    'time="x" level=fatal msg="Error parsing image name \\"docker://ghcr.io/o/r/p:t\\": reading manifest t in ghcr.io/o/r/p: manifest unknown"';
+  assert.equal(shortError(error), "manifest unknown");
+  assert.equal(shortError("no answer within 30s"), "no answer within 30s");
 });

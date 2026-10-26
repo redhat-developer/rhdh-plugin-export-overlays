@@ -215,6 +215,20 @@ export function notLoaded(
     .sort((a, b) => compareStrings(a.name, b.name));
 }
 
+/**
+ * Requested refs the install CLI never reported as installed. Counted from its log,
+ * not from directories: one package does not always make one directory.
+ */
+export function notInstalled(requested: string[], log: string): string[] {
+  const base = (ref: string) => ref.split("!")[0];
+  const installed = new Set(
+    [...log.matchAll(/==> Installed\s+(\S+)/g)].map((m) => base(m[1])),
+  );
+  return requested
+    .filter((ref) => !installed.has(base(ref)))
+    .sort(compareStrings);
+}
+
 /** Log lines that name a plugin install or startup failure. */
 const FAILURE_LINE =
   /InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|threw an error during startup|Backend startup failed|Missing required config value|defined differently|plugin\(s\) failed/;
@@ -257,6 +271,8 @@ export type SanityReport = {
   loaded: number;
   notLoaded: InstalledPlugin[];
   excluded: string[];
+  /** Requested packages the install CLI did not report as installed. */
+  notInstalled: string[];
   /** Requested packages the registry could not serve; not installed. */
   unresolved: Array<{ ref: string; error: string }>;
   failures: string[];
@@ -270,9 +286,20 @@ export function passed(report: SanityReport): boolean {
   return (
     report.startupError === undefined &&
     report.unresolved.length === 0 &&
+    report.notInstalled.length === 0 &&
     report.notLoaded.length === 0 &&
-    report.installed > 0 &&
-    report.installed >= report.requested
+    report.installed > 0
+  );
+}
+
+/** The cause at the end of a skopeo error, e.g. `manifest unknown`. */
+export function shortError(error: string): string {
+  return (
+    error
+      .split(": ")
+      .at(-1)
+      ?.replace(/["\\]+$/, "")
+      .trim() || error
   );
 }
 
@@ -301,13 +328,18 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
   }
   if (report.unresolved.length) {
     lines.push("", "**Cannot be pulled (not installed):**");
-    for (const u of report.unresolved) lines.push(`- \`${u.ref}\`: ${u.error}`);
+    for (const u of report.unresolved) {
+      lines.push(`- \`${u.ref}\`: ${shortError(u.error)}`);
+    }
   }
-  if (report.installed < report.requested) {
-    lines.push(
-      "",
-      `**${report.requested - report.installed} requested plugin(s) were not installed.**`,
-    );
+  if (report.notInstalled.length) {
+    lines.push("", "**Requested but not installed:**");
+    // A failed install leaves most of the list here; the log has the rest.
+    for (const ref of report.notInstalled.slice(0, 30))
+      lines.push(`- \`${ref}\``);
+    if (report.notInstalled.length > 30) {
+      lines.push(`- … and ${report.notInstalled.length - 30} more`);
+    }
   }
   if (report.notLoaded.length) {
     lines.push("", "**Installed but not loaded:**");
