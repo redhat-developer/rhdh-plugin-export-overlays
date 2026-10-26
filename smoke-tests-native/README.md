@@ -471,8 +471,13 @@ an `.invalid` URL. Exclusions live in `release-sanity-excludes.txt` (install sco
 
 In CI, `.github/workflows/release-plugin-sanity.yaml` runs it daily and when an org member
 or collaborator comments `/sanity <CI chart version>` on the issue labelled
-`release-sanity`; the result is posted back on the issue. For now it accepts only the
-newest stream, whose community metadata is the one on `main`.
+`release-sanity`; the result is posted back on the issue. GitHub fires those events only
+from the default branch, so that is the workflow on `main`; the copy on this release branch
+never triggers. For a `2.1` chart, `main`'s workflow checks out `release-2.1` and runs this
+harness with `--stream 2.1` (daily) or `--chart-version` (`/sanity`), so the exclusions and
+community metadata are this branch's. Locally, pass `--stream 2.1` or a `2.1-N-CI` chart
+version: without either, `yarn release-sanity` picks the newest stream, whose community
+metadata lives on `main`.
 
 ### Test config (parity with the Docker smoke)
 
