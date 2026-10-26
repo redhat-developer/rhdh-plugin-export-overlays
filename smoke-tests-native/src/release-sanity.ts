@@ -61,6 +61,7 @@ import {
   findNotInstalled,
   findNotLoaded,
   installedPlugin,
+  isPluginDir,
   parseLoadedPlugins,
   passed,
   renderError,
@@ -181,7 +182,7 @@ function firstAppConfigExample(
 
 function scanInstalled(root: string): InstalledPlugin[] {
   return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .filter((entry) => entry.isDirectory() && isPluginDir(entry.name))
     .map((entry) => {
       const pkgPath = join(root, entry.name, "package.json");
       const pkg: unknown = existsSync(pkgPath)
