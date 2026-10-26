@@ -28,7 +28,8 @@ permissions:
 
 env:
   # Maintained release branches checked daily besides main. Add a branch when it is cut,
-  # drop it at end of life.
+  # drop it at end of life. Until main's first chart of the next stream exists, the daily
+  # main job checks the just-cut branch's newest chart with main's harness.
   RELEASE_BRANCHES: release-2.1
   ISSUE: ${{ github.event.issue.number }}
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
