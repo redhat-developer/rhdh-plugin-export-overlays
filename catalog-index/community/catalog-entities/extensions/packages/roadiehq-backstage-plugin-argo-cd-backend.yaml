@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@roadiehq/backstage-plugin-argo-cd-backend"
   # Tag: bs_1.54.9__4.9.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend@sha256:b21a33ccae11d1f6840967cb8c34bb8581ffa127f158f8fbd516f9ab8011b891"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend@sha256:04ffa317bbc6ce1fbce789949c697b19faee33e381b3cdc3a5c56ee1b7dd5070"
   version: 4.9.0
   backstage:
     role: backend-plugin
