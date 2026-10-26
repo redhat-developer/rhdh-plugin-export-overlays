@@ -30,6 +30,7 @@ import {
   normalizeChartVersion,
   findNotInstalled,
   findNotLoaded,
+  findSharedInstallDirs,
   parseLoadedPlugins,
   passed,
   renderError,
@@ -224,6 +225,7 @@ function report(overrides: Partial<SanityReport> = {}): SanityReport {
     skipped: [],
     unresolved: [],
     notInstalled: [],
+    sharedInstallDirs: [],
     failures: [],
     failedPlugins: [],
     ...overrides,
@@ -240,6 +242,10 @@ test("passed requires a started backend, every request installed and every insta
     false,
   );
   assert.equal(passed(report({ notInstalled: ["oci://x"] })), false);
+  assert.equal(
+    passed(report({ sharedInstallDirs: [{ dir: "a", refs: ["x", "y"] }] })),
+    false,
+  );
   assert.equal(passed(report({ installed: 0, requested: 0 })), false);
   assert.equal(
     passed(report({ notLoaded: [{ name: "a", dirName: "a" }] })),
@@ -319,6 +325,31 @@ test("notInstalled reads the install log, ignoring the plugin-path selector", ()
     ),
     ["oci://q/c:tag"],
   );
+});
+
+test("sharedInstallDirs finds requests extracted into one directory", () => {
+  const x2a = "oci://q/x2a:bs_1__2.0.0!x2a";
+  const dcr = "oci://q/x2a-dcr:bs_1__1.0.0!x2a";
+  assert.deepEqual(
+    findSharedInstallDirs([
+      x2a,
+      "oci://q/other:t",
+      dcr,
+      "oci://q/x2a-dcr:t!x2a-dcr",
+    ]),
+    [{ dir: "x2a", refs: [dcr, x2a] }],
+  );
+  assert.deepEqual(findSharedInstallDirs(["oci://q/a:t", "oci://q/b:t!b"]), []);
+});
+
+test("renderSummary lists requests sharing a directory", () => {
+  const md = renderSummary(
+    report({
+      sharedInstallDirs: [{ dir: "x2a", refs: ["oci://a!x2a", "oci://b!x2a"] }],
+    }),
+  );
+  assert.match(md, /failed/);
+  assert.match(md, /`x2a`: `oci:\/\/a!x2a`, `oci:\/\/b!x2a`/);
 });
 
 test("shortError keeps the cause of a skopeo failure", () => {
