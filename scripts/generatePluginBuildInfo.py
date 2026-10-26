@@ -73,6 +73,14 @@ def decode_dynamic_packages(annotation: str | None) -> list | None:
 # Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
 THREE_PART_PREFIX_RE = re.compile(r'^(\d+\.\d+)\.\d+$')
 
+# Release tags only. Digest, attestation, SBOM, and git-SHA tags never match.
+QUAY_RELEASE_TAG_RE = re.compile(r'^\d+\.\d+\.\d+--\d+\.\d+\.\d+$')
+QUAY_ALIAS_TAG_RE = re.compile(r'^\d+\.\d+--\d+\.\d+\.\d+$')
+GHCR_RELEASE_TAG_RE = re.compile(r'^bs_\d+\.\d+\.\d+__\d+\.\d+\.\d+$')
+
+# One skopeo list-tags payload per image. The x.y-- alias check reads this cache.
+_SKOPEO_TAG_CACHE: dict[tuple[str, str], list[str]] = {}
+
 
 def is_downstream_quay_rhdh() -> bool:
     """Check if REGISTRY_BASE is quay.io/rhdh (downstream supported, NOT quay.io/rhdh-community)."""
@@ -191,81 +199,85 @@ def parse_registry_reference(registry_reference: str) -> tuple[str, str, str] | 
     return registry, repository, tag
 
 
+def _version_tags(registry: str, tags: list) -> list[str]:
+    """Keep release tags. Quay keeps ``x.y.z--a.b.c`` and the ``x.y--a.b.c`` alias."""
+    if registry == "ghcr.io":
+        pattern = GHCR_RELEASE_TAG_RE
+        return [tag for tag in tags if isinstance(tag, str) and pattern.match(tag)]
+    kept = []
+    for tag in tags:
+        if not isinstance(tag, str):
+            continue
+        if QUAY_RELEASE_TAG_RE.match(tag) or QUAY_ALIAS_TAG_RE.match(tag):
+            kept.append(tag)
+    return kept
+
+
+def _skopeo_version_tags(registry: str, repository: str) -> list[str]:
+    """Return version tags for one image. A second call for the same image does not run skopeo."""
+    key = (registry, repository)
+    cached = _SKOPEO_TAG_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    command = ["skopeo", "list-tags", f"docker://{registry}/{repository}"]
+    authfile = os.environ.get("REGISTRY_AUTH_FILE")
+    if authfile:
+        command = ["skopeo", "list-tags", "--authfile", authfile, f"docker://{registry}/{repository}"]
+
+    try:
+        proc = subprocess.run(command, check=False, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log_warn(f"skopeo list-tags failed for {registry}/{repository}: {exc}")
+        _SKOPEO_TAG_CACHE[key] = []
+        return []
+
+    if proc.returncode != 0:
+        detail = (proc.stderr or "").strip().splitlines()
+        summary = detail[0][:200] if detail else f"exit {proc.returncode}"
+        log_warn(f"skopeo list-tags failed for {registry}/{repository}: {summary}")
+        _SKOPEO_TAG_CACHE[key] = []
+        return []
+
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        log_warn(f"skopeo list-tags returned invalid JSON for {registry}/{repository}: {exc}")
+        _SKOPEO_TAG_CACHE[key] = []
+        return []
+
+    version_tags = _version_tags(registry, payload.get("Tags") or [])
+    _SKOPEO_TAG_CACHE[key] = version_tags
+    return version_tags
+
+
 def list_tags_with_prefix(registry: str, repository: str, prefix: str, auth, headers: dict) -> list[str]:
-    """List all tags matching a prefix from the registry, filtered to clean versions, sorted ascending.
+    """List version tags with ``prefix``, sorted ascending.
 
-    Queries the Docker Registry HTTP API v2 with pagination to collect all tags,
-    then filters to only those starting with ``prefix`` whose suffix is a clean
-    version number (e.g. ``2.18.0``, ``1.5``).  This rejects Konflux/Tekton
-    build artifacts such as ``.att``, ``.sbom``, ``.sig``, ``.prefetch``, ``.git``,
-    ``.src``, ``.dockerfile``, bare SHA tags, ``on-pr-*``, ``rhdh-bsp-*``, etc.
+    One ``skopeo list-tags`` call per image returns every tag. This keeps only
+    release tags (``x.y.z--a.b.c``, the ``x.y--a.b.c`` alias, or
+    ``bs_x.y.z__a.b.c`` on ghcr) and then those that start with ``prefix``.
+    Digest, attestation, SBOM, and git-SHA tags are dropped before the sort.
+    The alias lookup reads the cached payload and does not call skopeo again.
 
-    Args:
-        registry: Registry hostname, e.g. ``"ghcr.io"`` or ``"quay.io"``.
-        repository: Image repository path, e.g. ``"rhdh/plugin-foo"``.
-        prefix: Tag prefix to match, e.g. ``"bs_1.49.4__"`` or ``"1.11--"``.
-        auth: Basic-auth tuple ``(username, password)`` or ``None``.
-        headers: Request headers dict (must include Accept and any Bearer token).
+    ``auth`` and ``headers`` are accepted for callers. Skopeo uses
+    ``REGISTRY_AUTH_FILE`` when that variable is set.
 
     Returns:
-        Tags sorted in ascending version order.  The last element is the
-        latest version.  Empty list if no matching tags are found.
-
-    Example:
-        Given these tags in the registry for ``quay.io/rhdh/plugin-foo``::
-
-            "1.11--1.5.4"           # valid
-            "1.11--1.3.0"           # valid
-            "sha256-abc123.att"     # rejected (doesn't match prefix)
-            "on-pr-abc123.prefetch" # rejected (doesn't match prefix)
-
-        With ``prefix="1.11--"``, returns::
-
-            ["1.11--1.3.0", "1.11--1.5.4"]
-
-        Given these tags for ``ghcr.io/org/repo/plugin``::
-
-            "bs_1.49.4__2.14.0"    # valid
-            "bs_1.49.4__2.18.0"    # valid
-            "sha256:d054dbee..."    # rejected (doesn't match prefix)
-
-        With ``prefix="bs_1.49.4__"``, returns::
-
-            ["bs_1.49.4__2.14.0", "bs_1.49.4__2.18.0"]
+        Tags sorted in ascending version order. The last element is the
+        latest version. Empty list if no matching tags are found.
     """
-    matched = []
-    n = 500
-    last = ""
-    while True:
-        url = f"https://{registry}/v2/{repository}/tags/list?n={n}"
-        if last:
-            url += f"&last={requests.utils.quote(last)}"
-        try:
-            resp = requests.get(url, headers=headers, auth=auth, timeout=60)
-            if resp.status_code != 200:
-                break
-            data = resp.json()
-            tags = data.get("tags") or []
-            for t in tags:
-                if t.startswith(prefix) and VERSION_SUFFIX_RE.match(t[len(prefix):]):
-                    matched.append(t)
-            if len(tags) < n:
-                break
-            last = tags[-1] if tags else ""
-            if not last:
-                break
-        except Exception as e:
-            log_debug(f"Error listing tags for {registry}/{repository}: {e}")
-            break
+    del auth, headers
+    matched = [tag for tag in _skopeo_version_tags(registry, repository) if tag.startswith(prefix)]
 
     def version_key(tag: str):
         suffix = tag[len(prefix):]
         parts = []
-        for p in suffix.split('.'):
+        for part in suffix.split('.'):
             try:
-                parts.append((0, int(p)))
+                parts.append((0, int(part)))
             except ValueError:
-                parts.append((1, p))
+                parts.append((1, part))
         return parts
 
     return sorted(matched, key=version_key)
@@ -1123,6 +1135,8 @@ def _enrich_plugins_in_build_file(
                     "fail",
                     reason=f"Image not found in registry: {registry_reference}",
                 )
+            if _strip_orphan_image_fields(plugin_data):
+                modified = True
             continue
 
         before_fallbacks = len(fallbacks)
