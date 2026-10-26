@@ -444,8 +444,9 @@ installed `package.json` says `@scope/plugin-a-dynamic`).
 The modes above boot plugins in process with `startTestBackend`. `yarn release-sanity`
 instead boots the **real RHDH image of a release** in a container (docker, or podman as
 docker), with every catalog index package and every community plugin enabled, and fails
-when an installed plugin is missing from `/api/dynamic-plugins-info/loaded-plugins`. It
-replaces the manual sanity plugin check done on each RC.
+when an installed plugin is missing from `/api/dynamic-plugins-info/loaded-plugins`. A
+plugin directory without a `package.json` (a wrong `!path`) counts as installed and not
+loaded. It replaces the manual sanity plugin check done on each RC.
 
 No plugin version is written anywhere. The image and the catalog index come from a CI chart
 (`helm show values oci://quay.io/rhdh/chart --version <X.Y-N-CI>`), which pins both by

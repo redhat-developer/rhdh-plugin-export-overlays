@@ -286,7 +286,7 @@ export function parseLoadedPlugins(body: unknown): Set<string> {
 export type InstalledPlugin = { name: string; dirName: string };
 
 /**
- * One directory of dynamic-plugins-root. Without a readable package.json name it keeps
+ * One directory of dynamic-plugins-root. Without a package.json name string it keeps
  * the directory name, which the backend never reports as loaded, so a plugin installed
  * to the wrong path fails the check instead of dropping out of the count.
  */
@@ -297,6 +297,15 @@ export function installedPlugin(
   const name =
     isRecord(pkg) && typeof pkg.name === "string" ? pkg.name : dirName;
   return { name, dirName };
+}
+
+/**
+ * Whether a dynamic-plugins-root entry is a plugin. The install CLI keeps its scratch
+ * space in dot directories (`.catalog-index-temp`), which would otherwise count as
+ * installed and never loaded.
+ */
+export function isPluginDir(name: string): boolean {
+  return !name.startsWith(".");
 }
 
 /** Installed plugins the backend did not load. */

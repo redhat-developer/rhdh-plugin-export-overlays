@@ -24,6 +24,7 @@ import {
   installDirName,
   installedPlugin,
   isImageRef,
+  isPluginDir,
   mergeAppConfig,
   newestCiChart,
   normalizeChartVersion,
@@ -183,7 +184,16 @@ test("a directory without package.json counts as installed and not loaded", () =
     name: "@s/y",
     dirName: "y",
   });
+  assert.deepEqual(installedPlugin("z", { name: 5 }), {
+    name: "z",
+    dirName: "z",
+  });
   assert.deepEqual(findNotLoaded([broken], new Set(["@s/y"])), [broken]);
+});
+
+test("isPluginDir leaves out the install CLI's dot directories", () => {
+  assert.equal(isPluginDir("backstage-plugin-x-dynamic"), true);
+  assert.equal(isPluginDir(".catalog-index-temp"), false);
 });
 
 test("failureLines keeps the backend's lowercase manifest load failure", () => {
