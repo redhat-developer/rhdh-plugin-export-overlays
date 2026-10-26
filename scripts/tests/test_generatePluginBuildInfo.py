@@ -150,17 +150,25 @@ GHCR_REAL_TAGS = [
 ]
 
 
-def _mock_response(tags):
-    resp = MagicMock()
-    resp.status_code = 200
-    resp.json.return_value = {"tags": tags}
-    return resp
+def _skopeo_completed(tags):
+    proc = MagicMock()
+    proc.returncode = 0
+    proc.stdout = json.dumps({"Tags": tags})
+    proc.stderr = ""
+    return proc
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_quay_prefix_filters_garbage(mock_get):
+@pytest.fixture(autouse=True)
+def _clear_skopeo_tag_cache():
+    generatePluginBuildInfo._SKOPEO_TAG_CACHE.clear()
+    yield
+    generatePluginBuildInfo._SKOPEO_TAG_CACHE.clear()
+
+
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_quay_prefix_filters_garbage(mock_run):
     """Verify only clean version tags survive from real quay.io Konflux output."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -169,10 +177,10 @@ def test_list_tags_quay_prefix_filters_garbage(mock_get):
     assert result == ["1.10--1.3.2", "1.10--1.3.3", "1.10--1.5.3", "1.10--1.5.4"]
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_quay_three_part_prefix(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_quay_three_part_prefix(mock_run):
     """Verify three-part version prefix (1.10.0--) also works."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -181,10 +189,10 @@ def test_list_tags_quay_three_part_prefix(mock_get):
     assert result == ["1.10.0--1.3.2", "1.10.0--1.3.3", "1.10.0--1.5.3", "1.10.0--1.5.4"]
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_ghcr_prefix_filters_other_families(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_ghcr_prefix_filters_other_families(mock_run):
     """Verify only bs_1.45.3__ tags returned, not next__/pr__ tags."""
-    mock_get.return_value = _mock_response(GHCR_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(GHCR_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "ghcr.io", "redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay",
@@ -193,10 +201,10 @@ def test_list_tags_ghcr_prefix_filters_other_families(mock_get):
     assert result == ["bs_1.45.3__2.11.0", "bs_1.45.3__2.14.0"]
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_no_matching_prefix(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_no_matching_prefix(mock_run):
     """Prefix that doesn't exist in the registry returns empty list."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/plugin", "1.12--", None, {}
@@ -204,9 +212,9 @@ def test_list_tags_no_matching_prefix(mock_get):
     assert result == []
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_empty_response(mock_get):
-    mock_get.return_value = _mock_response([])
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_empty_response(mock_run):
+    mock_run.return_value = _skopeo_completed([])
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/plugin", "1.11--", None, {}
@@ -214,10 +222,10 @@ def test_list_tags_empty_response(mock_get):
     assert result == []
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_version_sort_order(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_version_sort_order(mock_run):
     """Verify ascending version sort — latest tag is last."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -225,6 +233,45 @@ def test_list_tags_version_sort_order(mock_get):
     )
     assert result == ["1.9--1.1.0", "1.9--1.3.1"]
     assert result[-1] == "1.9--1.3.1"
+
+
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_keeps_only_xyz_release_tags(mock_run):
+    """SHA and attestation tags are dropped. Only x.y.z--a.b.c for the prefix remains."""
+    mock_run.return_value = _skopeo_completed([
+        "sha256-000c59163f40769db932c1d4ecb2871e5cdd1e3437510776f7ad00fadaa44290",
+        "sha256-000c59163f40769db932c1d4ecb2871e5cdd1e3437510776f7ad00fadaa44290.att",
+        "207c0117f535de0eccd735c458086807165a243c",
+        "2.2.0--6.2.4",
+        "2.1.0--6.2.4",
+        "2.2--6.2.4",
+    ])
+
+    result = generatePluginBuildInfo.list_tags_with_prefix(
+        "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-orchestrator",
+        "2.2.0--", None, {}
+    )
+    assert result == ["2.2.0--6.2.4"]
+    mock_run.assert_called_once()
+
+
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_alias_prefix_reuses_one_skopeo_list(mock_run):
+    """A missing 2.2.0-- tag falls through to 2.2-- without a second skopeo call."""
+    mock_run.return_value = _skopeo_completed([
+        "sha256-abc.att",
+        "2.2--6.2.4",
+        "2.1.0--6.2.1",
+    ])
+
+    result = generatePluginBuildInfo.resolve_fallback_tag(
+        "quay.io/rhdh/plugin:2.2.0--6.2.4"
+    )
+    assert result == {
+        "reference": "quay.io/rhdh/plugin:2.2--6.2.4",
+        "alias": True,
+    }
+    mock_run.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -447,47 +494,51 @@ class TestResolveFallbackTag:
 class TestResolveFallbackTagAlias:
     """Tests for RHDH version alias resolution in resolve_fallback_tag."""
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_xyz_prefix_resolves_via_alias(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_xyz_prefix_resolves_via_alias(self, mock_run):
         """Request 1.10.2--1.5.4, registry has 1.10--1.5.4 -> alias, not fallback."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.10.2--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is not None
         assert result['reference'] == "quay.io/rhdh/plugin:1.10--1.5.4"
         assert result['alias'] is True
+        mock_run.assert_called_once()
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_xyz_prefix_no_exact_version_under_xy_returns_none(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_xyz_prefix_no_exact_version_under_xy_returns_none(self, mock_run):
         """Request 1.10.2--9999.99.9, no 1.10.2-- tags, 1.10-- has tags but not 9999.99.9 -> None (needs new build)."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.10.2--9999.99.9"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
+        mock_run.assert_called_once()
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_xyz_prefix_no_xy_tags_returns_none(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_xyz_prefix_no_xy_tags_returns_none(self, mock_run):
         """Request 1.12.0--1.5.4, no 1.12.0-- or 1.12-- tags exist -> None."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.12.0--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
+        mock_run.assert_called_once()
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_ghcr_does_not_use_alias(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_ghcr_does_not_use_alias(self, mock_run):
         """ghcr.io with nonexistent bs_1.50.0__ prefix should NOT try bs_1.50__ alias."""
-        mock_get.return_value = _mock_response(GHCR_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(GHCR_REAL_TAGS)
         ref = "ghcr.io/org/repo/plugin:bs_1.50.0__2.18.0"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_two_part_prefix_does_not_use_alias(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_two_part_prefix_does_not_use_alias(self, mock_run):
         """Request 1.12--1.5.4, prefix is already two-part, no alias resolution attempted."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.12--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
+        mock_run.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -526,6 +577,36 @@ class TestGetImageMetadataAlias:
         assert metadata.get('fallback') is True
         assert metadata['requestedTag'] == '1.11--1.6.0'
         assert metadata['registryReference'] == 'quay.io/rhdh/plugin:1.11--1.5.4'
+
+
+class TestFailedMetadataDropsStaleDigest:
+    """A missed tag must not keep the digest from an older successful fetch."""
+
+    @patch("generatePluginBuildInfo.get_image_metadata", return_value=None)
+    def test_clears_digest_and_image_fields(self, _mock_metadata):
+        image = "red-hat-developer-hub-backstage-plugin-orchestrator"
+        data = {
+            image: {
+                "workspacePath": "orchestrator/plugins/orchestrator",
+                "registryReference": f"quay.io/rhdh/{image}:2.2.0--6.2.5",
+                "digest": "sha256:" + "ab" * 32,
+                "build-date": "2026-10-21T16:57:24Z",
+                "fallback": True,
+                "requestedTag": "2.2.0--6.2.4",
+            }
+        }
+        modified, fallback_count, _last = generatePluginBuildInfo._enrich_plugins_in_build_file(
+            data, "orchestrator", None, [], []
+        )
+        plugin = data[image]
+        assert modified is True
+        assert fallback_count == 0
+        assert "digest" not in plugin
+        assert "build-date" not in plugin
+        assert "fallback" not in plugin
+        assert "requestedTag" not in plugin
+        assert plugin["registryReference"] == f"quay.io/rhdh/{image}:2.2.0--6.2.5"
+        assert plugin["workspacePath"] == "orchestrator/plugins/orchestrator"
 
 
 # ---------------------------------------------------------------------------
