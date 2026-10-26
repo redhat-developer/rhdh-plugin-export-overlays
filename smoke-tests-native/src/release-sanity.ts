@@ -31,6 +31,7 @@ import {
 } from "node:fs";
 import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { parse, stringify } from "yaml";
 import { partitionResolvable, readIndexEntries } from "./catalog-index";
@@ -210,24 +211,30 @@ function containerLog(tail?: number): string {
   return `${log.stdout}${log.stderr}`;
 }
 
-async function waitForBackend(): Promise<string | undefined> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (!containerRunning())
-      return "the container exited before the backend was ready";
-    if (backendStartupFailed(containerLog(500)))
-      return "a plugin failed startup and the backend gave up";
-    try {
-      const res = await fetch(
-        `http://localhost:${PORT}/.backstage/health/v1/readiness`,
-      );
-      if (res.ok) return undefined;
-    } catch {
-      // not listening yet
-    }
-    await new Promise((r) => setTimeout(r, 10_000));
+async function backendReady(): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `http://localhost:${PORT}/.backstage/health/v1/readiness`,
+    );
+    return res.ok;
+  } catch {
+    return false; // not listening yet
   }
-  return `the backend was not ready after ${READY_TIMEOUT_MS / 60_000} minutes`;
+}
+
+// Recursive rather than a loop: each poll must finish before the next starts.
+async function waitForBackend(
+  deadline = Date.now() + READY_TIMEOUT_MS,
+): Promise<string | undefined> {
+  if (Date.now() >= deadline)
+    return `the backend was not ready after ${READY_TIMEOUT_MS / 60_000} minutes`;
+  if (!containerRunning())
+    return "the container exited before the backend was ready";
+  if (backendStartupFailed(containerLog(500)))
+    return "a plugin failed startup and the backend gave up";
+  if (await backendReady()) return undefined;
+  await setTimeout(10_000);
+  return waitForBackend(deadline);
 }
 
 async function loadedPlugins(): Promise<Set<string>> {
