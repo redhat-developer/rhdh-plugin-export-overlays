@@ -490,11 +490,11 @@ yarn smoke --dynamic-plugins dp.yaml \
 `yarn test` runs the unit tests (`node:test` over `src/*.test.ts` — workspace and
 support-level resolution, shard planning, exclusion parsing, path containment, report
 schema guards, config merging, aggregation and Markdown rendering, env/app-config
-substitution, frontend bundle matrix); `yarn check` runs `tsc --noEmit` + lint +
+substitution, frontend bundle matrix, release-sanity planning and reporting); `yarn check` runs `tsc --noEmit` + lint +
 prettier + the tests.
 
-The two CLIs keep their logic in `src/sweep-plan.ts` and `src/aggregate-report.ts`
-rather than beside their entry points: a module ending in `process.exit(main())` cannot
+The sweep, aggregate and release-sanity CLIs keep their logic in `src/sweep-plan.ts`,
+`src/aggregate-report.ts` and `src/release-sanity-logic.ts` rather than beside their entry points: a module ending in `process.exit(main())` cannot
 be imported by a test, so anything living there is untestable by construction. This is a standalone tool dir, not a
 `workspaces/*/e2e-tests` one, so it is outside `e2e-code-quality.yaml` (which only scans
 `workspaces/*/e2e-tests/**`).

@@ -6,26 +6,35 @@
 
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadExclusions } from "./exclusions";
 import {
+  backendStartupFailed,
   buildDynamicPluginsConfig,
   chartStream,
-  backendStartupFailed,
   failedPluginIds,
   failureLines,
-  mergeAppConfig,
   imageBaseName,
   imagesFromChartValues,
+  installDirName,
+  isChartVersion,
+  mergeAppConfig,
   newestCiChart,
   notInstalled,
   notLoaded,
+  parseEnvFile,
   parseLoadedPlugins,
-  parseSanityCommand,
   passed,
+  renderError,
   renderSummary,
   shortError,
   unsetEnvVars,
   type SanityReport,
-} from "./release-sanity-lib";
+} from "./release-sanity-logic";
+
+// src/ → smoke-tests-native/
+const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
@@ -83,15 +92,6 @@ image: { registry: quay.io, repository: rhdh/hub, tag: '', digest: '' }
 catalogIndex: { image: { registry: quay.io, repository: rhdh/idx, tag: x } }
 `;
   assert.throws(() => imagesFromChartValues(values), /image has neither/);
-});
-
-test("parseSanityCommand accepts only a CI chart version", () => {
-  assert.equal(parseSanityCommand("/sanity 2.1-158-CI"), "2.1-158-CI");
-  assert.equal(parseSanityCommand("  /sanity 2.1-158-CI \n"), "2.1-158-CI");
-  assert.equal(parseSanityCommand("/sanity 2.1-158-CI; rm -rf /"), undefined);
-  assert.equal(parseSanityCommand("/sanity $(whoami)"), undefined);
-  assert.equal(parseSanityCommand("/sanity"), undefined);
-  assert.equal(parseSanityCommand("please /sanity 2.1-158-CI"), undefined);
 });
 
 test("imageBaseName strips registry, digest, tag and plugin path", () => {
@@ -186,7 +186,7 @@ function report(overrides: Partial<SanityReport> = {}): SanityReport {
     installed: 2,
     loaded: 2,
     notLoaded: [],
-    excluded: [],
+    skipped: [],
     unresolved: [],
     notInstalled: [],
     failures: [],
@@ -288,4 +288,76 @@ test("shortError keeps the cause of a skopeo failure", () => {
     'time="x" level=fatal msg="Error parsing image name \\"docker://ghcr.io/o/r/p:t\\": reading manifest t in ghcr.io/o/r/p: manifest unknown"';
   assert.equal(shortError(error), "manifest unknown");
   assert.equal(shortError("no answer within 30s"), "no answer within 30s");
+});
+
+test("isChartVersion accepts only X.Y-N-CI", () => {
+  assert.equal(isChartVersion("2.2-79-CI"), true);
+  assert.equal(isChartVersion("2.2-79"), false);
+  assert.equal(isChartVersion("2.2-79-CI; echo"), false);
+});
+
+test("release-sanity-excludes.txt parses, and every entry is install-scoped", () => {
+  const exclusions = loadExclusions(
+    join(HARNESS_ROOT, "release-sanity-excludes.txt"),
+  );
+  assert.ok(exclusions.length > 0);
+  assert.ok(exclusions.every((e) => e.scope === "install"));
+});
+
+test("buildDynamicPluginsConfig lists a ref the index declares twice once", () => {
+  const ref = `oci://quay.io/rhdh/twice@${DIGEST}`;
+  const config = buildDynamicPluginsConfig([ref, ref], [], () => false);
+  assert.deepEqual(config.plugins, [{ package: ref, enabled: true }]);
+});
+
+test("parseEnvFile reads KEY=VALUE, strips quotes, skips comments", () => {
+  const text = "# comment\nA=1\nB=\"two words\"\n\nC='x=y'\nmalformed\n";
+  assert.deepEqual(parseEnvFile(text), { A: "1", B: "two words", C: "x=y" });
+});
+
+test("installDirName prefers the plugin-path selector", () => {
+  assert.equal(
+    installDirName(
+      "oci://ghcr.io/o/r/x2a-dcr:bs_1__1!red-hat-developer-hub-backstage-plugin-x2a",
+    ),
+    "red-hat-developer-hub-backstage-plugin-x2a",
+  );
+  assert.equal(installDirName(`oci://quay.io/rhdh/foo@${DIGEST}`), "foo");
+});
+
+test("notInstalled accepts the CLI's already-installed line", () => {
+  const log = "\t==> oci://q/a:tag!a: already installed, skipping";
+  assert.deepEqual(notInstalled(["oci://q/a:tag"], log), []);
+});
+
+test("failureLines reports a message repeated every few seconds once", () => {
+  const log = [
+    "2026-10-26T12:44:44.895Z catalog error Missing required config value at 'mta.url'",
+    "2026-10-26T12:44:50.011Z catalog error Missing required config value at 'mta.url'",
+  ].join("\n");
+  assert.equal(failureLines(log).length, 1);
+});
+
+test("renderSummary bounds lists and keeps log lines inside their fence", () => {
+  const md = renderSummary(
+    report({
+      notInstalled: Array.from({ length: 40 }, (_, i) => `oci://q/p${i}`),
+      failures: ["error ``` @someone " + "x".repeat(400)],
+    }),
+  );
+  assert.match(md, /`oci:\/\/q\/p29`/);
+  assert.doesNotMatch(md, /`oci:\/\/q\/p30`/);
+  assert.match(md, /and 10 more/);
+  assert.equal(md.match(/```/g)?.length, 2);
+  assert.doesNotMatch(md, /@someone/);
+});
+
+test("renderError explains a run that produced no report", () => {
+  const md = renderError(
+    "only the 2.2 stream is supported for now",
+    "https://run",
+  );
+  assert.match(md, /error/);
+  assert.match(md, /only the 2\.2 stream/);
+  assert.match(md, /Run: https:\/\/run/);
 });

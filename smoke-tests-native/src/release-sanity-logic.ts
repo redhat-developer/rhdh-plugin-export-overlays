@@ -94,12 +94,6 @@ export function imagesFromChartValues(valuesYaml: string): ChartImages {
   };
 }
 
-/** `/sanity 2.1-158-CI` → `2.1-158-CI`; anything else → undefined. */
-export function parseSanityCommand(body: string): string | undefined {
-  const match = /^\/sanity[ \t]+(\S+)[ \t]*$/.exec(body.trim());
-  return match && isChartVersion(match[1]) ? match[1] : undefined;
-}
-
 export type CommunityPlugin = { packageName: string; artifact: string };
 
 export type DynamicPluginsConfig = {
@@ -158,6 +152,29 @@ export function mergeAppConfig(
     return target;
   };
   return layers.reduce<Record<string, unknown>>((acc, l) => merge(acc, l), {});
+}
+
+/** KEY=VALUE pairs of an env file, quotes stripped; comments and blanks skipped. */
+export function parseEnvFile(text: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const eq = line.indexOf("=");
+    if (!line || line.startsWith("#") || eq <= 0) continue;
+    let value = line.slice(eq + 1).trim();
+    if (/^(["']).*\1$/.test(value)) value = value.slice(1, -1);
+    env[line.slice(0, eq).trim()] = value;
+  }
+  return env;
+}
+
+/**
+ * The directory a ref installs into, which the harness dummies are keyed by: the
+ * `!plugin-path` selector when present (an image can hold a differently named
+ * plugin), else the image name.
+ */
+export function installDirName(ref: string): string {
+  return ref.split("!")[1] || imageBaseName(ref);
 }
 
 /** `oci://reg/ns/name:tag!path` / `…@sha256:…` → `name`. */
@@ -222,7 +239,9 @@ export function notLoaded(
 export function notInstalled(requested: string[], log: string): string[] {
   const base = (ref: string) => ref.split("!")[0];
   const installed = new Set(
-    [...log.matchAll(/==> Installed\s+(\S+)/g)].map((m) => base(m[1])),
+    [
+      ...log.matchAll(/==> (?:Installed\s+(\S+)|(\S+): already installed)/g),
+    ].map((m) => base(m[1] ?? m[2])),
   );
   return requested
     .filter((ref) => !installed.has(base(ref)))
@@ -236,11 +255,19 @@ const FAILURE_LINE =
 // eslint-disable-next-line no-control-regex -- matching terminal escapes is the point
 const ANSI_ESCAPE = /\u001b\[[0-9;]*m/g;
 
+/** Failure lines, each message once: a provider retrying every few seconds repeats. */
 export function failureLines(log: string): string[] {
+  const seen = new Set<string>();
   return log
     .replace(ANSI_ESCAPE, "")
     .split("\n")
-    .filter((line) => FAILURE_LINE.test(line));
+    .filter((line) => FAILURE_LINE.test(line))
+    .filter((line) => {
+      const message = line.replace(/^\S*\d{4}-\d{2}-\d{2}T\S+\s*/, "");
+      if (seen.has(message)) return false;
+      seen.add(message);
+      return true;
+    });
 }
 
 /** Plugin ids the backend named as failing startup, e.g. `mta`. */
@@ -270,7 +297,8 @@ export type SanityReport = {
   installed: number;
   loaded: number;
   notLoaded: InstalledPlugin[];
-  excluded: string[];
+  /** Image names left out by release-sanity-excludes.txt. */
+  skipped: string[];
   /** Requested packages the install CLI did not report as installed. */
   notInstalled: string[];
   /** Requested packages the registry could not serve; not installed. */
@@ -303,6 +331,26 @@ export function shortError(error: string): string {
   );
 }
 
+// Bounded so a summary stays far below GitHub's 65536-character comment limit.
+const LIST_MAX = 30;
+const LOG_LINE_MAX = 300;
+
+function cappedList(items: string[]): string[] {
+  const shown = items.slice(0, LIST_MAX).map((item) => `- ${item}`);
+  if (items.length > LIST_MAX) {
+    shown.push(
+      `- … and ${items.length - LIST_MAX} more (see the report artifact)`,
+    );
+  }
+  return shown;
+}
+
+/** A log line made safe inside a fenced block: bounded, no fence, no mentions. */
+function quoteLogLine(line: string): string {
+  const safe = line.replaceAll("```", "'''").replaceAll("@", "@\u200b");
+  return safe.length > LOG_LINE_MAX ? `${safe.slice(0, LOG_LINE_MAX)}…` : safe;
+}
+
 /** The markdown block posted to the job summary and the issue. */
 export function renderSummary(report: SanityReport, runUrl?: string): string {
   const lines = [
@@ -312,8 +360,8 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
     `- Image: \`${report.image}\``,
     `- Catalog index: \`${report.catalogIndex}\``,
     `- Plugins: ${report.requested} requested, ${report.installed} installed, ${report.loaded} loaded`,
-    report.excluded.length
-      ? `- Excluded: ${report.excluded.map((e) => `\`${e}\``).join(", ")}`
+    report.skipped.length
+      ? `- Excluded: ${report.skipped.map((e) => `\`${e}\``).join(", ")}`
       : undefined,
     runUrl ? `- Run: ${runUrl}` : undefined,
   ].filter((line): line is string => line !== undefined);
@@ -321,30 +369,28 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
     lines.push("", `**The backend did not start:** ${report.startupError}`);
   }
   if (report.failedPlugins.length) {
-    lines.push(
-      "",
-      `**Plugins that failed startup:** ${report.failedPlugins.map((p) => `\`${p}\``).join(", ")}`,
-    );
+    const ids = report.failedPlugins.map((p) => `\`${p}\``).join(", ");
+    lines.push("", `**Plugins that failed startup:** ${ids}`);
   }
   if (report.unresolved.length) {
     lines.push("", "**Cannot be pulled (not installed):**");
-    for (const u of report.unresolved) {
-      lines.push(`- \`${u.ref}\`: ${shortError(u.error)}`);
-    }
+    lines.push(
+      ...cappedList(
+        report.unresolved.map((u) => `\`${u.ref}\`: ${shortError(u.error)}`),
+      ),
+    );
   }
   if (report.notInstalled.length) {
     lines.push("", "**Requested but not installed:**");
-    // A failed install leaves most of the list here; the log has the rest.
-    for (const ref of report.notInstalled.slice(0, 30))
-      lines.push(`- \`${ref}\``);
-    if (report.notInstalled.length > 30) {
-      lines.push(`- … and ${report.notInstalled.length - 30} more`);
-    }
+    lines.push(...cappedList(report.notInstalled.map((ref) => `\`${ref}\``)));
   }
   if (report.notLoaded.length) {
     lines.push("", "**Installed but not loaded:**");
-    for (const p of report.notLoaded)
-      lines.push(`- \`${p.name}\` (${p.dirName})`);
+    lines.push(
+      ...cappedList(
+        report.notLoaded.map((p) => `\`${p.name}\` (${p.dirName})`),
+      ),
+    );
   }
   if (report.failures.length) {
     lines.push(
@@ -352,8 +398,20 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
       "<details><summary>Failure lines from the log</summary>",
       "",
       "```",
+      ...report.failures.slice(0, 50).map(quoteLogLine),
+      "```",
+      "</details>",
     );
-    lines.push(...report.failures.slice(0, 50), "```", "</details>");
   }
   return lines.join("\n");
+}
+
+/** Summary for a run that ended before it could produce a report. */
+export function renderError(message: string, runUrl?: string): string {
+  return [
+    "### Release plugin sanity: error",
+    "",
+    `The check stopped before producing a report: ${message}`,
+    ...(runUrl ? ["", `- Run: ${runUrl}`] : []),
+  ].join("\n");
 }

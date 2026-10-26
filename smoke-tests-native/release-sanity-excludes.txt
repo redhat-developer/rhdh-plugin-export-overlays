@@ -3,7 +3,8 @@
 # Same grammar as catalog-index-sanity-excludes.txt (see src/exclusions.ts). Only the
 # `install` scope applies here: the check boots the real RHDH image, so a package is
 # either installed and expected to load, or not installed at all. Write patterns
-# against the OCI image name. Every entry needs a `TODO(TICKET)`.
+# against the OCI image name; community packages are also matched by npm name, which
+# candidateNames() normalizes to the same form. Every entry needs a `TODO(TICKET)`.
 #
 # Prefer a dummy config entry (src/plugin-config.ts, or the workspace's
 # smoke-tests/app-config.test.yaml) whenever the failure is startup config validation.

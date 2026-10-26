@@ -24,18 +24,18 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { parse, stringify } from "yaml";
-import { partitionResolvable } from "./catalog-index";
+import { partitionResolvable, readIndexEntries } from "./catalog-index";
 import { excluderFor, loadExclusions } from "./exclusions";
 import { probeRegistry } from "./registry-probe";
 import { buildDummyConfig } from "./plugin-config";
 import { collectPackages } from "./support";
-import { loadEnvFile } from "./test-config";
 import { discoverSmokeTestConfig } from "./workspace";
 import {
   DUMMY_ENV_VALUE,
@@ -46,20 +46,23 @@ import {
   failureLines,
   imageBaseName,
   imagesFromChartValues,
+  installDirName,
   isChartVersion,
   mergeAppConfig,
   newestCiChart,
   notInstalled,
   notLoaded,
+  parseEnvFile,
   parseLoadedPlugins,
   passed,
+  renderError,
   renderSummary,
   unsetEnvVars,
   type CommunityPlugin,
   type InstalledPlugin,
   type SanityReport,
-} from "./release-sanity-lib";
-import { isRecord } from "./util";
+} from "./release-sanity-logic";
+import { compareStrings, isRecord } from "./util";
 
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = dirname(HARNESS_ROOT);
@@ -97,6 +100,9 @@ function resolveTarget(): {
   image: string;
   catalogIndex: string;
 } {
+  if (args.stream && args["chart-version"]) {
+    throw new Error("--stream and --chart-version are mutually exclusive");
+  }
   if (args.image && args["catalog-index"]) {
     return { image: args.image, catalogIndex: args["catalog-index"] };
   }
@@ -132,15 +138,6 @@ function resolveTarget(): {
     image: args.image ?? images.image,
     catalogIndex: args["catalog-index"] ?? images.catalogIndex,
   };
-}
-
-function indexPackages(path: string): string[] {
-  const doc: unknown = parse(readFileSync(path, "utf8"));
-  const plugins =
-    isRecord(doc) && Array.isArray(doc.plugins) ? doc.plugins : [];
-  return plugins
-    .map((entry) => (isRecord(entry) ? entry.package : undefined))
-    .filter((pkg): pkg is string => typeof pkg === "string");
 }
 
 function firstAppConfigExample(
@@ -184,8 +181,9 @@ function containerRunning(): boolean {
   return state.stdout.trim() === "true";
 }
 
-function containerLog(): string {
-  const log = spawnSync("docker", ["logs", CONTAINER], {
+function containerLog(tail?: number): string {
+  const argv = ["logs", ...(tail ? ["--tail", String(tail)] : []), CONTAINER];
+  const log = spawnSync("docker", argv, {
     encoding: "utf8",
     maxBuffer: 256 * 1024 * 1024,
   });
@@ -197,7 +195,7 @@ async function waitForBackend(): Promise<string | undefined> {
   while (Date.now() < deadline) {
     if (!containerRunning())
       return "the container exited before the backend was ready";
-    if (backendStartupFailed(containerLog()))
+    if (backendStartupFailed(containerLog(500)))
       return "a plugin failed startup and the backend gave up";
     try {
       const res = await fetch(
@@ -235,9 +233,17 @@ async function loadedPlugins(): Promise<Set<string>> {
   return parseLoadedPlugins(await res.json());
 }
 
+const out = resolve(args.out);
+
+function removeContainer(): void {
+  spawnSync("docker", ["rm", "-f", CONTAINER], { stdio: "ignore" });
+}
+
 async function main(): Promise<number> {
-  const out = resolve(args.out);
   const pluginsRoot = join(out, "dynamic-plugins-root");
+  // A previous run's plugins would be reported as "already installed" rather than
+  // installed, and counted again by the directory scan.
+  rmSync(pluginsRoot, { recursive: true, force: true });
   mkdirSync(pluginsRoot, { recursive: true });
   // The image runs as a non-root user that has to write into the bind mount.
   chmodSync(pluginsRoot, 0o777);
@@ -252,22 +258,22 @@ async function main(): Promise<number> {
     target.catalogIndex,
     indexFile,
   ]);
-  const fromIndex = indexPackages(indexFile);
+  const fromIndex = readIndexEntries(indexFile)
+    .map((entry) => entry.package)
+    .filter((pkg): pkg is string => typeof pkg === "string");
 
   const exclusions = loadExclusions(
     join(HARNESS_ROOT, "release-sanity-excludes.txt"),
   );
-  const excluded = excluderFor(exclusions, "install");
-  const isExcluded = (pkg: string) =>
-    excluded(imageBaseName(pkg)) !== undefined;
+  const installExcluder = excluderFor(exclusions, "install");
+  const isExcluded = (ref: string) =>
+    installExcluder(imageBaseName(ref)) !== undefined;
 
   const communityEntries = collectPackages(REPO_ROOT).filter(
     (p) => p.support === "community" && p.artifact.startsWith("oci://"),
   );
   const community: CommunityPlugin[] = communityEntries
-    .filter(
-      (p) => excluded(p.packageName) === undefined && !isExcluded(p.artifact),
-    )
+    .filter((p) => installExcluder(p.packageName) === undefined)
     .map((p) => ({ packageName: p.packageName, artifact: p.artifact }));
 
   const dynamicPlugins = buildDynamicPluginsConfig(
@@ -318,7 +324,9 @@ async function main(): Promise<number> {
   const layers = ["community-examples.yaml", "dummies.yaml"];
   writeFileSync(
     join(configDir, "dummies.yaml"),
-    stringify(buildDummyConfig(requested.map((p) => imageBaseName(p.package)))),
+    stringify(
+      buildDummyConfig(requested.map((p) => installDirName(p.package))),
+    ),
   );
   const env: Record<string, string> = {};
   for (const ws of [...new Set(communityEntries.map((p) => p.workspace))]) {
@@ -330,8 +338,15 @@ async function main(): Promise<number> {
         readFileSync(appConfig),
       );
     }
-    if (testEnv)
-      for (const key of loadEnvFile(testEnv)) env[key] = process.env[key] ?? "";
+    if (testEnv) {
+      // A variable already set in the environment (a real token) wins over the
+      // committed placeholder, as in the Docker smoke.
+      for (const [key, value] of Object.entries(
+        parseEnvFile(readFileSync(testEnv, "utf8")),
+      )) {
+        env[key] = process.env[key] ?? value;
+      }
+    }
   }
   layers.push("guest.yaml");
   writeFileSync(
@@ -363,7 +378,7 @@ async function main(): Promise<number> {
       .join("\n") + "\n",
   );
 
-  spawnSync("docker", ["rm", "-f", CONTAINER], { stdio: "ignore" });
+  removeContainer();
   // The install CLI does not retry, so one registry hiccup among ~170 pulls would fail
   // the run. It is idempotent and keeps what it already installed, so retry it.
   const install = `./install-dynamic-plugins.sh ${APP_ROOT}/dynamic-plugins-root`;
@@ -415,8 +430,6 @@ async function main(): Promise<number> {
   }
   const fullLog = containerLog();
   writeFileSync(join(out, "container.log"), fullLog);
-  if (!args.keep)
-    spawnSync("docker", ["rm", "-f", CONTAINER], { stdio: "ignore" });
 
   const installed = scanInstalled(pluginsRoot);
   const report: SanityReport = {
@@ -427,7 +440,7 @@ async function main(): Promise<number> {
     installed: installed.length,
     loaded: loaded.size,
     notLoaded: startupError || apiError ? [] : notLoaded(installed, loaded),
-    excluded: [...new Set(skipped)].sort(),
+    skipped: [...new Set(skipped)].sort(compareStrings),
     unresolved,
     notInstalled: notInstalled(
       requested.map((p) => p.package),
@@ -444,10 +457,19 @@ async function main(): Promise<number> {
   return passed(report) ? 0 : 1;
 }
 
-main().then(
-  (code) => process.exit(code),
-  (err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exit(2);
-  },
-);
+main()
+  .catch((err: unknown) => {
+    // Still leave a summary, so the issue says why instead of "no report".
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(message);
+    mkdirSync(out, { recursive: true });
+    writeFileSync(
+      join(out, "summary.md"),
+      renderError(message, args["run-url"]) + "\n",
+    );
+    return 2;
+  })
+  .then((code) => {
+    if (!args.keep) removeContainer();
+    process.exit(code);
+  });
