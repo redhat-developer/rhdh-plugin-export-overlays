@@ -60,6 +60,8 @@ import {
   newestCiChart,
   findNotInstalled,
   findNotLoaded,
+  installedPlugin,
+  isPluginDir,
   parseLoadedPlugins,
   passed,
   renderError,
@@ -180,14 +182,13 @@ function firstAppConfigExample(
 
 function scanInstalled(root: string): InstalledPlugin[] {
   return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .flatMap((entry) => {
+    .filter((entry) => entry.isDirectory() && isPluginDir(entry.name))
+    .map((entry) => {
       const pkgPath = join(root, entry.name, "package.json");
-      if (!existsSync(pkgPath)) return [];
-      const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
-      const name =
-        isRecord(pkg) && typeof pkg.name === "string" ? pkg.name : entry.name;
-      return [{ name, dirName: entry.name }];
+      const pkg: unknown = existsSync(pkgPath)
+        ? JSON.parse(readFileSync(pkgPath, "utf8"))
+        : undefined;
+      return installedPlugin(entry.name, pkg);
     });
 }
 
