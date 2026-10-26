@@ -692,10 +692,8 @@ class TestFallbackRebuildCta:
             )
         out = capsys.readouterr().out
         assert "sync-midstream.sh --force-clone 'extensions' --yes" in out
-        assert (
-            "-p 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' "
-            "-v 2.0.0 --next"
-        ) in out
+        assert "-p 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions$'" in out
+        assert "-v 2.0.0 --next" in out
         assert "./build/ci/update-index.sh" in out
 
     def test_cta_uses_package_version_on_release_branch(self, capsys, tmp_path):
@@ -707,7 +705,8 @@ class TestFallbackRebuildCta:
                 repo_root=tmp_path,
             )
         out = capsys.readouterr().out
-        assert "-p 'backstage-community-plugin-topology' -v 1.10.3" in out
+        assert "-p 'backstage-community-plugin-topology$'" in out
+        assert "-v 1.10.3" in out
         assert "--next" not in out
         assert "sync-midstream.sh --force-clone 'topology' --yes" in out
         assert "./build/ci/update-index.sh" in out
@@ -721,7 +720,8 @@ class TestFallbackRebuildCta:
                 repo_root=tmp_path,
             )
         out = capsys.readouterr().out
-        assert "-p 'backstage-community-plugin-topology' -v 2.1.0" in out
+        assert "-p 'backstage-community-plugin-topology$'" in out
+        assert "-v 2.1.0" in out
         assert "--next" not in out
         fetch_version.assert_called_once_with("release-2.1")
 
@@ -788,7 +788,8 @@ class TestFallbackRebuildCta:
         out = capsys.readouterr().out
         assert "sync-midstream.sh --force-clone 'topology' --yes" in out
         assert "orchestrator" not in out.split("sync-midstream.sh", 1)[1].split("\n", 1)[0]
-        assert "-p 'backstage-community-plugin-topology' -v 2.2.0 --next" in out
+        assert "-p 'backstage-community-plugin-topology$'" in out
+        assert "-v 2.2.0 --next" in out
         assert "red-hat-developer-hub-backstage-plugin-orchestrator|" not in out
         assert "without a sync" in out
 
