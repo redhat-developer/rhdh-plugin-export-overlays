@@ -90,7 +90,7 @@ export function imageNameFromRef(ref: string): string | undefined {
  * Read the `plugins[]` entries. A malformed file throws rather than yielding an empty
  * list, which would report a clean pass over a file nothing could read.
  */
-function readIndexEntries(path: string): IndexEntry[] {
+export function readIndexEntries(path: string): IndexEntry[] {
   const doc = parse(readFileSync(path, "utf8")) as
     { plugins?: unknown } | null | undefined;
   // `typeof [] === "object"`, so an array has to be rejected explicitly — otherwise a
