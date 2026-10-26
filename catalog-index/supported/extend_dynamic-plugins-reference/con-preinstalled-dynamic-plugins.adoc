@@ -36,7 +36,7 @@ Upon application startup, for each plugin that is disabled by default, the `inst
 
 [source,yaml]
 ----
-======= Skipping disabled dynamic plugin oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:03c2aef955bb5e6bfc16295def86c2eff7746e5c8f6052fb1d56eebad79b47e9
+======= Skipping disabled dynamic plugin oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:ed87926131c1f4d6df7f8161b32033a8e296f8e8412f2cb0fb0c4d35bb43e1f4
 ----
 
 To enable this plugin, add a package with the same name to the Helm chart and set the `enabled` field to `true`. For example:
@@ -48,7 +48,7 @@ global:
     includes:
       - dynamic-plugins.default.yaml
     plugins:
-      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:03c2aef955bb5e6bfc16295def86c2eff7746e5c8f6052fb1d56eebad79b47e9
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:ed87926131c1f4d6df7f8161b32033a8e296f8e8412f2cb0fb0c4d35bb43e1f4
         enabled: true
 ----
 
