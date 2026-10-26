@@ -102,6 +102,7 @@ jobs:
             branch="release-${CHART%%-*}"
             if exists "branches/$branch"; then
               if ! has_harness "$branch"; then
+                echo "refused=true" >> "$GITHUB_OUTPUT"
                 gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
                   --body "\`$branch\` has no release sanity harness, so \`$CHART\` cannot be checked."
                 exit 1
@@ -111,7 +112,8 @@ jobs:
             echo "targets=$(jq -nc --arg ref "$ref" --arg chart "$CHART" '[{ref: $ref, chart: $chart}]')" \
               >> "$GITHUB_OUTPUT"
             gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
-              --body "Running the release plugin sanity check for \`$CHART\` with the \`$ref\` harness: $RUN_URL"
+              --body "Running the release plugin sanity check for \`$CHART\` with the \`$ref\` harness: $RUN_URL" \
+              || true
             exit 0
           fi
 
@@ -120,11 +122,27 @@ jobs:
             if has_harness "$branch"; then
               refs+=("$branch")
             else
-              echo "::warning::$branch has no release sanity harness; skipped"
+              echo "::warning::$branch has no release sanity harness (or does not exist); skipped"
             fi
           done
           echo "targets=$(printf '%s\n' "${refs[@]}" | jq -Rnc '[inputs | {ref: ., chart: ""}]')" \
             >> "$GITHUB_OUTPUT"
+
+      - name: Report a planning error
+        # Refusals answer for themselves; an API error here would otherwise leave the
+        # commenter (or the daily issue) without an answer.
+        if: failure() && steps.targets.outcome != 'skipped' && steps.targets.outputs.refused != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -z "$ISSUE" ]]; then
+            ISSUE="$(gh issue list --repo "$GITHUB_REPOSITORY" --label release-sanity \
+              --state open --limit 1 --json number --jq '.[0].number // empty')"
+          fi
+          if [[ -n "$ISSUE" ]]; then
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "The release plugin sanity check could not list its targets: $RUN_URL"
+          fi
 
   sanity:
     name: release-plugin-sanity (${{ matrix.target.ref }})
@@ -194,6 +212,9 @@ jobs:
             printf '### Release plugin sanity (%s): failed\n\nThe check did not produce a report (%s): %s\n' \
               "${CHART:-$REF}" "${OUTCOME:-not run}" "$RUN_URL" > "$summary"
           fi
+          # The daily jobs share one run URL; say which branch's harness this is.
+          # shellcheck disable=SC2016 # literal backticks for markdown
+          printf '\n- Harness: `%s`\n' "$REF" >> "$summary"
           cat "$summary" >> "$GITHUB_STEP_SUMMARY"
           if [[ -z "$ISSUE" && "$OUTCOME" != "success" ]]; then
             # A scheduled run has no comment to answer; report failures on the issue.

@@ -89,7 +89,7 @@ test("two plugins contributing to one section concatenate rather than clobber", 
   ]);
 });
 
-test("dynatrace and dql share one section: the dummies satisfy both schemas", () => {
+test("dynatrace frontend and dql backend dummies merge into one section", () => {
   // dql writes dynatrace.environments; the community dynatrace frontend then requires
   // dynatrace.baseUrl, and the app backend refuses to start without it.
   const merged = buildMergedConfig([
