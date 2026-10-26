@@ -1,5 +1,27 @@
 import type { Page } from "@playwright/test";
-import type { LoginHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import type {
+  LoginHelper,
+  UIhelper,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+
+/**
+ * Navigate to the Settings page via the user-profile dropdown.
+ *
+ * The NFS sidebar does not contain a Settings link; Settings is only
+ * reachable through the profile dropdown in the top-right header.
+ * Using {@link Page.goto | page.goto("/settings")} would drop the
+ * authenticated OIDC session (see #4034), so this SPA-friendly
+ * navigation is required in tests that need to stay logged in.
+ *
+ * Precedent: `workspaces/global-header/e2e-tests/tests/specs/default-global-header.spec.ts`
+ */
+export async function navigateToSettings(
+  page: Page,
+  uiHelper: UIhelper,
+): Promise<void> {
+  await uiHelper.openProfileDropdown();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+}
 
 /**
  * Guard wrapper around {@link LoginHelper.signOut} for expired Keycloak

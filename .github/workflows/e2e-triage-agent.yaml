@@ -19,11 +19,11 @@ name: E2E Triage Agent
 
 on:
   schedule:
-    - cron: "15 5 * * *" # 05:15 UTC (10:45 IST) — after the main nightly
+    - cron: "15 5 * * *" # 05:15 UTC (10:45 IST) — after the main nightlies (Helm Mon/Wed/Fri, operator Tue/Thu)
   workflow_dispatch:
     inputs:
       prow_url:
-        description: "Prow/GCSWeb URL of a failed run. Leave empty to auto-discover."
+        description: "Failed Helm/operator nightly Prow/GCSWeb URL. Leave empty to discover both lanes."
         required: false
         type: string
       branch:
@@ -43,18 +43,21 @@ permissions:
 
 jobs:
   discover-and-file:
-    name: Discover & file issue (${{ matrix.branch }})
+    name: Discover & file issue (${{ matrix.branch }}, ${{ matrix.lane }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         branch: ${{ github.event_name == 'schedule' && fromJSON('["main","release-1.10","release-2.1"]') || fromJSON(format('["{0}"]', inputs.branch || 'main')) }}
+        # A supplied Prow URL already identifies one run, so don't fan out over lanes.
+        lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.prow_url != '') && fromJSON('["manual"]') || fromJSON('["helm","operator"]') }}
     steps:
       - name: Discover latest failed nightly
         id: discover
         env:
           INPUT_PROW_URL: ${{ inputs.prow_url }}
           INPUT_BRANCH: ${{ matrix.branch }}
+          INPUT_LANE: ${{ matrix.lane }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
           set -euo pipefail
@@ -65,7 +68,7 @@ jobs:
             exit 0
           fi
 
-          PERIODIC="periodic-ci-redhat-developer-rhdh-plugin-export-overlays-${INPUT_BRANCH}-e2e-ocp-helm-nightly"
+          PERIODIC="periodic-ci-redhat-developer-rhdh-plugin-export-overlays-${INPUT_BRANCH}-e2e-ocp-${INPUT_LANE}-nightly"
           GCS="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public/logs/${PERIODIC}"
           PROW="https://prow.ci.openshift.org/view/gs/test-platform-results-public/logs/${PERIODIC}"
 
@@ -92,8 +95,19 @@ jobs:
             echo "::notice::No finished.json — still running?"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
           fi
 
-          STEP="redhat-developer-rhdh-plugin-export-overlays-ocp-helm"
-          STATS=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/artifacts/e2e-ocp-helm-nightly/${STEP}/artifacts/playwright-report/results.json" 2>/dev/null | jq -r '.stats') || true
+          # The E2E step container was renamed to ...-ocp-e2e when the OCP e2e
+          # step became generic (2026-10-12). Try it first, then the lane-named
+          # container used by older runs.
+          STATS=""
+          for STEP in \
+            "redhat-developer-rhdh-plugin-export-overlays-ocp-e2e" \
+            "redhat-developer-rhdh-plugin-export-overlays-ocp-${INPUT_LANE}"; do
+            RESULTS=$(curl -fsSL --proto =https \
+              "${GCS}/${RUN_ID}/artifacts/e2e-ocp-${INPUT_LANE}-nightly/${STEP}/artifacts/playwright-report/results.json" \
+              2>/dev/null) || continue
+            STATS=$(echo "${RESULTS}" | jq -r '.stats // empty')
+            if [[ -n "${STATS}" ]]; then break; fi
+          done
           if [[ -n "${STATS}" ]]; then
             FAILED=$(echo "${STATS}" | jq -r '.unexpected // 0')
             PASSED=$(echo "${STATS}" | jq -r '.expected // 0')
@@ -101,6 +115,8 @@ jobs:
             if [[ "${FAILED}" -eq 0 && "${PASSED}" -gt 0 ]]; then
               echo "::notice::Tests passed, job failed — infra issue"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
             fi
+          else
+            echo "::notice::No Playwright results.json found — cannot check for an infra-only failure"
           fi
 
           echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
@@ -126,18 +142,34 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           PROW_URL: ${{ steps.discover.outputs.prow_url }}
+          INPUT_PROW_URL: ${{ inputs.prow_url }}
           BRANCH: ${{ matrix.branch }}
+          LANE: ${{ matrix.lane }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           TODAY=$(date -u '+%Y-%m-%d')
 
-          # Close any stale open issue for this branch so the agent always
-          # reads today's prow URL from the issue body (not a comment).
-          EXISTING=$(gh issue list --repo "${REPO}" \
+          # A manually supplied Prow URL is not tied to a discovered lane.
+          if [[ -n "${INPUT_PROW_URL}" ]]; then
+            LANE_LABEL=""
+          else
+            LANE_LABEL=" ${LANE}"
+          fi
+
+          # Close any stale open issue for this branch+lane so the agent always
+          # reads today's prow URL from the issue body (not a comment). The
+          # legacy (pre-lane) title format is matched too.
+          EXISTING=""
+          while IFS=$'\t' read -r NUM TITLE; do
+            case "${TITLE}" in
+              *"nightly failure: ${BRANCH} ${LANE} ("*|*"nightly failure: ${BRANCH} ("*)
+                EXISTING="${NUM}"; break;;
+            esac
+          done < <(gh issue list --repo "${REPO}" \
             --label "e2e-triage" --state open \
             --search "[fullsend] E2E nightly failure: ${BRANCH}" \
-            --json number,title --jq ".[].number" | head -1) || true
+            --json number,title --jq '.[] | "\(.number)\t\(.title)"')
 
           if [[ -n "${EXISTING}" ]]; then
             gh issue close "${EXISTING}" --repo "${REPO}" \
@@ -151,8 +183,8 @@ jobs:
             --force 2>/dev/null || true
 
           ISSUE_URL=$(gh issue create --repo "${REPO}" \
-            --title "[fullsend] E2E nightly failure: ${BRANCH} (${TODAY})" \
-            --body "Nightly E2E run failed on \`${BRANCH}\`.
+            --title "[fullsend] E2E nightly failure: ${BRANCH}${LANE_LABEL} (${TODAY})" \
+            --body "Nightly${LANE_LABEL} E2E run failed on \`${BRANCH}\`.
 
           PROW_URL: ${PROW_URL}
 
