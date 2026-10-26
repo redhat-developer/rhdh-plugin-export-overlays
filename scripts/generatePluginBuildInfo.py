@@ -738,17 +738,75 @@ def fetch_rhdh_package_version(rhdh_branch: str | None = None) -> str | None:
     return None
 
 
+def requested_plugin_version(tag: str) -> str:
+    """Plugin version is the suffix after ``--`` (Quay) or ``__`` (ghcr)."""
+    if "--" in tag:
+        return tag.rsplit("--", 1)[1]
+    if "__" in tag:
+        return tag.rsplit("__", 1)[1]
+    return tag
+
+
+def package_versions_in_workspace(repo_root: Path, workspace: str) -> set[str]:
+    """Top-level ``version`` values under ``workspaces/<workspace>/``, skipping ``node_modules``."""
+    root = repo_root / "workspaces" / workspace
+    if not root.is_dir():
+        return set()
+    versions: set[str] = set()
+    for package_json in root.rglob("package.json"):
+        if "node_modules" in package_json.parts:
+            continue
+        try:
+            data = json.loads(package_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        version = data.get("version") if isinstance(data, dict) else None
+        if isinstance(version, str) and version.strip():
+            versions.add(version.strip())
+    return versions
+
+
+def split_fallback_rebuild(
+    fallbacks: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
+    repo_root: Path,
+) -> tuple[list[str], list[str], set[str]]:
+    """Split fallbacks into packages ready to rebuild and workspaces that still need a sync.
+
+    A package is ready when some ``package.json`` under its workspace already has the
+    requested plugin version. A missing workspace tree is not ready: Konflux builds
+    whatever ``package.json`` is there and would republish the older tag.
+
+    Returns ``(ready_packages, manual_packages, stale_workspaces)``.
+    """
+    ready: list[str] = []
+    manual: list[str] = []
+    stale: set[str] = set()
+    for entry in fallbacks:
+        container, want_tag = entry[0], entry[2]
+        workspace = str(entry[3]) if len(entry) >= 4 and entry[3] else ""
+        want = requested_plugin_version(want_tag)
+        if workspace and want in package_versions_in_workspace(repo_root, workspace):
+            ready.append(container)
+        else:
+            manual.append(container)
+            if workspace:
+                stale.add(workspace)
+    return ready, manual, stale
+
+
 def print_fallback_rebuild_cta(
     fallbacks: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
+    repo_root: Path | None = None,
 ) -> None:
     """Print a rebuild call-to-action for plugins that resolved to a fallback tag.
 
     Accepts 3-tuples ``(container, have, want)`` or 4-tuples with ``workspace``.
 
-    Always lists the fallback containers. Midstream-only rebuild steps (sync
-    overlays into ``rhdh-plugin-catalog``, Konflux PLRs, ``./build/ci/update-index.sh``)
-    are printed only when ``_in_midstream_repo()`` is true — those paths do not
-    exist upstream and must not be suggested from the overlays repo.
+    Always lists the fallback containers. Midstream-only rebuild steps are printed
+    only when ``_in_midstream_repo()`` is true. The sync step is limited to
+    workspaces whose ``package.json`` does not already contain the requested
+    plugin version; ``build/ci/update-index.sh`` runs ``updatePLRs.sh`` for the
+    rest. Keep this split in step with ``trigger_ready_fallback_plrs`` there.
     """
     if not fallbacks:
         return
@@ -763,45 +821,48 @@ def print_fallback_rebuild_cta(
         f"so the catalog can stop using fallbacks:\n"
         f"  (container, have_tag, requested_tag)"
     )
-    containers: list[str] = []
-    workspaces: set[str] = set()
     for entry in fallbacks:
         container, have_tag, want_tag = entry[0], entry[1], entry[2]
-        if len(entry) >= 4 and entry[3]:
-            workspaces.add(str(entry[3]))
         print(
             f"  - {Colors.YELLOW}{container}{Colors.NORM}: "
             f"have {Colors.YELLOW}{have_tag}{Colors.NORM}  →  "
             f"need {Colors.GREEN}{want_tag}{Colors.NORM}"
         )
-        containers.append(container)
 
-    # Upstream overlays has neither sync-midstream, Konflux PLR helpers, nor
-    # build/ci/update-index.sh — stop after the fallback list.
+    # Upstream overlays has neither sync-midstream nor build/ci/update-index.sh.
     if not _in_midstream_repo():
         print()
         return
 
-    package_filter = "|".join(containers)
+    repo = repo_root or Path.cwd()
+    ready, manual, stale_workspaces = split_fallback_rebuild(fallbacks, repo)
+    if not manual:
+        print(
+            f"\n{Colors.GREEN}No midstream sync is required:{Colors.NORM} "
+            f"workspace package.json already has the requested plugin versions.\n"
+            f"update-index.sh runs the Konflux PipelineRun update for these packages.\n"
+        )
+        return
+
     # Prefer -v x.y.z --next on the next stream (matches updatePLRs.sh /
     # RELEASE_GUIDE). Catalog release branches (release-x.y, or older
     # rhdh-1.y-rhel-9) use plain -v x.y.z from that release's rhdh package.json.
-    # (-v main also works once package.json major matches the next stream.)
     rhdh_branch = rhdh_git_branch_for_midstream(current_midstream_branch())
     version = fetch_rhdh_package_version(rhdh_branch) or "<version>"
     version_args = (
         f"-v {version} --next" if rhdh_branch == DEFAULT_MIDSTREAM_BRANCH else f"-v {version}"
     )
+    package_filter = "|".join(manual)
 
     step = 1
-    if workspaces:
-        ws_filter = "|".join(sorted(workspaces))
+    if stale_workspaces:
+        ws_filter = "|".join(sorted(stale_workspaces))
         print(
             f"\n\n{Colors.YELLOW}{step}) Sync midstream sources first:{Colors.NORM}\n"
             f"   Metadata already requests newer tags, but Quay images are built "
-            f"from midstream workspaces/ folders. If package.json versions are "
-            f"older, Konflux will re-publish to the old tag, so must sync before "
-            f"updating, then running PLRs:\n\n"
+            f"from midstream workspaces/ folders. package.json in these workspaces "
+            f"does not yet have the requested version, so Konflux would re-publish "
+            f"the old tag. Sync before updating, then run PLRs:\n\n"
             f"   ./build/ci/sync-midstream.sh --force-clone '{ws_filter}' --yes\n\n"
             f"   (Or: sync overlays into overlay-repo, then force-clone the "
             f"affected upstream workspace(s) listed above.)"
@@ -816,8 +877,17 @@ def print_fallback_rebuild_cta(
     step += 1
     print(
         f"\n\n{Colors.YELLOW}{step}) Re-run the catalog index update:{Colors.NORM}\n"
-        f"   ./build/ci/update-index.sh\n\n"
+        f"   ./build/ci/update-index.sh\n"
     )
+    if ready:
+        print(
+            f"\n{Colors.GREEN}These packages already have the requested version "
+            f"in the workspace, so update-index.sh updates their PipelineRuns "
+            f"without a sync:{Colors.NORM}\n"
+            f"  {'|'.join(ready)}\n"
+        )
+    else:
+        print()
 
 
 PLUGIN_BUILD_KEY_ORDER = (
