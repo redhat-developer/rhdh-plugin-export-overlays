@@ -19,6 +19,7 @@ import {
   imagesFromChartValues,
   installDirName,
   isChartVersion,
+  isImageRef,
   mergeAppConfig,
   newestCiChart,
   notInstalled,
@@ -360,4 +361,14 @@ test("renderError explains a run that produced no report", () => {
   assert.match(md, /error/);
   assert.match(md, /only the 2\.2 stream/);
   assert.match(md, /Run: https:\/\/run/);
+});
+
+test("isImageRef accepts registry refs and rejects anything that could be an option", () => {
+  assert.equal(isImageRef(`quay.io/rhdh/rhdh-hub-rhel10@${DIGEST}`), true);
+  assert.equal(isImageRef("quay.io/rhdh/plugin-catalog-index:2.1"), true);
+  assert.equal(isImageRef("localhost:5000/ns/img:tag"), true);
+  assert.equal(isImageRef("--privileged"), false);
+  assert.equal(isImageRef("quay.io/rhdh/x:1 --rm"), false);
+  assert.equal(isImageRef("img"), false);
+  assert.equal(isImageRef("quay.io/rhdh/x@sha256:short"), false);
 });

@@ -19,7 +19,9 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import {
+  accessSync,
   chmodSync,
+  constants,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -27,12 +29,13 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { parse, stringify } from "yaml";
 import { partitionResolvable, readIndexEntries } from "./catalog-index";
 import { excluderFor, loadExclusions } from "./exclusions";
+import { requireContained, resolveContained } from "./paths";
 import { probeRegistry } from "./registry-probe";
 import { buildDummyConfig } from "./plugin-config";
 import { collectPackages } from "./support";
@@ -48,6 +51,7 @@ import {
   imagesFromChartValues,
   installDirName,
   isChartVersion,
+  isImageRef,
   mergeAppConfig,
   newestCiChart,
   notInstalled,
@@ -88,6 +92,23 @@ const { values: args } = parseArgs({
   },
 });
 
+/**
+ * The absolute path of a tool on PATH, so commands are never resolved by the shell's
+ * PATH lookup at spawn time (Sonar S4036), the way native-smoke.ts runs its CLI.
+ */
+function tool(name: "docker" | "helm" | "skopeo"): string {
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    const candidate = join(dir, name);
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // not in this directory
+    }
+  }
+  throw new Error(`${name} not found on PATH`);
+}
+
 function run(cmd: string, argv: string[]): string {
   return execFileSync(cmd, argv, {
     encoding: "utf8",
@@ -103,6 +124,12 @@ function resolveTarget(): {
   if (args.stream && args["chart-version"]) {
     throw new Error("--stream and --chart-version are mutually exclusive");
   }
+  for (const flag of ["image", "catalog-index"] as const) {
+    const value = args[flag];
+    if (value !== undefined && !isImageRef(value)) {
+      throw new Error(`--${flag} is not an image reference: '${value}'`);
+    }
+  }
   if (args.image && args["catalog-index"]) {
     return { image: args.image, catalogIndex: args["catalog-index"] };
   }
@@ -113,8 +140,9 @@ function resolveTarget(): {
     );
   }
   const tags = (): string[] =>
-    JSON.parse(run("skopeo", ["list-tags", "--no-creds", `docker://${CHART}`]))
-      .Tags as string[];
+    JSON.parse(
+      run(tool("skopeo"), ["list-tags", "--no-creds", `docker://${CHART}`]),
+    ).Tags as string[];
   if (!chartVersion) chartVersion = newestCiChart(tags(), args.stream);
   if (args["only-newest-stream"]) {
     const newest = chartStream(newestCiChart(tags()));
@@ -125,7 +153,7 @@ function resolveTarget(): {
     }
   }
   const images = imagesFromChartValues(
-    run("helm", [
+    run(tool("helm"), [
       "show",
       "values",
       `oci://${CHART}`,
@@ -133,11 +161,16 @@ function resolveTarget(): {
       chartVersion,
     ]),
   );
-  return {
+  const target = {
     chartVersion,
     image: args.image ?? images.image,
     catalogIndex: args["catalog-index"] ?? images.catalogIndex,
   };
+  // Chart values become docker and skopeo arguments; hold them to the same shape.
+  for (const ref of [target.image, target.catalogIndex]) {
+    if (!isImageRef(ref)) throw new Error(`chart values: bad image '${ref}'`);
+  }
+  return target;
 }
 
 function firstAppConfigExample(
@@ -172,7 +205,7 @@ function scanInstalled(root: string): InstalledPlugin[] {
 
 function containerRunning(): boolean {
   const state = spawnSync(
-    "docker",
+    tool("docker"),
     ["inspect", "-f", "{{.State.Running}}", CONTAINER],
     {
       encoding: "utf8",
@@ -183,7 +216,7 @@ function containerRunning(): boolean {
 
 function containerLog(tail?: number): string {
   const argv = ["logs", ...(tail ? ["--tail", String(tail)] : []), CONTAINER];
-  const log = spawnSync("docker", argv, {
+  const log = spawnSync(tool("docker"), argv, {
     encoding: "utf8",
     maxBuffer: 256 * 1024 * 1024,
   });
@@ -233,13 +266,15 @@ async function loadedPlugins(): Promise<Set<string>> {
   return parseLoadedPlugins(await res.json());
 }
 
-const out = resolve(args.out);
+// Inside the working directory, like every path flag in this harness (Sonar S8707).
+const outArg = resolveContained(args.out);
 
 function removeContainer(): void {
-  spawnSync("docker", ["rm", "-f", CONTAINER], { stdio: "ignore" });
+  spawnSync(tool("docker"), ["rm", "-f", CONTAINER], { stdio: "ignore" });
 }
 
 async function main(): Promise<number> {
+  const out = requireContained("--out", args.out);
   const pluginsRoot = join(out, "dynamic-plugins-root");
   // A previous run's plugins would be reported as "already installed" rather than
   // installed, and counted again by the directory scan.
@@ -390,7 +425,7 @@ async function main(): Promise<number> {
       ...layers.map((l) => `--config ${APP_ROOT}/release-sanity-config/${l}`),
     ].join(" "),
   ].join(" && ");
-  run("docker", [
+  run(tool("docker"), [
     "run",
     "-d",
     "--name",
@@ -462,11 +497,13 @@ main()
     // Still leave a summary, so the issue says why instead of "no report".
     const message = err instanceof Error ? err.message : String(err);
     console.error(message);
-    mkdirSync(out, { recursive: true });
-    writeFileSync(
-      join(out, "summary.md"),
-      renderError(message, args["run-url"]) + "\n",
-    );
+    if (outArg) {
+      mkdirSync(outArg, { recursive: true });
+      writeFileSync(
+        join(outArg, "summary.md"),
+        renderError(message, args["run-url"]) + "\n",
+      );
+    }
     return 2;
   })
   .then((code) => {

@@ -61,6 +61,17 @@ export function newestCiChart(tags: string[], stream?: string): string {
   return inStream.sort((a, b) => a.build - b.build).at(-1)!.tag;
 }
 
+/**
+ * `registry[:port]/path[:tag][@sha256:digest]`: the only shape an image argument may
+ * take before it reaches docker or skopeo.
+ */
+const IMAGE_REF_RE =
+  /^[a-z0-9.-]+(?::\d+)?(?:\/[a-z0-9._-]+)+(?::[A-Za-z0-9._-]{1,128})?(?:@sha256:[a-f0-9]{64})?$/;
+
+export function isImageRef(value: string): boolean {
+  return IMAGE_REF_RE.test(value);
+}
+
 export type ChartImages = { image: string; catalogIndex: string };
 
 function imageRef(node: unknown, path: string): string {

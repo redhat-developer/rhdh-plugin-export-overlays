@@ -100,8 +100,8 @@ jobs:
         env:
           CHART: ${{ steps.command.outputs.chart }}
         run: |
-          OUT="$RUNNER_TEMP/release-sanity"
-          args=(--only-newest-stream --out "$OUT" --run-url "$RUN_URL")
+          # --out must stay inside the working directory (the harness's path rule).
+          args=(--only-newest-stream --out release-sanity-out --run-url "$RUN_URL")
           if [[ -n "$CHART" ]]; then args+=(--chart-version "$CHART"); fi
           yarn release-sanity "${args[@]}"
 
@@ -112,7 +112,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.sanity.outcome }}
         run: |
-          OUT="$RUNNER_TEMP/release-sanity"
+          OUT=smoke-tests-native/release-sanity-out
           mkdir -p "$OUT"
           summary="$OUT/summary.md"
           if [[ ! -s "$summary" ]]; then
@@ -135,10 +135,10 @@ jobs:
         with:
           name: release-plugin-sanity
           path: |
-            ${{ runner.temp }}/release-sanity/*.json
-            ${{ runner.temp }}/release-sanity/*.md
-            ${{ runner.temp }}/release-sanity/*.log
-            ${{ runner.temp }}/release-sanity/*.yaml
-            ${{ runner.temp }}/release-sanity/config/
+            smoke-tests-native/release-sanity-out/*.json
+            smoke-tests-native/release-sanity-out/*.md
+            smoke-tests-native/release-sanity-out/*.log
+            smoke-tests-native/release-sanity-out/*.yaml
+            smoke-tests-native/release-sanity-out/config/
           if-no-files-found: ignore
           retention-days: 14
