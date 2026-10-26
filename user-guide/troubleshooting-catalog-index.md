@@ -224,8 +224,11 @@ selected Package entities' `dynamicArtifact`:
 - The ref has no path and the image declares several plugins. Install fails with
   `InstallException: Multiple plugins found in OCI image` (RHDHBUGS-3836).
 
-A `dynamicArtifact` on an image other than the one `plugin_builds/` resolved, such as an
-external bundle, is not checked: nothing in the index records that image's plugins.
+A ref to an image with no `plugin_builds/` entry, such as an external bundle, is not
+checked: nothing in the index records that image's plugins. Generation also rewrites a
+selected entity's `dynamicArtifact` to the path-less digest ref, so a wrong selector in
+the workspace metadata itself is not caught here; the release plugin sanity catches it
+when the plugin is installed.
 
 **Fix:** set the selector in the workspace metadata to one of the paths the message
 lists, or drop it when the image holds a single plugin.

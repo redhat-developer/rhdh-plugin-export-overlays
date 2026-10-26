@@ -797,7 +797,9 @@ def check_plugin_paths(
 
     Covers the DPDY refs and the selected Package entities' dynamicArtifact. A ref to an
     image with no plugin_builds/ entry, such as an external bundle, is not checked:
-    nothing here records that image's plugins.
+    nothing here records that image's plugins. Generation rewrites a selected entity's
+    dynamicArtifact to the path-less digest ref, so the metadata's own selector is not
+    seen here.
     """
     findings: list[Finding] = []
     refs = [
