@@ -1,7 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.2-bs_1.54.9-390bb0f"
-  },
+  "metadata": {},
   "plugins": {
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
       "stages": {
@@ -113,7 +111,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-auth' resolved to bs_1.54.9__1.2.0 after bs_1.54.9__1.3.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-auth' resolved to bs_1.54.9__1.2.0 after bs_1.54.9__1.3.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -144,7 +142,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.12.1 after bs_1.54.9__1.13.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.9__1.12.1 after bs_1.54.9__1.13.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -175,7 +173,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-integrations' resolved to bs_1.54.9__1.1.1 after bs_1.54.9__1.2.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-integrations' resolved to bs_1.54.9__1.1.1 after bs_1.54.9__1.2.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -434,7 +432,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:febd345db8a579017f0609cb440a1284af7de91d116066f4fff265bdcd35f7fb"
+          "digest": "sha256:77ae94cc274e84054a3d492813520f817a50233d022237790e296720e10eb0b2"
         },
         "dpdy": {
           "status": "pass"
@@ -456,7 +454,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:36a28679b45dfe55466eadda3b7120a3be9fe62c2799ed7e63d55bd6a795328c"
+          "digest": "sha256:ed837e0a15a56c25173120d56649eb228460a60fb86c93431c6abe76ba98d6b8"
         },
         "dpdy": {
           "status": "pass"
@@ -478,7 +476,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b14e433d65eb922fd43033350639f5448dfdecc82ca6bb13d067af9d942ad2ee"
+          "digest": "sha256:92758396ff8a43a564b175c25fbedbb38dc134c96b7d8a8992347a6083d870bf"
         },
         "dpdy": {
           "status": "pass"
@@ -500,7 +498,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:17837e6ec18534cb3f6a703375e37b6d3b3dcd67781c52ac216ca9dae26294a1"
+          "digest": "sha256:51ae6ee96e585a65797f60fe7aaf89bd7392d0e53d25221a05433d7b26a5d7db"
         },
         "dpdy": {
           "status": "pass"
@@ -522,7 +520,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:437ece57bcd716a262d941f83a43fdcce57c9e77d905093d8624dd56f27b6b60"
+          "digest": "sha256:4d5a6bd6d78db9cb713d168cdeca1b8f616e8f33afb2b8b4db773dffd1d44659"
         },
         "dpdy": {
           "status": "pass"
@@ -544,7 +542,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:49f4871d9b9434dde85e39aa8b905ca4502bb5a549f2a61392f93f82e77c4865"
+          "digest": "sha256:30f226107eb182d56a70bbc0f92b1c789de3f4ebf984035f3ca0d0ad5f20a308"
         },
         "dpdy": {
           "status": "pass"
@@ -566,7 +564,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:02406ded4f5e2a638bf2d185378d19c104e47a7e1a286281ee21c480a5b84144"
+          "digest": "sha256:44d49893d6ad6d8de2c52d9c574511ca5ef18e013f13bfabb334220d7112dc0d"
         },
         "dpdy": {
           "status": "pass"
@@ -588,7 +586,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ba68ab00f247bc8ccc1a42059a1bbba93c958cb84cba1697f29ba4397fcc5c76"
+          "digest": "sha256:9e5e7e20c0f66028dc295284c8d9524393914ae49faaca8184a7816cc4d0f2f8"
         },
         "dpdy": {
           "status": "pass"

@@ -51,7 +51,7 @@ plugins:
           - addon:techdocs/report-issue
           - addon:techdocs/text-size: false
           - addon:techdocs/light-box: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:ba68ab00f247bc8ccc1a42059a1bbba93c958cb84cba1697f29ba4397fcc5c76
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:9e5e7e20c0f66028dc295284c8d9524393914ae49faaca8184a7816cc4d0f2f8
     enabled: true
   # Tag: bs_1.54.9__1.0.4, Build date: 2026-06-03T21:17:56Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:773286b8027f9b6b2cc1baabc145db8ca7dd8ff53ece628ceab8948944ee023a
@@ -545,7 +545,7 @@ plugins:
                 timeout:
                   minutes: 15
   # Tag: bs_1.54.9__0.4.15, Build date: 2026-05-21T20:54:16Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:febd345db8a579017f0609cb440a1284af7de91d116066f4fff265bdcd35f7fb
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:77ae94cc274e84054a3d492813520f817a50233d022237790e296720e10eb0b2
     enabled: false
     pluginConfig:
       events:
@@ -556,10 +556,10 @@ plugins:
           github:
             webhookSecret: ${GITHUB_WEBHOOK_SECRET}
   # Tag: bs_1.54.9__0.12.22, Build date: 2026-06-03T21:17:35Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:17837e6ec18534cb3f6a703375e37b6d3b3dcd67781c52ac216ca9dae26294a1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:51ae6ee96e585a65797f60fe7aaf89bd7392d0e53d25221a05433d7b26a5d7db
     enabled: false
   # Tag: bs_1.54.9__0.21.10, Build date: 2026-05-21T21:07:46Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:b14e433d65eb922fd43033350639f5448dfdecc82ca6bb13d067af9d942ad2ee
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:92758396ff8a43a564b175c25fbedbb38dc134c96b7d8a8992347a6083d870bf
     enabled: false
     pluginConfig:
       kubernetes:
@@ -574,7 +574,7 @@ plugins:
                 skipTLSVerify: true
                 serviceAccountToken: ${K8S_CLUSTER_TOKEN}
   # Tag: bs_1.54.9__0.5.20, Build date: 2026-06-03T21:14:02Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:02406ded4f5e2a638bf2d185378d19c104e47a7e1a286281ee21c480a5b84144
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:44d49893d6ad6d8de2c52d9c574511ca5ef18e013f13bfabb334220d7112dc0d
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -590,13 +590,13 @@ plugins:
                   importName: NotificationsSidebarItem
                 path: /notifications
   # Tag: bs_1.54.9__0.6.8, Build date: 2026-05-21T21:01:27Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:49f4871d9b9434dde85e39aa8b905ca4502bb5a549f2a61392f93f82e77c4865
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:30f226107eb182d56a70bbc0f92b1c789de3f4ebf984035f3ca0d0ad5f20a308
     enabled: false
     pluginConfig:
       notifications:
         concurrencyLimit: 10
   # Tag: bs_1.54.9__0.3.24, Build date: 2026-05-21T21:16:42Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:437ece57bcd716a262d941f83a43fdcce57c9e77d905093d8624dd56f27b6b60
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:4d5a6bd6d78db9cb713d168cdeca1b8f616e8f33afb2b8b4db773dffd1d44659
     enabled: false
     pluginConfig:
       notifications:
