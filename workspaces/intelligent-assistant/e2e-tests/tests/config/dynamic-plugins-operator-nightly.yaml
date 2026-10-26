@@ -1,0 +1,6 @@
+# Operator nightly: the intelligent-assistant flavour in subscription.yaml
+# injects the IA plugins automatically. Only app-defaults is needed here to
+# provide the host drawer for the IA FAB (RHIDP-15482).
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    enabled: true

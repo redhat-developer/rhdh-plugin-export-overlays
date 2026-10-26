@@ -23,9 +23,15 @@ function isNightlyMode(): boolean {
 }
 
 function dynamicPluginsFile(): string {
-  return isNightlyMode()
-    ? "tests/config/dynamic-plugins-nightly.yaml"
-    : "tests/config/dynamic-plugins.yaml";
+  if (!isNightlyMode()) {
+    return "tests/config/dynamic-plugins.yaml";
+  }
+  // Operator nightly: the intelligent-assistant flavour in subscription.yaml
+  // injects the IA plugins automatically. A separate config avoids the
+  // duplicate-plugin error from install-dynamic-plugins.
+  return process.env.INSTALLATION_METHOD === "operator"
+    ? "tests/config/dynamic-plugins-operator-nightly.yaml"
+    : "tests/config/dynamic-plugins-nightly.yaml";
 }
 
 function lightspeedDeployConfig() {
