@@ -210,6 +210,26 @@ was generated, so Step 4 never rewrote the tag copied from metadata.
 **Fix:** publish the plugin image, then re-run catalog index generation. Do not
 allowlist a missing digest — a tag-only DPDY entry is not installable.
 
+<a id="validation-plugin-path-mismatch"></a>
+
+#### plugin-path-mismatch
+
+A ref's `!plugin-path` selector does not match the plugins its image declares in
+`io.backstage.dynamic-packages`. Two cases, both checked on the DPDY refs and on the
+selected Package entities' `dynamicArtifact`:
+
+- The path is not one the image declares. `install-dynamic-plugins` exits 0 and
+  creates a directory holding only its hash files, so RHDH loads nothing and logs no
+  error (RHDHBUGS-3837).
+- The ref has no path and the image declares several plugins. Install fails with
+  `InstallException: Multiple plugins found in OCI image` (RHDHBUGS-3836).
+
+A `dynamicArtifact` on an image other than the one `plugin_builds/` resolved, such as an
+external bundle, is not checked: nothing in the index records that image's plugins.
+
+**Fix:** set the selector in the workspace metadata to one of the paths the message
+lists, or drop it when the image holds a single plugin.
+
 ### Warnings that do not fail the stage
 
 `fallback-tag` means the requested build was missing and an older tag was substituted —

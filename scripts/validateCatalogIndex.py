@@ -124,6 +124,13 @@ RULES: dict[str, Rule] = {
         "annotation (missing, empty, or unreadable) — always fails the build",
         needs_builds=True,
     ),
+    "plugin-path-mismatch": Rule(
+        ERROR,
+        "a ref's !plugin-path is not a plugin its image declares (install extracts "
+        "nothing and exits 0), or a ref with no path names an image declaring "
+        "several plugins (install fails with 'Multiple plugins found')",
+        needs_builds=True,
+    ),
     "backstage-version-mismatch": Rule(
         WARNING,
         "the workspace targets an older Backstage minor than this branch "
@@ -205,6 +212,8 @@ class ParsedRef:
     image: str
     digest: str = ""
     tag: str = ""
+    #: The `!plugin-path` selector, empty when the ref has none.
+    plugin_path: str = ""
 
 
 @dataclass(frozen=True)
@@ -247,7 +256,7 @@ def parse_oci_ref(ref: str) -> ParsedRef | None:
     """
     if not ref.startswith(OCI_PREFIX):
         return None
-    body = ref[len(OCI_PREFIX):].split("!", 1)[0]
+    body, _, plugin_path = ref[len(OCI_PREFIX):].partition("!")
     name, tag, digest = parse_image_reference(body)
     # A bare `oci://plugin-a` or `oci://registry:5000` names no image: registry and
     # image are not separable, so every rule that reasons about either would be
@@ -257,7 +266,9 @@ def parse_oci_ref(ref: str) -> ParsedRef | None:
         return None
     if digest and not DIGEST_RE.match(digest):
         return None
-    return ParsedRef(registry=registry, image=image, digest=digest, tag=tag)
+    return ParsedRef(
+        registry=registry, image=image, digest=digest, tag=tag, plugin_path=plugin_path
+    )
 
 
 def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
@@ -777,6 +788,63 @@ def _annotation_finding(image: str, build: dict) -> Finding | None:
     return None
 
 
+def check_plugin_paths(
+    entries: list[DpdyEntry],
+    builds: dict[str, dict],
+    package_entities: dict[str, tuple[str, str, Path]],
+) -> list[Finding]:
+    """Check each ref's `!plugin-path` against the plugins its image declares.
+
+    Covers the DPDY refs and the selected Package entities' dynamicArtifact. A ref to an
+    image with no plugin_builds/ entry, such as an external bundle, is not checked:
+    nothing here records that image's plugins.
+    """
+    findings: list[Finding] = []
+    refs = [
+        (ref, f"{DPDY_FILENAME} plugins[{entry.position}]")
+        for entry in entries
+        if (ref := parse_oci_ref(entry.package)) is not None
+    ]
+    refs += [
+        (ref, str(path))
+        for _, artifact, path in sorted(package_entities.values())
+        if (ref := parse_oci_ref(artifact)) is not None
+    ]
+    for ref, source in refs:
+        paths = _plugin_paths(builds.get(ref.image, {}))
+        if paths is None:
+            continue
+        if ref.plugin_path and ref.plugin_path not in paths:
+            problem = f"selects !{ref.plugin_path}"
+        elif not ref.plugin_path and len(paths) > 1:
+            problem = "selects no plugin path"
+        else:
+            continue
+        findings.append(
+            Finding(
+                rule="plugin-path-mismatch",
+                message=(
+                    f"'{ref.image}' in {source} {problem}, but the image declares "
+                    f"{', '.join(paths)}"
+                ),
+                image=ref.image,
+            )
+        )
+    return findings
+
+
+def _plugin_paths(build: dict) -> list[str] | None:
+    """The plugin paths an image's annotation declares, or None when unknown.
+
+    Each annotation item maps one plugin path to its package.json. Anything else is
+    left to `missing-annotation`, or is an older shape that names no paths.
+    """
+    packages = decode_dynamic_packages(build.get(DYNAMIC_PACKAGES_ANNOTATION))
+    if not packages or not all(isinstance(p, dict) and len(p) == 1 for p in packages):
+        return None
+    return sorted(next(iter(p)) for p in packages)
+
+
 def npm_to_image_name(package_name: str) -> str:
     """Same mapping bootstrapPluginBuilds.package_name_to_image_name uses."""
     return package_name.lstrip("@").replace("/", "-")
@@ -1168,6 +1236,7 @@ def validate(
         findings.extend(
             check_builds_outside_dpdy(builds, set(by_image))
         )
+        findings.extend(check_plugin_paths(entries, builds, package_entities))
 
     findings.extend(check_dpdy_vs_default_packages(default_packages_file, entries))
     findings.extend(check_backstage_mismatch(report_file))

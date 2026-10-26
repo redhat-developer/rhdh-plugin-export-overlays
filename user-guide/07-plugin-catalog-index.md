@@ -204,6 +204,7 @@ that matter most:
 | `registry-not-allowed` | error    | A selected plugin's OCI ref uses a registry other than `--community-registry` for `support: community`, or `--registry` for every other support tier. The check covers DPDY, `plugin_builds/`, `index.json`, and selected Package entities. |
 | `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
 | `not-digest-pinned`    | error    | A ref carries a tag rather than a digest — the tag points at the manifest list, which lacks `io.backstage.dynamic-packages` (RHDHBUGS-3815). Always fails. |
+| `plugin-path-mismatch` | error    | A DPDY ref or selected Package entity's `dynamicArtifact` selects a `!plugin-path` its image does not declare (install extracts nothing), or selects none on an image declaring several (install fails). Images with no `plugin_builds/` entry are not checked. |
 | `fallback-tag`         | warning  | The requested build was missing and an older tag was substituted — the index ships a stale build.          |
 | `backstage-version-mismatch` | warning | Workspace Backstage minor is older than this branch expects.                                      |
 | `version-regression`   | warning  | Plugin version is lower than the previous published catalog index (RHIDP-16252).                           |
@@ -251,7 +252,8 @@ a `default.packages.yaml` is among the `--packages-file` arguments. The communit
 is generated with `--packages-file rhdh-community-packages.txt` alone, so it has no DPDY.
 Step 5 still walks `plugin_builds/` for `unresolved-image`, `missing-annotation`, and
 `fallback-tag` so a missing community image fails under `--validate-mode gate`
-(RHIDP-15725). The mandatory registry policy still checks `plugin_builds/` and
+(RHIDP-15725), and checks the selected Package entities for `plugin-path-mismatch`.
+The mandatory registry policy still checks `plugin_builds/` and
 `index.json`; DPDY-only rules do not run.
 
 ### Catalog Index Sanity Check (scheduled, not part of `update-index.sh`)
