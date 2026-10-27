@@ -109,7 +109,7 @@ OCI_VALUE_LINE_RE = re.compile(
     r'(?P<quote>[\'"]?)oci://(?P<value>[^\'"\s]+)(?P=quote)\s*$'
 )
 OCI_PACKAGE_DIGEST_RE = re.compile(
-    r'^\s*(?:#\s*-\s+package|-\s+package|dynamicArtifact):\s*[\'"]?oci://[^\s\'"]+@(sha256:[a-f0-9]+)[\'"]?\s*$'
+    r'^\s*(?:#\s*-\s+package|-\s+package|dynamicArtifact):\s*[\'"]?oci://[^\s\'"]+@(sha256:[a-f0-9]+)(?:![^\s\'"]+)?[\'"]?\s*$'
 )
 WRAPPER_REFERENCE_RE = re.compile(
     r'^\s*(?:#\s*)?(?:-\s+package|dynamicArtifact):\s*[\'"]?'
@@ -625,7 +625,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
 
     Existing ``- package: oci://...`` lines in ``dynamic-plugins.default.yaml``
     and ``dynamicArtifact: oci://...`` scalars in package entities are replaced
-    with the current digest reference.
+    with the current digest reference, keeping any ``!plugin-path`` selector.
 
     Plugin name matching accounts for alternatives: the
     ``red-hat-developer-hub-`` vs ``rhdh-`` prefix.
@@ -735,9 +735,12 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                             plugin_name_alternative_with_dynamic,
                         )
                         if matched_oci:
+                            # Keep the !plugin-path selector: it picks the plugin inside the image.
+                            plugin_path = oci_value.partition("!")[2]
+                            selector = f"!{plugin_path}" if plugin_path else ""
                             expected_oci_line = (
                                 f"{oci_line_indent}{oci_line_key}: "
-                                f"{oci_line_quote}oci://{registry_reference_for_oci}{oci_line_quote}\n"
+                                f"{oci_line_quote}oci://{registry_reference_for_oci}{selector}{oci_line_quote}\n"
                             )
 
                     if matched_oci:

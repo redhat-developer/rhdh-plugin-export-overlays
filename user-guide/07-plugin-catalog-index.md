@@ -177,7 +177,7 @@ The final step that produces the catalog index:
 3. Uses the package list filter to select entries for `index.json`; copied Package entities outside that selection can remain in the directory
 4. Verifies each selected plugin's OCI image exists in the registry
 5. Generates `index.json` with digest-based references
-6. Updates selected Package entity files and DPDY with OCI references and Tag/Build date comments
+6. Updates selected Package entity files and DPDY with OCI references and Tag/Build date comments. A ref's `!plugin-path` selector from the workspace metadata is kept on the digest ref.
 7. Regenerates `all.yaml` location files
 
 ### Step 5: Validation (`validateCatalogIndex.py`)
