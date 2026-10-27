@@ -517,9 +517,7 @@ async function main(): Promise<number> {
       requestedPlugins.map((p) => p.package),
       fullLog,
     ),
-    sharedInstallDirs: findSharedInstallDirs(
-      requestedPlugins.map((p) => p.package),
-    ),
+    sharedInstallDirs: findSharedInstallDirs(fullLog),
     failures: failureLines(fullLog),
     failedPlugins: failedPluginIds(fullLog),
     startupError,
