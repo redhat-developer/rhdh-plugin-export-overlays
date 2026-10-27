@@ -39,4 +39,4 @@ spec:
                 tenantId: ${MICROSOFT_TENANT_ID}
                 signIn:
                   resolvers:
-                    - resolver: emailMatchingUserEntityProfileEmail
+                    - resolver: userIdMatchingUserEntityAnnotation
