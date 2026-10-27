@@ -6,11 +6,16 @@ name: Release Plugin Sanity
 # the image and index come from a CI chart, community builds from spec.dynamicArtifact.
 #
 # Triggers:
-#   - daily, against the newest CI chart; a failure is posted on the release-sanity
-#     issue;
+#   - daily, against the newest CI chart of main and of each branch in
+#     RELEASE_BRANCHES; a failure is posted on the release-sanity issue;
 #   - `/sanity <chart version>` (e.g. `/sanity 2.2-79-CI`) commented on the issue
 #     labelled `release-sanity`, by an org member or collaborator. The result is posted
 #     back on the issue.
+#
+# A chart runs with the harness, exclusions and community metadata of its own branch:
+# release-X.Y when that branch exists, main otherwise. Scheduled and comment events only
+# run this file from main, so the release branches carry the harness, not the trigger;
+# a release branch without it is refused (comment) or skipped (schedule).
 
 on:
   schedule:
@@ -21,9 +26,17 @@ on:
 permissions:
   contents: read
 
+env:
+  # Maintained release branches checked daily besides main. Add a branch when it is cut,
+  # drop it at end of life. Until main's first chart of the next stream exists, the daily
+  # main job checks the just-cut branch's newest chart with main's harness.
+  RELEASE_BRANCHES: release-2.1
+  ISSUE: ${{ github.event.issue.number }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
 jobs:
-  sanity:
-    name: release-plugin-sanity
+  plan:
+    name: plan
     # Every comment in the repo starts this workflow; only /sanity on the labelled
     # issue gets a job. Authorization is checked in a step, so a refusal is answered.
     if: >-
@@ -32,19 +45,13 @@ jobs:
        !github.event.issue.pull_request &&
        contains(github.event.issue.labels.*.name, 'release-sanity') &&
        startsWith(github.event.comment.body, '/sanity'))
-    # Job-level, so skipped runs never enter the group: one check at a time (each binds
-    # port 7007 and pulls every plugin), queued rather than cancelled.
-    concurrency:
-      group: release-plugin-sanity
-      cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 5
     permissions:
       contents: read
       issues: write
-    env:
-      ISSUE: ${{ github.event.issue.number }}
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    outputs:
+      targets: ${{ steps.targets.outputs.targets }}
     steps:
       - name: Authorize and parse the command
         id: command
@@ -73,12 +80,90 @@ jobs:
           echo "chart=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" \
             -f content=eyes --silent || true
-          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
-            --body "Running the release plugin sanity check for \`${BASH_REMATCH[1]}\`: $RUN_URL"
 
+      - name: List the targets
+        id: targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHART: ${{ steps.command.outputs.chart }}
+        run: |
+          # 0 when the path exists at the ref, 1 on 404; any other API error fails the
+          # step instead of silently picking another branch.
+          exists() {
+            local err
+            if err="$(gh api "repos/$GITHUB_REPOSITORY/$1" --silent 2>&1)"; then return 0; fi
+            [[ "$err" == *"HTTP 404"* ]] && return 1
+            echo "$err" >&2
+            exit 1
+          }
+          has_harness() { exists "contents/smoke-tests-native/src/release-sanity.ts?ref=$1"; }
+
+          if [[ -n "$CHART" ]]; then
+            ref=main
+            branch="release-${CHART%%-*}"
+            if exists "branches/$branch"; then
+              if ! has_harness "$branch"; then
+                echo "refused=true" >> "$GITHUB_OUTPUT"
+                gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+                  --body "\`$branch\` has no release sanity harness, so \`$CHART\` cannot be checked."
+                exit 1
+              fi
+              ref="$branch"
+            fi
+            echo "targets=$(jq -nc --arg ref "$ref" --arg chart "$CHART" '[{ref: $ref, chart: $chart}]')" \
+              >> "$GITHUB_OUTPUT"
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "Running the release plugin sanity check for \`$CHART\` with the \`$ref\` harness: $RUN_URL" \
+              || true
+            exit 0
+          fi
+
+          refs=(main)
+          for branch in $RELEASE_BRANCHES; do
+            if has_harness "$branch"; then
+              refs+=("$branch")
+            else
+              echo "::warning::$branch has no release sanity harness (or does not exist); skipped"
+            fi
+          done
+          echo "targets=$(printf '%s\n' "${refs[@]}" | jq -Rnc '[inputs | {ref: ., chart: ""}]')" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Report a planning error
+        # Refusals answer for themselves; an API error here would otherwise leave the
+        # commenter (or the daily issue) without an answer.
+        if: failure() && steps.targets.outcome != 'skipped' && steps.targets.outputs.refused != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -z "$ISSUE" ]]; then
+            ISSUE="$(gh issue list --repo "$GITHUB_REPOSITORY" --label release-sanity \
+              --state open --limit 1 --json number --jq '.[0].number // empty')"
+          fi
+          if [[ -n "$ISSUE" ]]; then
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body "The release plugin sanity check could not list its targets: $RUN_URL"
+          fi
+
+  sanity:
+    name: release-plugin-sanity (${{ matrix.target.ref }})
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.plan.outputs.targets) }}
+    # No concurrency group: each job has its own runner (and port 7007), and a group
+    # would silently drop a queued job whose commenter was already told it is running.
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      issues: write
+    steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ matrix.target.ref }}
           persist-credentials: false
 
       - name: Enable Corepack
@@ -98,27 +183,39 @@ jobs:
         id: sanity
         working-directory: smoke-tests-native
         env:
-          CHART: ${{ steps.command.outputs.chart }}
+          CHART: ${{ matrix.target.chart }}
+          REF: ${{ matrix.target.ref }}
         run: |
           # --out must stay inside the working directory (the harness's path rule).
-          args=(--only-newest-stream --out release-sanity-out --run-url "$RUN_URL")
-          if [[ -n "$CHART" ]]; then args+=(--chart-version "$CHART"); fi
+          args=(--out release-sanity-out --run-url "$RUN_URL")
+          if [[ -n "$CHART" ]]; then
+            args+=(--chart-version "$CHART")
+          elif [[ "$REF" == release-* ]]; then
+            args+=(--stream "${REF#release-}")
+          fi
+          # main's metadata builds the newest stream only.
+          if [[ "$REF" == main ]]; then args+=(--only-newest-stream); fi
           yarn release-sanity "${args[@]}"
 
       - name: Publish the result
         # always(): a timeout or cancellation still owes the commenter an answer.
-        if: ${{ always() && steps.command.outcome != 'failure' }}
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.sanity.outcome }}
+          CHART: ${{ matrix.target.chart }}
+          REF: ${{ matrix.target.ref }}
         run: |
           OUT=smoke-tests-native/release-sanity-out
           mkdir -p "$OUT"
           summary="$OUT/summary.md"
           if [[ ! -s "$summary" ]]; then
-            printf '### Release plugin sanity: %s\n\nThe check did not produce a report: %s\n' \
-              "${OUTCOME:-error}" "$RUN_URL" > "$summary"
+            printf '### Release plugin sanity (%s): failed\n\nThe check did not produce a report (%s): %s\n' \
+              "${CHART:-$REF}" "${OUTCOME:-not run}" "$RUN_URL" > "$summary"
           fi
+          # The daily jobs share one run URL; say which branch's harness this is.
+          # shellcheck disable=SC2016 # literal backticks for markdown
+          printf '\n- Harness: `%s`\n' "$REF" >> "$summary"
           cat "$summary" >> "$GITHUB_STEP_SUMMARY"
           if [[ -z "$ISSUE" && "$OUTCOME" != "success" ]]; then
             # A scheduled run has no comment to answer; report failures on the issue.
@@ -130,10 +227,10 @@ jobs:
           fi
 
       - name: Upload the report and container log
-        if: ${{ always() && steps.command.outcome != 'failure' }}
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-plugin-sanity
+          name: release-plugin-sanity-${{ matrix.target.ref }}
           path: |
             smoke-tests-native/release-sanity-out/*.json
             smoke-tests-native/release-sanity-out/*.md

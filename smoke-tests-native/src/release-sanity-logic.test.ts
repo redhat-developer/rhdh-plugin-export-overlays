@@ -22,7 +22,9 @@ import {
   imageBaseName,
   imagesFromChartValues,
   installDirName,
+  installedPlugin,
   isImageRef,
+  isPluginDir,
   mergeAppConfig,
   newestCiChart,
   normalizeChartVersion,
@@ -171,6 +173,33 @@ test("notLoaded returns installed plugins missing from the loaded set", () => {
   assert.deepEqual(findNotLoaded(installed, new Set(["b"])), [
     { name: "a", dirName: "a-dir" },
   ]);
+});
+
+test("a directory without package.json counts as installed and not loaded", () => {
+  // The install CLI reported it installed, but to a path with no package.json (a wrong
+  // `!path` in dynamicArtifact); dropping it would let the check pass.
+  const broken = installedPlugin("x-dynamic", undefined);
+  assert.deepEqual(broken, { name: "x-dynamic", dirName: "x-dynamic" });
+  assert.deepEqual(installedPlugin("y", { name: "@s/y" }), {
+    name: "@s/y",
+    dirName: "y",
+  });
+  assert.deepEqual(installedPlugin("z", { name: 5 }), {
+    name: "z",
+    dirName: "z",
+  });
+  assert.deepEqual(findNotLoaded([broken], new Set(["@s/y"])), [broken]);
+});
+
+test("isPluginDir leaves out the install CLI's dot directories", () => {
+  assert.equal(isPluginDir("backstage-plugin-x-dynamic"), true);
+  assert.equal(isPluginDir(".catalog-index-temp"), false);
+});
+
+test("failureLines keeps the backend's lowercase manifest load failure", () => {
+  const log =
+    "backstage error failed to load dynamic plugin manifest from '/r/x-dynamic' ENOENT";
+  assert.equal(failureLines(log).length, 1);
 });
 
 test("failureLines keeps only install and startup failures", () => {

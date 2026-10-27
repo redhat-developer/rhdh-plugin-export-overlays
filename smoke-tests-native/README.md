@@ -439,8 +439,9 @@ installed `package.json` says `@scope/plugin-a-dynamic`).
 The modes above boot plugins in process with `startTestBackend`. `yarn release-sanity`
 instead boots the **real RHDH image of a release** in a container (docker, or podman as
 docker), with every catalog index package and every community plugin enabled, and fails
-when an installed plugin is missing from `/api/dynamic-plugins-info/loaded-plugins`. It
-replaces the manual sanity plugin check done on each RC.
+when an installed plugin is missing from `/api/dynamic-plugins-info/loaded-plugins`. A
+plugin directory without a `package.json` (a wrong `!path`) counts as installed and not
+loaded. It replaces the manual sanity plugin check done on each RC.
 
 No plugin version is written anywhere. The image and the catalog index come from a CI chart
 (`helm show values oci://quay.io/rhdh/chart --version <X.Y-N-CI>`), which pins both by
@@ -466,8 +467,11 @@ an `.invalid` URL. Exclusions live in `release-sanity-excludes.txt` (install sco
 
 In CI, `.github/workflows/release-plugin-sanity.yaml` runs it daily and when an org member
 or collaborator comments `/sanity <CI chart version>` on the issue labelled
-`release-sanity`; the result is posted back on the issue. For now it accepts only the
-newest stream, whose community metadata is the one on `main`.
+`release-sanity`; the result is posted back on the issue. A chart runs with the harness,
+exclusions and community metadata of its own branch: `release-X.Y` when that branch exists,
+`main` otherwise. The daily run covers `main` and each branch listed in the workflow's
+`RELEASE_BRANCHES`. A release branch must carry this harness: without it a `/sanity` for
+its stream is refused and the daily run skips it with a warning.
 
 ### Test config (parity with the Docker smoke)
 
