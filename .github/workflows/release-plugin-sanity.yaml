@@ -1,0 +1,144 @@
+name: Release Plugin Sanity
+
+# Boots the real RHDH image of a release in a container with every catalog index plugin
+# and every community plugin enabled, and fails when one does not load
+# (smoke-tests-native/src/release-sanity.ts). No plugin version is written anywhere:
+# the image and index come from a CI chart, community builds from spec.dynamicArtifact.
+#
+# Triggers:
+#   - daily, against the newest CI chart; a failure is posted on the release-sanity
+#     issue;
+#   - `/sanity <chart version>` (e.g. `/sanity 2.2-79-CI`) commented on the issue
+#     labelled `release-sanity`, by an org member or collaborator. The result is posted
+#     back on the issue.
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  sanity:
+    name: release-plugin-sanity
+    # Every comment in the repo starts this workflow; only /sanity on the labelled
+    # issue gets a job. Authorization is checked in a step, so a refusal is answered.
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'issue_comment' &&
+       !github.event.issue.pull_request &&
+       contains(github.event.issue.labels.*.name, 'release-sanity') &&
+       startsWith(github.event.comment.body, '/sanity'))
+    # Job-level, so skipped runs never enter the group: one check at a time (each binds
+    # port 7007 and pulls every plugin), queued rather than cancelled.
+    concurrency:
+      group: release-plugin-sanity
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ISSUE: ${{ github.event.issue.number }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Authorize and parse the command
+        id: command
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ github.event.comment.body }}
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          case "$ASSOCIATION" in
+            OWNER | MEMBER | COLLABORATOR) ;;
+            *)
+              gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+                --body "Only organization members and collaborators can run \`/sanity\` (your association: $ASSOCIATION). Members with a private membership may need to make it public."
+              exit 1
+              ;;
+          esac
+          body="$(printf '%s' "$BODY" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [[ ! "$body" =~ ^/sanity[[:space:]]+([0-9]+\.[0-9]+-[0-9]+-CI)$ ]]; then
+            # shellcheck disable=SC2016 # literal backticks for markdown
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+              --body 'Usage: `/sanity <CI chart version>`, for example `/sanity 2.2-79-CI`.'
+            exit 1
+          fi
+          echo "chart=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" \
+            -f content=eyes --silent || true
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+            --body "Running the release plugin sanity check for \`${BASH_REMATCH[1]}\`: $RUN_URL"
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        # Before setup-node so its yarn-cache detection resolves Yarn 4 via corepack.
+        run: corepack enable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+
+      - name: Install the harness
+        working-directory: smoke-tests-native
+        run: yarn install --immutable --mode=skip-build
+
+      - name: Run the release plugin sanity check
+        id: sanity
+        working-directory: smoke-tests-native
+        env:
+          CHART: ${{ steps.command.outputs.chart }}
+        run: |
+          # --out must stay inside the working directory (the harness's path rule).
+          args=(--only-newest-stream --out release-sanity-out --run-url "$RUN_URL")
+          if [[ -n "$CHART" ]]; then args+=(--chart-version "$CHART"); fi
+          yarn release-sanity "${args[@]}"
+
+      - name: Publish the result
+        # always(): a timeout or cancellation still owes the commenter an answer.
+        if: ${{ always() && steps.command.outcome != 'failure' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.sanity.outcome }}
+        run: |
+          OUT=smoke-tests-native/release-sanity-out
+          mkdir -p "$OUT"
+          summary="$OUT/summary.md"
+          if [[ ! -s "$summary" ]]; then
+            printf '### Release plugin sanity: %s\n\nThe check did not produce a report: %s\n' \
+              "${OUTCOME:-error}" "$RUN_URL" > "$summary"
+          fi
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "$ISSUE" && "$OUTCOME" != "success" ]]; then
+            # A scheduled run has no comment to answer; report failures on the issue.
+            ISSUE="$(gh issue list --repo "$GITHUB_REPOSITORY" --label release-sanity \
+              --state open --limit 1 --json number --jq '.[0].number // empty')"
+          fi
+          if [[ -n "$ISSUE" ]]; then
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$summary"
+          fi
+
+      - name: Upload the report and container log
+        if: ${{ always() && steps.command.outcome != 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-plugin-sanity
+          path: |
+            smoke-tests-native/release-sanity-out/*.json
+            smoke-tests-native/release-sanity-out/*.md
+            smoke-tests-native/release-sanity-out/*.log
+            smoke-tests-native/release-sanity-out/*.yaml
+            smoke-tests-native/release-sanity-out/config/
+          if-no-files-found: ignore
+          retention-days: 14

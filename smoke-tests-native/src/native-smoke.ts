@@ -53,14 +53,14 @@
  * when it appears after the script path, exiting 9 if the file is missing.)
  */
 
-import { execFile, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { setTimeout } from "node:timers/promises";
-import { parseArgs, promisify } from "node:util";
+import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
 import catalogPlugin from "@backstage/plugin-catalog-backend";
@@ -108,7 +108,8 @@ import {
   patchModuleResolution,
 } from "./module-resolution";
 import { resolveContained } from "./paths";
-import { errorMessage, isRecord, lastErrorLine } from "./util";
+import { probeRegistry } from "./registry-probe";
+import { errorMessage } from "./util";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
 import {
@@ -136,11 +137,8 @@ import {
 } from "./workspace";
 import {
   partitionResolvable,
-  pluginPathProblem,
-  probeCandidates,
   readCatalogIndexRefs,
   writeCatalogIndexConfig,
-  type ProbeResult,
 } from "./catalog-index";
 
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -155,13 +153,6 @@ const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
 // costing three pulls per workspace.
 const INSTALL_ATTEMPTS = 3;
 const INSTALL_RETRY_BASE_MS = 2000;
-
-// A manifest fetch is one small request; a registry that has not answered in this long
-// is not going to, and the retry in partitionResolvable covers a slow moment. Kept short
-// because it multiplies: 2 candidates x 3 attempts per ref during an outage, and the
-// job's 60-minute limit cancels the run rather than failing it.
-const PROBE_TIMEOUT_MS = 30_000;
-const execFileAsync = promisify(execFile);
 
 // Resolve the CLI's bin to an absolute path and invoke it with the absolute Node
 // binary (process.execPath), so the executable is never looked up via PATH (Sonar
@@ -220,52 +211,6 @@ const CORE_PLUGIN_IDS = coreFeatures.flatMap((f) =>
 // interpolated into a shell command as this grows beyond a single fixed plugin.
 function run(file: string, args: string[]): string {
   return execFileSync(file, args, { encoding: "utf-8", stdio: "pipe" }).trim();
-}
-
-// Ask the registry for a ref's manifest and run the plugin-path check on it — the two
-// things the install CLI does first, and aborts on, for every package. `--raw` fetches
-// only the manifest, so ~100 of these cost seconds. Found on PATH exactly as the
-// install CLI finds it; there is no bundled copy to point at. Each candidate is tried
-// in turn, the way the CLI falls back from the productized registry to quay.
-async function probeRegistry(ref: string): Promise<ProbeResult> {
-  const candidates = probeCandidates(ref);
-  const errors: string[] = [];
-  for (const image of candidates) {
-    try {
-      const { stdout: manifest } = await execFileAsync(
-        "skopeo",
-        ["inspect", "--raw", `docker://${image}`],
-        { timeout: PROBE_TIMEOUT_MS },
-      );
-      const problem = pluginPathProblem(ref, manifest);
-      return problem
-        ? { ok: false, error: problem, retry: false }
-        : { ok: true };
-    } catch (err) {
-      // Name each image only when there were two, and keep both reasons: the primary
-      // registry's answer matters as much as the fallback's. With one, the ref already
-      // says which image it was.
-      const error = probeErrorLine(err);
-      errors.push(candidates.length > 1 ? `${image}: ${error}` : error);
-    }
-  }
-  return { ok: false, error: errors.join("; ") };
-}
-
-// One skopeo failure as one line of the report entry.
-function probeErrorLine(err: unknown): string {
-  if (!isRecord(err)) return lastErrorLine(err);
-  // No skopeo at all says nothing about any ref. Recorded per ref it would read as
-  // every package in the index being broken, so it fails the run as what it is.
-  if (err.code === "ENOENT") {
-    throw new Error(
-      "skopeo not found on PATH: probing catalog index refs needs it, as the install CLI does",
-      { cause: err },
-    );
-  }
-  // A kill leaves stderr empty and a message that only echoes the command line.
-  if (err.killed) return `no answer within ${PROBE_TIMEOUT_MS / 1000}s`;
-  return lastErrorLine(err);
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's

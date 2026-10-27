@@ -439,6 +439,47 @@ Patterns match the npm package name, and see through the dynamic export's `-dyna
 suffix so one pattern is valid at both scopes (metadata says `@scope/plugin-a`, the
 installed `package.json` says `@scope/plugin-a-dynamic`).
 
+### Release sanity (real RHDH image)
+
+The modes above boot plugins in process with `startTestBackend`. `yarn release-sanity`
+instead boots the **real RHDH image of a release** in a container (docker, or podman as
+docker), with every catalog index package and every community plugin enabled, and fails
+when an installed plugin is missing from `/api/dynamic-plugins-info/loaded-plugins`. A
+plugin directory without a `package.json` (a wrong `!path`) counts as installed and not
+loaded. It replaces the manual sanity plugin check done on each RC.
+
+No plugin version is written anywhere. The image and the catalog index come from a CI chart
+(`helm show values oci://quay.io/rhdh/chart --version <X.Y-N-CI>`), which pins both by
+digest: the same pair the chart's `install.sh` deploys. Community plugins come from each
+package's `spec.dynamicArtifact`.
+
+```bash
+yarn release-sanity                               # newest CI chart of the newest stream
+yarn release-sanity --chart-version 2.2-79-CI     # one RC
+yarn release-sanity --stream 2.1                  # newest CI chart of the 2.1 stream
+yarn release-sanity --keep                        # leave the container running to inspect it
+```
+
+Needs docker, helm, skopeo, jq and tar. The report, summary and container log land in
+`release-sanity-out/` (`--out`, which must stay inside the working directory).
+
+Config layers, in merge order: `smoke-tests/app-config.yaml`,
+every installed community plugin's first `appConfigExamples` entry (as app-config, not
+pluginConfig: the install CLI rejects two plugins setting one key differently), the dummies
+from `src/plugin-config.ts`, each workspace's `smoke-tests/app-config.test.yaml`,
+and guest sign-in. Each workspace's `test.env` applies, and every `${VAR}` still unset gets
+an `.invalid` URL. Exclusions live in `release-sanity-excludes.txt` (install scope only).
+
+In CI, `.github/workflows/release-plugin-sanity.yaml` runs it daily and when an org member
+or collaborator comments `/sanity <CI chart version>` on the issue labelled
+`release-sanity`; the result is posted back on the issue. GitHub fires those events only
+from the default branch, so that is the workflow on `main`; the copy on this release branch
+never triggers. For a `2.1` chart, `main`'s workflow checks out `release-2.1` and runs this
+harness with `--stream 2.1` (daily) or `--chart-version` (`/sanity`), so the exclusions and
+community metadata are this branch's. Locally, pass `--stream 2.1` or a `2.1-N-CI` chart
+version: without either, `yarn release-sanity` picks the newest stream, whose community
+metadata lives on `main`.
+
 ### Test config (parity with the Docker smoke)
 
 Workspaces that ship `smoke-tests/app-config.test.yaml` and/or `smoke-tests/test.env`
@@ -463,11 +504,11 @@ yarn smoke --dynamic-plugins dp.yaml \
 `yarn test` runs the unit tests (`node:test` over `src/*.test.ts` — workspace and
 support-level resolution, shard planning, exclusion parsing, path containment, report
 schema guards, config merging, aggregation and Markdown rendering, env/app-config
-substitution, frontend bundle matrix); `yarn check` runs `tsc --noEmit` + lint +
+substitution, frontend bundle matrix, release-sanity planning and reporting); `yarn check` runs `tsc --noEmit` + lint +
 prettier + the tests.
 
-The two CLIs keep their logic in `src/sweep-plan.ts` and `src/aggregate-report.ts`
-rather than beside their entry points: a module ending in `process.exit(main())` cannot
+The sweep, aggregate and release-sanity CLIs keep their logic in `src/sweep-plan.ts`,
+`src/aggregate-report.ts` and `src/release-sanity-logic.ts` rather than beside their entry points: a module ending in `process.exit(main())` cannot
 be imported by a test, so anything living there is untestable by construction. This is a standalone tool dir, not a
 `workspaces/*/e2e-tests` one, so it is outside `e2e-code-quality.yaml` (which only scans
 `workspaces/*/e2e-tests/**`).
