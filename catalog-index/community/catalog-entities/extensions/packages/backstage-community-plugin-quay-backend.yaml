@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-quay-backend"
   # Tag: bs_1.54.9__1.18.1
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend@sha256:e9370455ce0e9c8ab90424b4e56f1931f0e09e1fa41ea16692cc6005a406e0f2"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend@sha256:ef42c0b462f6b021e056eb08efc9271341453cc74e21e0ba011d0d75b9d4b91a"
   version: 1.18.1
   backstage:
     role: backend-plugin
