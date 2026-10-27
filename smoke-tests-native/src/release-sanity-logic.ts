@@ -344,13 +344,13 @@ export type SharedInstallDir = { dir: string; refs: string[] };
  */
 export function findSharedInstallDirs(requested: string[]): SharedInstallDir[] {
   const byDir = new Map<string, string[]>();
-  for (const ref of requested) {
+  for (const ref of [...requested].sort(compareStrings)) {
     const dir = installDirName(ref);
     byDir.set(dir, [...(byDir.get(dir) ?? []), ref]);
   }
   return [...byDir]
     .filter(([, refs]) => refs.length > 1)
-    .map(([dir, refs]) => ({ dir, refs: refs.sort(compareStrings) }))
+    .map(([dir, refs]) => ({ dir, refs }))
     .sort((a, b) => compareStrings(a.dir, b.dir));
 }
 
@@ -505,9 +505,10 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
       "",
       "**Requested packages sharing one install directory:**",
       ...cappedList(
-        report.sharedInstallDirs.map(
-          (s) => `\`${s.dir}\`: ${s.refs.map((r) => `\`${r}\``).join(", ")}`,
-        ),
+        report.sharedInstallDirs.map((s) => {
+          const refs = s.refs.map((r) => `\`${r}\``).join(", ");
+          return `\`${s.dir}\`: ${refs}`;
+        }),
       ),
     );
   }
