@@ -1,0 +1,18 @@
+{
+  "plugin-no-tag": {
+    "registryReference": "quay.io/rhdh/plugin-no-tag",
+    "build-date": "2025-05-01"
+  },
+  "plugin-bad-build-date": {
+    "registryReference": "quay.io/rhdh/plugin-bad:1.0",
+    "build-date": 42
+  },
+  "plugin-bad-registry": {
+    "registryReference": "not-a-valid-ref!!!",
+    "build-date": "2025-05-01"
+  },
+  "plugin-empty-tag-ok": {
+    "registryReference": "quay.io/rhdh/plugin-empty-tag:",
+    "build-date": ""
+  }
+}

@@ -309,7 +309,7 @@ def load_plugin_builds(plugin_builds_dir: Path) -> dict[str, dict]:
     """Flatten `plugin_builds/<workspace>/<image>.json` into `{image: fields}`.
 
     Fourth reader of that tree, alongside collect_fallback_entries
-    (generatePluginBuildInfo.py), load_tag_by_key (injectDpdyTagComments.py) and the loop
+    (generatePluginBuildInfo.py), loadTagByKey (inject-dpdy-tag-comments) and the loop
     in generateCatalogIndex.py. Consolidating them needs a generator with an explicit
     error policy (warn / silent / fatal), not a function returning one caller's dict —
     left as follow-up because converting all four touches three files this change does

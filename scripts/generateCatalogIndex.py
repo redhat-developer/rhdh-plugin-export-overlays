@@ -12,11 +12,11 @@
 # - Use that file to update package files to oci:// refs
 
 import argparse
-import importlib.util
 import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from collections import OrderedDict
 from pathlib import Path
@@ -247,17 +247,19 @@ def peek_digest_after(lines: list[str], idx: int) -> str | None:
 
 
 def inject_dpdy_tag_comments(output_dir: Path, plugin_builds_dir: Path) -> None:
-    """Delegate to injectDpdyTagComments.py to add Tag/Build date comments to dynamic-plugins.default.yaml."""
+    """Delegate to inject-dpdy-tag-comments to add Tag/Build date comments to dynamic-plugins.default.yaml."""
     dpdy = output_dir / "dynamic-plugins.default.yaml"
-    script = Path(__file__).resolve().parent / "injectDpdyTagComments.py"
+    script = Path(__file__).resolve().parent / "inject-dpdy-tag-comments" / "src" / "inject.ts"
     if not dpdy.is_file() or not script.is_file():
         return
-    spec = importlib.util.spec_from_file_location("injectDpdyTagComments", script)
-    if spec is None or spec.loader is None:
+    before = dpdy.read_text(encoding="utf-8")
+    completed = subprocess.run(
+        ["node", str(script), str(dpdy), str(plugin_builds_dir)],
+        check=False,
+    )
+    if completed.returncode != 0:
         return
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    if mod.inject(dpdy, plugin_builds_dir):
+    if dpdy.read_text(encoding="utf-8") != before:
         log_debug(f"Injected Tag/Build date comments into {dpdy.name}")
 
 
