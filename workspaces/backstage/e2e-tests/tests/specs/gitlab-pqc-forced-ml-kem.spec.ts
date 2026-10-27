@@ -5,10 +5,22 @@ import {
   requireEnv,
 } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
-const CONFIG_DIR = "tests/config/gitlab-pqc";
+import {
+  CONFIG_DIR,
+  gitlabHttpCodeFromHub,
+  hubEnvVar,
+  waitForGitlabDiscoveryScan,
+} from "../config/gitlab-pqc/fixture.js";
 
+/**
+ * Experiment: force OpenSSL Groups=X25519MLKEM768 on the hub. Against a GitLab
+ * that does not offer that group, hub→GitLab TLS must fail (contrast with
+ * gitlab-pqc-baseline.spec.ts).
+ */
 test.describe("GitLab PQC (forced ML-KEM)", () => {
   test.beforeAll(async ({ rhdh }) => {
+    test.setTimeout(600_000);
+
     requireEnv(
       "VAULT_GITLAB_HOST",
       "VAULT_PQC_GITLAB_ACCESS_TOKEN",
@@ -33,18 +45,21 @@ test.describe("GitLab PQC (forced ML-KEM)", () => {
     await rhdh.deploy();
   });
 
-  test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsGuest();
-  });
+  test("forced ML-KEM blocks hub→GitLab TLS", async ({ rhdh }) => {
+    test.setTimeout(180_000);
 
-  test("RHDH stays up under forced ML-KEM and Catalog is reachable", async ({
-    page,
-    uiHelper,
-  }) => {
-    await uiHelper.openSidebar("Catalog");
-    await uiHelper.dismissQuickstartIfVisible();
-    await expect(
-      page.getByRole("textbox", { name: "Search" }),
-    ).toBeVisible();
+    const namespace = rhdh.deploymentConfig.namespace;
+
+    const conf = await hubEnvVar(namespace, "OPENSSL_CONF");
+    expect(conf).toContain("openssl-pq.cnf");
+
+    const logs = await waitForGitlabDiscoveryScan(namespace);
+    expect(logs).toMatch(/Processed \d+ from scanned \d+ projects/);
+
+    const tlsCode = await gitlabHttpCodeFromHub(namespace);
+    expect(
+      tlsCode,
+      `expected GitLab TLS failure under forced ML-KEM, got HTTP ${tlsCode}`,
+    ).toBe("000");
   });
 });

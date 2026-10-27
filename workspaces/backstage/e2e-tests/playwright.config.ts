@@ -26,8 +26,12 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
     },
     {
-      name: "backstage-gitlab-pqc",
-      testMatch: /tests\/specs\/gitlab-pqc\.spec\.ts/,
+      name: "backstage-gitlab-pqc-baseline",
+      testMatch: /tests\/specs\/gitlab-pqc-baseline\.spec\.ts/,
+    },
+    {
+      name: "backstage-gitlab-pqc-forced-ml-kem",
+      testMatch: /tests\/specs\/gitlab-pqc-forced-ml-kem\.spec\.ts/,
     },
 
     {
