@@ -4,7 +4,7 @@ description: >-
   Analyze E2E nightly test failures, classify and group them by root cause
   across workspaces, search for existing issues (dedup), and emit structured
   issue directives. Does NOT modify code, create branches, or fix tests.
-model: opus
+model: claude-opus-4-6
 disallowedTools: >-
   Edit, Write, MultiEdit,
   Bash(git push *), Bash(git push),
@@ -54,25 +54,40 @@ echo "Triggered by issue: ${ISSUE_URL}"
 The Prow job name encodes the branch. Extract it:
 
 ```bash
-# Job name format: periodic-ci-{org}-{repo}-{branch}-{job-suffix}
-JOB_NAME=$(echo "$PROW_URL" | grep -oP '(?<=logs/)[^/]+')
+# Job name formats:
+#   periodic-ci-{org}-{repo}-{branch}-{job-suffix}
+#   pull-ci-{org}-{repo}-{branch}-{job-suffix}
+# Strip the GCS prefix first. Do not grep for "logs/" — it also matches
+# "pr-logs/", which is why presubmit URLs used to yield the job name "pull".
+JOB_NAME=$(echo "$PROW_URL" \
+  | sed -E 's#.*/pr-logs/pull/[^/]+/[^/]+/##; s#.*/logs/##' \
+  | cut -d/ -f1)
 TARGET_BRANCH=$(echo "$JOB_NAME" \
-  | sed 's/^periodic-ci-redhat-developer-rhdh-plugin-export-overlays-//' \
-  | sed 's/-e2e-ocp-helm.*//')
+  | sed -E 's/^(periodic|pull)-ci-redhat-developer-rhdh-plugin-export-overlays-//' \
+  | sed -E 's/-e2e-ocp-(helm|operator).*$//')
+if [[ -z "${TARGET_BRANCH}" || "${TARGET_BRANCH}" == "${JOB_NAME}" ]]; then
+  echo "ERROR: Could not derive a branch from job ${JOB_NAME}" >&2
+  exit 1
+fi
 echo "Target branch: $TARGET_BRANCH"
 ```
 
-Verify the branch exists:
+Verify the branch exists. If it does not, fail loudly: falling back to `main`
+would file the issue (and any code-agent PR) against the wrong branch.
 
 ```bash
-if ! git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
+branch_exists() {
+  git rev-parse --verify "refs/heads/${TARGET_BRANCH}" >/dev/null 2>&1 \
+    || git rev-parse --verify "refs/remotes/origin/${TARGET_BRANCH}" >/dev/null 2>&1
+}
+if ! branch_exists; then
   git fetch origin "$TARGET_BRANCH" 2>/dev/null || true
 fi
-if git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
+if branch_exists; then
   echo "Branch $TARGET_BRANCH: ok"
 else
-  echo "WARNING: Branch $TARGET_BRANCH not found — falling back to main"
-  TARGET_BRANCH="main"
+  echo "ERROR: Branch $TARGET_BRANCH not found — refusing to fall back to main" >&2
+  exit 1
 fi
 ```
 
@@ -128,7 +143,7 @@ workspace, assign a `fix_category`:
 |----------|------|
 | `infra_flake` | Transient infra issue (OCP cluster, network, timing) |
 | `test_fix` | Test code, config, or deployment config needs updating |
-| `product_bug` | Bug in plugin source code (not in this repo) |
+| `product_bug` | Bug in a plugin, operator, or installer (outside this repo) |
 | `environment` | CI env problem (expired creds, missing secrets, quota) |
 | `upstream_test_utils` | Bug in `@red-hat-developer-hub/e2e-test-utils` (fixtures, helpers, deployment logic, page objects) — fix belongs in [rhdh-e2e-test-utils](https://github.com/redhat-developer/rhdh-e2e-test-utils), not this repo |
 
@@ -136,7 +151,10 @@ workspace, assign a `fix_category`:
 - If the test assertion is wrong or outdated → `test_fix`
 - If the test config is missing/wrong (paths, secrets, plugins) → `test_fix`
 - If the test setup script has a bug (missing wait, race condition) → `test_fix`
-- If the plugin itself is broken (API changed, component missing) → `product_bug`
+- If a plugin, the operator, or the installer is broken (API changed,
+  component missing, reconciliation defect) → `product_bug`. Use the skill's
+  installation-method guidance to separate workspace config errors from
+  operator/installer defects.
 - If the bug is in a shared helper/fixture/page object from `@red-hat-developer-hub/e2e-test-utils` (e.g. `UIhelper`, `LoginHelper`, `RHDHDeployment`, page objects, `runOnce`) → `upstream_test_utils`
 - If pods crashed with OOM/ImagePull/network errors → `infra_flake`
 - If secret values or CI variables are missing → `environment`
@@ -211,12 +229,12 @@ them) or they are distinct (give them distinct slugs).
 
 ---
 
-## Phase 3: Dedup — Search for Existing Issues
+## Phase 3: Dedup — Search for Existing Issues and Open PRs
 
 Dedup is the same judgment as grouping, across time: **does this cause already
-have an open issue from a previous night?** An issue tracks a *cause on a
-branch* — the set of affected workspaces may differ run to run, so match on the
-cause, not on an exact workspace set.
+have an open issue or an open fix from a previous night?** An issue tracks a
+*cause on a branch* — the set of affected workspaces may differ run to run, so
+match on the cause, not on an exact workspace set.
 
 Do this **per cause** (from Phase 2b).
 
@@ -225,10 +243,10 @@ Issues carry visible **tracking lines** that GitHub search finds via `in:body`:
 
 ### Stage 1 — Search to narrow (over-collect on purpose)
 
-Cast two nets, both scoped to the branch. Union the results into a candidate
-set. The workspace net is what survives slug drift — if the existing issue was
-filed under a slightly different slug, its workspace tracking line still finds
-it.
+Cast two issue nets scoped to the branch, union them, then cast a third net for
+open PRs. The workspace net is what survives slug drift — if the existing issue
+was filed under a slightly different slug, its workspace tracking line still
+finds it.
 
 ```bash
 REPO="redhat-developer/rhdh-plugin-export-overlays"
@@ -251,6 +269,12 @@ done
 
 CANDIDATES=$(jq -cn --argjson a "$BY_SLUG" --argjson b "$BY_WS" '$a + $b | unique')
 ```
+
+**Net 3 — open PRs.** A human PR may fix the cause with no issue link, so list
+open PRs targeting `TARGET_BRANCH` (once per run) and keep those whose changed
+files fall under `workspaces/<affected-workspace>/e2e-tests/`. A path match is
+not a fix: read the title, body, and diff, and keep only PRs addressing the
+same mechanism. Drafts still count.
 
 ### Stage 2 — Verify each candidate (never trust the raw search hit)
 
@@ -288,8 +312,8 @@ on it:**
    that only passed via the workspace net but describes a different failure is
    **not** a match — treat existing issues as hypotheses, not facts.
 
-For each confirmed match, check for an OPEN linked PR (open/closed/merged are
-all `linked:pr`, so inspect state):
+For each confirmed issue match, check for an OPEN linked PR (open/closed/merged
+are all `linked:pr`, so inspect state):
 
 ```bash
 LINKED_PRS=$(gh api "repos/${REPO}/issues/${N}/timeline" \
@@ -299,12 +323,17 @@ HAS_OPEN_PR=$(echo "${LINKED_PRS}" | jq 'any(.[]; .state == "open")')
 
 ### Decision matrix (per cause)
 
-| Confirmed matches | Open linked PR | Action |
-|-------------------|----------------|--------|
-| 0 | — | `create` |
+| Confirmed issue matches | Open PR (linked or confirmed) | Action |
+|-------------------------|------------------------------|--------|
+| 0 | Yes | `create` **without** `ready-to-code`; add `## Related Work` naming the PR(s) |
+| 0 | No | `create` |
 | 1 | Yes | `comment` (coder already working) |
 | 1 | No (or closed/merged) | `comment` + `cycle_ready_to_code: true` (auto-fixable only — see below) |
 | >1 | — | `comment` on the **oldest** (+ `cycle_ready_to_code` if it has no open PR *and* is auto-fixable); in the body, flag the others (`#N`, `#M`) for manual consolidation |
+
+**Why drop `ready-to-code`:** the coder's pre-flight check only sees PRs that
+close-reference the new issue, so a pre-existing PR would not stop it. Net 3
+re-runs nightly, so suppression lasts while the PR is open.
 
 **Only set `cycle_ready_to_code: true` for `test_fix` and `product_bug`.**
 Cycling the label re-triggers the code agent, which can only help a cause a code
@@ -318,7 +347,8 @@ say what changed, e.g. *"still failing: backstage-auth, scorecard; now passing:
 tekton; newly affected: backstage-gitlab-auth."* You do **not** need to rewrite
 the issue's `fullsend-tracking: workspace=` lines yourself — `gh issue edit` is
 disallowed for you, and the post-script syncs those lines to tonight's affected
-set when it posts your comment.
+set when it posts your comment. If Net 3 found an unlinked PR, mention it in the
+comment so humans can reconcile.
 
 ---
 
@@ -336,6 +366,9 @@ or several. You author the full body yourself — there is no downstream merging
 | `upstream_test_utils` | `e2e-failure` | No | Create |
 | `environment` | `e2e-failure` | No | Create |
 | `infra_flake` | — | — | None (summary only) |
+
+When Net 3 confirmed an open PR for `test_fix`/`product_bug`, omit
+`ready-to-code` when creating the issue (see Phase 3).
 
 ### Issue body template
 
@@ -375,6 +408,10 @@ affected workspace (and per-workspace remediation *only* where the fix differs).
 <the shared fix, written ONCE. Only add a per-workspace note when a workspace
 needs a different change.>
 
+## Related Work
+
+Open PR: #<number> — <title>      ← omit this section when no PR was confirmed
+
 ## Artifacts
 
 <prow URL>
@@ -402,10 +439,16 @@ no per-workspace nesting needed.
   "fix the timeout", write:
   "In `workspaces/argocd/e2e-tests/tests/specs/argocd.spec.ts` line 42,
   increase the route wait timeout from 30s to 60s."
-- **For `product_bug`** — do not fix the test. Remediation should instruct
-  adding `test.skip`:
+- **For `product_bug`** — do not fix the test. Prescribe the lane-scoped skip
+  documented in `AGENTS.md` under "Skipping tests (product_bug classification)":
+  gate on `INSTALLATION_METHOD` for an operator-only or Helm-only defect, and
+  use the nightly-wide skip only when both lanes are affected. Never prescribe a
+  bare `E2E_NIGHTLY_MODE` skip for a lane-specific bug — the CI step sets that
+  variable for both nightlies.
 
-      test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
+  The runner also supports `@skip-<job-suffix>` tags (`JOB_NAME` →
+  `@skip-ocp-operator-nightly`); prefer the `INSTALLATION_METHOD` form unless
+  the workspace already uses tags.
 
 - **For `upstream_test_utils`** — the fix belongs in
   [rhdh-e2e-test-utils](https://github.com/redhat-developer/rhdh-e2e-test-utils),
@@ -532,8 +575,8 @@ re-run the merge.
 
 ### Sub-agents
 
-- When spawning sub-agents, always pass `model: "opus"`.
-- If a sub-agent fails due to a model error, retry with `model: "opus"`
+- When spawning sub-agents, always pass `model: "claude-opus-4-6"`.
+- If a sub-agent fails due to a model error, retry with `model: "claude-opus-4-6"`
   explicitly.
 
 ### Issue body quality

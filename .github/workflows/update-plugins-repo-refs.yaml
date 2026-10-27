@@ -1,9 +1,11 @@
 name: Update plugins repository references
 on:
   workflow_dispatch:
-    inputs:
+    # The inputs are identical for workflow_dispatch and workflow_call, so
+    # they are defined once here and reused below through a YAML alias.
+    inputs: &update-plugins-repo-refs-inputs
       regexps:
-        description: line-separated list of regular expressions of the plugin packages to discover. An expression surrounded by single quotes is taken as a litteral package name. 
+        description: line-separated list of regular expressions of the plugin packages to discover. An expression surrounded by single quotes is taken as a literal package name.
         type: string
         required: false
         default: ""
@@ -20,13 +22,13 @@ on:
         required: false
 
       release-branch-pattern:
-        description: A regular expression that defines active release branches. If not provided, the last 2 release branches (release-x.x) will be used.
+        description: Optional override of the regular expression that defines active release branches. Anchor it so it matches full branch names (for example ^release-(2\.1|1\.10|1\.9)$); it must only select main or release-x.y branches or the update run will fail. If not provided, the last 3 release branches (release-x.y) will be used. To update a single branch, use single-branch instead.
         type: string
         required: false
         default: ""
 
       single-branch:
-        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version.
+        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version. Must be main or a release-x.y branch (one of the latest release branches when no PR is being refreshed).
         type: string
         required: false
         default: ""
@@ -54,59 +56,9 @@ on:
         default: false
 
   workflow_call:
-    inputs:
-      regexps:
-        description: line-separated list of regular expressions of the plugin packages to discover. An expression surrounded by single quotes is taken as a litteral package name. 
-        type: string
-        required: false
-        default: ""
-
-      workspace-path:
-        description: relative path of a workspace the discovery should be focused on
-        type: string
-        required: false
-        default: ""
-
-      pr-to-update:
-        type: string
-        required: false
-        default: ""
-
-      allow-workspace-addition:
-        description: allow creating PRs that will add workspaces
-        type: boolean
-        required: false
-
-      release-branch-pattern:
-        description: A regular expression that defines active release branches. If not provided, the last 2 release branches (release-x.x) will be used.
-        type: string
-        required: false
-        default: ""
-
-      single-branch:
-        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version.
-        type: string
-        required: false
-        default: ""
-
-      verbose:
-        description: enable verbose logs
-        type: boolean
-        required: false
-        default: false        
-      debug:
-        description: enable debug mode in bash scripts
-        type: boolean
-        required: false
-        default: false
-      force:
-        type: boolean
-        required: false
-        default: false
-  
+    inputs: *update-plugins-repo-refs-inputs
   schedule:
-    - cron: '0 12 * * *'
-    - cron: '0 19 * * *'
+    - cron: '0 12,19 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.pr-to-update }}
@@ -163,12 +115,12 @@ jobs:
           RELEASE_BRANCH_PATTERN="${INPUT_RELEASE_BRANCH_PATTERN}"
           if [[ "${RELEASE_BRANCH_PATTERN}" == "" ]]
           then
-            # Get the last 2 release branch names, sorted by version, and build a regex like ^release-(1\.7|1\.8)$
+            # Get the last 3 release branch names, sorted by version, and build a regex like ^release-(1\.9|1\.10|2\.1)$
             RELEASE_BRANCH_PATTERN="$(gh api repos/${GITHUB_REPOSITORY}/branches --paginate | \
               jq -r '[.[].name | select(test("^release-")) | sub("^release-";"")] 
                 | sort_by(split(".") | map(tonumber)) 
                 | reverse 
-                | .[:2] 
+                | .[:3] 
                 | map(gsub("\\."; "\\.")) 
                 | "^release-(" + join("|") + ")$"')"
           fi

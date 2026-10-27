@@ -1,0 +1,46 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-bs-plugin-catalog-backend-module-skills-catalog-provider
+  namespace: rhdh
+  title: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-skills-catalog-provider"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-skills-catalog-provider
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-skills-catalog-provider
+  tags: []
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-skills-catalog-provider"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-skills-catalog-provider:bs_1.54.9__1.1.0
+  version: 1.1.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.9
+  author: Backstage
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - skills-catalog-provider
+  appConfigExamples:
+    - title: Skills catalog provider configuration
+      content:
+        catalog:
+          providers:
+            skillsCatalogProvider:
+              default:
+                sources:
+                  - connectorPluginId: my-skills-connector
+                    sourceId: my-source
+                    sourceType: oci
+                defaultOwner: my-team
+                defaultLifecycle: production
+                schedule:
+                  frequency:
+                    seconds: 600
+                  timeout:
+                    seconds: 600

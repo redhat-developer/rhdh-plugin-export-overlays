@@ -18,6 +18,10 @@ import {
   NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
 } from "../support/constants/keycloak-auth";
 import {
+  navigateToSettings,
+  safeSignOut,
+} from "../support/helpers/keycloak-auth-helpers";
+import {
   catalogEntityExists,
   checkGroupDisplayNamesInCatalog,
   checkGroupHasMembers,
@@ -195,9 +199,7 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Guest provider is not offered in production", async ({
@@ -254,9 +256,7 @@ test.describe("Keycloak auth provider", () => {
     // Assert known Keycloak users appear (sanitized names covered by dedicated test).
     expect(entityNames).toContain(KEYCLOAK_AUTH_USERS.test1.username);
     expect(entityNames).toContain(KEYCLOAK_AUTH_USERS.test2.username);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Ingestion of users and groups: verify entities and relationships", async () => {
@@ -351,9 +351,7 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Login with emailMatchingUserEntityProfileEmail", async ({
@@ -378,9 +376,7 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Login with emailLocalPartMatchingUserEntityName", async ({
@@ -405,9 +401,7 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -456,9 +450,7 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
 
     await clearSession(context);
     const mismatch = KEYCLOAK_AUTH_USERS.mismatch;
@@ -467,7 +459,7 @@ test.describe("Keycloak auth provider", () => {
     await page.goto("/settings");
     await uiHelper.waitForLoad();
     await expect(page.getByText(/nomatch/i).first()).toBeVisible();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   test("Set sessionDuration and confirm auth cookie duration", async ({
@@ -501,9 +493,7 @@ test.describe("Keycloak auth provider", () => {
     expect(actualDuration).toBeLessThan(threeDays + tolerance);
 
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
-    await loginHelper.signOut();
+    await safeSignOut(page, loginHelper);
   });
 
   // Secondary GitHub auth via backstage-plugin-auth-backend-module-github-provider (app-config-rhdh.yaml).
@@ -525,20 +515,195 @@ test.describe("Keycloak auth provider", () => {
       const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
 
       await loginHelper.loginAsKeycloakUser(username, password);
-      await expectProfile(page, uiHelper, displayName);
 
-      const ghLogin = await loginHelper.githubLoginFromSettingsPage(
-        process.env.VAULT_GH_USER_ID!,
-        process.env.VAULT_GH_USER_PASS!,
-        process.env.VAULT_GH_2FA_SECRET!,
-      );
-      expect(ghLogin).toBe("Login successful");
+      // Navigate to Settings via the profile dropdown — not page.goto()
+      // or sidebar — so the loaded app retains its authenticated session.
+      // The NFS sidebar has no Settings item; it lives in the profile dropdown.
+      // (page.goto drops the session; same root cause as #4034.)
+      await navigateToSettings(page, uiHelper);
+      await uiHelper.waitForLoad();
+
+      // Assert the authenticated settings page renders the profile.
+      // If this fails, the auth-providers tab cannot work either.
+      await expect(
+        page.getByRole("heading", { name: displayName, exact: true }),
+      ).toBeVisible({ timeout: 30_000 });
+
+      // Navigate to the Authentication Providers tab within the SPA.
+      await uiHelper.clickTab("Authentication Providers");
+      await uiHelper.waitForLoad();
+
+      // Wait for the GitHub sign-in control to render.
+      page.setDefaultTimeout(30_000);
+      const githubSignIn = page.getByTitle("Sign in to GitHub");
+      await expect(githubSignIn).toBeEnabled({ timeout: 30_000 });
+
+      // Drive the GitHub OAuth popup inline — githubLoginFromSettingsPage()
+      // does page.goto("/settings/auth-providers") internally, which would
+      // drop the session. Replicates handleGitHubPopupLogin from test-utils.
+      const [popup] = await Promise.all([
+        page.waitForEvent("popup", { timeout: 30_000 }),
+        githubSignIn.click(),
+        uiHelper.clickButton("Log in"),
+      ]);
+
+      await popup.waitForLoadState("domcontentloaded");
+      try {
+        await popup.waitForEvent("close", { timeout: 5_000 });
+        // Popup auto-closed: already signed in to GitHub.
+      } catch {
+        // Popup stayed open: complete the GitHub login form.
+        try {
+          await popup
+            .locator("#login_field")
+            .fill(process.env.VAULT_GH_USER_ID!, { timeout: 5_000 });
+          const cookieBanner = popup.locator("#wcpConsentBannerCtrl");
+          if (await cookieBanner.isVisible()) {
+            await popup.click('button:has-text("Reject")', {
+              timeout: 5_000,
+            });
+          }
+          await popup
+            .locator("#password")
+            .fill(process.env.VAULT_GH_USER_PASS!, { timeout: 5_000 });
+          await popup
+            .locator("[type='submit'][value='Sign in']:not(webauthn-status *)")
+            .first()
+            .click({ timeout: 5_000 });
+
+          const otp = loginHelper.getGitHub2FAOTP(
+            process.env.VAULT_GH_USER_ID!,
+          );
+          await popup.locator("#app_totp").fill(otp, { timeout: 5_000 });
+          await popup.waitForEvent("close", { timeout: 20_000 });
+        } catch (e) {
+          // GitHub may prompt for OAuth app authorization instead.
+          const authorize = popup.locator("button.js-oauth-authorize-btn");
+          if (await authorize.isVisible()) {
+            await authorize.click();
+          } else {
+            throw e;
+          }
+        }
+      }
+
+      // Assert the GitHub provider is now connected, then disconnect.
+      await expect(page.getByTitle("Sign out from GitHub")).toBeVisible({
+        timeout: 30_000,
+      });
       await page.getByTitle("Sign out from GitHub").click();
 
-      await expectProfile(page, uiHelper, displayName);
-      await page.goto("/settings");
+      // Verify the Keycloak profile is still intact after GitHub sign-out.
+      await navigateToSettings(page, uiHelper);
       await uiHelper.waitForLoad();
-      await loginHelper.signOut();
+      await expect(
+        page.getByRole("heading", { name: displayName, exact: true }),
+      ).toBeVisible();
+      await safeSignOut(page, loginHelper);
+    } finally {
+      await clearSession(context);
+    }
+  });
+
+  // Migrated from core RHDH oidc.spec.ts autologout cases.
+  test("Enable autologout and user is logged out after inactivity", async ({
+    page,
+    uiHelper,
+    context,
+    loginHelper,
+  }: {
+    page: Page;
+    uiHelper: UIhelper;
+    context: BrowserContext;
+    loginHelper: LoginHelper;
+  }) => {
+    await applyPatchedAppConfig([
+      ["auth.autologout.enabled", true],
+      ["auth.autologout.idleTimeoutMinutes", 0.5],
+      ["auth.autologout.promptBeforeIdleSeconds", 5],
+    ]);
+
+    try {
+      await clearSession(context);
+      const { username, password } = KEYCLOAK_AUTH_USERS.test1;
+      await loginHelper.loginAsKeycloakUser(username, password);
+
+      await uiHelper.verifyTextVisible(
+        "Logging out due to inactivity",
+        false,
+        60_000,
+      );
+      await expect(
+        page
+          .getByRole("alert")
+          .filter({ hasText: "Logging out due to inactivity" }),
+      ).toBeHidden({ timeout: 30_000 });
+
+      // AutoLogout fires identityApi.signOut() without awaiting it; wait for
+      // the refresh cookie to be cleared before asserting logged-out state.
+      await expect
+        .poll(
+          async () =>
+            (await context.cookies()).find(
+              (cookie) => cookie.name === KEYCLOAK_REFRESH_COOKIE,
+            ),
+          { timeout: 30_000, intervals: [500, 1_000, 2_000] },
+        )
+        .toBeUndefined();
+
+      await page.reload();
+      await uiHelper.waitForLoad(120_000);
+      await expect(
+        page
+          .getByText(/Sign in using Keycloak|Select a sign-in method/i)
+          .first(),
+      ).toBeVisible({ timeout: 30_000 });
+      expect(
+        (await context.cookies()).find(
+          (cookie) => cookie.name === KEYCLOAK_REFRESH_COOKIE,
+        ),
+      ).toBeUndefined();
+    } finally {
+      await clearSession(context);
+    }
+  });
+
+  test('Enable autologout and user stays logged in after clicking "Don\'t log me out"', async ({
+    page,
+    uiHelper,
+    context,
+    loginHelper,
+  }: {
+    page: Page;
+    uiHelper: UIhelper;
+    context: BrowserContext;
+    loginHelper: LoginHelper;
+  }) => {
+    await applyPatchedAppConfig([
+      ["auth.autologout.enabled", true],
+      ["auth.autologout.idleTimeoutMinutes", 0.5],
+      ["auth.autologout.promptBeforeIdleSeconds", 5],
+    ]);
+
+    try {
+      await clearSession(context);
+      const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
+      await loginHelper.loginAsKeycloakUser(username, password);
+
+      await uiHelper.clickButtonByText("Don't log me out", {
+        timeout: 60_000,
+      });
+
+      // AutoLogout only resets on real DOM activity; Playwright navigation does
+      // not. Assert stay-logged-in quickly, then clearSession (UI signOut races
+      // another ~30s idle logout).
+      await page.mouse.move(100, 100);
+      await expectProfile(page, uiHelper, displayName);
+      expect(
+        (await context.cookies()).find(
+          (cookie) => cookie.name === KEYCLOAK_REFRESH_COOKIE,
+        ),
+      ).toBeDefined();
     } finally {
       await clearSession(context);
     }

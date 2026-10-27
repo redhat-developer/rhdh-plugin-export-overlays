@@ -80,6 +80,7 @@ On a PR, comment:
 | `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
 | `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
 | `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
+| `release-plugin-sanity.yaml` | Daily (main + `RELEASE_BRANCHES`) + `/sanity <chart>` on the `release-sanity` issue | Boots the real RHDH image of a CI chart with every catalog index and community plugin, and fails when one does not load (`yarn release-sanity`) |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
@@ -353,7 +354,9 @@ All files in `tests/config/` are **optional** — only create them when you need
 - `rhdh-secrets.yaml` — Kubernetes Secret manifest for injecting env vars into RHDH
 - `dynamic-plugins.yaml` — Plugin overrides (usually NOT needed — auto-generated from metadata)
 - `value_file.yaml` — Helm chart value overrides
-- `subscription.yaml` — Operator subscription overrides
+- `subscription.yaml` — Operator `Backstage` CR overrides (not an OLM Subscription)
+
+Helm reads `value_file.yaml`; the operator reads `subscription.yaml` (a `Backstage` CR, not an OLM Subscription). Put shared application settings in `app-config-rhdh.yaml`. The failure-analysis skill's [Installation Methods](.fullsend/skills/e2e-failure-analysis/reference/workspace-analysis.md#installation-methods) section covers operator-specific diagnosis: which diagnostics are captured, flavour/workload/ConfigMap checks, and config-array merging.
 
 **Environment variables in RHDH config:** To use an env var in `app-config-rhdh.yaml`, it must first be defined in `rhdh-secrets.yaml`. The flow is:
 
@@ -465,12 +468,12 @@ CI=false GIT_PR_NUMBER=1845 ./run-e2e.sh --secrets -w tech-radar
 
 ### CI behavior for local runs
 
-The current checkout and `e2e-test-utils` 2.2.1 have these local-run caveats:
+The current checkout has these local-run caveats:
 
 - The root runner sets an unset or empty `CI` to `"true"`. Use `CI=true` for automatic namespace cleanup or `CI=false` to retain deployments for debugging.
 - `CI=false` is a nonempty string. It still enables `forbidOnly` and ignores `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true`; it does not fully disable CI behavior.
 - In `backstage`, GitHub-discovery and TechDocs projects use one retry with either string and zero with `CI` unset. GitLab scaffolder resource cleanup defaults to enabled only for `CI=true`; override it independently with `GITLAB_SCAFFOLDER_CLEANUP=true` or `false`.
-- For nightly reproduction with `CI=false`, also set `E2E_NIGHTLY_MODE=true` and `RELEASE_BRANCH_NAME=main` (or the target release branch). The shared metadata resolver still requires the branch despite the shell preflight accepting its absence.
+- For local nightly reproduction, set `E2E_NIGHTLY_MODE=true`. The root runner defaults `RELEASE_BRANCH_NAME` to `main` and `RHDH_VERSION` to `next`; when reproducing another release, set both explicitly (for example `RELEASE_BRANCH_NAME=release-2.1 RHDH_VERSION=2.1`). Set the branch explicitly for direct workspace runs with a nonempty `CI`, or when reproducing a Prow job locally.
 - Set `CI` in the launching shell, not workspace `.env` files: those load after Playwright configuration evaluation and can make configuration and cleanup use different values.
 
 Direct workspace runs normally need no `CI` setting. The workspace example uses `unset CI` once to clear any inherited value for subsequent commands in that shell. For a single command without changing the shell's environment, use `env -u CI yarn test:secrets --headed` from the workspace directory instead.
@@ -490,13 +493,14 @@ oc delete project <namespace>
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `RHDH_VERSION` | RHDH version to deploy; the root runner sets it, and workspace configuration may override it | Entry-point/config dependent |
+| `RHDH_VERSION` | RHDH version to deploy; workspace configuration may override it | `next` in root runner |
 | `INSTALLATION_METHOD` | `"helm"` or `"operator"` | `"helm"` |
 | `GIT_PR_NUMBER` | PR number — enables PR mode with PR-built OCI images | - |
 | `E2E_NIGHTLY_MODE` | `"true"` or `"1"` — enables nightly mode with released OCI refs | - |
-| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution; required when `CI` is nonempty, including `"false"` | `main` only when `CI` is unset or empty |
+| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution | `main` in local root runs; supplied by Prow jobs |
 | `JOB_NAME` | CI job name; `periodic-` prefix triggers nightly mode | - |
 | `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak in global setup | - |
+| `SKIP_OPERATOR_INSTALLATION` | Reuse an installed operator when `INSTALLATION_METHOD=operator` | Unset (install operator) |
 | `CI` | See [CI behavior for local runs](#ci-behavior-for-local-runs) for cleanup and focused-test behavior | `true` in root runner |
 | `E2E_TEST_UTILS_PATH` | Local e2e-test-utils build path (takes precedence over version) | - |
 | `E2E_TEST_UTILS_VERSION` | Pin e2e-test-utils npm version | `latest` (nightly) |
@@ -507,15 +511,19 @@ oc delete project <namespace>
 | Job | When | Workspaces | OCI Images |
 |-----|------|-----------|------------|
 | PR check (`e2e-ocp-helm`) | PR with e2e changes | Changed workspace only | PR-built (`pr_` tags) |
-| Nightly (`e2e-ocp-helm-nightly`) | Daily cron / manual | All workspaces | Released (metadata refs) |
+| PR check (`e2e-ocp-operator`) | PR with e2e changes (operator lane) | Changed workspace only | PR-built (`pr_` tags) |
+| Nightly (`e2e-ocp-helm-nightly`) | Mon/Wed/Fri on `main`; weekdays on release branches; manual | All workspaces | Released (metadata refs) |
+| Nightly (`e2e-ocp-operator-nightly`) | Tue/Thu on `main`; weekdays on release branches where enabled; manual | All workspaces | Released (metadata refs) |
 
-Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
+Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` (or `/test e2e-ocp-operator-nightly`) on a PR.
+
+Operator jobs are enabled in OpenShift CI on `main` and `release-2.1`. Diagnose the installation method from the build log, not the job name alone.
 
 ### Failure Analysis
 
 A Claude Code skill is available at `.claude/skills/` for investigating E2E failures:
 
-- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison
+- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison. Its architecture reference covers Helm and operator configuration differences.
 
 ## E2E Nightly Fix Conventions
 
@@ -530,9 +538,18 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 - Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
 ### Skipping tests (product_bug classification)
-When the issue says `fix_category: product_bug`, add `test.skip` instead
-of fixing the test:
+When the issue says `fix_category: product_bug`, add a skip scoped to the lane
+where the bug occurs instead of fixing the test. The CI step sets
+`E2E_NIGHTLY_MODE=true` for both Helm and operator nightlies, so a bare nightly
+skip silently drops the other lane's coverage:
 
+    # Operator-only defect
+    test.skip(process.env.INSTALLATION_METHOD === "operator", "<root cause summary>");
+
+    # Helm-only defect
+    test.skip(process.env.INSTALLATION_METHOD !== "operator", "<root cause summary>");
+
+    # Affects both lanes
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
 ### Verification

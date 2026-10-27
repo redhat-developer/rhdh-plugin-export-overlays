@@ -184,7 +184,7 @@ export class GitHubEventsHelper {
     const payloadString = JSON.stringify(payload);
     const signature = this.calculateSignature(payloadString);
 
-    return await this.myContext.post(this.eventsUrl, {
+    const requestOptions = {
       data: payloadString,
       headers: {
         Accept: "*/*",
@@ -194,7 +194,26 @@ export class GitHubEventsHelper {
         "X-GitHub-Event": eventType,
         "X-Hub-Signature-256": signature,
       },
-    });
+    };
+
+    try {
+      return await this.myContext.post(this.eventsUrl, requestOptions);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message.includes("socket hang up") ||
+          error.message.includes("ECONNRESET"))
+      ) {
+        // Stale persistent connection closed by remote (e.g. HAProxy).
+        // Dispose the old context and create a fresh one before retrying.
+        await this.myContext.dispose();
+        this.myContext = await request.newContext({
+          ignoreHTTPSErrors: true,
+        });
+        return await this.myContext.post(this.eventsUrl, requestOptions);
+      }
+      throw error;
+    }
   }
 
   private calculateSignature(payload: string): string {

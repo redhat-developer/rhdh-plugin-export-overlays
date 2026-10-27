@@ -22,9 +22,60 @@ export class OrchestratorPO {
     );
   }
 
-  async clickWorkflowsCatalogControl(): Promise<void> {
-    await this.workflowsCatalogControl().click({ timeout: 30_000 });
+  /**
+   * Sidebar entries render as links or buttons, and not always under `nav`.
+   * Match the accessible name so icon-only and submenu items still resolve.
+   */
+  private sidebarEntry(name: string | RegExp): Locator {
+    const options =
+      typeof name === "string" ? { name, exact: true as const } : { name };
+    return this.page
+      .getByRole("link", options)
+      .or(this.page.getByRole("button", options))
+      .filter({ visible: true })
+      .first();
+  }
+
+  /**
+   * Client-side sidebar nav keeps the OIDC session. Full page.goto("/orchestrator")
+   * can land on Sign In after RBAC role churn.
+   */
+  private async clickOrchestratorInSidebar(): Promise<void> {
+    const orchestrator = this.sidebarEntry(/^Orchestrator$/i);
+    const adminButton = this.sidebarEntry(/^Administration$/i);
+    // The Administration control does not expose aria-expanded. Open it only
+    // while Orchestrator is hidden, and only once so a retry cannot collapse it.
+    let expandedAdministration = false;
+    await expect(async () => {
+      if (await orchestrator.isVisible().catch(() => false)) {
+        return;
+      }
+      if (
+        !expandedAdministration &&
+        (await adminButton.isVisible().catch(() => false))
+      ) {
+        await adminButton.click();
+        expandedAdministration = true;
+      }
+      await expect(orchestrator).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
+    await orchestrator.click();
     await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async clickWorkflowsCatalogControl(): Promise<void> {
+    // Prefer the entity tab inside main — a bare "Workflows" link can match
+    // unrelated chrome and leave the catalog card unmounted.
+    const tabInMain = this.page
+      .locator("main")
+      .getByRole("tab", { name: "Workflows" });
+    if (await tabInMain.isVisible().catch(() => false)) {
+      await tabInMain.click({ timeout: 30_000 });
+    } else {
+      await this.workflowsCatalogControl().click({ timeout: 30_000 });
+    }
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForURL(/\/workflows\/?$/, { timeout: 30_000 });
   }
 
   async verifyWorkflowsCatalogControlVisible(): Promise<void> {
@@ -34,31 +85,39 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsPage(): Promise<void> {
-    await this.page.goto("/orchestrator");
-    await expect(this.page).toHaveURL("/orchestrator");
-    await expect(
-      ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible({ timeout: 120_000 });
+    const heading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
+    const headingVisible = async (timeoutMs: number) =>
+      heading.isVisible({ timeout: timeoutMs }).catch(() => false);
+
+    await this.clickOrchestratorInSidebar();
+
+    // CI flake: sidebar can leave a 404 shell or stale workflow-detail without
+    // "Workflows (N)". Retry sidebar — do not mid-stream re-login.
+    if (!(await headingVisible(30_000))) {
+      const is404 = await this.page
+        .getByText(/PAGE NOT FOUND/i)
+        .isVisible()
+        .catch(() => false);
+      if (is404 || !(await headingVisible(5_000))) {
+        await this.clickOrchestratorInSidebar();
+      }
+    }
+
+    if (!(await headingVisible(15_000))) {
+      await this.clickOrchestratorInSidebar();
+    }
+
+    await expect(heading).toBeVisible({ timeout: 120_000 });
     await expect(this.page.getByRole("tablist", { name: "tabs" })).toBeVisible({
       timeout: 30_000,
     });
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
-    const adminButton = this.page
-      .getByRole("button", { name: "Administration" })
-      .first();
-    const orchestratorLink = this.page
-      .locator('nav a:has-text("Orchestrator")')
-      .first();
-    if (!(await orchestratorLink.isVisible().catch(() => false))) {
-      await adminButton.waitFor({ state: "visible", timeout: 120_000 });
-      await adminButton.click();
-    }
-    await this.uiHelper.openSidebar("Orchestrator");
+    await this.clickOrchestratorInSidebar();
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 120_000 });
   }
 
   async openWorkflow(name: string | RegExp): Promise<void> {
@@ -372,25 +431,45 @@ export class OrchestratorPO {
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
   }
-  private async clickChooseOnTemplateCard(
-    templateTitle: string,
-  ): Promise<void> {
+  greetingTemplateChooseButton(
+    templateTitle = "Greeting Test Picker",
+  ): Locator {
     // Match hashed MUI classes (css-*-MuiCard-root); exact .MuiCard-root misses them.
-    const chooseButton = this.page
+    return this.page
       .locator('[class*="MuiCard-root"]')
       .filter({ hasText: templateTitle })
       .getByRole("button", { name: /Choose/i })
       .first();
+  }
+
+  private async clickChooseOnTemplateCard(
+    templateTitle: string,
+  ): Promise<void> {
+    const chooseButton = this.greetingTemplateChooseButton(templateTitle);
     await expect(chooseButton).toBeVisible({ timeout: 30_000 });
     await chooseButton.click();
   }
 
-  async openGreetingTemplateFromSelfService(): Promise<void> {
-    await this.page.goto("/create");
+  async openSelfServiceTemplatesPage(): Promise<void> {
+    // Self-service is a sidebar link, not nav button[aria-label="Self-service"].
+    const selfService = this.sidebarEntry(/^Self-service$/i);
+    await expect(selfService).toBeVisible({ timeout: 30_000 });
+    await selfService.click();
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
       this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
     ).toBeVisible({ timeout: 30_000 });
+  }
+
+  async verifyGreetingTemplateChooseDisabled(): Promise<void> {
+    await this.openSelfServiceTemplatesPage();
+    const chooseButton = this.greetingTemplateChooseButton();
+    await expect(chooseButton).toBeVisible({ timeout: 30_000 });
+    await expect(chooseButton).toBeDisabled();
+  }
+
+  async openGreetingTemplateFromSelfService(): Promise<void> {
+    await this.openSelfServiceTemplatesPage();
     // clickBtnInCard can detach under NFS re-renders; click Choose directly.
     await this.clickChooseOnTemplateCard("Greeting Test Picker");
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
@@ -610,9 +689,10 @@ export class OrchestratorPO {
     );
     await expect(workFlowRow.locator("td").nth(3)).toHaveText(/^\d+$/);
     await expect(workFlowRow.locator("td").nth(4)).toHaveText(/^\d+%$/);
-    await expect(
-      workFlowRow.getByRole("button", { name: "Run", exact: true }).first(),
-    ).toBeVisible();
+    // Orchestrator ≥6.2.4 omits the accessible name on Run when the row has
+    // run history (product). Fall back to the Actions-cell icon button.
+    const actionsCell = workFlowRow.locator("td").last();
+    await expect(actionsCell.getByRole("button").first()).toBeVisible();
     await expect(
       workFlowRow.getByRole("button", { name: "View runs" }).first(),
     ).toBeVisible();

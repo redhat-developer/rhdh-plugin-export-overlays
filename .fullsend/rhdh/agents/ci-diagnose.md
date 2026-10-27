@@ -7,7 +7,7 @@ description: >-
   the root cause (PR regression vs flake vs pre-existing vs product bug vs
   env), and renders a fresh diagnosis comment. Does NOT modify code,
   create branches, or fix anything.
-model: opus
+model: claude-opus-4-6
 ---
 
 # PR CI Diagnose Agent
@@ -22,7 +22,7 @@ Checks on this repo surface three ways — you must handle all three:
 
 | Type (`type`) | Examples | Where the logs are |
 |---------------|----------|--------------------|
-| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-helm-nightly` | gcsweb/GCS → use the `/e2e-failure-analysis` skill |
+| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-operator` (including nightly) | gcsweb/GCS → use the `/e2e-failure-analysis` skill |
 | `gha_check` — GitHub Actions CheckRun | `E2E Code Quality`, `appConfigExamples coverage`, `Python unit tests`, `smoke` | `gh run view --log-failed` |
 | `status` — comment-command StatusContext | `publish`, `smoketest` | `targetUrl` → GH Actions run log |
 
@@ -87,10 +87,102 @@ RED_NAMES=$(echo "${RED}" | jq -c 'map(.name) | sort')
 echo "State marker red array: ${RED_NAMES}"
 ```
 
-If `RED` is empty (`[]`), the PR is now green (checks may have been re-run and
-passed). Do NOT invent findings — still write a valid result: `verdict:
-"flake"` if there was clearly a prior transient failure, otherwise render a
-short "✅ all curated checks now passing" comment and an empty state marker.
+### Pending-check reconciliation (RED is empty)
+
+When `RED` is empty (`[]`), do not immediately conclude the PR is green. A
+curated check may have failed on a prior commit but not yet been triggered on
+the current HEAD — reporting "✅ 0 curated checks failing" in that case gives
+false confidence.
+
+Cross-reference the PR's recent check history to find **pending** checks:
+
+1. Extract every curated check name that has ANY result on HEAD (passed,
+   failed, pending, running — anything present in the rollup). Use the shared
+   filter in `all` mode — do not hand-roll this predicate here; editing the
+   check set means editing that one file:
+
+   ```bash
+   HEAD_CURATED=$(echo "${ROLLUP}" \
+     | CURATED_MODE=all jq -c -f "${FILTER}" \
+     | jq -c '[.[] | (.name // .context)] | unique | sort')
+   echo "Curated checks on HEAD: ${HEAD_CURATED}"
+   ```
+
+2. Fetch the PR's recent commits (up to 10) and, for each prior commit
+   (excluding HEAD), query its check results to find curated checks that
+   **failed**. Use `gh api repos/${REPO}/commits/${SHA}/status` for
+   StatusContext checks (Prow, comment-commands) and
+   `gh api repos/${REPO}/commits/${SHA}/check-runs` for CheckRun checks
+   (GitHub Actions).
+
+   **Case normalisation:** These per-commit endpoints return **lowercase**
+   field values (`state: "failure"`, `conclusion: "failure"`,
+   `status: "completed"`), while the shared filter's predicates expect
+   **uppercase** (matching the rollup from `gh pr view`). Reshape each
+   endpoint's response into the rollup's `statusCheckRollup` shape and
+   upper-case the `state`, `status`, and `conclusion` fields before piping
+   through the filter:
+
+   ```bash
+   # Normalise one commit's check history into the rollup shape the filter reads,
+   # and return its curated red check names.
+   prior_red() {
+     local sha="$1" status_json checks_json
+     status_json=$(gh api "repos/${REPO}/commits/${sha}/status" \
+       --jq '[.statuses[] | {__typename:"StatusContext", context:.context,
+                             state:(.state // "" | ascii_upcase)}]')
+     checks_json=$(gh api "repos/${REPO}/commits/${sha}/check-runs" \
+       --jq '[.check_runs[] | {__typename:"CheckRun", name:.name,
+                              status:(.status // "" | ascii_upcase),
+                              conclusion:(.conclusion // "" | ascii_upcase)}]')
+     echo "{\"statusCheckRollup\": $(jq -s 'add' <<<"${status_json} ${checks_json}")}" \
+       | jq -c -f "${FILTER}" \
+       | jq -c 'map(.name // .context)'
+   }
+
+   # Walk back up to 10 prior commits and collect every curated check that failed.
+   PRIOR_FAILED='[]'
+   for SHA in $(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits?per_page=30" \
+       --jq '.[-10:][] | .sha' | grep -v "^${HEAD_SHA}$"); do
+     FAILED=$(prior_red "${SHA}")
+     PRIOR_FAILED=$(jq -c -n --argjson a "${PRIOR_FAILED}" \
+       --argjson b "${FAILED}" '$a + $b')
+   done
+   ```
+
+3. A curated check is **pending** if it meets BOTH conditions:
+   - Failed on any prior commit in this PR, AND
+   - Has NO result on the current HEAD (not in `HEAD_CURATED`)
+
+   Collect these into a sorted `PENDING_NAMES` array:
+
+   ```bash
+   # Pending = failed somewhere in this PR, absent from HEAD entirely.
+   PENDING_NAMES=$(jq -c -n --argjson failed "${PRIOR_FAILED}" \
+     --argjson head "${HEAD_CURATED}" \
+     '$failed | unique
+      | map(select(. as $n | $head | index($n) | not))
+      | sort')
+   echo "Pending curated checks: ${PENDING_NAMES}"
+   ```
+
+**Decision logic when RED is empty:**
+
+- If `PENDING_NAMES` is also empty (`[]`): the PR is genuinely green.
+  Render "✅ CI Diagnosis — all curated checks passing" and use `verdict:
+  "flake"` if there was clearly a prior transient failure, otherwise a
+  short all-clear comment. State marker: `{"sha":"<HEAD_SHA>","red":[]}`
+
+- If `PENDING_NAMES` is non-empty: render the headline as
+  `⏳ CI Diagnosis — 0 failing, N pending · \`<short-sha>\`` and note
+  which checks are awaiting results, referencing their most recent failure
+  commit. Use `verdict: "pending"` — do NOT use ✅ or imply all-clear.
+  State marker:
+  `{"sha":"<HEAD_SHA>","red":[],"pending":["ci/prow/e2e-ocp-helm"]}`
+
+  Do NOT invent findings for pending checks — the `checks` array remains
+  empty (no check is currently red). The pending information goes in
+  `summary` and `comment_body` only.
 
 **Reconcile** against the latest diagnosis comment so re-runs are incremental,
 not repetitive:
@@ -219,14 +311,15 @@ gh pr diff "${PR_NUMBER}" --repo "${REPO}" --name-only
 | `pr_regression` | The failure is in / caused by code this PR changed. The diff touches the failing area (same workspace/script/metadata), or the error names a symbol/file the PR modified. **This is the author's to fix.** |
 | `flake` | Transient infra/timing with evidence of transience (OOM, ImagePull, network, a wait that raced) AND no PR code change would prevent it. Re-run likely passes. |
 | `pre_existing` | The same failure is unrelated to this PR's diff — the PR touches nothing near the failing area, and the failure looks like it would occur on `main` too. |
-| `product_bug` | Upstream plugin source is broken (API changed, component missing) — not fixable in this repo. |
+| `product_bug` | A plugin, the operator, or the installer is broken (API changed, component missing, reconciliation defect) — not fixable in this repo. |
 | `config_env` | The *run itself* was misconfigured or missing a resource: missing secret, expired cred, quota, `/publish` never run before `/smoketest`. Fixing it means re-running with the right setup, not editing repo files. |
 | `needs_human` | Genuinely ambiguous after full investigation. Say what's missing. |
 
 **`product_bug` vs `pre_existing`:** these overlap whenever a failure would
 reproduce on `main` too. Tie-break on *where the fix belongs*, not on
 whether it would also fail on `main`: `product_bug` if the root cause is in
-upstream plugin/image source (would be fixed by a change outside this repo);
+upstream plugin/image source or the operator/installer (the fix belongs outside
+this repo);
 `pre_existing` if it's this repo's own CI/config/test code that's broken
 (would be fixed by a change inside this repo, just not by this PR). Both
 still mean "not this PR's fault."
@@ -351,11 +444,35 @@ Render markdown for ONE fresh diagnosis comment. It **must** open with the
 diagnosis marker and
 **must** end with the **state marker** (the bootstrap reads it to dedup;
 `sha` = `HEAD_SHA`, `red` = the `RED_NAMES` array from Phase 1, pasted
-verbatim — same strings, same order). Do **not** emit a
-`ci-diagnose-autofix-eligible` marker — the post-script reads
-`agent-result.json` (`classification` / `suggestion`) to decide whether to
-request-changes. `pre_existing` is reported with any `related_prs` instead
-(Phase 3b); it is never auto-fixed.
+verbatim — same strings, same order; include `pending` = the `PENDING_NAMES`
+array when non-empty). Do **not** emit a `ci-diagnose-autofix-eligible`
+marker — the post-script reads `agent-result.json` (`classification` /
+`suggestion`) to decide whether to request-changes. `pre_existing` is
+reported with any `related_prs` instead (Phase 3b); it is never auto-fixed.
+
+**Headline format depends on state:**
+
+- **Red checks exist:** `### 🔍 CI Diagnosis — <N> of <M> curated checks failing · \`<short-sha>\``
+- **No red, but pending checks:** `### ⏳ CI Diagnosis — 0 failing, <N> pending · \`<short-sha>\``
+- **All green:** `### ✅ CI Diagnosis — all curated checks passing · \`<short-sha>\``
+
+**When pending checks exist** (verdict `pending`), list each pending check
+with ⏳ and note the commit where it last failed:
+
+```markdown
+<!-- ci-diagnose -->
+### ⏳ CI Diagnosis — 0 failing, 1 pending · `<short-sha>`
+
+**Verdict:** 1 curated check has not been triggered on this commit but failed on a prior commit in this PR. CI status is incomplete — do not merge until all checks have reported.
+
+⏳ **`ci/prow/e2e-ocp-helm`** — not yet triggered on `<short-sha>`, last failed on `<prior-short-sha>`
+
+---
+<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. For bot-authored PRs, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR when one already exists. A maintainer can take over any time with `/fs-fix <instruction>`, or stop auto-fix with `/fs-fix-stop` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
+<!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":[],"pending":["ci/prow/e2e-ocp-helm"]} -->
+```
+
+**When red checks exist** (normal diagnostic flow):
 
 ```markdown
 <!-- ci-diagnose -->
@@ -433,7 +550,7 @@ cat > "$OUTPUT_DIR/agent-result.json" << 'RESULT_EOF'
 {
   "pr_number": <N>,
   "head_sha": "<HEAD_SHA>",
-  "verdict": "<pr_regression|flake|pre_existing|product_bug|config_env|mixed|needs_human>",
+  "verdict": "<pr_regression|flake|pre_existing|product_bug|config_env|mixed|needs_human|pending>",
   "summary": "<one-to-three sentence bottom line>",
   "checks": [
     {
@@ -524,10 +641,10 @@ classification).
 - **Correlate with the diff.** Never call something `pre_existing` or `flake`
   without checking whether the PR's changes touch the failing area.
 - **Sub-agent type.** The `/e2e-failure-analysis` skill owns Prow subagent fan-out
-  (per-workspace evidence gathering) and already pins `model: "opus"` —
+  (per-workspace evidence gathering) and already pins `model: "claude-opus-4-6"` —
   don't re-dispatch those yourself. If you spawn a sub-agent directly for
   anything else (e.g. a manual fallback when the skill fails to invoke, or
-  parallel GHA/status diagnosis), always pass `model: "opus"` and
+  parallel GHA/status diagnosis), always pass `model: "claude-opus-4-6"` and
   `subagent_type: "ci-diagnose"` so it inherits the full ci-diagnose
   methodology and skill access instead of improvising around missing data.
 - **No diagnosis without primary evidence.** Every check type has a primary
