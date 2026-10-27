@@ -1,3 +1,4 @@
+import { expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 export const CONFIG_DIR = "tests/config/gitlab-pqc";
@@ -35,22 +36,20 @@ export async function waitForGitlabDiscoveryScan(
   namespace: string,
   timeoutMs = 120_000,
 ): Promise<string> {
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    const result =
-      await $pipe`oc logs -n ${namespace} ${HUB_DEPLOY} -c ${HUB_CONTAINER} --tail=800`;
-    const logs = String(result.stdout);
-    if (
-      logs.includes("GitlabDiscoveryEntityProvider:provider") &&
-      /Processed \d+ from scanned \d+ projects/.test(logs)
-    ) {
-      return logs;
-    }
-    await new Promise((r) => setTimeout(r, 5_000));
-  }
-
-  throw new Error(
-    `Timed out waiting for GitlabDiscoveryEntityProvider:provider scan in ${namespace}`,
-  );
+  let logs = "";
+  await expect
+    .poll(
+      async () => {
+        const result =
+          await $pipe`oc logs -n ${namespace} ${HUB_DEPLOY} -c ${HUB_CONTAINER} --tail=800`;
+        logs = String(result.stdout);
+        return (
+          logs.includes("GitlabDiscoveryEntityProvider:provider") &&
+          /Processed \d+ from scanned \d+ projects/.test(logs)
+        );
+      },
+      { timeout: timeoutMs, intervals: [5_000] },
+    )
+    .toBe(true);
+  return logs;
 }
