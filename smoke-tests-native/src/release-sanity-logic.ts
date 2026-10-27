@@ -285,6 +285,29 @@ export function parseLoadedPlugins(body: unknown): Set<string> {
 
 export type InstalledPlugin = { name: string; dirName: string };
 
+/**
+ * One directory of dynamic-plugins-root. Without a package.json name string it keeps
+ * the directory name, which the backend never reports as loaded, so a plugin installed
+ * to the wrong path fails the check instead of dropping out of the count.
+ */
+export function installedPlugin(
+  dirName: string,
+  pkg: unknown,
+): InstalledPlugin {
+  const name =
+    isRecord(pkg) && typeof pkg.name === "string" ? pkg.name : dirName;
+  return { name, dirName };
+}
+
+/**
+ * Whether a dynamic-plugins-root entry is a plugin. The install CLI keeps its scratch
+ * space in dot directories (`.catalog-index-temp`), which would otherwise count as
+ * installed and never loaded.
+ */
+export function isPluginDir(name: string): boolean {
+  return !name.startsWith(".");
+}
+
 /** Installed plugins the backend did not load. */
 export function findNotLoaded(
   installed: InstalledPlugin[],
@@ -313,7 +336,7 @@ export function findNotInstalled(requested: string[], log: string): string[] {
 
 /** Log lines that name a plugin install or startup failure. */
 const FAILURE_LINE =
-  /InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|threw an error during startup|Backend startup failed|Missing required config value|defined differently|plugin\(s\) failed/;
+  /InstallException|Error while adding OCI plugin|[Ff]ailed to load dynamic plugin|threw an error during startup|Backend startup failed|Missing required config value|defined differently|plugin\(s\) failed/;
 
 // eslint-disable-next-line no-control-regex -- matching terminal escapes is the point
 const ANSI_ESCAPE = /\u001b\[[0-9;]*m/g;
