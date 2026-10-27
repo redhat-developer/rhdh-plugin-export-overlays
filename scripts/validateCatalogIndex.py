@@ -872,6 +872,14 @@ def _plugin_paths(build: dict) -> list[str] | None:
     return sorted(next(iter(p)) for p in packages)
 
 
+def _count_builds_without_plugin_paths(builds: dict[str, dict]) -> int:
+    """Builds whose annotation is present but names no paths; plugin-path-mismatch skips them."""
+    return sum(
+        1 for build in builds.values()
+        if build.get(DYNAMIC_PACKAGES_ANNOTATION) and _plugin_paths(build) is None
+    )
+
+
 def npm_to_image_name(package_name: str) -> str:
     """Same mapping bootstrapPluginBuilds.package_name_to_image_name uses."""
     return package_name.lstrip("@").replace("/", "-")
@@ -1293,11 +1301,7 @@ def validate(
             "enabled": sum(1 for e in entries if e.enabled),
             "plugin_builds": len(builds),
             "index_entries": len(index) if index is not None else 0,
-            # Annotation present but names no plugin paths: plugin-path-mismatch skips these.
-            "builds_without_plugin_paths": sum(
-                1 for b in builds.values()
-                if b.get(DYNAMIC_PACKAGES_ANNOTATION) and _plugin_paths(b) is None
-            ),
+            "builds_without_plugin_paths": _count_builds_without_plugin_paths(builds),
         },
         skipped_rules=skipped,
     )

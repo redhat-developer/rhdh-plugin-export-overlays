@@ -109,7 +109,7 @@ OCI_VALUE_LINE_RE = re.compile(
     r'(?P<quote>[\'"]?)oci://(?P<value>[^\'"\s]+)(?P=quote)\s*$'
 )
 OCI_PACKAGE_DIGEST_RE = re.compile(
-    r'^\s*(?:#\s*-\s+package|-\s+package|dynamicArtifact):\s*[\'"]?oci://[^\s\'"]+@(sha256:[a-f0-9]+)(?:![^\s\'"]+)?[\'"]?\s*$'
+    r'^\s*(?:#\s*-\s+package|-\s+package|dynamicArtifact):\s*[\'"]?oci://[^\s\'"]+@(sha256:[a-f0-9]+)[\'"]?\s*$'
 )
 WRAPPER_REFERENCE_RE = re.compile(
     r'^\s*(?:#\s*)?(?:-\s+package|dynamicArtifact):\s*[\'"]?'
@@ -224,7 +224,8 @@ def trailing_tag_comment_matches(new_lines: list[str], expected_comment: str | N
 
 def digest_from_oci_package_line(line: str) -> str | None:
     """Extract the sha256 digest from an OCI package line, or None if not matched."""
-    m = OCI_PACKAGE_DIGEST_RE.match(line)
+    # Drop a trailing !plugin-path selector; the regex expects the digest last.
+    m = OCI_PACKAGE_DIGEST_RE.match(line.split("!", 1)[0])
     return m.group(1) if m else None
 
 
