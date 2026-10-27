@@ -822,31 +822,34 @@ def check_plugin_paths(
         if ref in seen:
             continue
         seen.add(ref)
-        build = builds.get(ref.image)
-        if build is None or not _is_build_of(ref, build):
-            continue
-        paths = _plugin_paths(build)
-        if paths is None:
-            if build.get(DYNAMIC_PACKAGES_ANNOTATION):
-                log_debug(f"plugin-path-mismatch: '{ref.image}' annotation names no paths")
-            continue
-        if ref.plugin_path and ref.plugin_path not in paths:
-            problem = f"selects !{ref.plugin_path}"
-        elif not ref.plugin_path and len(paths) > 1:
-            problem = "selects no plugin path"
-        else:
-            continue
-        findings.append(
-            Finding(
-                rule="plugin-path-mismatch",
-                message=(
-                    f"'{ref.image}' in {source} {problem}, but the image declares "
-                    f"{', '.join(paths)}"
-                ),
-                image=ref.image,
+        problem = _plugin_path_problem(ref, builds.get(ref.image))
+        if problem:
+            findings.append(
+                Finding(
+                    rule="plugin-path-mismatch",
+                    message=f"'{ref.image}' in {source} {problem}",
+                    image=ref.image,
+                )
             )
-        )
     return findings
+
+
+def _plugin_path_problem(ref: ParsedRef, build: dict | None) -> str | None:
+    """What is wrong with the ref's selector for this build, or None when nothing is."""
+    if build is None or not _is_build_of(ref, build):
+        return None
+    paths = _plugin_paths(build)
+    if paths is None:
+        if build.get(DYNAMIC_PACKAGES_ANNOTATION):
+            log_debug(f"plugin-path-mismatch: '{ref.image}' annotation names no paths")
+        return None
+    if ref.plugin_path and ref.plugin_path not in paths:
+        problem = f"selects !{ref.plugin_path}"
+    elif not ref.plugin_path and len(paths) > 1:
+        problem = "selects no plugin path"
+    else:
+        return None
+    return f"{problem}, but the image declares {', '.join(paths)}"
 
 
 def _is_build_of(ref: ParsedRef, build: dict) -> bool:
