@@ -42,7 +42,7 @@ spec:
     - Screen context shares current page content with the assistant for context-aware answers
     - Notebooks (Developer Preview) for RAG queries over uploaded documents
     - MCP tool integration with per-server token management
-    - Multiple display modes: overlay, docked, embedded, and fullscreen
+    - Multiple display modes: overlay, dock to window, and fullscreen
     - Localized in English, German, Spanish, French, Italian, and Japanese
 
 
@@ -84,7 +84,7 @@ spec:
 
       1. **Access the plugin.** Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button.
       2. **Start chatting.** Ask questions about Red Hat Developer Hub or other development topics.
-      3. **Display modes.** Switch between overlay, docked, embedded, and fullscreen modes from Settings. The active conversation is preserved across mode switches.
+      3. **Display modes.** Switch between overlay, dock to window, and fullscreen modes from Settings. The active conversation is preserved across mode switches.
       4. **Manage chats.** Your chat history is kept for the session. You can start new chats, view history, and delete chats.
 
       ### Supported topics
@@ -232,12 +232,11 @@ spec:
       ```tsx
       import { createApp } from '@backstage/frontend-defaults';
 
-      import { appDrawerModule } from '@red-hat-developer-hub/backstage-plugin-app-react/alpha';
-      import {
-        intelligentAssistantFABModule,
+      import { appDrawerModule } from '@red-hat-developer-hub/backstage-plugin-app-react';
+      import intelligentAssistantFABModule, {
         intelligentAssistantRedirectModule,
-        intelligentAssistantTranslationsModule,
-      } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant';
+      } from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant/intelligent-assistant-fab-module';
+      import intelligentAssistantTranslationsModule from '@red-hat-developer-hub/backstage-plugin-intelligent-assistant/intelligent-assistant-translations-module';
 
       export default createApp({
         features: [
@@ -510,7 +509,7 @@ spec:
       Environment variable substitution works in `app-config.yaml` for any plugin configuration value:
 
       - `MCP_TOKEN`: Token for an MCP server configured under `mcpServers`
-      - `NOTEBOOK_DEFAULT_MODEL` / `NOTEBOOK_PROVIDER`: Notebooks query defaults (Developer Preview)
+      - `NOTEBOOKS_QUERY_MODEL` / `NOTEBOOKS_QUERY_PROVIDER_ID`: Notebooks query defaults (Developer Preview)
 
       ### Example with environment variables
 
@@ -522,8 +521,8 @@ spec:
         notebooks:
           enabled: true
           queryDefaults:
-            model: ${NOTEBOOK_DEFAULT_MODEL}
-            provider_id: ${NOTEBOOK_PROVIDER}
+            model: ${NOTEBOOKS_QUERY_MODEL}
+            provider_id: ${NOTEBOOKS_QUERY_PROVIDER_ID}
       ```
 
   
