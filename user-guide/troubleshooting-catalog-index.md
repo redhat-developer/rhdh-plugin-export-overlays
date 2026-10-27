@@ -227,16 +227,17 @@ selected Package entities' `dynamicArtifact`:
 
 A ref to an image with no `plugin_builds/` entry, such as an external bundle, is not
 checked: nothing in the index records that image's plugins. Neither is a ref whose
-digest, or repository when it has no digest, differs from the build of the same name. Generation also rewrites a
-selected entity's `dynamicArtifact` to the path-less digest ref, so a wrong selector in
-the workspace metadata itself is not caught here; the release plugin sanity catches it
-when the plugin is installed.
+digest, or repository when it has no digest, differs from the build of the same name.
 
-**Fix:** for a wrong selector, change it to one of the paths the message lists, in the
-source the generated file was copied from (for a Package entity, the workspace metadata);
-editing the generated file does not survive the next run. For a ref with no path to an image holding several plugins,
-adding a selector to the workspace metadata does not help, because generation drops it.
-Export each plugin as its own image, or change generation to keep the selector.
+Both the DPDY ref and the Package entity are generated from the workspace metadata's
+`spec.dynamicArtifact`, and generation keeps its `!plugin-path` when it pins the digest.
+So the selector in the finding is the one in `workspaces/<workspace>/metadata/*.yaml`.
+
+**Fix:** edit `spec.dynamicArtifact` in that workspace metadata file, then re-run
+catalog index generation. For a wrong selector, change it to one of the paths the
+message lists. For a ref with no path to an image holding several plugins, add
+`!<plugin-path>` for the plugin that file describes. Editing the generated file does
+not survive the next run.
 
 ### Warnings that do not fail the stage
 

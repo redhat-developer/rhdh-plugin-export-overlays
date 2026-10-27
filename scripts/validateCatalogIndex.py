@@ -800,9 +800,9 @@ def check_plugin_paths(
 
     Covers the DPDY refs and the selected Package entities' dynamicArtifact. A ref to an
     image with no plugin_builds/ entry, such as an external bundle, is not checked:
-    nothing here records that image's plugins. Generation rewrites a selected entity's
-    dynamicArtifact to the path-less digest ref, so the metadata's own selector is not
-    seen here. A ref the DPDY and an entity share is reported once, from the DPDY.
+    nothing here records that image's plugins. Generation keeps the metadata's selector
+    when it pins the digest, so that selector is what is checked here. A ref the DPDY
+    and an entity share is reported once, from the DPDY.
     A ref is only judged against a build that is the same image: same digest, or same
     repository when the ref has no digest. Builds are keyed by image name alone.
     """
@@ -1293,6 +1293,11 @@ def validate(
             "enabled": sum(1 for e in entries if e.enabled),
             "plugin_builds": len(builds),
             "index_entries": len(index) if index is not None else 0,
+            # Annotation present but names no plugin paths: plugin-path-mismatch skips these.
+            "builds_without_plugin_paths": sum(
+                1 for b in builds.values()
+                if b.get(DYNAMIC_PACKAGES_ANNOTATION) and _plugin_paths(b) is None
+            ),
         },
         skipped_rules=skipped,
     )
@@ -1310,6 +1315,13 @@ def render(result: ValidationResult) -> str:
         f"{stats.get('plugin_builds', 0)} plugin_builds entries and "
         f"{stats.get('index_entries', 0)} index.json entries"
     )
+
+    without_paths = stats.get("builds_without_plugin_paths", 0)
+    if without_paths:
+        lines.append(
+            f"plugin-path-mismatch skipped {without_paths} plugin_builds "
+            "entr(ies) whose annotation names no plugin paths"
+        )
 
     if result.skipped_rules:
         # A pass must never read as "everything was checked" when some rules could not

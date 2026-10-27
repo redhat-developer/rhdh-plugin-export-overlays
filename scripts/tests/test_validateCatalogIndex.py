@@ -360,6 +360,8 @@ class TestRules:
             "enabled": 1,
             "plugin_builds": 2,
             "index_entries": 2,
+            # resolved() defaults to the older package-name annotation shape.
+            "builds_without_plugin_paths": 2,
         }
 
     def test_a_non_oci_scheme_is_reported(self, tmp_path):
@@ -1181,7 +1183,7 @@ class TestPolicyRules:
         assert DPDY_FILENAME in findings[0].message
 
     def test_a_package_entity_path_is_checked_against_its_image(self, tmp_path):
-        """Generation writes path-less refs; this covers an entity that still has one."""
+        """Generation keeps the metadata's selector, so an entity can carry a wrong one."""
         output_dir, builds_dir = write_index(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-dcr@{DIGEST}"}],
@@ -1243,6 +1245,8 @@ class TestPolicyRules:
             builds={"plugin-a": resolved("plugin-a", **{DYNAMIC_PACKAGES_ANNOTATION: annotation})},
         )
         assert "plugin-path-mismatch" not in rules_of(result)
+        assert result.stats["builds_without_plugin_paths"] == 1
+        assert "plugin-path-mismatch skipped 1 plugin_builds" in render(result)
 
     def test_dpdy_completeness_is_by_package_identity_not_count(self, tmp_path):
         """A swap-one-for-another has the same length and must still fail."""
