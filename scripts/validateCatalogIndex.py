@@ -251,12 +251,15 @@ def parse_oci_ref(ref: str) -> ParsedRef | None:
     generateCatalogIndex.py uses to write these refs. A second grammar here is what once
     made this the only parser in the repo to reject `name:tag@digest`.
 
-    The `!plugin-path` selector is stripped BEFORE parsing: it names a plugin inside the
-    image, and a selector containing `/` would otherwise be read as a path segment.
+    The `!plugin-path` selector is split off BEFORE parsing and kept as `plugin_path`:
+    it names a plugin inside the image, and a selector containing `/` would otherwise be
+    read as a path segment. A bare trailing `!` is rejected, as the install CLI does.
     """
     if not ref.startswith(OCI_PREFIX):
         return None
-    body, _, plugin_path = ref[len(OCI_PREFIX):].partition("!")
+    body, bang, plugin_path = ref[len(OCI_PREFIX):].partition("!")
+    if bang and not plugin_path:
+        return None
     name, tag, digest = parse_image_reference(body)
     # A bare `oci://plugin-a` or `oci://registry:5000` names no image: registry and
     # image are not separable, so every rule that reasons about either would be
@@ -800,6 +803,8 @@ def check_plugin_paths(
     nothing here records that image's plugins. Generation rewrites a selected entity's
     dynamicArtifact to the path-less digest ref, so the metadata's own selector is not
     seen here. A ref the DPDY and an entity share is reported once, from the DPDY.
+    A ref is only judged against a build that is the same image: same digest, or same
+    repository when the ref has no digest. Builds are keyed by image name alone.
     """
     findings: list[Finding] = []
     seen: set[ParsedRef] = set()
@@ -817,8 +822,13 @@ def check_plugin_paths(
         if ref in seen:
             continue
         seen.add(ref)
-        paths = _plugin_paths(builds.get(ref.image, {}))
+        build = builds.get(ref.image)
+        if build is None or not _is_build_of(ref, build):
+            continue
+        paths = _plugin_paths(build)
         if paths is None:
+            if build.get(DYNAMIC_PACKAGES_ANNOTATION):
+                log_debug(f"plugin-path-mismatch: '{ref.image}' annotation names no paths")
             continue
         if ref.plugin_path and ref.plugin_path not in paths:
             problem = f"selects !{ref.plugin_path}"
@@ -837,6 +847,14 @@ def check_plugin_paths(
             )
         )
     return findings
+
+
+def _is_build_of(ref: ParsedRef, build: dict) -> bool:
+    """Whether a plugin_builds/ entry describes the image the ref names."""
+    if ref.digest:
+        return ref.digest == build.get("digest")
+    name, _, _ = parse_image_reference(str(build.get("registryReference", "")))
+    return name == f"{ref.registry}/{ref.image}"
 
 
 def _plugin_paths(build: dict) -> list[str] | None:

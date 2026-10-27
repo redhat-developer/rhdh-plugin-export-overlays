@@ -213,6 +213,7 @@ class TestParseOciRef:
             pytest.param("oci://plugin-a", id="no_registry_segment"),
             pytest.param("oci://localhost:5000", id="registry_only"),
             pytest.param("oci://", id="prefix_only"),
+            pytest.param(f"oci://{REGISTRY}/plugin-a@{DIGEST}!", id="empty_plugin_path"),
             pytest.param("", id="empty"),
         ],
     )
@@ -1202,6 +1203,26 @@ class TestPolicyRules:
             builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
         )
         self._write_package_entity(output_dir, "plugin-a", "oci://quay.io/other/bundle:2.4.2")
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    @pytest.mark.parametrize(
+        "artifact",
+        [
+            pytest.param("oci://ghcr.io/someone-else/plugin-a:1.0.0", id="other_repository"),
+            pytest.param(f"oci://{REGISTRY}/plugin-a@{OTHER_DIGEST}", id="other_digest"),
+        ],
+    )
+    def test_a_ref_to_another_image_of_the_same_name_is_not_checked(self, tmp_path, artifact):
+        """plugin_builds/ is keyed by image name; the annotation is only this build's."""
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        self._write_package_entity(output_dir, "plugin-a", artifact)
         result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
         assert "plugin-path-mismatch" not in rules_of(result)
 

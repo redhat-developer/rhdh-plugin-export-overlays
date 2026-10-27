@@ -226,7 +226,8 @@ selected Package entities' `dynamicArtifact`:
   `InstallException: Multiple plugins found in OCI image` (RHDHBUGS-3836).
 
 A ref to an image with no `plugin_builds/` entry, such as an external bundle, is not
-checked: nothing in the index records that image's plugins. Generation also rewrites a
+checked: nothing in the index records that image's plugins. Neither is a ref whose
+digest, or repository when it has no digest, differs from the build of the same name. Generation also rewrites a
 selected entity's `dynamicArtifact` to the path-less digest ref, so a wrong selector in
 the workspace metadata itself is not caught here; the release plugin sanity catches it
 when the plugin is installed.
@@ -235,7 +236,7 @@ when the plugin is installed.
 source the generated file was copied from (for a Package entity, the workspace metadata);
 editing the generated file does not survive the next run. For a ref with no path to an image holding several plugins,
 adding a selector to the workspace metadata does not help, because generation drops it.
-Export each plugin as its own image instead.
+Export each plugin as its own image, or change generation to keep the selector.
 
 ### Warnings that do not fail the stage
 
