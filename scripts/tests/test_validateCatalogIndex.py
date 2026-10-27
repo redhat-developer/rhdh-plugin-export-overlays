@@ -16,6 +16,7 @@ import pytest
 import yaml
 
 from validateCatalogIndex import (
+    DPDY_FILENAME,
     DYNAMIC_PACKAGES_ANNOTATION,
     ERROR,
     RULES,
@@ -141,6 +142,19 @@ def rules_of(result):
 # parse_oci_ref
 # ---------------------------------------------------------------------------
 class TestParseOciRef:
+    @pytest.mark.parametrize(
+        ("ref", "plugin_path"),
+        [
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}", ""),
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a-dynamic", "plugin-a-dynamic"),
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}!scope/name", "scope/name"),
+        ],
+    )
+    def test_keeps_the_plugin_path(self, ref, plugin_path):
+        parsed = parse_oci_ref(ref)
+        assert parsed is not None
+        assert parsed.plugin_path == plugin_path
+
     @pytest.mark.parametrize(
         "ref, registry, image, digest, tag",
         [
@@ -1096,6 +1110,16 @@ class TestPolicyRules:
         """The annotation as images carry it: one {plugin-path: package.json} per plugin."""
         return {DYNAMIC_PACKAGES_ANNOTATION: encoded_packages([{p: {}} for p in paths])}
 
+    @staticmethod
+    def _write_package_entity(output_dir, image, dynamic_artifact):
+        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+        packages_dir.mkdir(parents=True)
+        (packages_dir / f"{image}.yaml").write_text(yaml.safe_dump({
+            "kind": "Package",
+            "metadata": {"name": image},
+            "spec": {"packageName": image, "dynamicArtifact": dynamic_artifact},
+        }), encoding="utf-8")
+
     def test_a_ref_without_a_path_to_a_one_plugin_image_passes(self, tmp_path):
         result = run(
             tmp_path,
@@ -1136,26 +1160,35 @@ class TestPolicyRules:
             builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
         )
         finding = next(f for f in result.findings if f.rule == "plugin-path-mismatch")
-        assert "!plugin-a-dynamic" in finding.message
+        assert finding.severity == ERROR
+        assert "selects !plugin-a-dynamic, but the image declares plugin-a" in finding.message
         assert finding.image == "plugin-a"
 
+    def test_a_ref_the_dpdy_and_an_entity_share_is_reported_once(self, tmp_path):
+        ref = f"oci://{REGISTRY}/plugin-a@{DIGEST}"
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": ref}],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        self._write_package_entity(output_dir, "plugin-a", ref)
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        findings = [f for f in result.findings if f.rule == "plugin-path-mismatch"]
+        assert len(findings) == 1
+        assert DPDY_FILENAME in findings[0].message
+
     def test_a_package_entity_path_is_checked_against_its_image(self, tmp_path):
-        """The metadata's dynamicArtifact, which is where both live cases were."""
+        """Generation writes path-less refs; this covers an entity that still has one."""
         output_dir, builds_dir = write_index(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-dcr@{DIGEST}"}],
             builds={"plugin-dcr": resolved("plugin-dcr", **self._plugins("plugin-dcr"))},
         )
-        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
-        packages_dir.mkdir(parents=True)
-        (packages_dir / "plugin-dcr.yaml").write_text(yaml.safe_dump({
-            "kind": "Package",
-            "metadata": {"name": "plugin-dcr"},
-            "spec": {
-                "packageName": "plugin-dcr",
-                "dynamicArtifact": f"oci://{REGISTRY}/plugin-dcr:1.0.0!plugin",
-            },
-        }), encoding="utf-8")
+        self._write_package_entity(
+            output_dir, "plugin-dcr", f"oci://{REGISTRY}/plugin-dcr:1.0.0!plugin"
+        )
         result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
         findings = [f for f in result.findings if f.rule == "plugin-path-mismatch"]
         assert len(findings) == 1
@@ -1168,17 +1201,26 @@ class TestPolicyRules:
             [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
             builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
         )
-        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
-        packages_dir.mkdir(parents=True)
-        (packages_dir / "plugin-a.yaml").write_text(yaml.safe_dump({
-            "kind": "Package",
-            "metadata": {"name": "plugin-a"},
-            "spec": {
-                "packageName": "plugin-a",
-                "dynamicArtifact": "oci://quay.io/other/bundle:2.4.2",
-            },
-        }), encoding="utf-8")
+        self._write_package_entity(output_dir, "plugin-a", "oci://quay.io/other/bundle:2.4.2")
         result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    @pytest.mark.parametrize(
+        "annotation",
+        [
+            pytest.param(encoded_packages(["@scope/a", "@scope/b"]), id="package_names_only"),
+            pytest.param(encoded_packages([{"a": {}, "b": {}}]), id="item_with_two_keys"),
+            pytest.param(encoded_packages([1]), id="item_not_a_mapping"),
+            pytest.param("not base64", id="unreadable"),
+        ],
+    )
+    def test_an_annotation_that_names_no_paths_is_not_checked(self, tmp_path, annotation):
+        """No path to compare; an unreadable one is `missing-annotation`'s to report."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a"}],
+            builds={"plugin-a": resolved("plugin-a", **{DYNAMIC_PACKAGES_ANNOTATION: annotation})},
+        )
         assert "plugin-path-mismatch" not in rules_of(result)
 
     def test_dpdy_completeness_is_by_package_identity_not_count(self, tmp_path):

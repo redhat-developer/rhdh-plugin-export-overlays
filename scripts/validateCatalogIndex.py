@@ -799,9 +799,10 @@ def check_plugin_paths(
     image with no plugin_builds/ entry, such as an external bundle, is not checked:
     nothing here records that image's plugins. Generation rewrites a selected entity's
     dynamicArtifact to the path-less digest ref, so the metadata's own selector is not
-    seen here.
+    seen here. A ref the DPDY and an entity share is reported once, from the DPDY.
     """
     findings: list[Finding] = []
+    seen: set[ParsedRef] = set()
     refs = [
         (ref, f"{DPDY_FILENAME} plugins[{entry.position}]")
         for entry in entries
@@ -809,10 +810,13 @@ def check_plugin_paths(
     ]
     refs += [
         (ref, str(path))
-        for _, artifact, path in sorted(package_entities.values())
+        for _, (_, artifact, path) in sorted(package_entities.items())
         if (ref := parse_oci_ref(artifact)) is not None
     ]
     for ref, source in refs:
+        if ref in seen:
+            continue
+        seen.add(ref)
         paths = _plugin_paths(builds.get(ref.image, {}))
         if paths is None:
             continue

@@ -12,6 +12,7 @@ Common issues reported on the status page and how to resolve them.
 - Missing, empty, or unreadable `io.backstage.dynamic-packages` on any plugin image.
 - `dynamic-plugins.default.yaml` does not list every package from `default.packages.yaml`.
 - [DPDY `package:` is a tag, not a digest](#validation-not-digest-pinned) — the tag points at the manifest list.
+- [A ref's plugin path does not match its image](#validation-plugin-path-mismatch) — install extracts nothing, or fails with "Multiple plugins found".
 
 **Fails only on `release-*` (`--strict`):**
 
@@ -230,8 +231,11 @@ selected entity's `dynamicArtifact` to the path-less digest ref, so a wrong sele
 the workspace metadata itself is not caught here; the release plugin sanity catches it
 when the plugin is installed.
 
-**Fix:** set the selector in the workspace metadata to one of the paths the message
-lists, or drop it when the image holds a single plugin.
+**Fix:** for a wrong selector, change it to one of the paths the message lists, in the
+source the generated file was copied from (for a Package entity, the workspace metadata);
+editing the generated file does not survive the next run. For a ref with no path to an image holding several plugins,
+adding a selector to the workspace metadata does not help, because generation drops it.
+Export each plugin as its own image instead.
 
 ### Warnings that do not fail the stage
 
