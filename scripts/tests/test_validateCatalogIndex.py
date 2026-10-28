@@ -1670,7 +1670,26 @@ class TestMalformedRefIsRefForm:
             builds={"plugin-a": resolved("plugin-a")},
         )
         assert rules_of(result) == ["ref-form"]
-        assert "!plugin-path selector is empty" in result.findings[0].message
+        message = result.findings[0].message
+        assert "!plugin-path selector is empty" in message
+        # Same shape as the other three sources: plugin, tier, position, expected base.
+        assert (
+            "'plugin-a' (unspecified) in dynamic-plugins.default.yaml plugins[0]: "
+            in message
+        )
+        assert message.endswith(f"; expected {REGISTRY}")
+
+    def test_a_repeated_malformed_package_is_one_ref_form_naming_the_first(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [{"package": self.BANG}, {"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        ref_form = [f for f in result.findings if f.rule == "ref-form"]
+        assert len(ref_form) == 1
+        assert "plugins[0]" in ref_form[0].message
+        assert "duplicate-ref" in rules_of(result)
 
     def test_a_bare_trailing_bang_still_fails_the_policy_only_gate(self, tmp_path):
         result = self._policy_only(
@@ -1736,6 +1755,53 @@ class TestMalformedRefIsRefForm:
         stage = json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]["validate"]
         assert stage["status"] == "fail"
         assert any(e.startswith("[ref-form]") for e in stage["errors"])
+
+    def test_a_malformed_dpdy_ref_still_fails_that_plugins_validate_stage(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        report_file = tmp_path / "build-report.json"
+        report = BuildReport(str(report_file))
+        report.add_plugin("plugin-a", package="@scope/plugin-a")
+        record_in_report(result, report)
+        report.save()
+        stage = json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]["validate"]
+        assert stage["status"] == "fail"
+        assert any(e.startswith("[ref-form]") for e in stage["errors"])
+
+    def test_a_malformed_package_entity_artifact_is_ref_form_on_its_plugin(
+        self, tmp_path
+    ):
+        output_dir, builds_dir = write_index(
+            tmp_path, [], builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+        )
+        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+        packages_dir.mkdir(parents=True)
+        (packages_dir / "plugin-a.yaml").write_text(yaml.safe_dump({
+            "kind": "Package",
+            "metadata": {"name": "plugin-a"},
+            "spec": {
+                "packageName": "plugin-a",
+                "support": "community",
+                "dynamicArtifact": f"oci://{COMMUNITY_REGISTRY}/plugin-a@sha256:abc",
+            },
+        }), encoding="utf-8")
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            registry_policy_only=True, community_registry=COMMUNITY_REGISTRY,
+        )
+        assert [(f.rule, f.image) for f in result.findings] == [("ref-form", "plugin-a")]
+        message = result.findings[0].message
+        assert message.startswith("'plugin-a' (community) in ")
+        assert "packages/plugin-a.yaml: " in message
+        assert "not a well-formed oci:// image reference" in message
+        assert message.endswith(f"; expected {COMMUNITY_REGISTRY}")
 
     def test_ref_form_cannot_be_allowlisted(self):
         with pytest.raises(ValueError, match="cannot be allowlisted"):

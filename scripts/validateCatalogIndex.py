@@ -21,6 +21,7 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import NamedTuple
@@ -416,22 +417,24 @@ def load_selected_package_entities(
     return entities
 
 
-def check_registry_policy(
-    entries: list[DpdyEntry],
+#: image -> (expected registry base, support tier label)
+ExpectedFor = Callable[[str], tuple[str, str]]
+
+
+def expected_base_for(
     index: dict[str, dict] | None,
     builds: dict[str, dict],
     package_entities: dict[str, tuple[str, str, Path]],
     registry: str,
     community_registry: str,
-) -> list[Finding]:
-    """Require each selected plugin's OCI refs to use its support tier's base.
+) -> ExpectedFor:
+    """Resolve each image's registry base from its support tier.
 
     Package metadata is the source of the support tier; bootstrap copies it into
     plugin_builds/ and index.json. Fall back to those copies when validating an
     extracted index without Package entities or build metadata. Missing support is
     treated as non-community, so it can never grant access to the community base.
     """
-    findings: list[Finding] = []
 
     def expected_for(image: str) -> tuple[str, str]:
         package = package_entities.get(image)
@@ -447,22 +450,42 @@ def check_registry_policy(
             support or "unspecified",
         )
 
+    return expected_for
+
+
+def _ref_form(
+    image: str, value: str, source: str, oci: bool, expected_for: ExpectedFor
+) -> Finding:
+    """One message shape for an unparseable ref from any of the four sources."""
+    expected, support = expected_for(image)
+    return Finding(
+        rule="ref-form",
+        message=(
+            f"'{image}' ({support}) in {source}: {_malformed(value, oci)}; "
+            f"expected {expected}"
+        ),
+        image=image,
+    )
+
+
+def check_registry_policy(
+    entries: list[DpdyEntry],
+    index: dict[str, dict] | None,
+    builds: dict[str, dict],
+    package_entities: dict[str, tuple[str, str, Path]],
+    expected_for: ExpectedFor,
+) -> list[Finding]:
+    """Require each selected plugin's OCI refs to use its support tier's base."""
+    findings: list[Finding] = []
+
     def check(image: str, value: str, source: str) -> None:
         expected, support = expected_for(image)
         oci_value = value if value.startswith(OCI_PREFIX) else f"{OCI_PREFIX}{value}"
         ref = parse_oci_ref(oci_value)
         if ref is None:
-            reason = _malformed(value, oci=value.startswith(OCI_PREFIX))
-            findings.append(
-                Finding(
-                    rule="ref-form",
-                    message=(
-                        f"'{image}' ({support}) in {source}: {reason}; "
-                        f"expected {expected}"
-                    ),
-                    image=image,
-                )
-            )
+            findings.append(_ref_form(
+                image, value, source, value.startswith(OCI_PREFIX), expected_for
+            ))
         elif ref.registry != expected:
             findings.append(
                 Finding(
@@ -615,12 +638,18 @@ def _malformed(value: str, oci: bool) -> str:
     return f"'{value}' is not a well-formed {kind} reference{hint}"
 
 
-def check_ref_form(entries: list[DpdyEntry], oci_only: bool = False) -> list[Finding]:
+def check_ref_form(
+    entries: list[DpdyEntry], expected_for: ExpectedFor, oci_only: bool = False
+) -> list[Finding]:
     """Report each distinct DPDY package that does not parse.
 
     The registry rule skips refs it cannot parse, so --registry-policy-only runs this
     with `oci_only` to keep a malformed `oci://` ref failing that gate. A non-oci
     package was never that gate's to fail.
+
+    A package repeated at several positions is one finding naming the first; the
+    repeat is `duplicate-ref`'s to report. The image is kept so the plugin's `validate`
+    stage turns red; a local path names no plugin row and record_in_report skips it.
     """
     findings: list[Finding] = []
     seen: set[str] = set()
@@ -631,12 +660,10 @@ def check_ref_form(entries: list[DpdyEntry], oci_only: bool = False) -> list[Fin
         if oci_only and not entry.package.startswith(OCI_PREFIX):
             continue
         if parse_oci_ref(entry.package) is None:
-            findings.append(
-                Finding(
-                    rule="ref-form",
-                    message=f"plugins[{entry.position}]: {_malformed(entry.package, oci=True)}",
-                )
-            )
+            findings.append(_ref_form(
+                _image_of(entry.package), entry.package,
+                f"{DPDY_FILENAME} plugins[{entry.position}]", True, expected_for,
+            ))
     return findings
 
 
@@ -1279,10 +1306,12 @@ def validate(
         if (ref := parse_oci_ref(entry.package)) is not None
     )
     package_entities = load_selected_package_entities(output_dir, selected_images)
-    findings = check_ref_form(entries, oci_only=registry_policy_only)
+    expected_for = expected_base_for(
+        index, builds, package_entities, registry, community_registry or registry
+    )
+    findings = check_ref_form(entries, expected_for, oci_only=registry_policy_only)
     findings.extend(check_registry_policy(
-        entries, index, builds, package_entities,
-        registry, community_registry or registry,
+        entries, index, builds, package_entities, expected_for
     ))
     if registry_policy_only:
         # update-index.sh calls this unconditionally, even when its other rules run
@@ -1565,7 +1594,8 @@ Examples:
     )
     parser.add_argument(
         "--registry-policy-only", action="store_true",
-        help="Check only the mandatory per-support-tier registry policy. "
+        help="Check only the mandatory per-support-tier registry policy, including "
+             "refs whose registry cannot be parsed (ref-form). "
              "Used by update-index.sh even when other validation is report/off.",
     )
     parser.add_argument(
