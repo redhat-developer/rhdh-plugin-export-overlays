@@ -74,7 +74,9 @@ jobs:
       # itself would otherwise ship without the semantic path executing once.
       # This exercises it against a known workspace whose package publishes a
       # compiled config.schema.json. Warn-only: it is a smoke check of the tool,
-      # not a verdict on metadata the author did not touch.
+      # not a verdict on metadata the author did not touch. --check-plugin-paths
+      # also proves the runner can read manifests; --warn-only does not soften
+      # it, so a broken ref in the sample fails here.
       - name: Smoke-check the schema path against known metadata
         if: github.event_name == 'pull_request'
         env:
@@ -90,7 +92,8 @@ jobs:
             exit 1
           fi
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
-          vp exec validate-app-config-examples --check-schemas --warn-only --since "${sha}~1"
+          vp exec validate-app-config-examples --check-schemas --warn-only --since "${sha}~1" \
+            --check-plugin-paths --allow-unpublished
 
       # The sweep used to run --warn-only because the tree carried metadata
       # written before this check existed. That backlog is now clear
