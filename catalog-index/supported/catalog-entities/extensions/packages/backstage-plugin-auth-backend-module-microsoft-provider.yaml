@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage/plugin-auth-backend-module-microsoft-provider"
   # Tag: bs_1.54.9__0.3.18
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:03b71476ab66092abecfeafaf562cf41add603bfd0343e5915a9f195b5b21533"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:d7b088ef3eef97b2f849c28b407abe1269bd16d12137b079eaf81b18745936a6"
   version: 0.3.18
   backstage:
     role: backend-plugin-module
@@ -40,4 +40,4 @@ spec:
                 tenantId: ${MICROSOFT_TENANT_ID}
                 signIn:
                   resolvers:
-                    - resolver: emailMatchingUserEntityProfileEmail
+                    - resolver: userIdMatchingUserEntityAnnotation
