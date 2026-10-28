@@ -1114,7 +1114,10 @@ def _sync_one_overlay_metadata(
     if not da.startswith("oci://"):
         return False
 
-    new_oci = f"oci://{registry_reference_digest}"
+    # Keep the !plugin-path selector: it picks the plugin inside the image.
+    plugin_path = da.partition("!")[2]
+    selector = f"!{plugin_path}" if plugin_path else ""
+    new_oci = f"oci://{registry_reference_digest}{selector}"
     fallback_version = None
     if plugin_data.get("fallback"):
         fallback_version = _version_from_registry_tag(registry_reference_tag)
@@ -1281,7 +1284,7 @@ def update_plugin_build_files(
     from the Docker Registry HTTP API v2 and writes the results back into the
     JSON. Also updates the corresponding ``workspaces/*/metadata/*.yaml``
     overlay files with the resolved ``dynamicArtifact`` OCI reference
-    (including digest).
+    (including digest, and keeping any ``!plugin-path`` selector).
 
     Returns:
         A 6-tuple of ``(updated_count, error_count, missing_refs,
