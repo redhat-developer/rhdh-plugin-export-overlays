@@ -278,6 +278,11 @@ const emptyTally = (): PluginPathTally => ({
 });
 const job = (ref: string) => ({ row: { ...passing, notes: [] }, ref });
 
+const missingEverywhere: FetchManifest = async () => ({
+  kind: "missing",
+  reason: "manifest unknown",
+});
+
 describe("plugin-path outcomes", () => {
   const OWN_REF = "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/a:bs_1__1!a";
   const EXTERNAL_REF = "oci://quay.io/org/dynamic-plugins:2.4.2";
@@ -381,6 +386,32 @@ describe("plugin-path outcomes", () => {
     expect(code).toBe(1);
     expect(images.length).toBeGreaterThan(0);
     expect(io.stdout).toMatch(/registry unreachable, plugin path not checked/);
+  });
+
+  it("notes unpublished own tags with --allow-unpublished, and fails external ones", async () => {
+    const io = capture();
+    const code = await main(
+      ["--check-plugin-paths", "--allow-unpublished"],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(missingEverywhere),
+    );
+    // Own ghcr tags are noted; the external cost-management bundle still fails.
+    expect(io.stdout).toMatch(/not published yet: [1-9]/);
+    expect(io.stdout).toMatch(/dynamicArtifact names an image that cannot be pulled/);
+    expect(code).toBe(1);
+  });
+
+  it("reads no manifest without --check-plugin-paths", async () => {
+    let calls = 0;
+    const fetch: FetchManifest = async () => {
+      calls += 1;
+      return { kind: "unavailable", reason: "offline" };
+    };
+    const io = capture();
+    await main([], io.write, io.writeError, new PluginPathChecker(fetch));
+    expect(calls).toBe(0);
+    expect(io.stdout.includes("Plugin paths")).toBeFalsy();
   });
 
   it("prints the plugin-path tally when the layer ran", () => {

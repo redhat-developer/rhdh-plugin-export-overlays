@@ -44,6 +44,11 @@ export function probeCandidates(ref: string): string[] {
     : [primary];
 }
 
+// The install CLI's OCI_REGEX (oci-key in cli-module-install-dynamic-plugins): a
+// tag or a digest is required, and `!<path>` may only follow it.
+const INSTALLABLE_OCI_REF =
+  /^oci:\/\/[^\s/:@]+(?::\d+)?(?:\/[^\s:@]+)+(?::[^\s!@:]+|@(?:sha256|sha512|blake3):[^\s!@:]+)(?:![^\s]+)?$/;
+
 export const DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages";
 
 /** A ref's `!plugin-path` selector: undefined without one, "" for a bare `!`. */
@@ -127,11 +132,11 @@ export function selectedPluginPathProblem(
   ref: string,
   manifestJson: string,
 ): string | undefined {
+  if (!INSTALLABLE_OCI_REF.test(ref)) {
+    return "is not a ref the install CLI accepts (oci://<registry>/<repo> with a tag or digest, then an optional !<path>)";
+  }
   const selector = pluginSelector(ref);
   if (selector === undefined) return pluginPathProblem(ref, manifestJson);
-  // The CLI's OCI_REGEX needs at least one character after `!`.
-  if (selector === "")
-    return "ends in a bare '!', which the install CLI rejects";
   const declared = declaredPluginPaths(manifestJson);
   if ("problem" in declared)
     return `selects !${selector}, but ${declared.problem}`;

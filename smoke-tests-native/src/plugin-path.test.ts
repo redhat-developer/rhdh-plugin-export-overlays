@@ -157,10 +157,22 @@ test("selectedPluginPathProblem rejects a selector the image does not declare", 
   assert.equal(problem, "selects !azure-dynamic, but the image declares azure");
 });
 
-test("selectedPluginPathProblem rejects a bare trailing '!'", () => {
-  assert.match(
-    selectedPluginPathProblem(`${ociRef("a")}!`, annotated([{ a: {} }])) ?? "",
-    /bare '!'/,
+test("selectedPluginPathProblem rejects a ref the install CLI cannot parse", () => {
+  const manifest = annotated([{ a: {} }]);
+  for (const ref of [
+    `${ociRef("a")}!`, // bare trailing '!'
+    `oci://${REGISTRY}/a!a`, // no tag or digest
+    `oci://${REGISTRY}/a:1!a b`, // whitespace in the selector
+  ]) {
+    assert.match(
+      selectedPluginPathProblem(ref, manifest) ?? "",
+      /not a ref the install CLI accepts/,
+      ref,
+    );
+  }
+  assert.equal(
+    selectedPluginPathProblem(`oci://${REGISTRY}/a:1!a`, manifest),
+    undefined,
   );
 });
 

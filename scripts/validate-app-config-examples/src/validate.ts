@@ -30,10 +30,10 @@ import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { parseArgs, promisify } from "node:util";
 import {
+  dynamicArtifactRef,
   examplesWithContent,
   evaluateFile,
   isMetadataPath,
-  dynamicArtifactRef,
   packageCoordinates,
   type Status,
 } from "./metadata.ts";
@@ -557,11 +557,11 @@ export function exitCodeFor(rows: Row[]): number {
 export function printReport(
   rows: Row[],
   tally: SchemaTally,
-  schemas: { checked: boolean; undeclared?: UndeclaredTally; pluginPaths?: PluginPathTally },
+  layers: { checked: boolean; undeclared?: UndeclaredTally; pluginPaths?: PluginPathTally },
   write: (text: string) => void,
   writeError: (text: string) => void,
 ): void {
-  const { checked: checkedSchemas, undeclared, pluginPaths } = schemas;
+  const { checked: checkedSchemas, undeclared, pluginPaths } = layers;
   const statusWidth = Math.max("STATUS".length, ...rows.map((row) => row.status.length));
 
   write(`${"STATUS".padEnd(statusWidth)}  FILE\n`);
