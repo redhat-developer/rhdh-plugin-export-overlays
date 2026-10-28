@@ -182,20 +182,12 @@ test.describe("Test ArgoCD plugin", () => {
   test("Verify deployment lifecycle on Deployment tab shows revisions", async ({
     uiHelper,
   }) => {
-    test.skip(
-      process.env.INSTALLATION_METHOD === "operator",
-      "Operator deployment does not mount SA token — K8s backend plugin cannot authenticate (k8s-sa-token-operator)",
-    );
     await uiHelper.verifyText(/Revision \d+/);
   });
 
   test("Verify bluegreen rollout details and analysis runs", async ({
     page,
   }) => {
-    test.skip(
-      process.env.INSTALLATION_METHOD === "operator",
-      "Operator deployment does not mount SA token — K8s backend plugin cannot authenticate (k8s-sa-token-operator)",
-    );
     await expandAllSections(page);
 
     const bluegreen = page.locator('[data-testid^="rollout-bluegreen-"]');
@@ -208,10 +200,6 @@ test.describe("Test ArgoCD plugin", () => {
   });
 
   test("Verify canary rollout details and analysis runs", async ({ page }) => {
-    test.skip(
-      process.env.INSTALLATION_METHOD === "operator",
-      "Operator deployment does not mount SA token — K8s backend plugin cannot authenticate (k8s-sa-token-operator)",
-    );
     await expandAllSections(page);
 
     const canary = page.locator('[data-testid^="canary-rollout-analysis-"]');
