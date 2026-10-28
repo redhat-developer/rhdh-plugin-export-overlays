@@ -16,6 +16,7 @@ import pytest
 import yaml
 
 from validateCatalogIndex import (
+    DPDY_FILENAME,
     DYNAMIC_PACKAGES_ANNOTATION,
     ERROR,
     RULES,
@@ -142,6 +143,19 @@ def rules_of(result):
 # ---------------------------------------------------------------------------
 class TestParseOciRef:
     @pytest.mark.parametrize(
+        ("ref", "plugin_path"),
+        [
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}", ""),
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a-dynamic", "plugin-a-dynamic"),
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}!scope/name", "scope/name"),
+        ],
+    )
+    def test_keeps_the_plugin_path(self, ref, plugin_path):
+        parsed = parse_oci_ref(ref)
+        assert parsed is not None
+        assert parsed.plugin_path == plugin_path
+
+    @pytest.mark.parametrize(
         "ref, registry, image, digest, tag",
         [
             pytest.param(
@@ -199,6 +213,7 @@ class TestParseOciRef:
             pytest.param("oci://plugin-a", id="no_registry_segment"),
             pytest.param("oci://localhost:5000", id="registry_only"),
             pytest.param("oci://", id="prefix_only"),
+            pytest.param(f"oci://{REGISTRY}/plugin-a@{DIGEST}!", id="empty_plugin_path"),
             pytest.param("", id="empty"),
         ],
     )
@@ -345,6 +360,8 @@ class TestRules:
             "enabled": 1,
             "plugin_builds": 2,
             "index_entries": 2,
+            # resolved() defaults to the older package-name annotation shape.
+            "builds_without_plugin_paths": 2,
         }
 
     def test_a_non_oci_scheme_is_reported(self, tmp_path):
@@ -1090,6 +1107,146 @@ class TestPolicyRules:
         assert finding.severity == ERROR
         assert "unreadable" in finding.message
         assert to_json(result, strict=False)["status"] == "fail"
+
+    @staticmethod
+    def _plugins(*paths):
+        """The annotation as images carry it: one {plugin-path: package.json} per plugin."""
+        return {DYNAMIC_PACKAGES_ANNOTATION: encoded_packages([{p: {}} for p in paths])}
+
+    @staticmethod
+    def _write_package_entity(output_dir, image, dynamic_artifact):
+        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+        packages_dir.mkdir(parents=True)
+        (packages_dir / f"{image}.yaml").write_text(yaml.safe_dump({
+            "kind": "Package",
+            "metadata": {"name": image},
+            "spec": {"packageName": image, "dynamicArtifact": dynamic_artifact},
+        }), encoding="utf-8")
+
+    def test_a_ref_without_a_path_to_a_one_plugin_image_passes(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
+        )
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    def test_a_ref_without_a_path_to_a_several_plugin_image_fails(self, tmp_path):
+        """RHDHBUGS-3836: install fails with "Multiple plugins found"."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "plugin-path-mismatch")
+        assert finding.severity == ERROR
+        assert "plugin-a, plugin-a-backend" in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_a_path_the_image_declares_passes(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a-backend"}],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    def test_a_path_the_image_does_not_declare_fails(self, tmp_path):
+        """RHDHBUGS-3837: install extracts nothing and still exits 0."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a-dynamic"}],
+            builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
+        )
+        finding = next(f for f in result.findings if f.rule == "plugin-path-mismatch")
+        assert finding.severity == ERROR
+        assert "selects !plugin-a-dynamic, but the image declares plugin-a" in finding.message
+        assert finding.image == "plugin-a"
+
+    def test_a_ref_the_dpdy_and_an_entity_share_is_reported_once(self, tmp_path):
+        ref = f"oci://{REGISTRY}/plugin-a@{DIGEST}"
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": ref}],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        self._write_package_entity(output_dir, "plugin-a", ref)
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        findings = [f for f in result.findings if f.rule == "plugin-path-mismatch"]
+        assert len(findings) == 1
+        assert DPDY_FILENAME in findings[0].message
+
+    def test_a_package_entity_path_is_checked_against_its_image(self, tmp_path):
+        """Generation keeps the metadata's selector, so an entity can carry a wrong one."""
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-dcr@{DIGEST}"}],
+            builds={"plugin-dcr": resolved("plugin-dcr", **self._plugins("plugin-dcr"))},
+        )
+        self._write_package_entity(
+            output_dir, "plugin-dcr", f"oci://{REGISTRY}/plugin-dcr:1.0.0!plugin"
+        )
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        findings = [f for f in result.findings if f.rule == "plugin-path-mismatch"]
+        assert len(findings) == 1
+        assert "packages/plugin-dcr.yaml" in findings[0].message
+
+    def test_a_package_entity_on_another_image_is_not_checked(self, tmp_path):
+        """An external image has no plugin_builds/ entry to read its plugins from."""
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
+        )
+        self._write_package_entity(output_dir, "plugin-a", "oci://quay.io/other/bundle:2.4.2")
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    @pytest.mark.parametrize(
+        "artifact",
+        [
+            pytest.param("oci://ghcr.io/someone-else/plugin-a:1.0.0", id="other_repository"),
+            pytest.param(f"oci://{REGISTRY}/plugin-a@{OTHER_DIGEST}", id="other_digest"),
+        ],
+    )
+    def test_a_ref_to_another_image_of_the_same_name_is_not_checked(self, tmp_path, artifact):
+        """plugin_builds/ is keyed by image name; the annotation is only this build's."""
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        self._write_package_entity(output_dir, "plugin-a", artifact)
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    @pytest.mark.parametrize(
+        "annotation",
+        [
+            pytest.param(encoded_packages(["@scope/a", "@scope/b"]), id="package_names_only"),
+            pytest.param(encoded_packages([{"a": {}, "b": {}}]), id="item_with_two_keys"),
+            pytest.param(encoded_packages([1]), id="item_not_a_mapping"),
+            pytest.param("not base64", id="unreadable"),
+        ],
+    )
+    def test_an_annotation_that_names_no_paths_is_not_checked(self, tmp_path, annotation):
+        """No path to compare; an unreadable one is `missing-annotation`'s to report."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a"}],
+            builds={"plugin-a": resolved("plugin-a", **{DYNAMIC_PACKAGES_ANNOTATION: annotation})},
+        )
+        assert "plugin-path-mismatch" not in rules_of(result)
+        assert result.stats["builds_without_plugin_paths"] == 1
+        assert "plugin-path-mismatch skipped 1 plugin_builds" in render(result)
 
     def test_dpdy_completeness_is_by_package_identity_not_count(self, tmp_path):
         """A swap-one-for-another has the same length and must still fail."""

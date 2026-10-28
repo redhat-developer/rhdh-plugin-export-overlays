@@ -48,6 +48,7 @@ REASON_ANCHORS = {
     "[missing-annotation]": "validation-missing-annotation",
     "[dpdy-missing-package]": "validation-dpdy-missing-package",
     "[not-digest-pinned]": "validation-not-digest-pinned",
+    "[plugin-path-mismatch]": "validation-plugin-path-mismatch",
     "[version-regression]": "validation-version-regression",
 }
 
