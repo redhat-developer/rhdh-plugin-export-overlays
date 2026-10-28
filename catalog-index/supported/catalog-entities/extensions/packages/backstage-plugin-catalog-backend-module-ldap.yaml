@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage/plugin-catalog-backend-module-ldap"
   # Tag: bs_1.54.9__0.12.8
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:00ff2e2eef771ef0500bee69ce5e00c68c6cf9477d3e6156cc0319d4e4a93b51"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:52e7cf15581127ef8ef93574176975c1f6b33d2cd90ec837b347c41dd384e512"
   version: 0.12.8
   backstage:
     role: backend-plugin-module
