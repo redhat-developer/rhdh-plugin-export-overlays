@@ -202,6 +202,7 @@ that matter most:
 | `unknown-image`        | error    | An `oci://` ref names an image with no `plugin_builds/` entry — the index and build metadata disagree.     |
 | `digest-mismatch`      | error    | A digest-pinned ref does not match the digest `plugin_builds/` recorded.                                  |
 | `registry-not-allowed` | error    | A selected plugin's OCI ref uses a registry other than `--community-registry` for `support: community`, or `--registry` for every other support tier. The check covers DPDY, `plugin_builds/`, `index.json`, and selected Package entities. |
+| `ref-form`             | error    | A ref does not parse as an `oci://` image reference: wrong scheme, truncated digest, or an empty `!plugin-path` (bare trailing `!`). No allowlist entry can suppress it. |
 | `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
 | `not-digest-pinned`    | error    | A ref carries a tag rather than a digest — the tag points at the manifest list, which lacks `io.backstage.dynamic-packages` (RHDHBUGS-3815). Always fails. |
 | `plugin-path-mismatch` | error    | A DPDY ref or selected Package entity's `dynamicArtifact` selects a `!plugin-path` its image does not declare (install extracts nothing), or selects none on an image declaring several (install fails). Images with no `plugin_builds/` entry are not checked. |
@@ -212,8 +213,11 @@ that matter most:
 
 **Modes.** The registry policy is a hard gate after generation, before downstream
 cleanup, regardless of `--validate-mode`. It compares exact registry bases and names
-the plugin, generated file, actual base, and expected base when it fails. The other
-validation findings use `--validate-mode`:
+the plugin, generated file, actual base, and expected base when it fails. It also
+fails a ref whose registry cannot be read (a malformed `oci://` DPDY ref, or an
+unparseable `plugin_builds/`, `index.json`, or Package entity ref) as `ref-form`, naming
+the plugin, generated file, and expected base. The other validation findings use
+`--validate-mode`:
 
 - `report` (**default**) — prints the other findings without failing the build.
 - `gate` — fails the build on any error.
@@ -239,7 +243,8 @@ still fails the build (RHIDP-15725).
 using the same `TODO(TICKET)` discipline as the smoke harness's exclusion files: a
 pattern with no ticket is a parse error, so exceptions get removed rather than
 accumulated. Patterns are matched against the OCI **image name**
-(`backstage-community-plugin-quay`). `registry-not-allowed` cannot be allowlisted.
+(`backstage-community-plugin-quay`). `registry-not-allowed` and `ref-form` cannot be
+allowlisted: a line naming either is a parse error that fails the run.
 
 Findings are also recorded per plugin in `build-report.json` as a `validate` stage, so
 they reach the generated status page. Only errors set that stage to `fail` — a
