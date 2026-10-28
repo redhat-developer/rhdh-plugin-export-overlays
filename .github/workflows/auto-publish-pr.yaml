@@ -397,6 +397,101 @@ jobs:
           echo ""
           echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$WORKSPACE"
 
+  # The PR check can only note refs to bs_* tags, which exist after merge.
+  # This checks the workspace metadata against the pr_* images just pushed.
+  # The validator comes from this workflow's own (trusted) ref; the PR
+  # supplies only metadata YAML, and the job holds no secrets.
+  check-plugin-paths:
+    name: Check plugin paths against the PR images
+    needs:
+      - prepare
+      - export
+    if: |
+      always() &&
+      needs.prepare.outputs.workspace != '' &&
+      needs.export.outputs.published-exports != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Reported through its own commit status: a failure here must not fail the
+    # publish run, which would stop pr-actions from dispatching smoke tests.
+    continue-on-error: true
+    permissions:
+      contents: read
+    outputs:
+      exit-code: ${{ steps.check.outputs.exit-code }}
+      report: ${{ steps.check.outputs.report }}
+    steps:
+      - name: Checkout validator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout PR metadata
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.overlay-repo }}
+          ref: ${{ needs.prepare.outputs.overlay-commit }}
+          path: pr-head
+          persist-credentials: false
+          sparse-checkout: |
+            ${{ needs.prepare.outputs.workspace }}/metadata
+          sparse-checkout-cone-mode: false
+
+      - name: Use the PR metadata
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          # The workspace name can come from a fork's branch name.
+          if [[ ! "$WORKSPACE" =~ ^workspaces/[A-Za-z0-9_.-]+$ || "$WORKSPACE" =~ /\.\.?$ ]]; then
+            echo "::error::unexpected workspace path: $WORKSPACE"
+            exit 1
+          fi
+          rm -rf "${WORKSPACE}/metadata"
+          mkdir -p "${WORKSPACE}/metadata"
+          # Regular YAML files only: a symlink could point outside the tree.
+          if [[ -d "pr-head/${WORKSPACE}/metadata" ]]; then
+            find "pr-head/${WORKSPACE}/metadata" -maxdepth 1 -type f -name '*.yaml' \
+              -exec cp {} "${WORKSPACE}/metadata/" \;
+          fi
+          rm -rf pr-head
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
+        with:
+          working-directory: scripts
+          cache: true
+
+      - name: Check plugin paths
+        id: check
+        working-directory: scripts
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+        # --allow-unpublished: an own ref /publish did not push (a failed
+        # export) keeps its bs_* tag, which does not exist yet.
+        run: |
+          images="$RUNNER_TEMP/published-exports.txt"
+          report="$RUNNER_TEMP/plugin-paths.txt"
+          printf '%s\n' "$PUBLISHED_EXPORTS" > "$images"
+          set +e
+          vp exec validate-app-config-examples --workspace "$WORKSPACE" \
+            --check-plugin-paths --allow-unpublished --published-images "$images" \
+            > "$report" 2>&1
+          code=$?
+          set -e
+          cat "$report"
+          # Random delimiter: the report quotes refs from the PR.
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "exit-code=$code"
+            echo "report<<$delimiter"
+            cat "$report"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "$code" != 0 ]]; then
+            echo "::error::plugin-path check exited $code; see the report above"
+          fi
+
   check-backstage-compatibility:
     name: Check workspace backstage compatibility
     needs:
@@ -424,6 +519,7 @@ jobs:
       - export
       - check-backstage-compatibility
       - validate-metadata-only
+      - check-plugin-paths
     if: always() && needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
 
@@ -460,6 +556,9 @@ jobs:
           INPUT_CHECK_BACKSTAGE_COMPATIBILITY_RESULT: ${{ needs.check-backstage-compatibility.result }}
           INPUT_VALIDATE_METADATA_RESULT: ${{ needs.validate-metadata-only.result }}
           INPUT_DETECT_CHANGES_RESULT: ${{ needs.detect-changes.result }}
+          INPUT_PLUGIN_PATHS_RESULT: ${{ needs.check-plugin-paths.result }}
+          INPUT_PLUGIN_PATHS_EXIT_CODE: ${{ needs.check-plugin-paths.outputs.exit-code }}
+          INPUT_PLUGIN_PATHS_REPORT: ${{ needs.check-plugin-paths.outputs.report }}
         with:
           script: |
             const fs = require('fs');
@@ -567,6 +666,44 @@ jobs:
               metadataWarningPackages.forEach(pkg => {
                 body += `\n  - \`${pkg}\``;
               });
+            }
+
+            // Own status context, so a plugin-path failure does not read as a
+            // failed publish.
+            const pluginPathsResult = core.getInput('plugin_paths_result');
+            if (pluginPathsResult !== 'skipped' && pluginPathsResult !== '') {
+              // Empty when the job broke before the check ran.
+              const exitCode = core.getInput('plugin_paths_exit_code');
+              const passed = exitCode === '0';
+              const mismatch = exitCode === '1';
+              let description = 'Plugin-path check did not run to completion';
+              if (passed) {
+                description = 'Plugin paths match the PR images';
+              } else if (mismatch) {
+                description = 'Metadata fails the check against the PR images';
+              }
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: core.getInput('overlay_commit'),
+                description,
+                state: passed ? 'success' : 'failure',
+                target_url: workflowRun.data.html_url,
+                context: 'plugin-paths',
+              });
+              body += '\n\n#### Plugin Paths\n';
+              if (passed) {
+                body += '✅ Every `dynamicArtifact` was checked against the image this PR published.';
+              } else if (mismatch) {
+                body += '❌ The workspace metadata fails the check against the images this PR published. A `!plugin-path` the image does not declare installs nothing; a ref without one needs an image with exactly one plugin. The report names each failing file.';
+              } else {
+                body += '⚠️ The plugin-path check did not run to completion; see the workflow run.';
+              }
+              // The report quotes refs from the PR; no backtick may close the fence.
+              const report = core.getInput('plugin_paths_report').replaceAll('`', "'").slice(0, 20000);
+              if (report !== '') {
+                body += '\n\n<details><summary>Report</summary>\n\n```\n' + report + '\n```\n\n</details>';
+              }
             }
 
             if (publishSuccess) {
