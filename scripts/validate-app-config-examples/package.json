@@ -2,7 +2,7 @@
   "name": "validate-app-config-examples",
   "version": "1.0.0",
   "private": true,
-  "description": "Validates Package metadata appConfigExamples: structural checks (RHIDP-12590) plus semantic validation against each plugin's published config schema (RHIDP-13509).",
+  "description": "Validates Package metadata appConfigExamples: structural checks (RHIDP-12590) plus semantic validation against each plugin's published config schema (RHIDP-13509), plus each dynamicArtifact plugin path (RHIDP-17312).",
   "bin": "src/validate.ts",
   "type": "module",
   "dependencies": {

@@ -18,6 +18,10 @@
 //   3. undeclared keys — within the subtrees a plugin's schema owns, a key it
 //      does not declare is a typo (RHIDP-15902). Off by default; enable with
 //      --check-undeclared-keys. Reports, never fails.
+//   4. plugin paths — each spec.dynamicArtifact `!plugin-path` must be a path
+//      its image declares, and a ref without one must name a single-plugin
+//      image (RHIDP-17312). Reads manifests from the registries; enable with
+//      --check-plugin-paths.
 
 import { realpathSync } from "node:fs";
 import { glob } from "node:fs/promises";
@@ -29,9 +33,16 @@ import {
   examplesWithContent,
   evaluateFile,
   isMetadataPath,
+  dynamicArtifactRef,
   packageCoordinates,
   type Status,
 } from "./metadata.ts";
+import {
+  PluginPathChecker,
+  isOwnImage,
+  mapWithConcurrency,
+  type PluginPathOutcome,
+} from "./plugin-path.ts";
 import { byCodepoint } from "./json.ts";
 import {
   SchemaResolver,
@@ -86,6 +97,24 @@ export type UndeclaredTally = {
   withFindings: number;
 };
 
+/**
+ * How the plugin-path layer fared, counted in files like the tallies above.
+ * `unpublished` refs were not checked, so they are shown rather than folded
+ * into a pass.
+ */
+export type PluginPathTally = {
+  checked: number;
+  mismatched: number;
+  unpublished: number;
+  unavailable: number;
+};
+
+/** A metadata file's row and the ref its plugin-path check reads. */
+export type PluginPathJob = { row: Row; ref: string };
+
+/** Manifests fetched at once; a full tree has ~200 refs. */
+const PLUGIN_PATH_CONCURRENCY = 8;
+
 /** Table rule width beyond the status column — inherited from the Python table. */
 const RULE_PADDING = 75;
 
@@ -100,6 +129,15 @@ const USAGE = `Usage: validate-app-config-examples [options]
                      within the subtrees it owns. Its own findings never fail
                      the run, but it implies --check-schemas, which does fail
                      on a mismatch unless --warn-only is also given.
+  --check-plugin-paths
+                     Also check each spec.dynamicArtifact against the plugin
+                     paths its image declares. Reads manifests with skopeo; a
+                     registry that stays unreachable after retries fails the
+                     row rather than passing it unchecked.
+  --allow-unpublished
+                     With --check-plugin-paths, note instead of failing a ref
+                     to this repository's ghcr images whose tag does not exist
+                     yet. A PR's bs_* tags are published on merge.
   --warn-only        Report schema mismatches without failing. Structural
                      failures still fail the run.
   --help             Show this message.
@@ -109,6 +147,7 @@ export async function main(
   argv: string[] = process.argv.slice(2),
   write: (text: string) => void = (text) => process.stdout.write(text),
   writeError: (text: string) => void = (text) => process.stderr.write(text),
+  pluginPathChecker: PluginPathChecker = new PluginPathChecker(),
 ): Promise<number> {
   const { values } = parseArgs({
     args: argv,
@@ -117,6 +156,8 @@ export async function main(
       "check-schemas": { type: "boolean", default: false },
       "check-undeclared-keys": { type: "boolean", default: false },
       "warn-only": { type: "boolean", default: false },
+      "check-plugin-paths": { type: "boolean", default: false },
+      "allow-unpublished": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
   });
@@ -164,6 +205,9 @@ export async function main(
     ? { withOwnedSubtree: 0, withFindings: 0 }
     : undefined;
 
+  const checkPluginPathsFlag = values["check-plugin-paths"] ?? false;
+  const pluginPathJobs: PluginPathJob[] = [];
+
   try {
     for (const path of paths) {
       const result = await evaluateFile(join(repoRoot, path));
@@ -174,6 +218,11 @@ export async function main(
         notes: [],
       };
       rows.push(row);
+
+      const ref = checkPluginPathsFlag ? dynamicArtifactRef(result.doc) : undefined;
+      if (ref) {
+        pluginPathJobs.push({ row, ref });
+      }
 
       // Only structurally sound Packages are worth schema-checking: a file that
       // failed above has nothing meaningful to validate.
@@ -193,8 +242,86 @@ export async function main(
     await resolver.cleanup();
   }
 
-  printReport(rows, tally, { checked: checkSchemasFlag, undeclared }, write, writeError);
+  const pluginPaths = checkPluginPathsFlag
+    ? await checkPluginPaths(
+        pluginPathJobs,
+        pluginPathChecker,
+        values["allow-unpublished"] ?? false,
+      )
+    : undefined;
+
+  printReport(
+    rows,
+    tally,
+    { checked: checkSchemasFlag, undeclared, pluginPaths },
+    write,
+    writeError,
+  );
   return exitCodeFor(rows);
+}
+
+/** Checks every job's ref and records each outcome on its row. */
+export async function checkPluginPaths(
+  jobs: readonly PluginPathJob[],
+  checker: PluginPathChecker,
+  allowUnpublished: boolean,
+): Promise<PluginPathTally> {
+  const tally: PluginPathTally = { checked: 0, mismatched: 0, unpublished: 0, unavailable: 0 };
+  const outcomes = await mapWithConcurrency(jobs, PLUGIN_PATH_CONCURRENCY, (job) =>
+    checker.check(job.ref),
+  );
+  for (const [index, job] of jobs.entries()) {
+    const outcome = outcomes[index];
+    if (outcome) {
+      recordPluginPathOutcome(job, outcome, allowUnpublished, tally);
+    }
+  }
+  return tally;
+}
+
+/** Annotates a row with its ref's plugin-path outcome. */
+export function recordPluginPathOutcome(
+  { row, ref }: PluginPathJob,
+  outcome: PluginPathOutcome,
+  allowUnpublished: boolean,
+  tally: PluginPathTally,
+): void {
+  switch (outcome.kind) {
+    case "ok":
+      tally.checked += 1;
+      return;
+    case "mismatch":
+      tally.checked += 1;
+      tally.mismatched += 1;
+      failRow(row, "dynamicArtifact plugin path does not match its image");
+      row.notes.push(`plugin path: ${ref} ${outcome.problem}`);
+      return;
+    case "missing":
+      // Only this repo's own tags are published on merge; any other image
+      // that cannot be pulled is as broken for the installer as a bad path.
+      if (allowUnpublished && isOwnImage(ref)) {
+        tally.unpublished += 1;
+        row.notes.push(`plugin path not checked: ${ref} is not published yet (${outcome.reason})`);
+        return;
+      }
+      failRow(row, "dynamicArtifact names an image that cannot be pulled");
+      row.notes.push(`plugin path: ${ref}: ${outcome.reason}`);
+      return;
+    case "unavailable":
+      // Failing, not passing: an unchecked ref must not read as a clean one.
+      tally.unavailable += 1;
+      failRow(row, "registry unreachable, plugin path not checked");
+      row.notes.push(`plugin path: ${ref}: ${outcome.reason}`);
+      return;
+  }
+}
+
+/** Fails a row, keeping the detail of an earlier failure. */
+function failRow(row: Row, detail: string): void {
+  if (row.status !== "FAIL") {
+    row.status = "FAIL";
+    row.detail = detail;
+  }
 }
 
 /** Validates every example on one row, recording the file's outcome in `tally`. */
@@ -427,11 +554,11 @@ export function exitCodeFor(rows: Row[]): number {
 export function printReport(
   rows: Row[],
   tally: SchemaTally,
-  schemas: { checked: boolean; undeclared?: UndeclaredTally },
+  schemas: { checked: boolean; undeclared?: UndeclaredTally; pluginPaths?: PluginPathTally },
   write: (text: string) => void,
   writeError: (text: string) => void,
 ): void {
-  const { checked: checkedSchemas, undeclared } = schemas;
+  const { checked: checkedSchemas, undeclared, pluginPaths } = schemas;
   const statusWidth = Math.max("STATUS".length, ...rows.map((row) => row.status.length));
 
   write(`${"STATUS".padEnd(statusWidth)}  FILE\n`);
@@ -485,6 +612,18 @@ export function printReport(
         "NOTE: undeclared keys are reported, never failed. Not every finding " +
           "is a typo; see the README.\n",
       );
+    }
+  }
+
+  if (pluginPaths) {
+    write(
+      `Plugin paths — checked: ${pluginPaths.checked}  ` +
+        `mismatched: ${pluginPaths.mismatched}  ` +
+        `not published yet: ${pluginPaths.unpublished}  ` +
+        `unreachable: ${pluginPaths.unavailable}\n`,
+    );
+    if (pluginPaths.checked === 0) {
+      write("NOTE: no dynamicArtifact was checked against its image.\n");
     }
   }
 

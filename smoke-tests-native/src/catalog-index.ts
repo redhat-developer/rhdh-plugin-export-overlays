@@ -33,7 +33,8 @@ import { setTimeout } from "node:timers/promises";
 import { parse, stringify } from "yaml";
 import type { ExclusionRecord } from "./exclusions";
 import type { UnresolvedRef } from "./report";
-import { compareStrings, errorMessage, isRecord } from "./util";
+import { registryRefFromOciRef } from "./plugin-path";
+import { compareStrings } from "./util";
 
 const OCI_PREFIX = "oci://";
 const IN_IMAGE_PREFIX = "./dynamic-plugins/dist/";
@@ -252,86 +253,6 @@ export type PartitionOptions = {
   /** Refs probed at once — ~100 of them otherwise take minutes one by one. */
   concurrency?: number;
 };
-
-/**
- * The `registry/repo[:tag][@digest]` a ref names, as skopeo takes it after
- * `docker://`. The `!plugin-path` selector is dropped: it picks a plugin inside the
- * image and is not part of the image reference.
- */
-export function registryRefFromOciRef(ref: string): string {
-  if (!ref.startsWith(OCI_PREFIX)) {
-    throw new Error(`not an ${OCI_PREFIX} ref: ${ref}`);
-  }
-  return ref.slice(OCI_PREFIX.length).split("!")[0];
-}
-
-// The install CLI's registry fallback (resolveImage in cli-module-install-dynamic-plugins):
-// an image under the productized registry that is not there yet is pulled from quay
-// instead. An RC index points at exactly such images, so a probe that skipped this
-// would leave out packages the CLI installs without complaint.
-const RHDH_REGISTRY = "registry.access.redhat.com/rhdh/";
-const RHDH_FALLBACK = "quay.io/rhdh/";
-
-/**
- * The image references to probe for a ref, in the order the install CLI tries them:
- * the one it names, then the quay fallback when it names the productized registry.
- */
-export function probeCandidates(ref: string): string[] {
-  const primary = registryRefFromOciRef(ref);
-  return primary.startsWith(RHDH_REGISTRY)
-    ? [primary, RHDH_FALLBACK + primary.slice(RHDH_REGISTRY.length)]
-    : [primary];
-}
-
-const DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages";
-
-/**
- * Why the install CLI would refuse this manifest, or undefined when it would not.
- *
- * Mirrors the CLI's plugin-path auto-detection (`getPluginPaths` / `ociPluginKey` in
- * cli-module-install-dynamic-plugins): a ref with no `!plugin-path` selector needs the
- * `io.backstage.dynamic-packages` annotation to name exactly one plugin, and anything
- * else is an InstallException that aborts the whole install. The `next` index shipped
- * a scorecard module whose annotation was the empty string — the image exists, and
- * nothing can be installed from it.
- */
-export function pluginPathProblem(
-  ref: string,
-  manifestJson: string,
-): string | undefined {
-  if (ref.includes("!")) return undefined;
-  let manifest: unknown;
-  try {
-    manifest = JSON.parse(manifestJson);
-  } catch (err) {
-    return `manifest is not JSON: ${errorMessage(err)}`;
-  }
-  const annotations = isRecord(manifest) ? manifest.annotations : undefined;
-  const annotation = isRecord(annotations)
-    ? annotations[DYNAMIC_PACKAGES_ANNOTATION]
-    : undefined;
-  if (typeof annotation !== "string" || annotation === "") {
-    return `no plugins declared: the '${DYNAMIC_PACKAGES_ANNOTATION}' annotation is missing or empty`;
-  }
-  let entries: unknown;
-  try {
-    entries = JSON.parse(Buffer.from(annotation, "base64").toString("utf8"));
-  } catch {
-    return `the '${DYNAMIC_PACKAGES_ANNOTATION}' annotation is not base64-encoded JSON`;
-  }
-  const paths = Array.isArray(entries)
-    ? entries.flatMap((entry: unknown) =>
-        entry && typeof entry === "object" ? Object.keys(entry) : [],
-      )
-    : [];
-  if (paths.length === 0) {
-    return `no plugins declared: the '${DYNAMIC_PACKAGES_ANNOTATION}' annotation lists none`;
-  }
-  if (paths.length > 1) {
-    return `${paths.length} plugins in the image and no '!plugin-path' selector to pick one`;
-  }
-  return undefined;
-}
 
 /**
  * Split refs into the ones the install CLI can take and the ones it cannot.
