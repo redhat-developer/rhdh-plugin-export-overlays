@@ -22,6 +22,7 @@ test.describe.serial("Scorecard permission", () => {
       appConfig: "tests/config/permission/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/permission/dynamic-plugins.yaml",
       valueFile: "tests/config/permission/value_file.yaml",
+      subscription: "tests/config/permission/subscription.yaml",
       beforeDeploy: async (deployment) => {
         await $`oc apply -f ${rbacConfigmapPath} -n ${deployment.deploymentConfig.namespace}`;
       },
