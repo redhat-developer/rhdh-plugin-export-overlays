@@ -1662,14 +1662,14 @@ class TestMalformedRefIsRefForm:
     BANG = f"oci://{REGISTRY}/plugin-a@{DIGEST}!"
 
     @staticmethod
-    def _validate_stage(tmp_path, result):
-        """The `validate` stage record_in_report writes for plugin-a."""
+    def _stages(tmp_path, result):
+        """plugin-a's stages after record_in_report writes the result."""
         report_file = tmp_path / "build-report.json"
         report = BuildReport(str(report_file))
         report.add_plugin("plugin-a", package="@scope/plugin-a")
         record_in_report(result, report)
         report.save()
-        return json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]["validate"]
+        return json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]
 
     def test_a_bare_trailing_bang_is_one_ref_form_naming_the_selector(self, tmp_path):
         result = run(
@@ -1743,15 +1743,12 @@ class TestMalformedRefIsRefForm:
         assert rules_of(result) == ["ref-form"]
         finding = result.findings[0]
         assert finding.image == ""
-        assert f"'{local}' is a local path, not an oci:// reference" in finding.message
-        assert "expected" not in finding.message
-        report_file = tmp_path / "build-report.json"
-        report = BuildReport(str(report_file))
-        report.add_plugin("plugin-a", package="@scope/plugin-a")
-        record_in_report(result, report)
-        report.save()
-        stages = json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]
-        assert "validate" not in stages
+        # The whole message, so no plugin, tier or expected base can creep back in.
+        assert finding.message == (
+            f"dynamic-plugins.default.yaml plugins[0]: '{local}' "
+            "is a local path, not an oci:// reference"
+        )
+        assert "validate" not in self._stages(tmp_path, result)
 
     def test_a_malformed_index_ref_is_ref_form_and_cannot_be_allowlisted(self, tmp_path):
         result = run(
@@ -1793,7 +1790,7 @@ class TestMalformedRefIsRefForm:
             tmp_path, [],
             builds={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@sha256:abc"}},
         )
-        stage = self._validate_stage(tmp_path, result)
+        stage = self._stages(tmp_path, result)["validate"]
         assert stage["status"] == "fail"
         assert any(e.startswith("[ref-form]") for e in stage["errors"])
 
@@ -1804,7 +1801,7 @@ class TestMalformedRefIsRefForm:
             tmp_path, [{"package": self.BANG}],
             builds={"plugin-a": resolved("plugin-a")},
         )
-        stage = self._validate_stage(tmp_path, result)
+        stage = self._stages(tmp_path, result)["validate"]
         assert stage["status"] == "fail"
         assert any(e.startswith("[ref-form]") for e in stage["errors"])
 

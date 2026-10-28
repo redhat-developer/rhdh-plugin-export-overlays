@@ -465,7 +465,7 @@ def _malformed_reason(value: str, *, oci: bool) -> str:
 def _ref_form_finding(
     image: str, value: str, source: str, expected_for: ExpectedFor, *, oci: bool
 ) -> Finding:
-    """One message shape for an unparseable ref from any of the four sources."""
+    """One message shape for an unparseable image ref from any of the four sources."""
     expected, support = expected_for(image)
     return Finding(
         rule="ref-form",
