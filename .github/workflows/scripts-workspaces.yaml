@@ -8,6 +8,8 @@ on:
       - 'release-*'
     paths:
       - 'scripts/**'
+      # Imported by validate-app-config-examples.
+      - 'smoke-tests-native/src/plugin-path.ts'
       - '.github/workflows/scripts-workspaces.yaml'
   workflow_dispatch:
 

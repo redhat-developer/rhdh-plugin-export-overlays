@@ -14,6 +14,7 @@ import {
   examplesWithContent,
   evaluateDocument,
   isEmptyContent,
+  dynamicArtifactRef,
   isMetadataPath,
   packageCoordinates,
 } from "./metadata.ts";
@@ -219,5 +220,26 @@ describe("examplesWithContent edge cases", () => {
     expect(examplesWithContent(undefined)).toEqual([]);
     const { doc } = evaluateDocument(`${PACKAGE_HEAD}spec: nope\n`);
     expect(examplesWithContent(doc)).toEqual([]);
+  });
+});
+
+const doc = (spec: Record<string, unknown>, kind = "Package") => ({ kind, spec });
+
+describe("dynamicArtifactRef", () => {
+  it("returns a Package's oci:// ref, selector included", () => {
+    expect(dynamicArtifactRef(doc({ dynamicArtifact: "oci://quay.io/o/a:1!a" }))).toBe(
+      "oci://quay.io/o/a:1!a",
+    );
+  });
+
+  it("ignores in-image packages, non-Packages and absent refs", () => {
+    expect(
+      dynamicArtifactRef(doc({ dynamicArtifact: "./dynamic-plugins/dist/a" })),
+    ).toBeUndefined();
+    expect(
+      dynamicArtifactRef(doc({ dynamicArtifact: "oci://quay.io/o/a:1" }, "Plugin")),
+    ).toBeUndefined();
+    expect(dynamicArtifactRef(doc({}))).toBeUndefined();
+    expect(dynamicArtifactRef(undefined)).toBeUndefined();
   });
 });
