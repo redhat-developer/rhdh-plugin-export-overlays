@@ -12,6 +12,7 @@ Common issues reported on the status page and how to resolve them.
 - Missing, empty, or unreadable `io.backstage.dynamic-packages` on any plugin image.
 - `dynamic-plugins.default.yaml` does not list every package from `default.packages.yaml`.
 - [DPDY `package:` is a tag, not a digest](#validation-not-digest-pinned) — the tag points at the manifest list.
+- [A ref's plugin path does not match its image](#validation-plugin-path-mismatch) — install extracts nothing, or fails with "Multiple plugins found".
 
 **Fails only on `release-*` (`--strict`):**
 
@@ -209,6 +210,34 @@ was generated, so Step 4 never rewrote the tag copied from metadata.
 
 **Fix:** publish the plugin image, then re-run catalog index generation. Do not
 allowlist a missing digest — a tag-only DPDY entry is not installable.
+
+<a id="validation-plugin-path-mismatch"></a>
+
+#### plugin-path-mismatch
+
+A ref's `!plugin-path` selector does not match the plugins its image declares in
+`io.backstage.dynamic-packages`. Two cases, both checked on the DPDY refs and on the
+selected Package entities' `dynamicArtifact`:
+
+- The path is not one the image declares. `install-dynamic-plugins` exits 0 and
+  creates a directory holding only its hash files, so RHDH loads nothing and logs no
+  error (RHDHBUGS-3837).
+- The ref has no path and the image declares several plugins. Install fails with
+  `InstallException: Multiple plugins found in OCI image` (RHDHBUGS-3836).
+
+A ref to an image with no `plugin_builds/` entry, such as an external bundle, is not
+checked: nothing in the index records that image's plugins. Neither is a ref whose
+digest, or repository when it has no digest, differs from the build of the same name.
+
+Both the DPDY ref and the Package entity are generated from the workspace metadata's
+`spec.dynamicArtifact`, and generation keeps its `!plugin-path` when it pins the digest.
+So the selector in the finding is the one in `workspaces/<workspace>/metadata/*.yaml`.
+
+**Fix:** edit `spec.dynamicArtifact` in that workspace metadata file, then re-run
+catalog index generation. For a wrong selector, change it to one of the paths the
+message lists. For a ref with no path to an image holding several plugins, add
+`!<plugin-path>` for the plugin that file describes. Editing the generated file does
+not survive the next run.
 
 ### Warnings that do not fail the stage
 

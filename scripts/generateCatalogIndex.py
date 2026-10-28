@@ -224,7 +224,8 @@ def trailing_tag_comment_matches(new_lines: list[str], expected_comment: str | N
 
 def digest_from_oci_package_line(line: str) -> str | None:
     """Extract the sha256 digest from an OCI package line, or None if not matched."""
-    m = OCI_PACKAGE_DIGEST_RE.match(line)
+    # Drop a trailing !plugin-path selector; the regex expects the digest last.
+    m = OCI_PACKAGE_DIGEST_RE.match(line.split("!", 1)[0])
     return m.group(1) if m else None
 
 
@@ -625,7 +626,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
 
     Existing ``- package: oci://...`` lines in ``dynamic-plugins.default.yaml``
     and ``dynamicArtifact: oci://...`` scalars in package entities are replaced
-    with the current digest reference.
+    with the current digest reference, keeping any ``!plugin-path`` selector.
 
     Plugin name matching accounts for alternatives: the
     ``red-hat-developer-hub-`` vs ``rhdh-`` prefix.
@@ -735,9 +736,12 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                             plugin_name_alternative_with_dynamic,
                         )
                         if matched_oci:
+                            # Keep the !plugin-path selector: it picks the plugin inside the image.
+                            plugin_path = oci_value.partition("!")[2]
+                            selector = f"!{plugin_path}" if plugin_path else ""
                             expected_oci_line = (
                                 f"{oci_line_indent}{oci_line_key}: "
-                                f"{oci_line_quote}oci://{registry_reference_for_oci}{oci_line_quote}\n"
+                                f"{oci_line_quote}oci://{registry_reference_for_oci}{selector}{oci_line_quote}\n"
                             )
 
                     if matched_oci:

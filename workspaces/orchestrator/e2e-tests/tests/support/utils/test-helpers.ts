@@ -39,6 +39,9 @@ export { patchHttpbin, cleanupAfterTest } from "./cluster-helpers.js";
 export const PRIMARY_USER = `user:default/${process.env.PRIMARY_TEST_USER || "test1"}`;
 export const SECONDARY_USER = `user:default/${process.env.SECONDARY_TEST_USER || "test2"}`;
 
+const KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS = 5_000;
+const LOGIN_SUCCESS_TIMEOUT_MS = 15_000;
+
 export const BASELINE_ROLE_NAME = "role:default/orchestrator-baseline";
 
 const GREETING_COMPONENT_LOCATION =
@@ -364,7 +367,7 @@ async function createBaselineRoleViaApi(browser: Browser): Promise<void> {
   }
   await withTempPage(browser, async (page) => {
     const loginHelper = new LoginHelper(page);
-    await loginHelper.loginAsKeycloakUser();
+    await loginAsKeycloakUserWithRetry(page, loginHelper);
     const token = await new AuthApiHelper(page).getToken();
     await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
     await createRoleWithPolicies(
@@ -392,6 +395,52 @@ async function withTempPage(
   }
 }
 
+export async function loginAsKeycloakUserWithRetry(
+  page: Page,
+  loginHelper: LoginHelper,
+  username?: string,
+  password?: string,
+): Promise<void> {
+  const resolvedUsername = username || process.env.GH_USER_ID || "test1";
+  const resolvedPassword = password || process.env.GH_USER_PASS || "test1@123";
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await loginHelper.loginAsKeycloakUser(resolvedUsername, resolvedPassword);
+      return;
+    } catch (error) {
+      lastError = error;
+
+      // Fallback path: handle non-popup Keycloak auth flow directly in-page.
+      try {
+        await page.goto("/");
+        await page.waitForLoadState("domcontentloaded");
+        const userInput = page.locator("#username");
+        if (
+          await userInput.isVisible({
+            timeout: KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS,
+          })
+        ) {
+          await userInput.fill(resolvedUsername);
+          await page.locator("#password").fill(resolvedPassword);
+          await page.locator("#kc-login").click();
+          await expect(page.locator("nav a").first()).toBeVisible({
+            timeout: LOGIN_SUCCESS_TIMEOUT_MS,
+          });
+          return;
+        }
+      } catch (fallbackError) {
+        lastError = fallbackError;
+      }
+
+      await page.goto("/");
+      await page.waitForLoadState("load");
+      await page.waitForLoadState("domcontentloaded");
+    }
+  }
+  throw lastError;
+}
+
 export async function setupAuthenticatedPage(
   browser: Browser,
   testInfo: TestInfo,
@@ -404,7 +453,7 @@ export async function setupAuthenticatedPage(
   const { page } = await setupBrowser(browser, testInfo);
   const uiHelper = new UIhelper(page);
   const loginHelper = new LoginHelper(page);
-  await loginHelper.loginAsKeycloakUser();
+  await loginAsKeycloakUserWithRetry(page, loginHelper);
   const apiToken = await new AuthApiHelper(page).getToken();
   return { page, uiHelper, loginHelper, apiToken };
 }
@@ -594,7 +643,7 @@ export async function removeBaselineRole(
     async () => {
       await withTempPage(browser, async (page) => {
         const loginHelper = new LoginHelper(page);
-        await loginHelper.loginAsKeycloakUser();
+        await loginAsKeycloakUserWithRetry(page, loginHelper);
         const token = await new AuthApiHelper(page).getToken();
         await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
 
