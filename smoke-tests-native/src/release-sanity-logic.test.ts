@@ -30,6 +30,7 @@ import {
   normalizeChartVersion,
   findNotInstalled,
   findNotLoaded,
+  findSharedInstallDirs,
   parseLoadedPlugins,
   passed,
   renderError,
@@ -224,6 +225,7 @@ function report(overrides: Partial<SanityReport> = {}): SanityReport {
     skipped: [],
     unresolved: [],
     notInstalled: [],
+    sharedInstallDirs: [],
     failures: [],
     failedPlugins: [],
     ...overrides,
@@ -240,7 +242,14 @@ test("passed requires a started backend, every request installed and every insta
     false,
   );
   assert.equal(passed(report({ notInstalled: ["oci://x"] })), false);
+  assert.equal(
+    passed(report({ sharedInstallDirs: [{ dir: "a", refs: ["x", "y"] }] })),
+    false,
+  );
   assert.equal(passed(report({ installed: 0, requested: 0 })), false);
+  // One directory per request: fewer means two shared one, more means a stray.
+  assert.equal(passed(report({ installed: 1 })), false);
+  assert.equal(passed(report({ installed: 3 })), false);
   assert.equal(
     passed(report({ notLoaded: [{ name: "a", dirName: "a" }] })),
     false,
@@ -257,7 +266,7 @@ test("renderSummary names the culprits", () => {
   );
   assert.match(md, /failed/);
   assert.match(md, /`2.1-158-CI`/);
-  assert.match(md, /`@x\/y` \(x-y\)/);
+  assert.match(md, /`@x\/y` \(`x-y`\)/);
   assert.match(md, /Run: https:\/\/run/);
 });
 
@@ -321,6 +330,63 @@ test("notInstalled reads the install log, ignoring the plugin-path selector", ()
   );
 });
 
+test("sharedInstallDirs reads the directory each package was extracted to from the install log", () => {
+  // The CLI logs the path it auto-detected for a path-less ref: here x2a-dcr's image
+  // declares x2a's plugin, which its base name alone would not reveal.
+  const x2a = "oci://q/x2a:bs_1__2.0.0!x2a";
+  const dcr = "oci://q/x2a-dcr:bs_1__1.0.0!x2a";
+  const log = [
+    `\t==> Installed ${x2a}`,
+    `\t==> Installed ${dcr}`,
+    "\t==> Installed oci://q/other:t!other",
+    // A retry reports the same package again; that is not a second request.
+    `\t==> ${x2a}: already installed, skipping`,
+  ].join("\n");
+  assert.deepEqual(findSharedInstallDirs(log), [
+    { dir: "x2a", refs: [dcr, x2a] },
+  ]);
+});
+
+test("sharedInstallDirs keys on the logged path, not the image name", () => {
+  const log = [
+    // Same image name, different plugin paths: two directories.
+    "\t==> Installed oci://a/plugin:1!plugin-a",
+    "\t==> Installed oci://b/plugin:1!plugin-b",
+    // Non-OCI packages log no path; they must not collide on an empty name.
+    "\t==> Installed @scope/one@1.0.0",
+    "\t==> Installed @scope/two@2.0.0",
+  ].join("\n");
+  assert.deepEqual(findSharedInstallDirs(log), []);
+});
+
+test("renderSummary lists packages sharing a directory", () => {
+  const md = renderSummary(
+    report({
+      sharedInstallDirs: [{ dir: "x2a", refs: ["oci://a!x2a", "oci://b!x2a"] }],
+    }),
+  );
+  assert.match(md, /failed/);
+  assert.match(md, /`x2a`: `oci:\/\/a!x2a`, `oci:\/\/b!x2a`/);
+});
+
+test("renderSummary keeps odd refs and directories inside their code span", () => {
+  const md = renderSummary(
+    report({
+      sharedInstallDirs: [{ dir: "x`y\nz", refs: ["oci://a!x`y\nz"] }],
+      notInstalled: ["oci://q/b`c"],
+    }),
+  );
+  assert.match(md, /^- `x'y z`: `oci:\/\/a!x'y z`$/m);
+  assert.match(md, /^- `oci:\/\/q\/b'c`$/m);
+});
+
+test("renderSummary explains an installed count that does not match the requests", () => {
+  const md = renderSummary(report({ requested: 173, installed: 172 }));
+  assert.match(md, /failed/);
+  assert.match(md, /do not match requests:\*\* 173 requested, 172 installed/);
+  assert.doesNotMatch(renderSummary(report()), /do not match/);
+});
+
 test("shortError keeps the cause of a skopeo failure", () => {
   const error =
     'time="x" level=fatal msg="Error parsing image name \\"docker://ghcr.io/o/r/p:t\\": reading manifest t in ghcr.io/o/r/p: manifest unknown"';
@@ -367,9 +433,9 @@ test("parseEnvText reads KEY=VALUE, strips quotes, reports malformed lines", () 
 test("installDirName prefers the plugin-path selector", () => {
   assert.equal(
     installDirName(
-      "oci://ghcr.io/o/r/x2a-dcr:bs_1__1!red-hat-developer-hub-backstage-plugin-x2a",
+      "oci://quay.io/o/dynamic-plugins:2.4.2!red-hat-developer-hub-plugin-cost-management",
     ),
-    "red-hat-developer-hub-backstage-plugin-x2a",
+    "red-hat-developer-hub-plugin-cost-management",
   );
   assert.equal(installDirName(`oci://quay.io/rhdh/foo@${DIGEST}`), "foo");
 });
