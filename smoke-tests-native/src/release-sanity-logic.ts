@@ -318,20 +318,47 @@ export function findNotLoaded(
     .sort((a, b) => compareStrings(a.name, b.name));
 }
 
+/** Every package the install CLI reported as installed or already installed. */
+function loggedInstalls(log: string): string[] {
+  return [
+    ...log.matchAll(/==> (?:Installed\s+(\S+)|(\S+): already installed)/g),
+  ].map((m) => m[1] ?? m[2]);
+}
+
 /**
  * Requested refs the install CLI never reported as installed. Counted from its log,
- * not from directories: one package does not always make one directory.
+ * not from directories: two refs can share one (see findSharedInstallDirs).
  */
 export function findNotInstalled(requested: string[], log: string): string[] {
   const base = (ref: string) => ref.split("!")[0];
-  const installed = new Set(
-    [
-      ...log.matchAll(/==> (?:Installed\s+(\S+)|(\S+): already installed)/g),
-    ].map((m) => base(m[1] ?? m[2])),
-  );
+  const installed = new Set(loggedInstalls(log).map(base));
   return requested
     .filter((ref) => !installed.has(base(ref)))
     .sort(compareStrings);
+}
+
+/** Installed packages that the install CLI extracted into one directory. */
+export type SharedInstallDir = { dir: string; refs: string[] };
+
+/**
+ * Packages extracted into the same directory: all but one never load, and nothing
+ * fails (RHDHBUGS-3837). Read from the install log, which names each OCI package with
+ * the `!plugin-path` it extracted to, auto-detected for path-less refs. Packages
+ * logged without a path are left to the installed-count check.
+ */
+export function findSharedInstallDirs(log: string): SharedInstallDir[] {
+  const byDir = new Map<string, Set<string>>();
+  for (const pkg of loggedInstalls(log)) {
+    // indexOf, like the CLI: a plugin path may itself contain `!`.
+    const bang = pkg.indexOf("!");
+    const dir = pkg.slice(bang + 1);
+    if (bang <= 0 || dir === "") continue;
+    byDir.set(dir, (byDir.get(dir) ?? new Set<string>()).add(pkg));
+  }
+  return [...byDir]
+    .filter(([, refs]) => refs.size > 1)
+    .map(([dir, refs]) => ({ dir, refs: [...refs].sort(compareStrings) }))
+    .sort((a, b) => compareStrings(a.dir, b.dir));
 }
 
 /** Log lines that name a plugin install or startup failure. */
@@ -387,6 +414,8 @@ export type SanityReport = {
   skipped: string[];
   /** Requested packages the install CLI did not report as installed. */
   notInstalled: string[];
+  /** Installed packages that share a directory; all but one never load. */
+  sharedInstallDirs: SharedInstallDir[];
   /** Requested packages the registry could not serve; not installed. */
   unresolved: UnresolvedRef[];
   failures: string[];
@@ -404,7 +433,10 @@ export function passed(report: SanityReport): boolean {
     report.checkError === undefined &&
     report.unresolved.length === 0 &&
     report.notInstalled.length === 0 &&
+    report.sharedInstallDirs.length === 0 &&
     report.notLoaded.length === 0 &&
+    // One directory per request; catches a shared directory of any ref shape.
+    report.installed === report.requested &&
     report.installed > 0
   );
 }
@@ -431,6 +463,17 @@ function cappedList(items: string[]): string[] {
   return shown;
 }
 
+/**
+ * A value made safe inside an inline code span: no backtick to close it, no newline to
+ * end it, bounded. Mentions do not render inside a span, so `@sha256` stays copyable.
+ */
+function code(value: string): string {
+  const safe = value.replaceAll("`", "'").replaceAll(/[\r\n]+/g, " ");
+  const bounded =
+    safe.length > LOG_LINE_MAX ? `${safe.slice(0, LOG_LINE_MAX)}…` : safe;
+  return `\`${bounded}\``;
+}
+
 /** A log line made safe inside a fenced block: bounded, no fence, no mentions. */
 function quoteLogLine(line: string): string {
   const safe = line.replaceAll("```", "'''").replaceAll("@", "@\u200b");
@@ -442,12 +485,12 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
   const lines = [
     `### Release plugin sanity: ${passed(report) ? "passed" : "failed"}`,
     "",
-    `- Chart: \`${report.chartVersion}\``,
-    `- Image: \`${report.image}\``,
-    `- Catalog index: \`${report.catalogIndex}\``,
+    `- Chart: ${code(report.chartVersion)}`,
+    `- Image: ${code(report.image)}`,
+    `- Catalog index: ${code(report.catalogIndex)}`,
     `- Plugins: ${report.requested} requested, ${report.installed} installed, ${report.loaded} loaded`,
     report.skipped.length
-      ? "- Excluded: " + report.skipped.map((e) => `\`${e}\``).join(", ")
+      ? "- Excluded: " + report.skipped.map(code).join(", ")
       : undefined,
     runUrl ? `- Run: ${runUrl}` : undefined,
   ].filter((line): line is string => line !== undefined);
@@ -458,7 +501,7 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
     lines.push("", `**The check could not finish:** ${report.checkError}`);
   }
   if (report.failedPlugins.length) {
-    const ids = report.failedPlugins.map((p) => `\`${p}\``).join(", ");
+    const ids = report.failedPlugins.map(code).join(", ");
     lines.push("", `**Plugins that failed startup:** ${ids}`);
   }
   if (report.unresolved.length) {
@@ -466,7 +509,7 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
       "",
       "**Cannot be pulled (not installed):**",
       ...cappedList(
-        report.unresolved.map((u) => `\`${u.ref}\`: ${shortError(u.error)}`),
+        report.unresolved.map((u) => `${code(u.ref)}: ${shortError(u.error)}`),
       ),
     );
   }
@@ -474,7 +517,24 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
     lines.push(
       "",
       "**Requested but not installed:**",
-      ...cappedList(report.notInstalled.map((ref) => `\`${ref}\``)),
+      ...cappedList(report.notInstalled.map(code)),
+    );
+  }
+  if (report.sharedInstallDirs.length) {
+    lines.push(
+      "",
+      "**Packages installed into one directory:**",
+      ...cappedList(
+        report.sharedInstallDirs.map(
+          (s) => `${code(s.dir)}: ${s.refs.map(code).join(", ")}`,
+        ),
+      ),
+    );
+  }
+  if (report.installed !== report.requested && !report.startupError) {
+    lines.push(
+      "",
+      `**Installed directories do not match requests:** ${report.requested} requested, ${report.installed} installed`,
     );
   }
   if (report.notLoaded.length) {
@@ -482,7 +542,7 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
       "",
       "**Installed but not loaded:**",
       ...cappedList(
-        report.notLoaded.map((p) => `\`${p.name}\` (${p.dirName})`),
+        report.notLoaded.map((p) => `${code(p.name)} (${code(p.dirName)})`),
       ),
     );
   }
