@@ -1699,5 +1699,48 @@ class TestMalformedRefIsRefForm:
             has_build_metadata=True,
         )
         assert rules_of(result) == ["ref-form"]
-        assert "'plugin-a' in index.json" in result.findings[0].message
+        message = result.findings[0].message
+        assert "'plugin-a' (unspecified) in index.json" in message
+        assert f"expected {REGISTRY}" in message
+        # index.json values carry no scheme, so the scheme is not the problem.
+        assert "oci://" not in message
         assert result.suppressed == []
+
+    def test_an_empty_registry_reference_says_so_and_names_the_expected_base(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": {"registryReference": "", "support": "community"}},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        ref_form = [f for f in result.findings if f.rule == "ref-form"]
+        assert len(ref_form) == 1
+        message = ref_form[0].message
+        assert "'plugin-a' (community) in plugin_builds/" in message
+        assert "the reference is empty" in message
+        assert f"expected {COMMUNITY_REGISTRY}" in message
+        assert "oci://" not in message
+
+    def test_a_malformed_ref_still_fails_that_plugins_validate_stage(self, tmp_path):
+        """The status page attributes findings by image; an image-less one marks nothing."""
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@sha256:abc"}},
+        )
+        report_file = tmp_path / "build-report.json"
+        report = BuildReport(str(report_file))
+        report.add_plugin("plugin-a", package="@scope/plugin-a")
+        record_in_report(result, report)
+        report.save()
+        stage = json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]["validate"]
+        assert stage["status"] == "fail"
+        assert any(e.startswith("[ref-form]") for e in stage["errors"])
+
+    def test_ref_form_cannot_be_allowlisted(self):
+        with pytest.raises(ValueError, match="cannot be allowlisted"):
+            parse_allowlist(
+                "# TODO(RHIDP-15872): temporary exception\n"
+                "ref-form ^plugin-a$\n",
+                "allowlist.txt",
+            )

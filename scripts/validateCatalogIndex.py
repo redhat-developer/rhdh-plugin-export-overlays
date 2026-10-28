@@ -153,8 +153,9 @@ RULES: dict[str, Rule] = {
 #: The rules `--no-build-metadata` cannot run, derived rather than listed.
 RULES_NEEDING_BUILDS = sorted(r for r, spec in RULES.items() if spec.needs_builds)
 # Registry policy is a hard gate even when the other rules run in report mode. A
-# ticketed exception must not let a non-product registry into a product index.
-NON_ALLOWLISTABLE_RULES = {"registry-not-allowed"}
+# ticketed exception must not let a non-product registry into a product index, nor a
+# ref whose registry cannot be read past that gate.
+NON_ALLOWLISTABLE_RULES = {"registry-not-allowed", "ref-form"}
 
 OCI_PREFIX = "oci://"
 LOCAL_PREFIX = "./dynamic-plugins/dist/"
@@ -451,11 +452,15 @@ def check_registry_policy(
         oci_value = value if value.startswith(OCI_PREFIX) else f"{OCI_PREFIX}{value}"
         ref = parse_oci_ref(oci_value)
         if ref is None:
-            # No image name: a structural finding the allowlist cannot suppress.
+            reason = _malformed(value, oci=value.startswith(OCI_PREFIX))
             findings.append(
                 Finding(
                     rule="ref-form",
-                    message=f"'{image}' in {source}: {_malformed(value)}",
+                    message=(
+                        f"'{image}' ({support}) in {source}: {reason}; "
+                        f"expected {expected}"
+                    ),
+                    image=image,
                 )
             )
         elif ref.registry != expected:
@@ -542,8 +547,8 @@ def _parse_allowlist_entry(
         )
     if rule in NON_ALLOWLISTABLE_RULES:
         raise ValueError(
-            f"{file_path}:{line}: '{rule}' is a mandatory registry policy and "
-            "cannot be allowlisted"
+            f"{file_path}:{line}: '{rule}' is part of the mandatory registry policy "
+            "and cannot be allowlisted"
         )
     if not ticket:
         raise ValueError(
@@ -601,10 +606,13 @@ def apply_allowlist(
     return kept, suppressed
 
 
-def _malformed(value: str) -> str:
-    """Why a ref is `ref-form`, naming the empty selector when that is the cause."""
+def _malformed(value: str, oci: bool) -> str:
+    """Why a ref is `ref-form`. `oci` is false for schemeless plugin_builds/index values."""
+    if not value:
+        return "the reference is empty"
+    kind = f"{OCI_PREFIX} image" if oci else "image"
     hint = " (the !plugin-path selector is empty)" if value.endswith("!") else ""
-    return f"'{value}' is not a well-formed {OCI_PREFIX} image reference{hint}"
+    return f"'{value}' is not a well-formed {kind} reference{hint}"
 
 
 def check_ref_form(entries: list[DpdyEntry], oci_only: bool = False) -> list[Finding]:
@@ -626,7 +634,7 @@ def check_ref_form(entries: list[DpdyEntry], oci_only: bool = False) -> list[Fin
             findings.append(
                 Finding(
                     rule="ref-form",
-                    message=f"plugins[{entry.position}]: {_malformed(entry.package)}",
+                    message=f"plugins[{entry.position}]: {_malformed(entry.package, oci=True)}",
                 )
             )
     return findings

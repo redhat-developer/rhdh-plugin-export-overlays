@@ -165,11 +165,19 @@ A package reference does not parse as an `oci://` image reference: a `plugins[].
 value with another scheme or a local path, a truncated digest, or a bare trailing `!` with
 no `!plugin-path` after it. The registry policy reports an unparseable `registryReference`
 or `dynamicArtifact` from `plugin_builds/`, `index.json`, or a Package entity under this
-rule too, because its registry cannot be read. A malformed `oci://` ref also fails the
-registry policy gate. Generated indexes should never produce this; it means the file was
-hand-edited or a generator step wrote a malformed value. No allowlist entry can suppress it.
+rule too, because its registry cannot be read; an empty value is reported as "the
+reference is empty". A malformed `oci://` ref also fails the registry policy gate, and
+no allowlist entry can suppress it.
 
-**Fix:** correct the reference, or drop the trailing `!` when no plugin path is meant.
+A malformed value usually means a file was hand-edited or a generator step wrote it. An
+empty `registryReference` in `plugin_builds/` means no OCI reference was recorded for
+that plugin (`bootstrapPluginBuilds.py` writes `""` rather than omit the key), and
+`generateCatalogIndex.py` already fails its `catalog-index` stage with "No
+registryReference field" for the same entry.
+
+**Fix:** correct the reference, or drop the trailing `!` when no plugin path is meant. For
+an empty `registryReference`, regenerate that plugin's `plugin_builds/` entry rather than
+editing the index.
 
 <a id="validation-index-ref-mismatch"></a>
 
