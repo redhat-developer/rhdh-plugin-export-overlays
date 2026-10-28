@@ -453,15 +453,24 @@ def expected_base_for(
     return expected_for
 
 
-def _ref_form(
-    image: str, value: str, source: str, oci: bool, expected_for: ExpectedFor
+def _malformed_reason(value: str, *, oci: bool) -> str:
+    """Why a ref is `ref-form`. `oci` is false for schemeless plugin_builds/index values."""
+    if not value:
+        return "the reference is empty"
+    kind = f"{OCI_PREFIX} image" if oci else "image"
+    hint = " (the !plugin-path selector is empty)" if value.endswith("!") else ""
+    return f"'{value}' is not a well-formed {kind} reference{hint}"
+
+
+def _ref_form_finding(
+    image: str, value: str, source: str, expected_for: ExpectedFor, *, oci: bool
 ) -> Finding:
     """One message shape for an unparseable ref from any of the four sources."""
     expected, support = expected_for(image)
     return Finding(
         rule="ref-form",
         message=(
-            f"'{image}' ({support}) in {source}: {_malformed(value, oci)}; "
+            f"'{image}' ({support}) in {source}: {_malformed_reason(value, oci=oci)}; "
             f"expected {expected}"
         ),
         image=image,
@@ -479,14 +488,15 @@ def check_registry_policy(
     findings: list[Finding] = []
 
     def check(image: str, value: str, source: str) -> None:
-        expected, support = expected_for(image)
         oci_value = value if value.startswith(OCI_PREFIX) else f"{OCI_PREFIX}{value}"
         ref = parse_oci_ref(oci_value)
         if ref is None:
-            findings.append(_ref_form(
-                image, value, source, value.startswith(OCI_PREFIX), expected_for
+            findings.append(_ref_form_finding(
+                image, value, source, expected_for, oci=value.startswith(OCI_PREFIX)
             ))
-        elif ref.registry != expected:
+            return
+        expected, support = expected_for(image)
+        if ref.registry != expected:
             findings.append(
                 Finding(
                     rule="registry-not-allowed",
@@ -629,27 +639,14 @@ def apply_allowlist(
     return kept, suppressed
 
 
-def _malformed(value: str, oci: bool) -> str:
-    """Why a ref is `ref-form`. `oci` is false for schemeless plugin_builds/index values."""
-    if not value:
-        return "the reference is empty"
-    kind = f"{OCI_PREFIX} image" if oci else "image"
-    hint = " (the !plugin-path selector is empty)" if value.endswith("!") else ""
-    return f"'{value}' is not a well-formed {kind} reference{hint}"
-
-
 def check_ref_form(
-    entries: list[DpdyEntry], expected_for: ExpectedFor, oci_only: bool = False
+    entries: list[DpdyEntry], expected_for: ExpectedFor, *, oci_only: bool
 ) -> list[Finding]:
     """Report each distinct DPDY package that does not parse.
 
-    The registry rule skips refs it cannot parse, so --registry-policy-only runs this
-    with `oci_only` to keep a malformed `oci://` ref failing that gate. A non-oci
-    package was never that gate's to fail.
-
-    A package repeated at several positions is one finding naming the first; the
-    repeat is `duplicate-ref`'s to report. The image is kept so the plugin's `validate`
-    stage turns red; a local path names no plugin row and record_in_report skips it.
+    The registry rule skips DPDY refs it cannot parse, so --registry-policy-only runs
+    this with `oci_only` to keep a malformed `oci://` ref failing that gate. A repeated
+    package is one finding naming the first position; `duplicate-ref` reports the rest.
     """
     findings: list[Finding] = []
     seen: set[str] = set()
@@ -660,9 +657,9 @@ def check_ref_form(
         if oci_only and not entry.package.startswith(OCI_PREFIX):
             continue
         if parse_oci_ref(entry.package) is None:
-            findings.append(_ref_form(
+            findings.append(_ref_form_finding(
                 _image_of(entry.package), entry.package,
-                f"{DPDY_FILENAME} plugins[{entry.position}]", True, expected_for,
+                f"{DPDY_FILENAME} plugins[{entry.position}]", expected_for, oci=True,
             ))
     return findings
 
@@ -1301,9 +1298,10 @@ def validate(
 
     entries = load_dpdy_entries(dpdy_path) if dpdy_path.is_file() else []
     selected_images = set(builds) | set(index or {})
+    # _image_of, not parse_oci_ref, so a malformed ref still finds its support tier.
     selected_images.update(
-        ref.image for entry in entries
-        if (ref := parse_oci_ref(entry.package)) is not None
+        _image_of(entry.package) for entry in entries
+        if entry.package.startswith(OCI_PREFIX)
     )
     package_entities = load_selected_package_entities(output_dir, selected_images)
     expected_for = expected_base_for(
