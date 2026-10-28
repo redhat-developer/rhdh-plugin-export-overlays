@@ -219,10 +219,7 @@ export async function main(
       };
       rows.push(row);
 
-      const ref = checkPluginPathsFlag ? dynamicArtifactRef(result.doc) : undefined;
-      if (ref) {
-        pluginPathJobs.push({ row, ref });
-      }
+      pluginPathJobs.push(...pluginPathJobFor(row, result.doc));
 
       // Only structurally sound Packages are worth schema-checking: a file that
       // failed above has nothing meaningful to validate.
@@ -258,6 +255,12 @@ export async function main(
     writeError,
   );
   return exitCodeFor(rows);
+}
+
+/** The plugin-path job for a row, or none when its document names no OCI ref. */
+function pluginPathJobFor(row: Row, doc: Record<string, unknown> | undefined): PluginPathJob[] {
+  const ref = dynamicArtifactRef(doc);
+  return ref ? [{ row, ref }] : [];
 }
 
 /** Checks every job's ref and records each outcome on its row. */
@@ -616,19 +619,23 @@ export function printReport(
   }
 
   if (pluginPaths) {
-    write(
-      `Plugin paths — checked: ${pluginPaths.checked}  ` +
-        `mismatched: ${pluginPaths.mismatched}  ` +
-        `not published yet: ${pluginPaths.unpublished}  ` +
-        `unreachable: ${pluginPaths.unavailable}\n`,
-    );
-    if (pluginPaths.checked === 0) {
-      write("NOTE: no dynamicArtifact was checked against its image.\n");
-    }
+    printPluginPathTally(pluginPaths, write);
   }
 
   if (failures > 0) {
     writeError("\nValidation failed.\n");
+  }
+}
+
+function printPluginPathTally(tally: PluginPathTally, write: (text: string) => void): void {
+  write(
+    `Plugin paths — checked: ${tally.checked}  ` +
+      `mismatched: ${tally.mismatched}  ` +
+      `not published yet: ${tally.unpublished}  ` +
+      `unreachable: ${tally.unavailable}\n`,
+  );
+  if (tally.checked === 0) {
+    write("NOTE: no dynamicArtifact was checked against its image.\n");
   }
 }
 

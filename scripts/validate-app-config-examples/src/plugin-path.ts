@@ -98,13 +98,14 @@ export async function fetchWithRetry(
   fetch: FetchManifest,
   image: string,
   { attempts = 3, retryDelayMs = 2000 }: RetryOptions = {},
+  attempt = 1,
 ): Promise<ManifestResult> {
-  let result = await fetch(image);
-  for (let attempt = 1; result.kind === "unavailable" && attempt < attempts; attempt += 1) {
-    await sleep(retryDelayMs * 2 ** (attempt - 1));
-    result = await fetch(image);
+  const result = await fetch(image);
+  if (result.kind !== "unavailable" || attempt >= attempts) {
+    return result;
   }
-  return result;
+  await sleep(retryDelayMs * 2 ** (attempt - 1));
+  return fetchWithRetry(fetch, image, { attempts, retryDelayMs }, attempt + 1);
 }
 
 /**
@@ -160,9 +161,13 @@ export async function mapWithConcurrency<T, R>(
   // One iterator shared by every worker: each takes the next item when free.
   const queue = items.entries();
   const worker = async (): Promise<void> => {
-    for (const [index, item] of queue) {
-      results[index] = await task(item);
+    const next = queue.next();
+    if (next.done) {
+      return;
     }
+    const [index, item] = next.value;
+    results[index] = await task(item);
+    return worker();
   };
   await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
   return results;

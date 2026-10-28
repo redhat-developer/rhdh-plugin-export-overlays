@@ -161,7 +161,7 @@ export function packageCoordinates(
  * names none (a non-Package, or a package bundled in the RHDH image).
  */
 export function dynamicArtifactRef(doc: Record<string, unknown> | undefined): string | undefined {
-  if (!doc || doc.kind !== "Package" || !isPlainObject(doc.spec)) {
+  if (doc?.kind !== "Package" || !isPlainObject(doc.spec)) {
     return undefined;
   }
   const artifact = doc.spec.dynamicArtifact;
