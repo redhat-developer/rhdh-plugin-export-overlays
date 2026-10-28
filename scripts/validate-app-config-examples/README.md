@@ -40,9 +40,10 @@ vp exec validate-app-config-examples --check-plugin-paths
 vp exec validate-app-config-examples --check-plugin-paths --check-schemas --check-undeclared-keys
 ```
 
-The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
-mismatch rather than warning — the weekly schedule is what gives that verdict
-somewhere to land, since a PR only ever sees the metadata it touched.
+The full-tree sweep's schema layer reports `mismatched: 0` as of RHIDP-15903,
+so it fails on a schema mismatch rather than warning — the weekly schedule is
+what gives that verdict somewhere to land, since a PR only ever sees the
+metadata it touched.
 `--warn-only` remains for surveying a tree you have not cleaned up yet — a
 release branch, say.
 
@@ -253,14 +254,19 @@ Pulls are anonymous, as the installer's are. The rule itself
 (`selectedPluginPathProblem`) lives in `smoke-tests-native/src/plugin-path.ts`
 and is shared with the native smoke harness.
 
-What a registry answer means for the run:
+What a ref and its registry answer mean for the run:
 
-| Answer                               | Verdict                                                           |
-| ------------------------------------ | ----------------------------------------------------------------- |
-| manifest read, path declared         | pass                                                              |
-| manifest read, path not declared     | fail                                                              |
-| image or tag missing (or not public) | fail, except with `--allow-unpublished` for this repo's ghcr tags |
-| no answer after 3 tries              | fail: a ref that was not checked must not read as a clean one     |
+| Answer                                       | Verdict                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| ref not in the form the install CLI accepts  | fail, without reading the registry                                |
+| manifest read, path declared                 | pass                                                              |
+| manifest read, path not declared             | fail                                                              |
+| image or tag missing (or not public)         | fail, except with `--allow-unpublished` for this repo's ghcr tags |
+| no answer after 3 tries, or after the budget | fail: a ref that was not checked must not read as a clean one     |
+
+The run gives the registry 10 minutes from its first fetch. Fetches and retries
+not started by then count as unreachable, so a hanging registry still ends in a
+tally inside the job's timeout.
 
 `--allow-unpublished` is for PRs: their `bs_*` tags are only published on merge,
 so those refs are noted and counted as `not published yet`. The weekly sweep runs

@@ -16,6 +16,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import {
   probeCandidates,
+  refFormProblem,
   registryRefFromOciRef,
   selectedPluginPathProblem,
 } from "../../../smoke-tests-native/src/plugin-path.ts";
@@ -40,7 +41,17 @@ export type RetryOptions = {
   attempts?: number;
   /** Base backoff between fetches of one image, doubled per attempt. */
   retryDelayMs?: number;
+  /** Epoch ms after which no retry starts. */
+  deadline?: number;
 };
+
+export type CheckerOptions = RetryOptions & {
+  /** Time for the whole run from its first fetch; later fetches are not started. */
+  budgetMs?: number;
+};
+
+// Keeps a hanging registry inside the job's timeout, so the tally still prints.
+const RUN_BUDGET_MS = 10 * 60_000;
 
 /** Images this repository publishes, under a tag that exists only after merge. */
 const OWN_IMAGES = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/";
@@ -97,15 +108,15 @@ function lastLine(text: unknown): string | undefined {
 export async function fetchWithRetry(
   fetch: FetchManifest,
   image: string,
-  { attempts = 3, retryDelayMs = 2000 }: RetryOptions = {},
+  { attempts = 3, retryDelayMs = 2000, deadline = Infinity }: RetryOptions = {},
   attempt = 1,
 ): Promise<ManifestResult> {
   const result = await fetch(image);
-  if (result.kind !== "unavailable" || attempt >= attempts) {
+  if (result.kind !== "unavailable" || attempt >= attempts || Date.now() >= deadline) {
     return result;
   }
   await sleep(retryDelayMs * 2 ** (attempt - 1));
-  return fetchWithRetry(fetch, image, { attempts, retryDelayMs }, attempt + 1);
+  return fetchWithRetry(fetch, image, { attempts, retryDelayMs, deadline }, attempt + 1);
 }
 
 /**
@@ -115,14 +126,25 @@ export async function fetchWithRetry(
 export class PluginPathChecker {
   readonly #fetch: FetchManifest;
   readonly #options: RetryOptions;
+  readonly #budgetMs: number;
   readonly #manifests = new Map<string, Promise<ManifestResult>>();
+  #deadline: number | undefined;
 
-  constructor(fetch: FetchManifest = skopeoFetch, options: RetryOptions = {}) {
+  constructor(
+    fetch: FetchManifest = skopeoFetch,
+    { budgetMs = RUN_BUDGET_MS, ...options }: CheckerOptions = {},
+  ) {
     this.#fetch = fetch;
     this.#options = options;
+    this.#budgetMs = budgetMs;
   }
 
   async check(ref: string): Promise<PluginPathOutcome> {
+    // Before any fetch: an unpublished tag must not hide a malformed ref.
+    const formProblem = refFormProblem(ref);
+    if (formProblem) {
+      return { kind: "mismatch", problem: formProblem };
+    }
     const reasons: string[] = [];
     let unavailable = false;
     // The installer falls back from the productized registry to quay.
@@ -144,7 +166,15 @@ export class PluginPathChecker {
   #manifest(image: string): Promise<ManifestResult> {
     let pending = this.#manifests.get(image);
     if (!pending) {
-      pending = fetchWithRetry(this.#fetch, image, this.#options);
+      // The clock starts at the first fetch, not when the checker is built.
+      const deadline = (this.#deadline ??= Date.now() + this.#budgetMs);
+      pending =
+        Date.now() >= deadline
+          ? Promise.resolve({
+              kind: "unavailable",
+              reason: `not tried: the run's ${this.#budgetMs / 1000}s budget ran out`,
+            })
+          : fetchWithRetry(this.#fetch, image, { ...this.#options, deadline });
       this.#manifests.set(image, pending);
     }
     return pending;

@@ -369,6 +369,14 @@ describe("plugin-path outcomes", () => {
     expect(jobs.map((j) => j.row.status)).toEqual(["PASS", "FAIL", "FAIL"]);
   });
 
+  it("fails a malformed own ref even when its tag is unpublished", async () => {
+    // A bare trailing "!": the install CLI rejects it.
+    const jobs = [job("oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/a:bs_1__1!")];
+    const tally = await checkPluginPaths(jobs, new PluginPathChecker(missingEverywhere), true);
+    expect(tally).toEqual({ checked: 1, mismatched: 1, unpublished: 0, unavailable: 0 });
+    expect(jobs[0]?.row.status).toBe("FAIL");
+  });
+
   it("checks the dynamicArtifact of every metadata file with --check-plugin-paths", async () => {
     const images: string[] = [];
     const fetch: FetchManifest = async (image) => {

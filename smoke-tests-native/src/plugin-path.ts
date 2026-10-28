@@ -75,6 +75,16 @@ export function isInstallableOciRef(ref: string): boolean {
   );
 }
 
+/**
+ * Why the install CLI would refuse a ref before reading any image, or undefined.
+ * Offline, so callers can run it before asking a registry about the image.
+ */
+export function refFormProblem(ref: string): string | undefined {
+  return isInstallableOciRef(ref)
+    ? undefined
+    : "is not a ref the install CLI accepts (oci://<registry>/<repo> with a tag or digest, then an optional !<path>)";
+}
+
 export const DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages";
 
 /** A ref's `!plugin-path` selector: undefined without one, "" for a bare `!`. */
@@ -158,9 +168,8 @@ export function selectedPluginPathProblem(
   ref: string,
   manifestJson: string,
 ): string | undefined {
-  if (!isInstallableOciRef(ref)) {
-    return "is not a ref the install CLI accepts (oci://<registry>/<repo> with a tag or digest, then an optional !<path>)";
-  }
+  const formProblem = refFormProblem(ref);
+  if (formProblem) return formProblem;
   const selector = pluginSelector(ref);
   if (selector === undefined) return pluginPathProblem(ref, manifestJson);
   const declared = declaredPluginPaths(manifestJson);

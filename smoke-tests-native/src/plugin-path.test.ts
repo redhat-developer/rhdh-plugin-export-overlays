@@ -6,14 +6,21 @@
 
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   declaredPluginPaths,
   pluginPathProblem,
   pluginSelector,
   probeCandidates,
+  refFormProblem,
   registryRefFromOciRef,
   selectedPluginPathProblem,
 } from "./plugin-path";
+
+// dist-tests/ → smoke-tests-native/
+const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const REGISTRY = "quay.io/rhdh";
 const DIGEST = `sha256:${"a".repeat(64)}`;
@@ -209,4 +216,24 @@ test("selectedPluginPathProblem applies the auto-detect rule without a selector"
       "",
     /2 plugins in the image \(a, b\)/,
   );
+});
+
+test("refFormProblem judges the ref alone, with no manifest", () => {
+  assert.match(
+    refFormProblem(`${ociRef("a")}!`) ?? "",
+    /not a ref the install CLI accepts/,
+  );
+  assert.equal(refFormProblem(`${ociRef("a")}!a`), undefined);
+});
+
+test("plugin-path.ts imports nothing", () => {
+  // scripts/validate-app-config-examples imports this file by path under Node's type
+  // stripping, so an import here breaks that validator, not this harness.
+  const source = readFileSync(
+    join(HARNESS_ROOT, "src", "plugin-path.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /^\s*import\b/m);
+  assert.doesNotMatch(source, /^\s*export\b[^;\n]*\bfrom\s*["']/m);
+  assert.doesNotMatch(source, /\b(?:import|require)\s*\(/);
 });

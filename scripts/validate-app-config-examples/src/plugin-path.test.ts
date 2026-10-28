@@ -101,6 +101,30 @@ describe("PluginPathChecker", () => {
     expect(outcome.kind).toBe("unavailable");
   });
 
+  it("rejects a malformed ref before asking the registry", async () => {
+    // A registry answering missing would otherwise turn an own ref into "not published yet".
+    const { fetch, calls } = fakeRegistry({});
+    await expect(
+      new PluginPathChecker(fetch, NO_DELAY).check(`oci://${OWN}/a:bs_1.54.9__1.0.0!`),
+    ).resolves.toEqual({
+      kind: "mismatch",
+      problem: expect.stringMatching(/not a ref the install CLI accepts/),
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("stops fetching once the run's budget is spent, and calls the rest unavailable", async () => {
+    const { fetch, calls } = fakeRegistry({});
+    const outcome = await new PluginPathChecker(fetch, { ...NO_DELAY, budgetMs: 0 }).check(
+      `oci://${OWN}/a:1!a`,
+    );
+    expect(outcome).toEqual({
+      kind: "unavailable",
+      reason: "not tried: the run's 0s budget ran out",
+    });
+    expect(calls).toEqual([]);
+  });
+
   it("calls a ref missing when no candidate has the image", async () => {
     const { fetch } = fakeRegistry({});
     const outcome = await new PluginPathChecker(fetch, NO_DELAY).check(`oci://${OWN}/a:1!a`);
@@ -122,6 +146,13 @@ describe("fetchWithRetry", () => {
     const result = await fetchWithRetry(fetch, "img", { attempts: 3, retryDelayMs: 0 });
     expect(result.kind).toBe("unavailable");
     expect(calls).toHaveLength(3);
+  });
+
+  it("starts no retry once the deadline has passed", async () => {
+    const { fetch, calls } = fakeRegistry({ img: [{ kind: "unavailable", reason: "502" }] });
+    const result = await fetchWithRetry(fetch, "img", { ...NO_DELAY, deadline: 0 });
+    expect(result.kind).toBe("unavailable");
+    expect(calls).toHaveLength(1);
   });
 
   it("does not retry an image the registry says is missing", async () => {
