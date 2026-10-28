@@ -1,26 +1,38 @@
 app:
   title: RHDH GitLab PQC e2e
 
-integrations:
-  gitlab:
-    - host: ${GITLAB_HOST}
-      token: ${GITLAB_TOKEN}
-      apiBaseUrl: https://${GITLAB_HOST}/api/v4
-      baseUrl: https://${GITLAB_HOST}
-
-catalog:
-  providers:
-    gitlab:
-      provider:
-        group: e2e-pqc-group
-        host: ${GITLAB_HOST}
-        schedule:
-          frequency:
-            minutes: 1
-          initialDelay:
-            seconds: 5
-          timeout:
-            minutes: 1
+backend:
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: gitlab-auth-e2e-token
+          subject: gitlab-pqc-e2e
 
 permission:
   enabled: false
+
+catalog:
+  rules:
+    - allow: [API, Component, Group, Location, Resource, System, Template, User]
+  providers:
+    gitlab:
+      orgProvider:
+        host: ${AUTH_PROVIDERS_GITLAB_HOST}
+        orgEnabled: true
+        group: ${AUTH_PROVIDERS_GITLAB_PARENT_ORG}
+        restrictUsersToGroup: true
+        includeUsersWithoutSeat: true
+        schedule:
+          initialDelay:
+            seconds: 0
+          frequency:
+            minutes: 1
+          timeout:
+            minutes: 1
+
+integrations:
+  gitlab:
+    - host: ${AUTH_PROVIDERS_GITLAB_HOST}
+      token: ${AUTH_PROVIDERS_GITLAB_TOKEN}
+      apiBaseUrl: https://${AUTH_PROVIDERS_GITLAB_HOST}/api/v4

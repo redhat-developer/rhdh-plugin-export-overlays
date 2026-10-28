@@ -1,19 +1,4 @@
+# Same org catalog module as gitlab-auth (explicit tag; not in default.packages.yaml).
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab:bs_1.45.3__0.7.5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org:bs_1.54.9__0.2.22
     enabled: true
-    # Explicit provider so metadata injection does not substitute an unset
-    # GITLAB_DISCOVERY_GROUP into a second "default" provider.
-    pluginConfig:
-      catalog:
-        providers:
-          gitlab:
-            provider:
-              host: ${GITLAB_HOST}
-              group: e2e-pqc-group
-              schedule:
-                frequency:
-                  minutes: 1
-                initialDelay:
-                  seconds: 5
-                timeout:
-                  minutes: 1
