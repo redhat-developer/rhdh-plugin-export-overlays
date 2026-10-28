@@ -54,6 +54,8 @@ test.describe("GitLab PQC (forced ML-KEM)", () => {
   });
 
   test("should sync catalog when ML-KEM algorithms are forced in OpenSSL", async () => {
+    // Temporary until the GitLab is upgraded.
+    test.fail(true, "Expected to fail until GitLab supports ML-KEM (upgrade to 18.11+)");
     test.setTimeout(180_000);
 
     await expect
@@ -66,4 +68,5 @@ test.describe("GitLab PQC (forced ML-KEM)", () => {
       )
       .toBe(true);
   });
+  test
 });
