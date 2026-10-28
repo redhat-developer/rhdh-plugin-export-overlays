@@ -38,6 +38,10 @@ vp exec validate-app-config-examples --check-plugin-paths
 
 # the full-tree sweep CI runs weekly and on workflow_dispatch
 vp exec validate-app-config-examples --check-plugin-paths --check-schemas --check-undeclared-keys
+
+# one workspace, against the images a PR's /publish pushed (what /publish runs)
+vp exec validate-app-config-examples --workspace adoption-insights \
+  --check-plugin-paths --allow-unpublished --published-images published-exports.txt
 ```
 
 The full-tree sweep's schema layer reports `mismatched: 0` as of RHIDP-15903,
@@ -272,16 +276,37 @@ tally inside the job's timeout.
 so those refs are noted and counted as `not published yet`. The weekly sweep runs
 without it, so a tag that is still missing then fails.
 
+### After `/publish`
+
+A noted ref is not a checked one: on an update PR that renames a plugin path,
+the PR check above passes. `/publish` closes that gap. Once it has pushed the
+PR's `pr_<number>__<version>` images, the `check-plugin-paths` job in
+`auto-publish-pr.yaml` runs this tool on the PR's workspace with
+`--published-images`. Each ref to this repository's ghcr images is checked
+against the published image of the same repository name, with its
+`!plugin-path` kept. The list is the run's `published-exports` output, one
+`registry/path/name:tag` per line.
+
+The result lands on the PR as a `plugin-paths` commit status and a section in
+the publish comment. It does not change the `publish` status, and it does not
+stop the smoke tests. The job runs this tool from the workflow's own ref; the PR
+supplies only its metadata YAML.
+
+If own refs exist and none matches a published image, the run exits 2: the
+mapping is broken, and each ref would otherwise fall back to its unpublished
+`bs_*` tag and pass as a note.
+
 ## Layout
 
-| Path                 | Role                                                 |
-| -------------------- | ---------------------------------------------------- |
-| `src/json.ts`        | the shared mapping guard and error-property reader   |
-| `src/metadata.ts`    | YAML reading and the structural verdicts             |
-| `src/schema.ts`      | package download, schema loading, example validation |
-| `src/plugin-path.ts` | manifest fetch, retries, plugin-path outcomes        |
-| `src/validate.ts`    | CLI, reporting, exit codes                           |
-| `src/*.test.ts`      | the unit tests                                       |
+| Path                      | Role                                                 |
+| ------------------------- | ---------------------------------------------------- |
+| `src/json.ts`             | the shared mapping guard and error-property reader   |
+| `src/metadata.ts`         | YAML reading and the structural verdicts             |
+| `src/schema.ts`           | package download, schema loading, example validation |
+| `src/plugin-path.ts`      | manifest fetch, retries, plugin-path outcomes        |
+| `src/published-images.ts` | metadata refs mapped onto a PR's `/publish` images   |
+| `src/validate.ts`         | CLI, reporting, exit codes                           |
+| `src/*.test.ts`           | the unit tests                                       |
 
 The tests never touch the network: the semantic layer is exercised through
 `loadConfigSchema({ serialized })`, which builds a real Backstage schema in

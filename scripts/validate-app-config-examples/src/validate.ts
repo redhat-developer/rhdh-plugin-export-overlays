@@ -21,10 +21,11 @@
 //   4. plugin paths — each spec.dynamicArtifact `!plugin-path` must be a path
 //      its image declares, and a ref without one must name a single-plugin
 //      image (RHIDP-17312). Reads manifests from the registries; enable with
-//      --check-plugin-paths.
+//      --check-plugin-paths. With --published-images, this repo's refs are
+//      checked against the images a PR's /publish pushed instead.
 
 import { realpathSync } from "node:fs";
-import { glob } from "node:fs/promises";
+import { glob, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
@@ -44,6 +45,7 @@ import {
   type PluginPathOutcome,
 } from "./plugin-path.ts";
 import { byCodepoint } from "./json.ts";
+import { parsePublishedImages, publishedRef, type PublishedImages } from "./published-images.ts";
 import {
   SchemaResolver,
   findUndeclaredKeys,
@@ -109,8 +111,11 @@ export type PluginPathTally = {
   unavailable: number;
 };
 
-/** A metadata file's row and the ref its plugin-path check reads. */
-export type PluginPathJob = { row: Row; ref: string };
+/**
+ * A metadata file's row and the ref its plugin-path check reads. `published`
+ * marks a ref retargeted at an image from --published-images.
+ */
+export type PluginPathJob = { row: Row; ref: string; published?: boolean };
 
 /** Manifests fetched at once; a full tree has ~200 refs. */
 const PLUGIN_PATH_CONCURRENCY = 8;
@@ -138,6 +143,15 @@ const USAGE = `Usage: validate-app-config-examples [options]
                      With --check-plugin-paths, note instead of failing a ref
                      to this repository's ghcr images whose tag does not exist
                      yet. A PR's bs_* tags are published on merge.
+  --workspace <name> Only validate workspaces/<name>/metadata/*.yaml.
+                     Cannot be combined with --since.
+  --published-images <file>
+                     With --check-plugin-paths, check each ref to this
+                     repository's ghcr images against the image of the same
+                     name listed in <file> (one registry/path/name:tag per
+                     line, as /publish writes published-exports.txt), keeping
+                     its !plugin-path. Exits 2 when own refs exist and none
+                     matches a listed image.
   --warn-only        Report schema mismatches without failing. Structural
                      failures still fail the run.
   --help             Show this message.
@@ -158,6 +172,8 @@ export async function main(
       "warn-only": { type: "boolean", default: false },
       "check-plugin-paths": { type: "boolean", default: false },
       "allow-unpublished": { type: "boolean", default: false },
+      workspace: { type: "string" },
+      "published-images": { type: "string" },
       help: { type: "boolean", default: false },
     },
   });
@@ -179,14 +195,30 @@ export async function main(
     return 2;
   }
 
+  const scopeError = scopeArgumentError(values);
+  if (scopeError) {
+    writeError(`${scopeError}\n`);
+    return 2;
+  }
+  const workspace = values.workspace?.replace(/^workspaces\//, "");
+
   const paths = values.since
     ? await changedMetadataPaths(values.since, repoRoot)
-    : await collectAllMetadata(repoRoot);
+    : await collectAllMetadata(repoRoot, workspace);
 
   if (values.since && paths.length === 0) {
     write("No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n");
     return 0;
   }
+  if (workspace !== undefined && paths.length === 0) {
+    write(`No workspaces/${workspace}/metadata/*.yaml; nothing to validate.\n`);
+    return 0;
+  }
+
+  const publishedImages =
+    values["published-images"] === undefined
+      ? undefined
+      : parsePublishedImages(await readFile(values["published-images"], "utf8"));
 
   // Undeclared keys are found by comparing a strict schema against the lenient
   // one, so the schema layer has to be running for this to mean anything.
@@ -219,7 +251,7 @@ export async function main(
       };
       rows.push(row);
 
-      pluginPathJobs.push(...pluginPathJobFor(row, result.doc));
+      pluginPathJobs.push(...pluginPathJobFor(row, result.doc, publishedImages));
 
       // Only structurally sound Packages are worth schema-checking: a file that
       // failed above has nothing meaningful to validate.
@@ -247,20 +279,72 @@ export async function main(
       )
     : undefined;
 
+  const published = publishedImages && countPublishedMatches(pluginPathJobs);
+
   printReport(
     rows,
     tally,
-    { checked: checkSchemasFlag, undeclared, pluginPaths },
+    { checked: checkSchemasFlag, undeclared, pluginPaths, published },
     write,
     writeError,
   );
+  // Own refs and no match: the mapping is broken, and every ref would
+  // otherwise fall back to an unpublished tag and pass as a note.
+  if (published && published.own > 0 && published.matched === 0) {
+    writeError(
+      "--published-images: no ref matches a listed image, so none was checked against it\n",
+    );
+    return 2;
+  }
   return exitCodeFor(rows);
 }
 
+/** Why the scope flags cannot run together, or undefined when they can. */
+function scopeArgumentError(values: {
+  since?: string;
+  workspace?: string;
+  "published-images"?: string;
+  "check-plugin-paths"?: boolean;
+}): string | undefined {
+  if (values.workspace !== undefined && values.since !== undefined) {
+    return "--workspace and --since cannot be combined";
+  }
+  // A single directory name: no glob characters, no traversal.
+  if (
+    values.workspace !== undefined &&
+    !/^(?:workspaces\/)?(?!\.{1,2}$)[\w.-]+$/.test(values.workspace)
+  ) {
+    return `--workspace needs a workspace name: ${values.workspace}`;
+  }
+  if (values["published-images"] !== undefined && !values["check-plugin-paths"]) {
+    return "--published-images needs --check-plugin-paths";
+  }
+  return undefined;
+}
+
+/** How many own refs were retargeted at a published image, of how many. */
+export type PublishedMatches = { matched: number; own: number };
+
+export function countPublishedMatches(jobs: readonly PluginPathJob[]): PublishedMatches {
+  // A retargeted ref can name a fork's registry, so it counts as own as is.
+  return {
+    matched: jobs.filter((job) => job.published).length,
+    own: jobs.filter((job) => job.published || isOwnImage(job.ref)).length,
+  };
+}
+
 /** The plugin-path job for a row, or none when its document names no OCI ref. */
-function pluginPathJobFor(row: Row, doc: Record<string, unknown> | undefined): PluginPathJob[] {
+export function pluginPathJobFor(
+  row: Row,
+  doc: Record<string, unknown> | undefined,
+  published?: PublishedImages,
+): PluginPathJob[] {
   const ref = dynamicArtifactRef(doc);
-  return ref ? [{ row, ref }] : [];
+  if (!ref) {
+    return [];
+  }
+  const retargeted = published && publishedRef(ref, published);
+  return retargeted ? [{ row, ref: retargeted, published: true }] : [{ row, ref }];
 }
 
 /** Checks every job's ref and records each outcome on its row. */
@@ -539,9 +623,9 @@ async function globPatches(repoRoot: string, workspace: string): Promise<string[
   return found.toSorted(byCodepoint);
 }
 
-async function collectAllMetadata(repoRoot: string): Promise<string[]> {
+async function collectAllMetadata(repoRoot: string, workspace = "*"): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of glob("workspaces/*/metadata/*.yaml", {
+  for await (const entry of glob(`workspaces/${workspace}/metadata/*.yaml`, {
     cwd: repoRoot,
   })) {
     found.push(entry);
@@ -557,11 +641,16 @@ export function exitCodeFor(rows: Row[]): number {
 export function printReport(
   rows: Row[],
   tally: SchemaTally,
-  layers: { checked: boolean; undeclared?: UndeclaredTally; pluginPaths?: PluginPathTally },
+  layers: {
+    checked: boolean;
+    undeclared?: UndeclaredTally;
+    pluginPaths?: PluginPathTally;
+    published?: PublishedMatches;
+  },
   write: (text: string) => void,
   writeError: (text: string) => void,
 ): void {
-  const { checked: checkedSchemas, undeclared, pluginPaths } = layers;
+  const { checked: checkedSchemas, undeclared, pluginPaths, published } = layers;
   const statusWidth = Math.max("STATUS".length, ...rows.map((row) => row.status.length));
 
   write(`${"STATUS".padEnd(statusWidth)}  FILE\n`);
@@ -620,6 +709,11 @@ export function printReport(
 
   if (pluginPaths) {
     printPluginPathTally(pluginPaths, write);
+  }
+  if (pluginPaths && published) {
+    write(
+      `Published images — own refs checked against them: ${published.matched} of ${published.own}\n`,
+    );
   }
 
   if (failures > 0) {

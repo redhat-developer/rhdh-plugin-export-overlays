@@ -8,15 +8,21 @@
 // The CLI's reporting and exit-code policy. `report` takes writers rather than
 // touching process.stdout so these can assert on the exact output CI shows.
 
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { byCodepoint } from "./json.ts";
 import { PluginPathChecker, type FetchManifest } from "./plugin-path.ts";
+import { parsePublishedImages } from "./published-images.ts";
 import {
   checkPluginPaths,
   exitCodeFor,
   main,
+  pluginPathJobFor,
   printReport,
   recordPluginPathOutcome,
+  countPublishedMatches,
   type PluginPathTally,
   type Row,
   type SchemaTally,
@@ -436,5 +442,162 @@ describe("plugin-path outcomes", () => {
     );
     expect(io.stdout).toMatch(/Plugin paths — checked: 0 {2}mismatched: 0 {2}not published yet: 2/);
     expect(io.stdout).toMatch(/no dynamicArtifact was checked/);
+  });
+});
+
+function publishedFile(lines: string[]): string {
+  const file = join(mkdtempSync(join(tmpdir(), "published-images-")), "published-exports.txt");
+  writeFileSync(file, `${lines.join("\n")}\n`);
+  return file;
+}
+
+/** A registry where every image declares `paths`, recording what was read. */
+function registryDeclaring(...paths: string[]) {
+  const images: string[] = [];
+  const annotation = Buffer.from(JSON.stringify(paths.map((p) => ({ [p]: {} })))).toString(
+    "base64",
+  );
+  const fetch: FetchManifest = async (image) => {
+    images.push(image);
+    return {
+      kind: "ok",
+      manifest: JSON.stringify({ annotations: { "io.backstage.dynamic-packages": annotation } }),
+    };
+  };
+  return { fetch, images };
+}
+
+function packageDoc(ref: string) {
+  return { kind: "Package", spec: { dynamicArtifact: ref } };
+}
+
+describe("checking against a PR's published images", () => {
+  const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+  // adoption-insights: three own refs, none with a selector.
+  const NAMES = [
+    "red-hat-developer-hub-backstage-plugin-adoption-insights-backend",
+    "red-hat-developer-hub-backstage-plugin-adoption-insights",
+    "red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights",
+  ];
+
+  it("reads only the published images of the workspace's own refs", async () => {
+    const file = publishedFile(NAMES.map((name) => `${OWN}/${name}:pr_9__1.0.5`));
+    const { fetch, images } = registryDeclaring("only-plugin");
+    const io = capture();
+    const code = await main(
+      [
+        "--workspace",
+        "workspaces/adoption-insights",
+        "--check-plugin-paths",
+        "--published-images",
+        file,
+      ],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(fetch),
+    );
+    expect(images.toSorted()).toEqual(NAMES.map((name) => `${OWN}/${name}:pr_9__1.0.5`).toSorted());
+    expect(io.stdout).toMatch(/own refs checked against them: 3 of 3/);
+    expect(code).toBe(0);
+  });
+
+  it("fails a published image that would leave a selector-less ref ambiguous, naming the PR image", async () => {
+    const file = publishedFile(NAMES.map((name) => `${OWN}/${name}:pr_9__1.0.5`));
+    const { fetch } = registryDeclaring("a", "b");
+    const io = capture();
+    const code = await main(
+      ["--workspace", "adoption-insights", "--check-plugin-paths", "--published-images", file],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(fetch),
+    );
+    expect(code).toBe(1);
+    expect(io.stdout).toMatch(/plugin path: oci:\/\/\S+:pr_9__1\.0\.5 2 plugins in the image/);
+  });
+
+  it("exits 2 when own refs exist and the list matches none of them", async () => {
+    const file = publishedFile([`${OWN}/unrelated:pr_9__1.0.0`]);
+    const io = capture();
+    const code = await main(
+      [
+        "--workspace",
+        "adoption-insights",
+        "--check-plugin-paths",
+        "--allow-unpublished",
+        "--published-images",
+        file,
+      ],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(missingEverywhere),
+    );
+    expect(code).toBe(2);
+    expect(io.stderr).toMatch(/no ref matches a listed image/);
+  });
+
+  it("validates only the named workspace", async () => {
+    const io = capture();
+    await main(["--workspace", "adoption-insights"], io.write, io.writeError);
+    const files = io.stdout.match(/workspaces\/\S+\.yaml/g) ?? [];
+    expect(files.length).toBe(3);
+    expect(files.every((path) => path.startsWith("workspaces/adoption-insights/metadata/"))).toBe(
+      true,
+    );
+  });
+
+  it("exits 0 with an explanation for a workspace without metadata", async () => {
+    const io = capture();
+    expect(await main(["--workspace", "no-such-workspace"], io.write, io.writeError)).toBe(0);
+    expect(io.stdout).toMatch(/nothing to validate/);
+  });
+
+  it.each([
+    [["--workspace", "a", "--since", "HEAD"], /cannot be combined/],
+    [["--workspace", "*"], /needs a workspace name/],
+    [["--workspace", "../a"], /needs a workspace name/],
+    [["--workspace", ".."], /needs a workspace name/],
+    [["--published-images", "x.txt"], /needs --check-plugin-paths/],
+  ])("rejects %j", async (argv, message) => {
+    const io = capture();
+    expect(await main(argv, io.write, io.writeError)).toBe(2);
+    expect(io.stderr).toMatch(message);
+  });
+
+  it("retargets a row's job only when its ref is published", () => {
+    const published = parsePublishedImages(`${OWN}/a:pr_1__2.0.0`);
+    expect(
+      pluginPathJobFor(passing, packageDoc(`oci://${OWN}/a:bs_1__2.0.0!a`), published),
+    ).toEqual([{ row: passing, ref: `oci://${OWN}/a:pr_1__2.0.0!a`, published: true }]);
+    expect(pluginPathJobFor(passing, packageDoc(`oci://${OWN}/b:bs_1__2.0.0`), published)).toEqual([
+      { row: passing, ref: `oci://${OWN}/b:bs_1__2.0.0` },
+    ]);
+  });
+
+  it("counts a retargeted job as own even though its registry is a fork's", () => {
+    expect(
+      countPublishedMatches([
+        { ...job("oci://ghcr.io/someone/r/a:pr_1__1"), published: true },
+        job(`oci://${OWN}/b:bs_1__1`),
+        job("oci://quay.io/x/c:1"),
+      ]),
+    ).toEqual({ matched: 1, own: 2 });
+  });
+
+  it("prints the match count beneath the plugin-path tally", () => {
+    const io = capture();
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      {
+        checked: false,
+        pluginPaths: { checked: 1, mismatched: 0, unpublished: 1, unavailable: 0 },
+        published: { matched: 1, own: 2 },
+      },
+      io.write,
+      io.writeError,
+    );
+    expect(io.stdout).toMatch(
+      /Plugin paths — .*\nPublished images — own refs checked against them: 1 of 2\n/,
+    );
   });
 });
