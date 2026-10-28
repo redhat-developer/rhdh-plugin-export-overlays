@@ -1,0 +1,4 @@
+plugins:
+  - package: '@backstage/plugin-scaffolder-backend'
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    disabled: true

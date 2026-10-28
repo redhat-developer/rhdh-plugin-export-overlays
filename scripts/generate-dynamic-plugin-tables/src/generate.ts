@@ -1,8 +1,3 @@
-/*
- * Copyright (c) Red Hat, Inc.
- * SPDX-License-Identifier: EPL-2.0
- */
-
 /**
  * Render docs from a resolved catalog index without querying a registry.
  *

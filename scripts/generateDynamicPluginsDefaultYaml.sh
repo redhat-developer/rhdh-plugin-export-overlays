@@ -30,7 +30,7 @@ The script will:
 2. Find corresponding metadata files in the overlay-repo directory
 3. Extract the appConfigExamples content from each metadata file
 4. Generate dynamic-plugins.default.yaml
-5. Inject Tag/Build date comments from plugin_builds/*.json (via injectDpdyTagComments.py)
+5. Inject Tag/Build date comments from plugin_builds/*.json (via inject-dpdy-tag-comments)
 
 Once complete, run generateCatalogIndex.py to refresh the catalog index and OCI refs.
 
@@ -252,7 +252,7 @@ inject_tag_comments_in_dpdy() {
   local script_dir
   script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   [[ -f "$out_file" ]] || return 0
-  python3 "${script_dir}/injectDpdyTagComments.py" "$out_file" "$PLUGIN_BUILDS_DIR"
+  node "${script_dir}/inject-dpdy-tag-comments/src/inject.ts" "$out_file" "$PLUGIN_BUILDS_DIR"
 }
 
 # -----------------------------------------------------------------------------
