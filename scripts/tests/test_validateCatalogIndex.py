@@ -1734,6 +1734,25 @@ class TestMalformedRefIsRefForm:
         )
         assert result.findings == []
 
+    def test_a_local_dpdy_path_is_not_attributed_or_given_an_expected_base(
+        self, tmp_path
+    ):
+        """A local path names no image or registry, so it fails no plugin's stage."""
+        local = "./dynamic-plugins/dist/plugin-a"
+        result = run(tmp_path, [{"package": local}], builds={})
+        assert rules_of(result) == ["ref-form"]
+        finding = result.findings[0]
+        assert finding.image == ""
+        assert f"'{local}' is a local path, not an oci:// reference" in finding.message
+        assert "expected" not in finding.message
+        report_file = tmp_path / "build-report.json"
+        report = BuildReport(str(report_file))
+        report.add_plugin("plugin-a", package="@scope/plugin-a")
+        record_in_report(result, report)
+        report.save()
+        stages = json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]
+        assert "validate" not in stages
+
     def test_a_malformed_index_ref_is_ref_form_and_cannot_be_allowlisted(self, tmp_path):
         result = run(
             tmp_path, [], builds={},

@@ -656,7 +656,16 @@ def check_ref_form(
         seen.add(entry.package)
         if oci_only and not entry.package.startswith(OCI_PREFIX):
             continue
-        if parse_oci_ref(entry.package) is None:
+        if entry.package.startswith(LOCAL_PREFIX):
+            # A local path names no image or registry: no plugin and no expected base.
+            findings.append(Finding(
+                rule="ref-form",
+                message=(
+                    f"{DPDY_FILENAME} plugins[{entry.position}]: '{entry.package}' "
+                    f"is a local path, not an {OCI_PREFIX} reference"
+                ),
+            ))
+        elif parse_oci_ref(entry.package) is None:
             findings.append(_ref_form_finding(
                 _image_of(entry.package), entry.package,
                 f"{DPDY_FILENAME} plugins[{entry.position}]", expected_for, oci=True,
