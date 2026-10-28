@@ -16,8 +16,8 @@ import {
 } from "../config/gitlab-pqc/fixture.js";
 
 /**
- * Force OpenSSL Groups=X25519MLKEM768 on the hub. Sanity-check that GitLab org
- * catalog ingestion (same seed as gitlab-auth) still succeeds.
+ * Force OpenSSL Groups=X25519MLKEM768 on the hub. Until GitLab supports that
+ * group, org catalog ingestion (same seed as gitlab-auth) must not succeed.
  */
 test.describe("GitLab PQC (forced ML-KEM)", () => {
   let baseUrl: string;
@@ -54,19 +54,17 @@ test.describe("GitLab PQC (forced ML-KEM)", () => {
   });
 
   test("should sync catalog when ML-KEM algorithms are forced in OpenSSL", async () => {
-    // Temporary until the GitLab is upgraded.
-    test.fail(true, "Expected to fail until GitLab supports ML-KEM (upgrade to 18.11+)");
     test.setTimeout(180_000);
 
-    await expect
-      .poll(
-        () =>
-          checkUserDisplayNamesInCatalog(baseUrl, GITLAB_AUTH_CATALOG_TOKEN, [
-            ...GITLAB_INGESTED_USERS,
-          ]),
-        { timeout: 120_000, intervals: [3_000] },
-      )
-      .toBe(true);
+    // Temporary until the GitLab is upgraded (assert users are absent).
+    await expect(async () => {
+      expect(
+        await checkUserDisplayNamesInCatalog(
+          baseUrl,
+          GITLAB_AUTH_CATALOG_TOKEN,
+          [...GITLAB_INGESTED_USERS],
+        ),
+      ).toBe(false);
+    }).toPass({ timeout: 120_000, intervals: [3_000] });
   });
-  test
 });

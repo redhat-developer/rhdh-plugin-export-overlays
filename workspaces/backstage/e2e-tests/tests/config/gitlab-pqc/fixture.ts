@@ -2,7 +2,8 @@
  * Shared constants for the GitLab PQC (forced ML-KEM) suite.
  *
  * Org catalog sanity reuses the auth-providers GitLab seed (same users/groups
- * as gitlab-auth). Under forced ML-KEM those entities must still ingest.
+ * as gitlab-auth). Under forced ML-KEM those entities must not ingest until
+ * GitLab supports the hybrid group.
  */
 export const CONFIG_DIR = "tests/config/gitlab-pqc";
 export const OPENSSL_CONFIGMAP_NAME = "openssl-pq";
