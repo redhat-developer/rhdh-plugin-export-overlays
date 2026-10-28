@@ -19,6 +19,7 @@ from validateCatalogIndex import (
     DPDY_FILENAME,
     DYNAMIC_PACKAGES_ANNOTATION,
     ERROR,
+    NON_ALLOWLISTABLE_RULES,
     RULES,
     RULES_NEEDING_BUILDS,
     WARNING,
@@ -110,7 +111,8 @@ SHIPPED_ALLOWLIST = (
 
 def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
         registry=REGISTRY, community_registry=None, has_build_metadata=True,
-        default_packages_file=None, previous_index_dpdy=None, report_file=None):
+        default_packages_file=None, previous_index_dpdy=None, report_file=None,
+        registry_policy_only=False):
     output_dir, plugin_builds_dir = write_index(
         tmp_path, packages, builds=builds, index_json=index_json
     )
@@ -124,7 +126,20 @@ def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
         previous_index_dpdy=previous_index_dpdy,
         report_file=report_file,
         community_registry=community_registry,
+        registry_policy_only=registry_policy_only,
     )
+
+
+def write_package_entity(output_dir, image, dynamic_artifact, support=None):
+    """Write a selected `kind: Package` entity for `image`."""
+    packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+    packages_dir.mkdir(parents=True, exist_ok=True)
+    spec = {"packageName": image, "dynamicArtifact": dynamic_artifact}
+    if support:
+        spec["support"] = support
+    (packages_dir / f"{image}.yaml").write_text(yaml.safe_dump({
+        "kind": "Package", "metadata": {"name": image}, "spec": spec,
+    }), encoding="utf-8")
 
 
 def allowlist_entry(rule, pattern, ticket="RHIDP-1"):
@@ -225,7 +240,7 @@ class TestParseOciRef:
 
         Writing a second grammar here is what made this the only parser in the repo
         that rejected `name:tag@digest` — and rejected it as `ref-form`, an error no
-        allowlist entry can suppress because it carries no image name. Under
+        allowlist entry can suppress. Under
         `--validate-mode gate` that is an inescapable red build on a shape
         `generateCatalogIndex.py` documents as valid and writes itself.
         """
@@ -670,9 +685,9 @@ class TestAllowlist:
         assert len(suppressed) == 1
 
     def test_a_structural_finding_is_never_suppressed(self):
-        """`ref-form` is about the file, not a package — an image regex cannot judge it."""
-        allowlist = [allowlist_entry("ref-form", ".*")]
-        kept, suppressed = apply_allowlist([Finding("ref-form", "m")], allowlist)
+        """A finding with no image gives an image regex nothing to match."""
+        allowlist = [allowlist_entry("unresolved-image", ".*")]
+        kept, suppressed = apply_allowlist([Finding("unresolved-image", "m")], allowlist)
         assert len(kept) == 1
         assert suppressed == []
 
@@ -1113,16 +1128,6 @@ class TestPolicyRules:
         """The annotation as images carry it: one {plugin-path: package.json} per plugin."""
         return {DYNAMIC_PACKAGES_ANNOTATION: encoded_packages([{p: {}} for p in paths])}
 
-    @staticmethod
-    def _write_package_entity(output_dir, image, dynamic_artifact):
-        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
-        packages_dir.mkdir(parents=True)
-        (packages_dir / f"{image}.yaml").write_text(yaml.safe_dump({
-            "kind": "Package",
-            "metadata": {"name": image},
-            "spec": {"packageName": image, "dynamicArtifact": dynamic_artifact},
-        }), encoding="utf-8")
-
     def test_a_ref_without_a_path_to_a_one_plugin_image_passes(self, tmp_path):
         result = run(
             tmp_path,
@@ -1176,7 +1181,7 @@ class TestPolicyRules:
                 "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
             },
         )
-        self._write_package_entity(output_dir, "plugin-a", ref)
+        write_package_entity(output_dir, "plugin-a", ref)
         result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
         findings = [f for f in result.findings if f.rule == "plugin-path-mismatch"]
         assert len(findings) == 1
@@ -1189,7 +1194,7 @@ class TestPolicyRules:
             [{"package": f"oci://{REGISTRY}/plugin-dcr@{DIGEST}"}],
             builds={"plugin-dcr": resolved("plugin-dcr", **self._plugins("plugin-dcr"))},
         )
-        self._write_package_entity(
+        write_package_entity(
             output_dir, "plugin-dcr", f"oci://{REGISTRY}/plugin-dcr:1.0.0!plugin"
         )
         result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
@@ -1204,7 +1209,7 @@ class TestPolicyRules:
             [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
             builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
         )
-        self._write_package_entity(output_dir, "plugin-a", "oci://quay.io/other/bundle:2.4.2")
+        write_package_entity(output_dir, "plugin-a", "oci://quay.io/other/bundle:2.4.2")
         result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
         assert "plugin-path-mismatch" not in rules_of(result)
 
@@ -1224,7 +1229,7 @@ class TestPolicyRules:
                 "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
             },
         )
-        self._write_package_entity(output_dir, "plugin-a", artifact)
+        write_package_entity(output_dir, "plugin-a", artifact)
         result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
         assert "plugin-path-mismatch" not in rules_of(result)
 
@@ -1640,10 +1645,186 @@ class TestRegistryPolicy:
         )
         assert "registry-not-allowed" not in rules_of(result)
 
-    def test_registry_policy_cannot_be_allowlisted(self):
+    @pytest.mark.parametrize("rule", sorted(NON_ALLOWLISTABLE_RULES))
+    def test_registry_policy_cannot_be_allowlisted(self, rule):
+        assert {"registry-not-allowed", "ref-form"} <= NON_ALLOWLISTABLE_RULES
         with pytest.raises(ValueError, match="cannot be allowlisted"):
             parse_allowlist(
                 "# TODO(RHIDP-15872): temporary exception\n"
-                "registry-not-allowed ^plugin-a$\n",
+                f"{rule} ^plugin-a$\n",
                 "allowlist.txt",
             )
+
+
+class TestMalformedRefIsRefForm:
+    """An unparseable ref is malformed, not a registry violation (#4570 review)."""
+
+    BANG = f"oci://{REGISTRY}/plugin-a@{DIGEST}!"
+
+    @staticmethod
+    def _stages(tmp_path, result):
+        """plugin-a's stages after record_in_report writes the result."""
+        report_file = tmp_path / "build-report.json"
+        report = BuildReport(str(report_file))
+        report.add_plugin("plugin-a", package="@scope/plugin-a")
+        record_in_report(result, report)
+        report.save()
+        return json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]
+
+    def test_a_bare_trailing_bang_is_one_ref_form_naming_the_selector(self, tmp_path):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        assert rules_of(result) == ["ref-form"]
+        message = result.findings[0].message
+        assert "not a well-formed oci:// image reference" in message
+        assert "!plugin-path selector is empty" in message
+        # Same shape as the other three sources: plugin, tier, position, expected base.
+        assert (
+            "'plugin-a' (unspecified) in dynamic-plugins.default.yaml plugins[0]: "
+            in message
+        )
+        assert message.endswith(f"; expected {REGISTRY}")
+
+    def test_a_malformed_dpdy_ref_reads_the_tier_from_its_package_entity(
+        self, tmp_path
+    ):
+        output_dir, builds_dir = write_index(
+            tmp_path, [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}!"}],
+            builds={},
+        )
+        write_package_entity(
+            output_dir, "plugin-a", f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            support="community",
+        )
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            registry_policy_only=True, community_registry=COMMUNITY_REGISTRY,
+        )
+        assert rules_of(result) == ["ref-form"]
+        message = result.findings[0].message
+        assert message.startswith("'plugin-a' (community) in ")
+        assert message.endswith(f"; expected {COMMUNITY_REGISTRY}")
+
+    def test_a_repeated_malformed_package_is_one_ref_form_naming_the_first(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [{"package": self.BANG}, {"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        ref_form = [f for f in result.findings if f.rule == "ref-form"]
+        assert len(ref_form) == 1
+        assert "plugins[0]" in ref_form[0].message
+        assert "duplicate-ref" in rules_of(result)
+
+    def test_a_bare_trailing_bang_still_fails_the_policy_only_gate(self, tmp_path):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")}, registry_policy_only=True,
+        )
+        assert rules_of(result) == ["ref-form"]
+
+    def test_policy_only_gate_ignores_a_non_oci_package(self, tmp_path):
+        """Full validation reports it; the unconditional gate never did."""
+        result = run(
+            tmp_path, [{"package": "./dynamic-plugins/dist/plugin-a-dynamic"}],
+            builds={}, registry_policy_only=True,
+        )
+        assert result.findings == []
+
+    def test_a_local_dpdy_path_is_not_attributed_or_given_an_expected_base(
+        self, tmp_path
+    ):
+        """A local path names no image or registry, so it fails no plugin's stage."""
+        local = "./dynamic-plugins/dist/plugin-a"
+        result = run(tmp_path, [{"package": local}], builds={})
+        assert rules_of(result) == ["ref-form"]
+        finding = result.findings[0]
+        assert finding.image == ""
+        # The whole message, so no plugin, tier or expected base can creep back in.
+        assert finding.message == (
+            f"dynamic-plugins.default.yaml plugins[0]: '{local}' "
+            "is a local path, not an oci:// reference"
+        )
+        assert "validate" not in self._stages(tmp_path, result)
+
+    def test_a_malformed_index_ref_is_ref_form_and_cannot_be_allowlisted(self, tmp_path):
+        result = run(
+            tmp_path, [], builds={},
+            index_json={"plugin-a": {
+                "registryReference": f"{REGISTRY}/plugin-a@sha256:abc",
+            }},
+            allowlist=[allowlist_entry("ref-form", ".*")],
+        )
+        assert rules_of(result) == ["ref-form"]
+        message = result.findings[0].message
+        assert "'plugin-a' (unspecified) in index.json" in message
+        assert f"expected {REGISTRY}" in message
+        # index.json values carry no scheme, so the scheme is not the problem.
+        assert "oci://" not in message
+        assert result.suppressed == []
+
+    def test_an_empty_registry_reference_says_so_and_names_the_expected_base(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": {"registryReference": "", "support": "community"}},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        ref_form = [f for f in result.findings if f.rule == "ref-form"]
+        assert len(ref_form) == 1
+        message = ref_form[0].message
+        assert "'plugin-a' (community) in plugin_builds/" in message
+        assert "the reference is empty" in message
+        assert f"expected {COMMUNITY_REGISTRY}" in message
+        assert "oci://" not in message
+
+    def test_a_malformed_plugin_builds_ref_still_fails_that_plugins_validate_stage(
+        self, tmp_path
+    ):
+        """The status page attributes findings by image; an image-less one marks nothing."""
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@sha256:abc"}},
+        )
+        stage = self._stages(tmp_path, result)["validate"]
+        assert stage["status"] == "fail"
+        assert any(e.startswith("[ref-form]") for e in stage["errors"])
+
+    def test_a_malformed_dpdy_ref_still_fails_that_plugins_validate_stage(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        stage = self._stages(tmp_path, result)["validate"]
+        assert stage["status"] == "fail"
+        assert any(e.startswith("[ref-form]") for e in stage["errors"])
+
+    def test_a_malformed_package_entity_artifact_is_ref_form_on_its_plugin(
+        self, tmp_path
+    ):
+        output_dir, builds_dir = write_index(
+            tmp_path, [], builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+        )
+        write_package_entity(
+            output_dir, "plugin-a", f"oci://{COMMUNITY_REGISTRY}/plugin-a@sha256:abc",
+            support="community",
+        )
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            registry_policy_only=True, community_registry=COMMUNITY_REGISTRY,
+        )
+        assert [(f.rule, f.image) for f in result.findings] == [("ref-form", "plugin-a")]
+        message = result.findings[0].message
+        assert message.startswith("'plugin-a' (community) in ")
+        assert "packages/plugin-a.yaml: " in message
+        assert "not a well-formed oci:// image reference" in message
+        assert message.endswith(f"; expected {COMMUNITY_REGISTRY}")
