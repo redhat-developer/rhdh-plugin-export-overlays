@@ -25,6 +25,7 @@ export type ScorecardDeployOptions = {
   appConfig?: string;
   dynamicPlugins: string;
   valueFile?: string;
+  subscription?: string;
   beforeDeploy?: (rhdh: RHDHDeployment) => Promise<void>;
 };
 
@@ -38,6 +39,7 @@ export async function deployRhdh(
     version: process.env.RHDH_VERSION,
     ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     ...(options.valueFile ? { valueFile: options.valueFile } : {}),
+    ...(options.subscription ? { subscription: options.subscription } : {}),
     dynamicPlugins: options.dynamicPlugins,
   });
   await options.beforeDeploy?.(rhdh);

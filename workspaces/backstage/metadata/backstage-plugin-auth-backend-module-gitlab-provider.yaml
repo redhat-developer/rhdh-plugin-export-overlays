@@ -38,4 +38,4 @@ spec:
                 clientSecret: ${GITLAB_CLIENT_SECRET}
                 signIn:
                   resolvers:
-                    - resolver: emailMatchingUserEntityProfileEmail
+                    - resolver: userIdMatchingUserEntityAnnotation
