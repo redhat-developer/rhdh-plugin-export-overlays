@@ -58,13 +58,12 @@ test.describe("GitLab PQC (forced ML-KEM)", () => {
 
     // Temporary until the GitLab is upgraded (assert users are absent).
     await expect(async () => {
-      expect(
-        await checkUserDisplayNamesInCatalog(
-          baseUrl,
-          GITLAB_AUTH_CATALOG_TOKEN,
-          [...GITLAB_INGESTED_USERS],
-        ),
-      ).toBe(false);
+      const usersPresent = await checkUserDisplayNamesInCatalog(
+        baseUrl,
+        GITLAB_AUTH_CATALOG_TOKEN,
+        [...GITLAB_INGESTED_USERS],
+      );
+      expect(usersPresent).toBe(false);
     }).toPass({ timeout: 120_000, intervals: [3_000] });
   });
 });
