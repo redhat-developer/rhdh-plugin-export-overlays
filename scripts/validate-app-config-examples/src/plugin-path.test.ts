@@ -8,6 +8,7 @@
 // The registry is mocked: each test hands the checker a fetch that answers
 // from a table, so no test touches the network or needs skopeo.
 
+import { setTimeout as sleep } from "node:timers/promises";
 import { describe, expect, it } from "vite-plus/test";
 import {
   PluginPathChecker,
@@ -123,6 +124,15 @@ describe("PluginPathChecker", () => {
       reason: "not tried: the run's 0s budget ran out",
     });
     expect(calls).toEqual([]);
+  });
+
+  it("starts the budget at the first fetch, not when the checker is built", async () => {
+    // main() builds the checker before the schema layer runs.
+    const { fetch, calls } = fakeRegistry({});
+    const checker = new PluginPathChecker(fetch, { ...NO_DELAY, budgetMs: 10 });
+    await sleep(20);
+    await checker.check(`oci://${OWN}/a:1!a`);
+    expect(calls).toHaveLength(1);
   });
 
   it("calls a ref missing when no candidate has the image", async () => {
