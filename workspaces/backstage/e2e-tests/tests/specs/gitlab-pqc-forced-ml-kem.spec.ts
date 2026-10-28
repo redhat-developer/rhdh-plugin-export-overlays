@@ -4,9 +4,7 @@ import {
   requireEnv,
 } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
-import {
-  checkUserDisplayNamesInCatalog,
-} from "../../support/api/catalog-query-helpers.js";
+import { checkUserDisplayNamesInCatalog } from "../../support/api/catalog-query-helpers.js";
 import {
   CONFIG_DIR,
   GITLAB_AUTH_CATALOG_TOKEN,
