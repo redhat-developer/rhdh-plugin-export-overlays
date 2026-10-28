@@ -202,6 +202,7 @@ that matter most:
 | `unknown-image`        | error    | An `oci://` ref names an image with no `plugin_builds/` entry — the index and build metadata disagree.     |
 | `digest-mismatch`      | error    | A digest-pinned ref does not match the digest `plugin_builds/` recorded.                                  |
 | `registry-not-allowed` | error    | A selected plugin's OCI ref uses a registry other than `--community-registry` for `support: community`, or `--registry` for every other support tier. The check covers DPDY, `plugin_builds/`, `index.json`, and selected Package entities. |
+| `ref-form`             | error    | A ref does not parse as an `oci://` image reference: wrong scheme, truncated digest, or an empty `!plugin-path` (bare trailing `!`). No allowlist entry can suppress it. |
 | `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
 | `not-digest-pinned`    | error    | A ref carries a tag rather than a digest — the tag points at the manifest list, which lacks `io.backstage.dynamic-packages` (RHDHBUGS-3815). Always fails. |
 | `plugin-path-mismatch` | error    | A DPDY ref or selected Package entity's `dynamicArtifact` selects a `!plugin-path` its image does not declare (install extracts nothing), or selects none on an image declaring several (install fails). Images with no `plugin_builds/` entry are not checked. |

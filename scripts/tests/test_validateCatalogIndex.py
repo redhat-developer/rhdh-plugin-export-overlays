@@ -1647,3 +1647,57 @@ class TestRegistryPolicy:
                 "registry-not-allowed ^plugin-a$\n",
                 "allowlist.txt",
             )
+
+
+class TestMalformedRefIsRefForm:
+    """An unparseable ref is malformed, not a registry violation (#4570 review)."""
+
+    BANG = f"oci://{REGISTRY}/plugin-a@{DIGEST}!"
+
+    @staticmethod
+    def _policy_only(tmp_path, packages, builds=None, index_json=None):
+        output_dir, builds_dir = write_index(
+            tmp_path, packages, builds=builds, index_json=index_json
+        )
+        return validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            registry_policy_only=True,
+        )
+
+    def test_a_bare_trailing_bang_is_one_ref_form_naming_the_selector(self, tmp_path):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        assert rules_of(result) == ["ref-form"]
+        assert "!plugin-path selector is empty" in result.findings[0].message
+
+    def test_a_bare_trailing_bang_still_fails_the_policy_only_gate(self, tmp_path):
+        result = self._policy_only(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        assert rules_of(result) == ["ref-form"]
+
+    def test_policy_only_gate_ignores_a_non_oci_package(self, tmp_path):
+        """Full validation reports it; the unconditional gate never did."""
+        result = self._policy_only(
+            tmp_path, [{"package": "./dynamic-plugins/dist/plugin-a-dynamic"}],
+            builds={},
+        )
+        assert result.findings == []
+
+    def test_a_malformed_index_ref_is_ref_form_and_cannot_be_allowlisted(self, tmp_path):
+        output_dir, builds_dir = write_index(
+            tmp_path, [], builds={},
+            index_json={"plugin-a": {
+                "registryReference": f"{REGISTRY}/plugin-a@sha256:abc",
+            }},
+        )
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [allowlist_entry("ref-form", ".*")],
+            has_build_metadata=True,
+        )
+        assert rules_of(result) == ["ref-form"]
+        assert "'plugin-a' in index.json" in result.findings[0].message
+        assert result.suppressed == []

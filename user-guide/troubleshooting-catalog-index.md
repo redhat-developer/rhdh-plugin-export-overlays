@@ -161,7 +161,15 @@ expected may not be the one that applies.
 
 #### ref-form
 
-A `plugins[].package` value is not an `oci://` reference. Generated indexes should never produce this; it means the file was hand-edited or a generator step wrote a malformed value.
+A package reference does not parse as an `oci://` image reference: a `plugins[].package`
+value with another scheme or a local path, a truncated digest, or a bare trailing `!` with
+no `!plugin-path` after it. The registry policy reports an unparseable `registryReference`
+or `dynamicArtifact` from `plugin_builds/`, `index.json`, or a Package entity under this
+rule too, because its registry cannot be read. A malformed `oci://` ref also fails the
+registry policy gate. Generated indexes should never produce this; it means the file was
+hand-edited or a generator step wrote a malformed value. No allowlist entry can suppress it.
+
+**Fix:** correct the reference, or drop the trailing `!` when no plugin path is meant.
 
 <a id="validation-index-ref-mismatch"></a>
 

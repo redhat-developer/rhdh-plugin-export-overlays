@@ -65,7 +65,8 @@ class Rule(NamedTuple):
 RULES: dict[str, Rule] = {
     "ref-form": Rule(
         ERROR,
-        "a plugins[].package value is not an oci:// reference",
+        "a package ref does not parse as an oci:// image reference (for example "
+        "a non-oci scheme, a truncated digest, or an empty !plugin-path)",
     ),
     "duplicate-ref": Rule(
         ERROR,
@@ -450,14 +451,11 @@ def check_registry_policy(
         oci_value = value if value.startswith(OCI_PREFIX) else f"{OCI_PREFIX}{value}"
         ref = parse_oci_ref(oci_value)
         if ref is None:
+            # No image name: a structural finding the allowlist cannot suppress.
             findings.append(
                 Finding(
-                    rule="registry-not-allowed",
-                    message=(
-                        f"'{image}' ({support}) in {source} has an invalid OCI "
-                        f"reference '{value}' (expected {expected})"
-                    ),
-                    image=image,
+                    rule="ref-form",
+                    message=f"'{image}' in {source}: {_malformed(value)}",
                 )
             )
         elif ref.registry != expected:
@@ -473,7 +471,8 @@ def check_registry_policy(
             )
 
     for entry in entries:
-        if entry.package.startswith(OCI_PREFIX):
+        # A DPDY ref that does not parse is check_ref_form's to report.
+        if parse_oci_ref(entry.package) is not None:
             image = _image_of(entry.package)
             check(image, entry.package, f"{DPDY_FILENAME} plugins[{entry.position}]")
 
@@ -602,6 +601,37 @@ def apply_allowlist(
     return kept, suppressed
 
 
+def _malformed(value: str) -> str:
+    """Why a ref is `ref-form`, naming the empty selector when that is the cause."""
+    hint = " (the !plugin-path selector is empty)" if value.endswith("!") else ""
+    return f"'{value}' is not a well-formed {OCI_PREFIX} image reference{hint}"
+
+
+def check_ref_form(entries: list[DpdyEntry], oci_only: bool = False) -> list[Finding]:
+    """Report each distinct DPDY package that does not parse.
+
+    The registry rule skips refs it cannot parse, so --registry-policy-only runs this
+    with `oci_only` to keep a malformed `oci://` ref failing that gate. A non-oci
+    package was never that gate's to fail.
+    """
+    findings: list[Finding] = []
+    seen: set[str] = set()
+    for entry in entries:
+        if entry.package in seen:
+            continue
+        seen.add(entry.package)
+        if oci_only and not entry.package.startswith(OCI_PREFIX):
+            continue
+        if parse_oci_ref(entry.package) is None:
+            findings.append(
+                Finding(
+                    rule="ref-form",
+                    message=f"plugins[{entry.position}]: {_malformed(entry.package)}",
+                )
+            )
+    return findings
+
+
 def check_dpdy(
     entries: list[DpdyEntry],
     builds: dict[str, dict],
@@ -634,12 +664,7 @@ def check_dpdy(
 
         ref = parse_oci_ref(package)
         if ref is None:
-            findings.append(
-                Finding(
-                    rule="ref-form",
-                    message=f"plugins[{entry.position}]: '{package}' is not an {OCI_PREFIX} reference",
-                )
-            )
+            # Reported by check_ref_form, which also runs in policy-only mode.
             continue
 
         by_image[ref.image] = ref
@@ -1246,10 +1271,11 @@ def validate(
         if (ref := parse_oci_ref(entry.package)) is not None
     )
     package_entities = load_selected_package_entities(output_dir, selected_images)
-    findings = check_registry_policy(
+    findings = check_ref_form(entries, oci_only=registry_policy_only)
+    findings.extend(check_registry_policy(
         entries, index, builds, package_entities,
         registry, community_registry or registry,
-    )
+    ))
     if registry_policy_only:
         # update-index.sh calls this unconditionally, even when its other rules run
         # in report/off mode. No allowlist is applied to this result.
