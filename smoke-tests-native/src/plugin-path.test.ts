@@ -170,10 +170,26 @@ test("selectedPluginPathProblem rejects a ref the install CLI cannot parse", () 
       ref,
     );
   }
-  assert.equal(
-    selectedPluginPathProblem(`oci://${REGISTRY}/a:1!a`, manifest),
-    undefined,
-  );
+  for (const ref of [
+    `oci://${REGISTRY}/a:1!a`,
+    `${ociRef("a")}!a`,
+    "oci://localhost:5000/ns/a:1!a",
+  ]) {
+    assert.equal(selectedPluginPathProblem(ref, manifest), undefined, ref);
+  }
+  for (const ref of [
+    "oci://localhost:5000/a", // the port is not a tag
+    `oci://${REGISTRY}/a:1@${DIGEST}`, // a tag and a digest
+    `oci://${REGISTRY}/a@md5:abc`, // an unknown digest algorithm
+    "oci://a:1", // no path after the host
+    `oci://${REGISTRY}/a:!a`, // an empty tag
+  ]) {
+    assert.match(
+      selectedPluginPathProblem(ref, manifest) ?? "",
+      /not a ref the install CLI accepts/,
+      ref,
+    );
+  }
 });
 
 test("selectedPluginPathProblem rejects a selector on an image declaring nothing", () => {

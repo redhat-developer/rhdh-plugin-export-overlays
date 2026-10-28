@@ -44,10 +44,36 @@ export function probeCandidates(ref: string): string[] {
     : [primary];
 }
 
-// The install CLI's OCI_REGEX (oci-key in cli-module-install-dynamic-plugins): a
-// tag or a digest is required, and `!<path>` may only follow it.
-const INSTALLABLE_OCI_REF =
-  /^oci:\/\/[^\s/:@]+(?::\d+)?(?:\/[^\s:@]+)+(?::[^\s!@:]+|@(?:sha256|sha512|blake3):[^\s!@:]+)(?:![^\s]+)?$/;
+/**
+ * Whether the install CLI's OCI_REGEX (oci-key in cli-module-install-dynamic-plugins)
+ * accepts a ref: `oci://host[:port]/path` with a tag or a digest, then an optional
+ * non-empty `!<path>`. Parsed by hand; the one-regex form backtracks badly.
+ */
+export function isInstallableOciRef(ref: string): boolean {
+  if (!ref.startsWith(OCI_PREFIX) || /\s/.test(ref)) return false;
+  const body = ref.slice(OCI_PREFIX.length);
+  const bang = body.indexOf("!");
+  if (bang === body.length - 1) return false;
+  const image = bang === -1 ? body : body.slice(0, bang);
+  const at = image.indexOf("@");
+  let name: string;
+  if (at === -1) {
+    const colon = image.lastIndexOf(":");
+    const tag = image.slice(colon + 1);
+    if (colon === -1 || tag === "") return false;
+    name = image.slice(0, colon);
+  } else {
+    if (!/^(?:sha256|sha512|blake3):[^!@:]+$/.test(image.slice(at + 1)))
+      return false;
+    name = image.slice(0, at);
+  }
+  const [host = "", ...segments] = name.split("/");
+  return (
+    segments.length > 0 &&
+    segments.every((segment) => segment !== "" && !/[:@]/.test(segment)) &&
+    /^[^/:@]+(?::\d+)?$/.test(host)
+  );
+}
 
 export const DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages";
 
@@ -132,7 +158,7 @@ export function selectedPluginPathProblem(
   ref: string,
   manifestJson: string,
 ): string | undefined {
-  if (!INSTALLABLE_OCI_REF.test(ref)) {
+  if (!isInstallableOciRef(ref)) {
     return "is not a ref the install CLI accepts (oci://<registry>/<repo> with a tag or digest, then an optional !<path>)";
   }
   const selector = pluginSelector(ref);
