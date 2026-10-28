@@ -234,6 +234,6 @@ test("plugin-path.ts imports nothing", () => {
     "utf8",
   );
   assert.doesNotMatch(source, /^\s*import\b/m);
-  assert.doesNotMatch(source, /^\s*export\b[^;\n]*\bfrom\s*["']/m);
+  assert.doesNotMatch(source, /^\s*export\b[^;]*?\bfrom\s*["']/m);
   assert.doesNotMatch(source, /\b(?:import|require)\s*\(/);
 });

@@ -45,7 +45,7 @@ export type RetryOptions = {
   deadline?: number;
 };
 
-export type CheckerOptions = RetryOptions & {
+export type CheckerOptions = Omit<RetryOptions, "deadline"> & {
   /** Time for the whole run from its first fetch; later fetches are not started. */
   budgetMs?: number;
 };
@@ -112,10 +112,11 @@ export async function fetchWithRetry(
   attempt = 1,
 ): Promise<ManifestResult> {
   const result = await fetch(image);
-  if (result.kind !== "unavailable" || attempt >= attempts || Date.now() >= deadline) {
+  const delay = retryDelayMs * 2 ** (attempt - 1);
+  if (result.kind !== "unavailable" || attempt >= attempts || Date.now() + delay >= deadline) {
     return result;
   }
-  await sleep(retryDelayMs * 2 ** (attempt - 1));
+  await sleep(delay);
   return fetchWithRetry(fetch, image, { attempts, retryDelayMs, deadline }, attempt + 1);
 }
 

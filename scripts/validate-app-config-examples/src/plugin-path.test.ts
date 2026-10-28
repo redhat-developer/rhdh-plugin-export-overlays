@@ -165,6 +165,12 @@ describe("fetchWithRetry", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("starts no retry whose backoff would end past the deadline", async () => {
+    const { fetch, calls } = fakeRegistry({ img: [{ kind: "unavailable", reason: "502" }] });
+    await fetchWithRetry(fetch, "img", { retryDelayMs: 50, deadline: Date.now() + 25 });
+    expect(calls).toHaveLength(1);
+  });
+
   it("does not retry an image the registry says is missing", async () => {
     const { fetch, calls } = fakeRegistry({});
     await fetchWithRetry(fetch, "img", NO_DELAY);
