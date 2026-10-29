@@ -480,6 +480,10 @@ test.describe(
       uiHelper,
       page,
     }) => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "product_bug: RHDH frontend skips session refresh after reload-then-navigate",
+      );
       test.setTimeout(600_000);
 
       // sessionDuration: 3days is set in app-config (and retained across resolver updates).
