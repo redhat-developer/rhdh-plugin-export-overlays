@@ -8,6 +8,7 @@ import {
   getPanel,
   goToAdoptionInsights,
   waitForPanelApiCalls,
+  waitForPanelChart,
   waitUntilApiCallSucceeds,
   runInteractionTrackingSetup,
   TestHelper,
@@ -80,8 +81,11 @@ test.describe.serial("Test Adoption Insights", () => {
     });
 
     test("Active users panel shows the visitor", async () => {
+      // Analytics backend may not have committed visit data yet — retry
+      // with page reload and date-range reselection until chart renders.
+      await waitForPanelChart(page, "Active users");
+
       const panel = getPanel(page, "Active users");
-      await expect(panel.locator(".recharts-surface")).toBeVisible();
       await expect(
         panel.getByText(
           /^Average peak active user count was \d+ per hour for this period\.$/,
