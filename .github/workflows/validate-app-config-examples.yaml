@@ -12,6 +12,8 @@ on:
       - 'scripts/.yarnrc.yml'
       - 'scripts/vite.config.ts'
       - 'scripts/validate-app-config-examples/**'
+      # The plugin-path rule the validator imports from the native smoke harness.
+      - 'smoke-tests-native/src/plugin-path.ts'
       - '.github/workflows/validate-app-config-examples.yaml'
   workflow_dispatch:
     inputs:
@@ -72,7 +74,9 @@ jobs:
       # itself would otherwise ship without the semantic path executing once.
       # This exercises it against a known workspace whose package publishes a
       # compiled config.schema.json. Warn-only: it is a smoke check of the tool,
-      # not a verdict on metadata the author did not touch.
+      # not a verdict on metadata the author did not touch. --check-plugin-paths
+      # also proves the runner can read manifests; --warn-only does not soften
+      # it, so a broken ref in the sample fails here.
       - name: Smoke-check the schema path against known metadata
         if: github.event_name == 'pull_request'
         env:
@@ -88,7 +92,8 @@ jobs:
             exit 1
           fi
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
-          vp exec validate-app-config-examples --check-schemas --warn-only --since "${sha}~1"
+          vp exec validate-app-config-examples --check-schemas --warn-only --since "${sha}~1" \
+            --check-plugin-paths --allow-unpublished
 
       # The sweep used to run --warn-only because the tree carried metadata
       # written before this check existed. That backlog is now clear
@@ -115,8 +120,11 @@ jobs:
           # how a release branch carrying its own backlog gets surveyed without
           # editing this file.
           WARN_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.warn-only }}
+        # --check-plugin-paths reads each image's manifest anonymously with the
+        # runner's skopeo, as the installer does. Here every tag should exist,
+        # so an unpublished one fails.
         run: |
-          args=()
+          args=(--check-plugin-paths)
           if [[ "$CHECK_SCHEMAS" == "true" ]]; then
             # Undeclared keys ride along on the sweep rather than getting their
             # own toggle: they are reported and never failed, and the sweep is
@@ -132,8 +140,14 @@ jobs:
       # On a PR only the metadata the author just touched is validated, so a
       # mismatch here is something they introduced and can act on. Blocking is
       # fair, and keeps the check from being advisory-only forever.
+      #
+      # --allow-unpublished: a PR's bs_* tags are only published on merge, so
+      # an own-image tag that does not exist yet is noted, not failed; the
+      # scheduled sweep checks it once it is published.
       - name: Validate (PR — changed metadata only)
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas
+        run: >-
+          vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas
+          --check-plugin-paths --allow-unpublished

@@ -10,7 +10,17 @@
 
 import { describe, expect, it } from "vite-plus/test";
 import { byCodepoint } from "./json.ts";
-import { exitCodeFor, main, printReport, type Row, type SchemaTally } from "./validate.ts";
+import { PluginPathChecker, type FetchManifest } from "./plugin-path.ts";
+import {
+  checkPluginPaths,
+  exitCodeFor,
+  main,
+  printReport,
+  recordPluginPathOutcome,
+  type PluginPathTally,
+  type Row,
+  type SchemaTally,
+} from "./validate.ts";
 
 const NO_SCHEMAS: SchemaTally = {
   validated: 0,
@@ -257,5 +267,174 @@ describe("a workspace patch that stops applying", () => {
     };
     expect(exitCodeFor([row])).toBe(0);
     expect(exitCodeFor([{ ...row, status: "FAIL" }])).toBe(1);
+  });
+});
+
+const emptyTally = (): PluginPathTally => ({
+  checked: 0,
+  mismatched: 0,
+  unpublished: 0,
+  unavailable: 0,
+});
+const job = (ref: string) => ({ row: { ...passing, notes: [] }, ref });
+
+const missingEverywhere: FetchManifest = async () => ({
+  kind: "missing",
+  reason: "manifest unknown",
+});
+
+describe("plugin-path outcomes", () => {
+  const OWN_REF = "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/a:bs_1__1!a";
+  const EXTERNAL_REF = "oci://quay.io/org/dynamic-plugins:2.4.2";
+
+  it("fails the row on a mismatch and names the ref", () => {
+    const { row, ref } = job(OWN_REF);
+    const tally = emptyTally();
+    recordPluginPathOutcome(
+      { row, ref },
+      { kind: "mismatch", problem: "selects !a, but the image declares b" },
+      false,
+      tally,
+    );
+    expect(row.status).toBe("FAIL");
+    expect(row.notes).toEqual([`plugin path: ${OWN_REF} selects !a, but the image declares b`]);
+    expect(tally).toMatchObject({ checked: 1, mismatched: 1 });
+  });
+
+  it("notes an unpublished own tag when allowed, without failing", () => {
+    const { row, ref } = job(OWN_REF);
+    const tally = emptyTally();
+    recordPluginPathOutcome(
+      { row, ref },
+      { kind: "missing", reason: "manifest unknown" },
+      true,
+      tally,
+    );
+    expect(row.status).toBe("PASS");
+    expect(row.notes[0]).toMatch(/not published yet/);
+    expect(tally).toMatchObject({ checked: 0, unpublished: 1 });
+  });
+
+  it("fails an unpublished own tag when not allowed", () => {
+    const { row, ref } = job(OWN_REF);
+    recordPluginPathOutcome(
+      { row, ref },
+      { kind: "missing", reason: "manifest unknown" },
+      false,
+      emptyTally(),
+    );
+    expect(row.status).toBe("FAIL");
+  });
+
+  it("fails a missing external image even when unpublished tags are allowed", () => {
+    const { row, ref } = job(EXTERNAL_REF);
+    recordPluginPathOutcome(
+      { row, ref },
+      { kind: "missing", reason: "unauthorized" },
+      true,
+      emptyTally(),
+    );
+    expect(row.status).toBe("FAIL");
+  });
+
+  it("fails rather than passes a ref the registry never answered for", () => {
+    const { row, ref } = job(EXTERNAL_REF);
+    const tally = emptyTally();
+    recordPluginPathOutcome({ row, ref }, { kind: "unavailable", reason: "timeout" }, true, tally);
+    expect(row.status).toBe("FAIL");
+    expect(row.detail).toMatch(/registry unreachable/);
+    expect(tally.unavailable).toBe(1);
+  });
+
+  it("keeps the detail of an earlier failure", () => {
+    const row: Row = { ...passing, status: "FAIL", detail: "structural", notes: [] };
+    recordPluginPathOutcome(
+      { row, ref: OWN_REF },
+      { kind: "mismatch", problem: "x" },
+      false,
+      emptyTally(),
+    );
+    expect(row.detail).toBe("structural");
+  });
+
+  it("checks every job and tallies the outcomes", async () => {
+    const annotation = Buffer.from(JSON.stringify([{ a: {} }, { b: {} }])).toString("base64");
+    const fetch: FetchManifest = async () => ({
+      kind: "ok",
+      manifest: JSON.stringify({ annotations: { "io.backstage.dynamic-packages": annotation } }),
+    });
+    const jobs = [job(`${EXTERNAL_REF}!a`), job(EXTERNAL_REF), job(`${EXTERNAL_REF}!c`)];
+    const tally = await checkPluginPaths(jobs, new PluginPathChecker(fetch), false);
+    expect(tally).toEqual({ checked: 3, mismatched: 2, unpublished: 0, unavailable: 0 });
+    expect(jobs.map((j) => j.row.status)).toEqual(["PASS", "FAIL", "FAIL"]);
+  });
+
+  it("fails a malformed own ref even when its tag is unpublished", async () => {
+    // A bare trailing "!": the install CLI rejects it.
+    const jobs = [job("oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/a:bs_1__1!")];
+    const tally = await checkPluginPaths(jobs, new PluginPathChecker(missingEverywhere), true);
+    expect(tally).toEqual({ checked: 1, mismatched: 1, unpublished: 0, unavailable: 0 });
+    expect(jobs[0]?.row.status).toBe("FAIL");
+  });
+
+  it("checks the dynamicArtifact of every metadata file with --check-plugin-paths", async () => {
+    const images: string[] = [];
+    const fetch: FetchManifest = async (image) => {
+      images.push(image);
+      return { kind: "unavailable", reason: "offline" };
+    };
+    const io = capture();
+    const code = await main(
+      ["--check-plugin-paths"],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(fetch, { attempts: 1 }),
+    );
+    // Offline must fail the run, never pass it unchecked.
+    expect(code).toBe(1);
+    expect(images.length).toBeGreaterThan(0);
+    expect(io.stdout).toMatch(/registry unreachable, plugin path not checked/);
+  });
+
+  it("notes unpublished own tags with --allow-unpublished, and fails external ones", async () => {
+    const io = capture();
+    const code = await main(
+      ["--check-plugin-paths", "--allow-unpublished"],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(missingEverywhere),
+    );
+    // Own ghcr tags are noted; the external cost-management bundle still fails.
+    expect(io.stdout).toMatch(/not published yet: [1-9]/);
+    expect(io.stdout).toMatch(/dynamicArtifact names an image that cannot be pulled/);
+    expect(code).toBe(1);
+  });
+
+  it("reads no manifest without --check-plugin-paths", async () => {
+    let calls = 0;
+    const fetch: FetchManifest = async () => {
+      calls += 1;
+      return { kind: "unavailable", reason: "offline" };
+    };
+    const io = capture();
+    await main([], io.write, io.writeError, new PluginPathChecker(fetch));
+    expect(calls).toBe(0);
+    expect(io.stdout.includes("Plugin paths")).toBeFalsy();
+  });
+
+  it("prints the plugin-path tally when the layer ran", () => {
+    const io = capture();
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      {
+        checked: false,
+        pluginPaths: { checked: 0, mismatched: 0, unpublished: 2, unavailable: 0 },
+      },
+      io.write,
+      io.writeError,
+    );
+    expect(io.stdout).toMatch(/Plugin paths — checked: 0 {2}mismatched: 0 {2}not published yet: 2/);
+    expect(io.stdout).toMatch(/no dynamicArtifact was checked/);
   });
 });
