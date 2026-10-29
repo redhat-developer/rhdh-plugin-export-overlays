@@ -277,6 +277,7 @@ main() {
 
   install_gitops_operator
   configure_rbac
+  wait_for "ArgoCD server route" "oc get route openshift-gitops-server -n ${GITOPS_NAMESPACE}" 120 10
   get_argocd_credentials
   create_test_application
   create_rollout_manager
