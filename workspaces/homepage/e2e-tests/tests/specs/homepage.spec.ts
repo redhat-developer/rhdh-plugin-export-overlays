@@ -85,6 +85,10 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify cards display after seeding widgets", async () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Recently Visited and Top Visited widgets removed from Add Widget dialog",
+    );
     await loginAsKeycloakUser(page);
     await home.verifyHomePageLoaded({ requireWidgets: false });
     await home.seedHomePageWidgets();
