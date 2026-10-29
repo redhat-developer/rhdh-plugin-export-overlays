@@ -15,6 +15,11 @@ import type { ScorecardMetric } from "../utils/types";
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 
 test.describe.serial("Scorecard DORA Tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "scorecard homepage widget not registered in NFS Add Widget dialog",
+  );
+
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
