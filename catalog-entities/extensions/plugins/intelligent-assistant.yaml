@@ -49,9 +49,9 @@ spec:
   description: |
       # Developer Hub Intelligent Assistant
 
-      Red Hat Developer Hub Intelligent Assistant is a virtual assistant powered by generative AI. It answers questions about Red Hat Developer Hub and its capabilities.
+      Red Hat Developer Hub Intelligent Assistant is a virtual assistant powered by generative AI that offers in-depth insights into Red Hat Developer Hub, including its wide range of capabilities. You can interact with this assistant to explore and learn more about Red Hat Developer Hub in greater detail.
 
-      Developer Hub Intelligent Assistant provides a natural language interface in the Red Hat Developer Hub console. You ask questions about the product and its features and get answers as you work.
+      Developer Hub Intelligent Assistant provides a natural language interface within the Red Hat Developer Hub console, helping you easily find information about the product, understand its features, and get answers to your questions as they come up.
 
       Developer Hub Intelligent Assistant consists of two main components:
 
@@ -60,32 +60,32 @@ spec:
 
       ### Key features
 
-      - **LLM integration.** Lightspeed Core (LCORE) hosts the LLM servers and runs as the `lightspeed-core` sidecar in RHDH deployments.
-      - **Security.** Question validation restricts chats to Red Hat Developer Hub related topics.
-      - **Permissions.** Feature-level RBAC permissions.
-      - **Conversational interface.** Chat-based interaction with AI assistance.
-      - **Screen context.** Attaches current page content, such as headings, tables, alerts, and optional screenshots, to chat messages.
-      - **Notebooks (Developer Preview).** RAG queries over uploaded notebook and document files.
-      - **MCP tools.** Users configure MCP servers and per-user tokens from the settings panel.
-      - **Custom prompts.** Configurable sample and system prompts.
-      - **Rate limiting.** Per-user request rate limits on authenticated endpoints.
-      - **Session management.** Conversations and history.
+      - **LLM integration:** Lightspeed Core (LCORE) hosts the LLM servers and runs as the `lightspeed-core` sidecar in RHDH deployments.
+      - **Security:** Question validation restricts chats to Red Hat Developer Hub related topics.
+      - **Permissions:** Feature-level RBAC permissions.
+      - **Conversational interface:** Chat-based interaction with AI assistance.
+      - **Screen context:** Attaches current page content, such as headings, tables, alerts, and optional screenshots, to chat messages.
+      - **Notebooks (Developer Preview):** RAG queries over uploaded notebook and document files.
+      - **MCP tools:** Users configure MCP servers and per-user tokens from the settings panel.
+      - **Custom prompts:** Configurable sample and system prompts.
+      - **Rate limiting:** Per-user request rate limits on authenticated endpoints.
+      - **Session management:** Conversations and history.
 
       ## Usage
 
 
       ### For administrators
 
-      1. **LLM server configuration.** Lightspeed Core (LCORE) hosts the LLM servers. In RHDH deployments it runs as the `lightspeed-core` sidecar, enabled with `intelligentAssistant.enabled` in the Helm chart or the `intelligent-assistant` flavour in the Operator's Backstage custom resource. In standalone Backstage, configure it in the LCORE `lightspeed-stack.yaml`.
-      2. **Configurable prompts.** Administrators can customize the welcome prompts users see and the system prompt that sets the assistant's context.
-      3. **Feature toggles.** Enable screen context, notebooks, and MCP server integration under the `intelligent-assistant` configuration key.
+      1. **LLM server configuration:** Lightspeed Core (LCORE) hosts the LLM servers. In RHDH deployments it runs as the `lightspeed-core` sidecar, enabled with `intelligentAssistant.enabled` in the Helm chart or the `intelligent-assistant` flavour in the Operator's Backstage custom resource. In standalone Backstage, configure it in the LCORE `lightspeed-stack.yaml`.
+      2. **Configurable prompts:** Administrators can customize the welcome prompts users see and the system prompt that sets the assistant's context.
+      3. **Feature toggles:** Enable screen context, notebooks, and MCP server integration under the `intelligent-assistant` configuration key.
 
       ### For end users
 
-      1. **Access the plugin.** Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button.
-      2. **Start chatting.** Ask questions about Red Hat Developer Hub or other development topics.
-      3. **Display modes.** Switch between overlay, dock to window, and fullscreen modes from Settings. The active conversation is preserved across mode switches.
-      4. **Manage chats.** Your chat history is kept for the session. You can start new chats, view history, and delete chats.
+      1. **Access the plugin:** Navigate to your Red Hat Developer Hub portal and open the Intelligent Assistant from the floating action button.
+      2. **Start chatting:** Ask questions about Red Hat Developer Hub or other development topics.
+      3. **Display modes:** Switch between overlay, dock to window, and fullscreen modes from Settings. The active conversation is preserved across mode switches.
+      4. **Manage chats:** Your chat history is kept for the session. You can start new chats, view history, and delete chats.
 
       ### Supported topics
 
