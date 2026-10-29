@@ -284,7 +284,7 @@ test.describe("Admin > Extensions", () => {
         "red-hat-developer-hub.backstage-plugin-adoption-insights:",
       );
 
-      await uiHelper.clickButton("Cancel");
+      await uiHelper.clickButton("Back");
       await expect(
         page.getByRole("button", {
           name: new RegExp(`^${"Actions"}$`),
