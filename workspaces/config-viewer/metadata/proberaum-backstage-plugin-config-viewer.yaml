@@ -22,17 +22,5 @@ spec:
   author: Proberaum
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            proberaum.backstage-plugin-config-viewer:
-              translationResources:
-                - importName: configViewerTranslations
-                  ref: configViewerTranslationRef
-              dynamicRoutes:
-                - path: /config-viewer
-                  importName: ConfigViewerPage
-                  menuItem:
-                    text: Config viewer
+  appConfigNotRequired: true
+  appConfigExamples: []

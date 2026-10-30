@@ -26,28 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - rbac
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-rbac:
-              translationResources:
-                - importName: rbacTranslations
-                  ref: rbacTranslationRef
-              appIcons:
-                - name: rbacIcon
-                  importName: RbacIcon
-                  module: Legacy
-              dynamicRoutes:
-                - path: /rbac
-                  importName: RbacPage
-                  module: Legacy
-                  menuItem:
-                    icon: rbacIcon
-                    text: RBAC
-                    textKey: menuItem.rbac
-              menuItems:
-                rbac:
-                  parent: default.admin
-                  icon: rbacIcon
+  appConfigNotRequired: true
+  appConfigExamples: []

@@ -27,15 +27,5 @@ spec:
     supportedVersions: 1.54.9
   partOf:
     - mcp-chat
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-mcp-chat:
-              dynamicRoutes:
-                - path: /mcp-chat
-                  importName: McpChatPage
-                  menuItem:
-                    icon: MCPChatIcon
-                    text: MCP Chat
+  appConfigNotRequired: true
+  appConfigExamples: []
