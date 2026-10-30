@@ -105,12 +105,10 @@ export async function submitFeedback(
 
   await feedbackCard.getByRole("button", { name: "Submit" }).click();
 
-  const feedbackConfirmationPanel = page.getByLabel("Feedback submitted");
-  await expect(feedbackConfirmationPanel).toBeVisible();
-  await expect(feedbackConfirmationPanel).toContainText(
-    "We've received your response. Thank you for sharing your feedback!",
-  );
-  await feedbackConfirmationPanel.waitFor({ state: "hidden" });
+  // PatternFly chatbot now shows confirmation via button text change
+  await expect(
+    page.getByRole("button", { name: /response recorded/i }),
+  ).toBeVisible();
 }
 
 export function lastBotMessage(page: Page) {
