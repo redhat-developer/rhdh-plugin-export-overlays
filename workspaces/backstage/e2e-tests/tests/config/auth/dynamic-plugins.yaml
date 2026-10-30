@@ -2,13 +2,11 @@
 # are auto-loaded from metadata, and most require provider config (github, gitlab,
 # kubernetes, ldap, etc.) that this test doesn't supply, crashing RHDH on startup.
 # Guest auth is loaded by the e2e-test-utils `auth: "guest"` profile.
+# Keep this OCI ref in step with workspaces/backstage/metadata/backstage-plugin-auth.yaml.
+# `ref://` is not an option here: the plugin is not in default.packages.yaml, so the
+# catalog's dynamic-plugins.default.yaml carries no includes entry to resolve against.
+# The plugin registers /oauth2 itself through its PageBlueprint, so no
+# `dynamicPlugins.frontend` wiring is needed here.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.54.9__0.1.11
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          backstage.plugin-auth:
-            dynamicRoutes:
-              - path: /oauth2/*
-                importName: Router
