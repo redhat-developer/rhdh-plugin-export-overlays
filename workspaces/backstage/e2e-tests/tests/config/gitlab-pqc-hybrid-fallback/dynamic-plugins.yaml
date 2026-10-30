@@ -1,0 +1,4 @@
+# Same org catalog module as gitlab-auth (explicit tag; not in default.packages.yaml).
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org:bs_1.54.9__0.2.22
+    enabled: true
