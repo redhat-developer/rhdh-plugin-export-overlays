@@ -11,6 +11,7 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
+      actions: write # state cache save was failing with 403 on every run
 
     steps:
       - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
@@ -20,11 +21,17 @@ jobs:
           days-before-issue-close: -1 # never automatically close stale issues
           stale-issue-label: "stale"
           stale-issue-message: "This issue has been automatically marked as stale due to inactivity."
-          exempt-issue-labels: "stale"
+          exempt-issue-labels: "keep-open,pinned"
           # close-issue-message: 'Closing this issue due to prolonged inactivity.'
           days-before-pr-stale: 30
           days-before-pr-close: -1 # never automatically close stale PRs
           stale-pr-label: "stale"
           stale-pr-message: "This pull request has been automatically marked as stale due to inactivity."
           # close-pr-message: 'Closing this pull request due to prolonged inactivity.'
-          exempt-pr-labels: "stale,help wanted to test"
+          exempt-pr-labels: "keep-open,under-review,pinned,help wanted to test"
+          # 'stale' no longer exempts itself, so the label clears when the item is updated
+          remove-stale-when-updated: true
+          # sweep oldest-first with budget to reach the end of the queue
+          ascending: true
+          operations-per-run: 300
+          close-issue-reason: "not_planned"
