@@ -21,6 +21,8 @@ on:
       - 'scripts/*.txt'
       - 'scripts/tests/**'
       - 'scripts/requirements-dev.txt'
+      # The suite executes the inline auto-publish collector with mocked GitHub APIs.
+      - '.github/workflows/update-plugins-repo-refs.yaml'
       - '.github/workflows/validate-catalog-scripts.yaml'
   workflow_dispatch:
 
