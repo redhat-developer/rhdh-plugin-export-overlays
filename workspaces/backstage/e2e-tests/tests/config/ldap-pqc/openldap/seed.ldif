@@ -1,0 +1,102 @@
+# Bootstrap tree for RHDH LDAP e2e (OpenLDAP / Bitnami).
+# Loaded via LDAP_CUSTOM_LDIF_DIR=/ldifs — must include root + OUs.
+
+dn: dc=rhdh,dc=test
+objectClass: dcObject
+objectClass: organization
+o: RHDH Test
+dc: rhdh
+
+dn: ou=users,dc=rhdh,dc=test
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=rhdh,dc=test
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=user1,ou=users,dc=rhdh,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: user1
+cn: User 1
+sn: One
+givenName: User
+mail: user1@rhdh.test
+userPassword: user1pass
+
+dn: uid=user2,ou=users,dc=rhdh,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: user2
+cn: User 2
+sn: Two
+givenName: User
+mail: user2@rhdh.test
+userPassword: user1pass
+
+dn: uid=user3,ou=users,dc=rhdh,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: user3
+cn: User 3
+sn: Three
+givenName: User
+mail: user3@rhdh.test
+userPassword: user1pass
+
+dn: uid=rhdh-admin,ou=users,dc=rhdh,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: rhdh-admin
+cn: RHDH Admin
+sn: Admin
+givenName: RHDH
+mail: rhdh-admin@rhdh.test
+userPassword: user1pass
+
+dn: cn=Admins,ou=groups,dc=rhdh,dc=test
+objectClass: groupOfNames
+objectClass: top
+cn: Admins
+member: uid=rhdh-admin,ou=users,dc=rhdh,dc=test
+
+dn: cn=All_Users,ou=groups,dc=rhdh,dc=test
+objectClass: groupOfNames
+objectClass: top
+cn: All_Users
+member: uid=user1,ou=users,dc=rhdh,dc=test
+member: uid=user2,ou=users,dc=rhdh,dc=test
+
+dn: cn=SubAdmins,ou=groups,dc=rhdh,dc=test
+objectClass: groupOfNames
+objectClass: top
+cn: SubAdmins
+member: uid=rhdh-admin,ou=users,dc=rhdh,dc=test
+
+# Nested groups: create leaves before parents so member DNs resolve.
+dn: cn=testSubSubGroup,ou=groups,dc=rhdh,dc=test
+objectClass: groupOfNames
+objectClass: top
+cn: testSubSubGroup
+member: uid=user3,ou=users,dc=rhdh,dc=test
+
+dn: cn=testSubGroup,ou=groups,dc=rhdh,dc=test
+objectClass: groupOfNames
+objectClass: top
+cn: testSubGroup
+member: cn=testSubSubGroup,ou=groups,dc=rhdh,dc=test
+
+dn: cn=testGroup,ou=groups,dc=rhdh,dc=test
+objectClass: groupOfNames
+objectClass: top
+cn: testGroup
+member: cn=testSubGroup,ou=groups,dc=rhdh,dc=test

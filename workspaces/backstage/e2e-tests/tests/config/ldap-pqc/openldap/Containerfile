@@ -1,0 +1,79 @@
+# OpenLDAP peer for LDAP PQC e2e — UBI 10.2 ships OpenSSL 3.5.x (ML-KEM capable).
+# UBI does not package openldap-servers; build slapd from source with --with-tls=openssl
+# so LDAPS uses libssl (not NSS).
+#
+# Verify after build:
+#   openssl version                          # expect 3.5.x
+#   ldd /opt/openldap/libexec/slapd | grep ssl
+
+FROM registry.access.redhat.com/ubi10/ubi:10.2 AS build
+
+ARG OPENLDAP_VERSION=2.6.10
+
+RUN dnf -y install \
+      gcc make curl-minimal tar gzip diffutils groff-base \
+      openssl openssl-devel \
+      cyrus-sasl-devel \
+    && dnf clean all
+
+# Build libraries/clients/slapd only — skip doc/ (soelim/man) for a leaner image.
+RUN curl -fsSL \
+      "https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-${OPENLDAP_VERSION}.tgz" \
+      -o /tmp/openldap.tgz \
+    && tar -xzf /tmp/openldap.tgz -C /tmp \
+    && cd "/tmp/openldap-${OPENLDAP_VERSION}" \
+    && ./configure \
+      --prefix=/opt/openldap \
+      --enable-slapd \
+      --enable-mdb=yes \
+      --with-tls=openssl \
+      --without-systemd \
+      --disable-static \
+    && make -j"$(nproc)" depend \
+    && make -j"$(nproc)" -C include \
+    && make -j"$(nproc)" -C libraries \
+    && make -j"$(nproc)" -C clients \
+    && make -j"$(nproc)" -C servers \
+    && make -C include install \
+    && make -C libraries install \
+    && make -C clients install \
+    && make -C servers install \
+    && make -C include install \
+    && cp -a servers/slapd/schema /opt/openldap/etc/openldap/schema \
+    && rm -rf /tmp/openldap*
+
+FROM registry.access.redhat.com/ubi10/ubi:10.2
+
+LABEL name="rhdh-e2e-openldap-pq" \
+      summary="OpenLDAP (OpenSSL TLS) on UBI 10.2 for RHDH LDAP PQC e2e" \
+      description="slapd built with --with-tls=openssl against OpenSSL 3.5.x"
+
+RUN dnf -y install openssl openssl-libs cyrus-sasl-lib shadow-utils \
+    && dnf clean all \
+    && openssl version \
+    && useradd --uid 1001 --gid 0 --home-dir /opt/openldap --no-create-home --shell /sbin/nologin ldap
+
+COPY --from=build /opt/openldap /opt/openldap
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY slapd.conf.template /opt/openldap/etc/openldap/slapd.conf.template
+COPY seed.ldif /ldifs/seed.ldif
+
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && mkdir -p /var/lib/ldap /certs /opt/openldap/var/run \
+    && chown -R 1001:0 /opt/openldap /var/lib/ldap /ldifs /certs \
+    && chmod -R g=u /opt/openldap /var/lib/ldap /ldifs /certs \
+    && ldd /opt/openldap/libexec/slapd | tee /tmp/slapd-ldd.txt \
+    && grep -E 'libssl|libcrypto' /tmp/slapd-ldd.txt
+
+ENV PATH="/opt/openldap/libexec:/opt/openldap/sbin:/opt/openldap/bin:${PATH}" \
+    LDAP_ROOT="dc=rhdh,dc=test" \
+    LDAP_ADMIN_USERNAME="admin" \
+    LDAP_ADMIN_PASSWORD="user1pass" \
+    LDAP_PORT_NUMBER="1389" \
+    LDAP_LDAPS_PORT_NUMBER="1636" \
+    LDAP_ENABLE_TLS="no"
+
+USER 1001
+EXPOSE 1389 1636
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
