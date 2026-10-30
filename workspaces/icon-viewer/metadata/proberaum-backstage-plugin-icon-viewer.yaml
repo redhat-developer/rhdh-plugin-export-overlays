@@ -22,17 +22,5 @@ spec:
   author: Proberaum
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            proberaum.backstage-plugin-icon-viewer:
-              translationResources:
-                - importName: iconViewerTranslations
-                  ref: iconViewerTranslationRef
-              dynamicRoutes:
-                - path: /icon-viewer
-                  importName: IconViewerPage
-                  menuItem:
-                    text: Icon viewer
+  appConfigNotRequired: true
+  appConfigExamples: []
