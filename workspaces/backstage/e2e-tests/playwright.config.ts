@@ -84,6 +84,10 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/ldap-auth\.spec\.ts/,
     },
     {
+      name: "backstage-ldap-pqc-forced-ml-kem",
+      testMatch: /tests\/specs\/ldap-pqc-forced-ml-kem\.spec\.ts/,
+    },
+    {
       name: "backstage-github-auth",
       testMatch: /tests\/specs\/github-auth\.spec\.ts/,
     },
