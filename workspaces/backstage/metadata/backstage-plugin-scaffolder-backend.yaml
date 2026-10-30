@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-scaffolder-backend
+  namespace: rhdh
+  title: 'Scaffolder Backend'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/scaffolder-backend
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/scaffolder-backend
+  tags: []
+spec:
+  packageName: '@backstage/plugin-scaffolder-backend'
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-dynamic
+  version: 3.3.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - scaffolder
+  appConfigNotRequired: true
+  appConfigExamples: []
