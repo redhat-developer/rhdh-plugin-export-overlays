@@ -68,7 +68,7 @@ On a PR, comment:
 - `/override-backstage` — Override workspace Backstage compatibility version (creates `backstage.json` and rewrites metadata OCI tags)
 - `/update-versions` — Copy `versions.json` from the PR base branch onto the PR branch (release-line alignment)
 - `/update-commit` — Re-run automatic plugin repo ref discovery for the single touched workspace and update the PR
-- `/test` or `/test e2e-tests` — Run e2e tests. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
+- `/test <prow-job>` — Run one of the OpenShift CI e2e presubmits, named exactly: `e2e-ocp-helm`, `e2e-ocp-helm-nightly-pr-scoped`, `e2e-ocp-helm-nightly`, or the `e2e-ocp-operator*` equivalents. A bare `/test` does nothing here — no e2e job is queued on a PR until it is named. The `*-nightly-pr-scoped` variants set `E2E_NIGHTLY_MODE=true` and still derive the changed workspaces from the diff, which is what you want when the PR touches metadata rather than plugin code. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
 
 ### Important Workflows (`.github/workflows/`)
 
