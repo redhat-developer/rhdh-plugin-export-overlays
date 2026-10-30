@@ -10,6 +10,7 @@ The TypeScript CLIs live in Yarn workspaces and use [Vite+](https://viteplus.dev
 
 | Workspace                                                             | Description                                                                                                                                                                                                                |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`close-obsolete-update-prs`](./close-obsolete-update-prs/)           | Detects and closes obsolete plugin update pull requests when newer versions exist upstream (RHIDP-18023).                                                                                                                  |
 | [`generate-dynamic-plugin-tables`](./generate-dynamic-plugin-tables/) | Generates supported and community AsciiDoc plugin tables and CSV inventories from a resolved catalog index.                                                                                                                |
 | [`validate-app-config-examples`](./validate-app-config-examples/)     | Validates Package metadata appConfigExamples: structural checks (RHIDP-12590) plus semantic validation against each plugin's published config schema (RHIDP-13509), plus each `dynamicArtifact` plugin path (RHIDP-17312). |
 

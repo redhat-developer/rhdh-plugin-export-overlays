@@ -11,6 +11,7 @@ on:
       # Imported by validate-app-config-examples.
       - 'smoke-tests-native/src/plugin-path.ts'
       - '.github/workflows/scripts-workspaces.yaml'
+      - '.github/workflows/close-obsolete-update-prs.yaml'
   workflow_dispatch:
 
 concurrency:
