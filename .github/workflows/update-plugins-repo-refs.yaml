@@ -61,8 +61,9 @@ on:
     - cron: '0 12,19 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.pr-to-update }}
-  cancel-in-progress: true
+  # Workspace-scoped release updates must not cancel other workspaces' runs.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.workspace-path || inputs.pr-to-update }}-${{ inputs.single-branch }}
+  cancel-in-progress: ${{ inputs.workspace-path == '' }}
 
 jobs:
   prepare:
