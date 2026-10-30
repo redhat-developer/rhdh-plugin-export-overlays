@@ -26,27 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - adoption-insights
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            red-hat-developer-hub.backstage-plugin-adoption-insights:
-              translationResources:
-                - importName: adoptionInsightsTranslations
-                  module: Alpha
-                  ref: adoptionInsightsTranslationRef
-              appIcons:
-                - name: adoptionInsightsIcon
-                  importName: AdoptionInsightsIcon
-              dynamicRoutes:
-                - path: /adoption-insights
-                  importName: AdoptionInsightsPage
-                  menuItem:
-                    icon: adoptionInsightsIcon
-                    text: Adoption Insights
-                    textKey: menuItem.adoptionInsights
-              menuItems:
-                adoption-insights:
-                  parent: default.admin
-                  icon: adoptionInsightsIcon
+  appConfigNotRequired: true
+  appConfigExamples: []
