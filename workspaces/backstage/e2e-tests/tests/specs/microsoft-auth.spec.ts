@@ -459,8 +459,10 @@ test.describe(
       );
       expect(login).toBe("Login successful");
 
-      await page.reload({ waitUntil: "networkidle" });
+      await page.goto("/settings");
+      await uiHelper.verifyHeading("TEST Zeus");
 
+      // Check cookie duration after confirming session is live:
       const cookies = await page.context().cookies();
       const authCookie = cookies.find(
         (cookie) => cookie.name === "microsoft-refresh-token",
@@ -474,8 +476,6 @@ test.describe(
       expect(actualDuration).toBeGreaterThan(threeDays - tolerance);
       expect(actualDuration).toBeLessThan(threeDays + tolerance);
 
-      await page.goto("/settings");
-      await uiHelper.verifyHeading("TEST Zeus");
       await loginHelper.signOut();
     });
   },
