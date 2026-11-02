@@ -24,6 +24,14 @@ const CATALOG_TOKEN = "microsoft-e2e-token";
 const APP_CONFIG_PATH = "tests/config/microsoft/app-config-rhdh.yaml";
 const HOMEPAGE_WRAPPER_DIST_NAME =
   "red-hat-developer-hub-backstage-plugin-homepage";
+/** Display names expected after MS Graph ingestion (login resolvers need these). */
+const MICROSOFT_INGESTED_USERS = [
+  "TEST Admin",
+  "TEST Atena",
+  "TEST Elio",
+  "TEST Tyke",
+  "TEST Zeus",
+] as const;
 
 type AppConfig = Record<string, unknown>;
 
@@ -203,6 +211,17 @@ test.describe(
       }
 
       await applyAppConfigAndRestart(rhdhDeployment, config);
+      // Mid-suite restart can clear catalog until MS Graph re-ingests; login
+      // resolvers need Users present (operator local DB is especially exposed).
+      await expect
+        .poll(
+          () =>
+            checkUserDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
+              ...MICROSOFT_INGESTED_USERS,
+            ]),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
     }
 
     test("Ingestion of Microsoft users and groups", async () => {
@@ -212,11 +231,7 @@ test.describe(
         .poll(
           () =>
             checkUserDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
-              "TEST Admin",
-              "TEST Atena",
-              "TEST Elio",
-              "TEST Tyke",
-              "TEST Zeus",
+              ...MICROSOFT_INGESTED_USERS,
             ]),
           { timeout: 120_000, intervals: [3_000] },
         )

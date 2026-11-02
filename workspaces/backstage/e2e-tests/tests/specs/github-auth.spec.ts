@@ -111,8 +111,12 @@ async function applyAppConfigAndRestart(
     ns,
   );
   await rhdh.scaleDownAndRestart();
+  const deployment =
+    rhdh.deploymentConfig.method === "operator"
+      ? "backstage-developer-hub"
+      : "redhat-developer-hub";
   // waitUntilReady() is true while the old pod still serves; gate on rollout completion.
-  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
+  await $`oc rollout status deployment/${deployment} -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
@@ -192,6 +196,17 @@ test.describe("GitHub auth and org ingestion", { tag: "@auth-tests" }, () => {
     }
 
     await applyAppConfigAndRestart(rhdhDeployment, config);
+    // Operator (and Helm after scale-down) can lose/clear catalog until GitHub
+    // org re-ingests; login resolvers need Users present.
+    await expect
+      .poll(
+        () =>
+          checkUserDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
+            ...GITHUB_INGESTED_USERS,
+          ]),
+        { timeout: 120_000, intervals: [3_000] },
+      )
+      .toBe(true);
   }
 
   /**
