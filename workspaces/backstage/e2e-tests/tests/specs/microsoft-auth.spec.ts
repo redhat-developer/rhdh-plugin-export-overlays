@@ -491,9 +491,6 @@ test.describe(
       );
       expect(login).toBe("Login successful");
 
-      // Match github-auth sessionDuration: verify identity before reading the
-      // refresh cookie. reload-then-navigate races session restore and lands
-      // on the sign-in page while microsoft-refresh-token is still present.
       await page.goto("/settings");
       await uiHelper.verifyHeading("TEST Zeus");
 
