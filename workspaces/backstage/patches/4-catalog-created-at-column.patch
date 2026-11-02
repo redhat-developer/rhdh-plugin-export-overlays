@@ -1,0 +1,46 @@
+# Patch: Add Created At column to default catalog table columns
+# Reason: Restores entity creation timestamp column in catalog tables based on backstage.io/createdAt annotation
+--- a/plugins/catalog/src/components/CatalogTable/defaultCatalogTableColumnsFunc.tsx
++++ b/plugins/catalog/src/components/CatalogTable/defaultCatalogTableColumnsFunc.tsx
+@@ -39,6 +39,33 @@ export const defaultCatalogTableColumnsFunc: CatalogTableColumnsFunc = ({
+   ];
+ 
+   function createEntitySpecificColumns(): TableColumn<CatalogTableRow>[] {
++    const createdAtColumn: TableColumn<CatalogTableRow> = {
++      title: 'Created At',
++      customSort: (a: CatalogTableRow, b: CatalogTableRow) => {
++        const timestampA =
++          a.entity.metadata.annotations?.['backstage.io/createdAt'];
++        const timestampB =
++          b.entity.metadata.annotations?.['backstage.io/createdAt'];
++
++        const dateA =
++          timestampA && timestampA !== ''
++            ? new Date(timestampA).toISOString()
++            : '';
++        const dateB =
++          timestampB && timestampB !== ''
++            ? new Date(timestampB).toISOString()
++            : '';
++
++        return dateA.localeCompare(dateB);
++      },
++      render: (data: CatalogTableRow) => {
++        const date =
++          data.entity.metadata.annotations?.['backstage.io/createdAt'];
++        return !Number.isNaN(new Date(date || '').getTime())
++          ? data.entity.metadata.annotations?.['backstage.io/createdAt']
++          : '';
++      },
++    };
+     const descriptionTagColumns = [
+       columnFactories.createMetadataDescriptionColumn(),
+       columnFactories.createTagsColumn(),
+@@ -48,6 +75,7 @@ export const defaultCatalogTableColumnsFunc: CatalogTableColumnsFunc = ({
+       columnFactories.createOwnerColumn(),
+       columnFactories.createSpecTypeColumn({ hidden: !showTypeColumn }),
+       columnFactories.createSpecLifecycleColumn(),
++      createdAtColumn,
+     ];
+     switch (effectiveKind) {
+       case 'user':
