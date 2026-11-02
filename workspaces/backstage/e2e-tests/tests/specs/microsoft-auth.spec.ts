@@ -491,7 +491,11 @@ test.describe(
       );
       expect(login).toBe("Login successful");
 
-      await page.reload({ waitUntil: "networkidle" });
+      // Match github-auth sessionDuration: verify identity before reading the
+      // refresh cookie. reload-then-navigate races session restore and lands
+      // on the sign-in page while microsoft-refresh-token is still present.
+      await page.goto("/settings");
+      await uiHelper.verifyHeading("TEST Zeus");
 
       const cookies = await page.context().cookies();
       const authCookie = cookies.find(
@@ -506,8 +510,6 @@ test.describe(
       expect(actualDuration).toBeGreaterThan(threeDays - tolerance);
       expect(actualDuration).toBeLessThan(threeDays + tolerance);
 
-      await page.goto("/settings");
-      await uiHelper.verifyHeading("TEST Zeus");
       await loginHelper.signOut();
     });
   },
