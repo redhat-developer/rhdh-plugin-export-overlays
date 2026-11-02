@@ -33,7 +33,7 @@ spec:
         auth:
           providers:
             pingfederate:
-              development:
+              production:
                 clientId: ${PINGFEDERATE_CLIENT_ID}
                 clientSecret: ${PINGFEDERATE_CLIENT_SECRET}
                 baseUrl: ${PINGFEDERATE_BASE_URL}
