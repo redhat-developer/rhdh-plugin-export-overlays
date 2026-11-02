@@ -82,10 +82,18 @@ test.describe.serial("Test Adoption Insights", () => {
     test("Active users panel shows the visitor", async () => {
       const panel = getPanel(page, "Active users");
       // The analytics backend needs time to process page-view events
-      // before they appear in the 'Today' bucket. Poll until the chart
-      // surface renders, indicating data is available.
+      // before they appear in the 'Today' bucket. Re-select the "Today"
+      // date range on each retry to trigger fresh API queries, ensuring
+      // events ingested after the initial fetch are picked up.
       await expect(async () => {
-        await expect(panel.locator(".recharts-surface")).toBeVisible();
+        await testHelper.clickByText("Today");
+        await Promise.all([
+          waitForPanelApiCalls(page),
+          testHelper.selectOption("Today"),
+        ]);
+        await expect(panel.locator(".recharts-surface")).toBeVisible({
+          timeout: 10_000,
+        });
       }).toPass({ timeout: 60_000 });
       await expect(
         panel.getByText(
