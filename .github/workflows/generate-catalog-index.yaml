@@ -125,6 +125,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
+        with:
+          working-directory: scripts
+          cache: true
+
       - name: Install dependencies
         run: |
           # skopeo: extractCatalogIndex.sh pulls the previous catalog-index image
@@ -140,15 +146,6 @@ jobs:
           chmod +x "$HOME/.local/bin/yq_mf"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/yq_mf" --version
-
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: scripts/package.json
-
-      - name: Install table generator dependencies
-        working-directory: scripts
-        run: corepack yarn workspaces focus generate-dynamic-plugin-tables --production
 
       - name: Read versions
         id: versions
@@ -310,22 +307,24 @@ jobs:
         # Let both tiers finish; check generation results fails the job if needed. 
         # This doc is not consumed downstream; instead we use the product-built version with quay / r.a.r.c links
         continue-on-error: true
+        working-directory: scripts
         run: |
-          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+          vp exec -c 'cd "$GITHUB_WORKSPACE" && generate-dynamic-plugin-tables \
             --tier supported \
             --index-dir catalog-index/supported \
-            --debug
+            --debug'
 
       # consumed downstream in https://github.com/redhat-developer/red-hat-developers-documentation-rhdh/
       - name: Generate community documentation tables
         id: docs-community
         if: steps.gen-community.outputs.ok == 'true'
         continue-on-error: true
+        working-directory: scripts
         run: |
-          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+          vp exec -c 'cd "$GITHUB_WORKSPACE" && generate-dynamic-plugin-tables \
             --tier community \
             --index-dir catalog-index/community \
-            --debug
+            --debug'
 
       - name: Write build-info.json
         env:

@@ -75,7 +75,7 @@ flowchart TB
 
     subgraph "Step 3: DPDY Generation"
         S3_IN["default.packages.yaml<br/>metadata appConfigExamples"]
-        S3["generateDynamicPluginsDefaultYaml.sh<br/>+ injectDpdyTagComments.py"]
+        S3["generateDynamicPluginsDefaultYaml.sh<br/>+ inject-dpdy-tag-comments"]
         S3_OUT["dynamic-plugins.default.yaml"]
         S3_IN --> S3
         S2_OUT -- "tag & build-date<br/>for comments" --> S3
@@ -141,7 +141,7 @@ Alias resolution does not apply to ghcr.io (community) builds, which use Backsta
 
 Generates `dynamic-plugins.default.yaml` — the default plugin configuration shipped with RHDH. This step only runs for the **supported** tier (requires a YAML-format packages file with enabled/disabled structure).
 
-After generating the DPDY, the script calls `injectDpdyTagComments.py` to insert `# Tag: <tag>, Build date: <date>` comments from `plugin_builds/*.json` (produced by Steps 1-2). Each plugin's `registryReference` tag and `build-date` label are extracted from the enriched JSON files and placed as comments above the corresponding `- package:` lines. This provides traceability from each plugin entry back to the specific OCI image tag and build date, without requiring live registry API calls (which previously caused Quay API timeouts).
+After generating the DPDY, the script calls `inject-dpdy-tag-comments` to insert `# Tag: <tag>, Build date: <date>` comments from `plugin_builds/*.json` (produced by Steps 1-2). Each plugin's `registryReference` tag and `build-date` label are extracted from the enriched JSON files and placed as comments above the corresponding `- package:` lines. This provides traceability from each plugin entry back to the specific OCI image tag and build date, without requiring live registry API calls (which previously caused Quay API timeouts).
 
 Inputs:
 
