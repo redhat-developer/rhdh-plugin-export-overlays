@@ -12,19 +12,19 @@
 |===
 |*Name* |*Plugin* |*Plugin Version* |*Path and required variables* |*Artifact Tag*
 |Adoption Insights |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-adoption-insights/v/1.0.4[@red-hat-developer-hub/backstage-plugin-adoption-insights]` |1.0.4
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:97d30b27ca3d46d074b491b9f4c61be7ab2baaf91af712bdea5a6319edd9bffd`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:5d218f68fe81e2049196c823a714de61ee608b6bbaf3f002a81675b2592bc430`
 
 |bs_1.54.9__1.0.4
 |Adoption Insights |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-adoption-insights-backend/v/1.0.4[@red-hat-developer-hub/backstage-plugin-adoption-insights-backend]` |1.0.4
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:a5110c827c9ca7ec428e289240eaeebc32544d2f75f3ed315e2f8a061e8edca3`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:8dbabc6c545e0d21b9d5db1c1a86a2151154a236787fccf667a163c39363f00a`
 
 |bs_1.54.9__1.0.4
 |Analytics Module Adoption Insights |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights/v/1.0.4[@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights]` |1.0.4
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:bf3389f98712b0c4c1eccdf70cf025d998c06ea4b0e4f8b0ae30c20dfb4b083b`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:95baabfc46b0140623289c5e28936e2a4025cedc7024a0568e4390deb43f1e60`
 
 |bs_1.54.9__1.0.4
 |Analytics Provider Segment |`https://npmjs.com/package/@backstage-community/plugin-analytics-provider-segment/v/2.0.0[@backstage-community/plugin-analytics-provider-segment]` |2.0.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:29f91e1aff80afb42b8fe0eabc39f5c1794e680d5650a140e134c66dab46f4c9`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:a602652ec843c5762110be190bf084f1b08f98d451c3680e24a5247dd934ff75`
 
 `BACKSTAGE_VERSION`
 
@@ -48,7 +48,7 @@
 
 |bs_1.54.9__1.1.1
 |Auth Backend Module GitHub Provider |`https://npmjs.com/package/@backstage/plugin-auth-backend-module-github-provider/v/0.5.6[@backstage/plugin-auth-backend-module-github-provider]` |0.5.6
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:f0d0fbda2f5a92d11a8fa43adc662127ec2c91fad44d581ddbbb2d7a8bb8adb4`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:57ce24b5c18e5f45e29b7394a200c5171e097463f2a48b07be0d63a581da2f78`
 
 `GITHUB_CLIENT_ID`
 
@@ -56,7 +56,7 @@
 
 |bs_1.54.9__0.5.6
 |Auth Backend Module GitLab Provider |`https://npmjs.com/package/@backstage/plugin-auth-backend-module-gitlab-provider/v/0.4.6[@backstage/plugin-auth-backend-module-gitlab-provider]` |0.4.6
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider@sha256:83dca25a2075e87bad4237f1ba370a705c0b65831795ac5b326476860dd7ccfb`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider@sha256:f34e8714e5045e552c571580832c10ef41f234bb60d2bcdec51b7a6d616dd2c3`
 
 `GITLAB_CLIENT_ID`
 
@@ -64,11 +64,11 @@
 
 |bs_1.54.9__0.4.6
 |Auth Backend Module Guest Provider |`https://npmjs.com/package/@backstage/plugin-auth-backend-module-guest-provider/v/0.2.22[@backstage/plugin-auth-backend-module-guest-provider]` |0.2.22
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:1ee1f6ef7b9af89a5b5e906cdb8a503701d6328e22bfe49f452fca9826469d50`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:262db2e03a0ef3b03dcd6fbd4c3ed17e8e4d63e86ced215da2f5b39e5b3c0086`
 
 |bs_1.54.9__0.2.22
 |Auth Backend Module Keycloak Provider |`https://npmjs.com/package/@backstage-community/plugin-auth-backend-module-keycloak-provider/v/0.6.0[@backstage-community/plugin-auth-backend-module-keycloak-provider]` |0.6.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider@sha256:fd85e51111af1d2fd48812c9f9229e5e6f12d152399bf17b9efea863b1161959`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider@sha256:0e7240b09f99053ecf2891e4948641cdd7f49011e35408c3a2a75d9069685710`
 
 `KEYCLOAK_BASE_URL`
 
@@ -80,7 +80,7 @@
 
 |bs_1.54.9__0.6.0
 |Auth Backend Module Microsoft Provider |`https://npmjs.com/package/@backstage/plugin-auth-backend-module-microsoft-provider/v/0.3.18[@backstage/plugin-auth-backend-module-microsoft-provider]` |0.3.18
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:f74a9a36488bcb53b73414bb4ee92fba9d7738b8474e5c281df59e3482920652`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:502fa99c9890431521c8d22bee5620d9e5e8e4dfcc691d458b1db68fbcc03711`
 
 `MICROSOFT_CLIENT_ID`
 
@@ -90,7 +90,7 @@
 
 |bs_1.54.9__0.3.18
 |Auth Backend Module Oidc Provider |`https://npmjs.com/package/@backstage/plugin-auth-backend-module-oidc-provider/v/0.4.20[@backstage/plugin-auth-backend-module-oidc-provider]` |0.4.20
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider@sha256:2347965a87396c0462c317bc7e41f999413f430fbf165934b3b7b8970349a342`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider@sha256:a9ec5a993931024d5e789be458e3035eda8b2d070b5cb10eb84f2c7b99c95d3f`
 
 `OIDC_CLIENT_ID`
 
@@ -100,7 +100,7 @@
 
 |bs_1.54.9__0.4.20
 |Auth Backend Module Pingfederate Provider |`https://npmjs.com/package/@backstage-community/plugin-auth-backend-module-pingfederate-provider/v/0.4.0[@backstage-community/plugin-auth-backend-module-pingfederate-provider]` |0.4.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider@sha256:e061eac5d22f32b755b0988fdb4f48de40133994dbb45dcf731b0a1ad13413bb`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider@sha256:ef704d6957dbfe0de42536b45ca791b6509dca405c8013340efbe9ef5cd8d6e3`
 
 `PINGFEDERATE_BASE_URL`
 
@@ -110,25 +110,25 @@
 
 |bs_1.54.9__0.4.0
 |Bulk Import |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-bulk-import/v/9.1.1[@red-hat-developer-hub/backstage-plugin-bulk-import]` |9.1.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:fbea160ec1308385da85c0c0ea10c4adf6b3c4b512304b3639975b6cae09c1be`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:6b20da04b348ef6b0fdd74d4518f875a3e25ab702c2dfce2e8a094890ad7140b`
 
 |bs_1.54.9__9.1.1
 |Bulk Import |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-bulk-import-backend/v/9.1.1[@red-hat-developer-hub/backstage-plugin-bulk-import-backend]` |9.1.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend@sha256:769d308dd09fb2e59c9b8168a2bc3e8fa01c75b669b009d6ae834fc238a6d688`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend@sha256:4f8a33d02411cd0aa59ad37ae9f82ee232660c97c4a2bf25d2375c76cd3471d1`
 
 |bs_1.54.9__9.1.1
 |GitHub |`https://npmjs.com/package/@backstage/plugin-catalog-backend-module-github/v/0.13.5[@backstage/plugin-catalog-backend-module-github]` |0.13.5
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:fa92a3fea9965377182e41e4ca478e48bab0712f5bb76c622f32c2e7c5777c84`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:33a4cf1dbd4b6cad966e6187f2c588a118bc5c4addf80b60daf89a3e35346dd2`
 
 `GITHUB_ORG`
 
 |bs_1.54.9__0.13.5
 |GitHub |`https://npmjs.com/package/@backstage/plugin-scaffolder-backend-module-github/v/0.9.13[@backstage/plugin-scaffolder-backend-module-github]` |0.9.13
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:5646d27f0cec312f3c4a116c0878d8ff1971e9e72a26997f7180dad3a64da5fb`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:c18d9c99c448518de208eebfcc7f761a1047dc255f2d9a7ed9cd4c35e1d8ad79`
 
 |bs_1.54.9__0.9.13
 |GitHub Org |`https://npmjs.com/package/@backstage/plugin-catalog-backend-module-github-org/v/0.3.25[@backstage/plugin-catalog-backend-module-github-org]` |0.3.25
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:b8038c6b3ba3de18d9400714f6ed0c0907622e00c44970aa5cad363da49c0072`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:ee794b67b18c202ebf49d5788836837ecb576a607c83daba60c94a40d832a357`
 
 `GITHUB_ORG`
 
@@ -136,7 +136,7 @@
 
 |bs_1.54.9__0.3.25
 |GitLab |`https://npmjs.com/package/@backstage/plugin-catalog-backend-module-gitlab/v/0.8.7[@backstage/plugin-catalog-backend-module-gitlab]` |0.8.7
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:99588c44552abdc1b79bbb31076428c6e8bfbfafd15fe9fa20b62856d90bf382`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:456954d075dc0b5866212329fc704f1de49fa47bb46eb18b80c4a8ebc73d73ce`
 
 `GITLAB_DISCOVERY_GROUP`
 
@@ -144,7 +144,7 @@
 
 |bs_1.54.9__0.8.7
 |GitLab Org |`https://npmjs.com/package/@backstage/plugin-catalog-backend-module-gitlab-org/v/0.2.24[@backstage/plugin-catalog-backend-module-gitlab-org]` |0.2.24
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:45bede450c198c17b8c0c5bd12c15df89635e7d162a602df44b24d16b1d1976e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:bcceb0128d8ad8ab243dd785901a149094c5195d9e2c73f9969d3f1078c9c8fb`
 
 `GITLAB_HOST`
 
@@ -152,31 +152,31 @@
 
 |bs_1.54.9__0.2.24
 |Global Header |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-global-header/v/3.2.1[@red-hat-developer-hub/backstage-plugin-global-header]` |3.2.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:ca76dbe9a102cebb5401df70b66f3511d3e207923e0b68f3118cc75222bd4e1b`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:247d9d378513a6bc85d42c271fa887e467d801b91b6fea645571cd50c4bb4313`
 
 |bs_1.54.9__3.2.1
 |Homepage |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-homepage/v/3.1.0[@red-hat-developer-hub/backstage-plugin-homepage]` |3.1.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:ccfca66b93f8e692da78408c2ddb66e20a959c59d02ef81f1c5fe7d74170fd5d`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:eb879a9969a6b03873ed455c93bfe670f47c3bcd6a25589181488ef5970aeca6`
 
 |bs_1.54.9__3.1.0
 |Homepage |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-homepage-backend/v/0.6.0[@red-hat-developer-hub/backstage-plugin-homepage-backend]` |0.6.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:54e2c05dc4550a65c831313341f05fe3b041fb583adf28d14926906e492904c0`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:028e7a2ea0d4039897d6ba31b5eafa00c8b10f64aa874efd4bdd1a18ffe3e304`
 
 |bs_1.54.9__0.6.0
 |Http Request |`https://npmjs.com/package/@roadiehq/scaffolder-backend-module-http-request/v/5.9.0[@roadiehq/scaffolder-backend-module-http-request]` |5.9.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request@sha256:68277982871a8548edf83f2f72f1bd662fb8f82d8e2db3584fa6ff6e6fd353a6`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request@sha256:684120a223657b4b03de7b482710e0153a72e9c4c00051aa1b3ab1db1933d7d9`
 
 |bs_1.54.9__5.9.0
 |Intelligent Assistant |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-intelligent-assistant/v/5.3.10[@red-hat-developer-hub/backstage-plugin-intelligent-assistant]` |5.3.10
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:da2c9a9f85048f7bc62afce0340559cb2a37a2bba4c12ff9aab3515d43d58851`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:ab3b5e6f0fc8975504c1329a5a44fec81560cb8cd64aa30a7fb5987eb5b90b94`
 
 |bs_1.54.9__5.3.10
 |Intelligent Assistant |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend/v/5.3.10[@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend]` |5.3.10
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:70f564cb2a6c9eb1ad1bfa5a53b66d024ce48c69f10882c1b5ee288e886014a0`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:c79435ba2938bf6412008c6ccfbfe1e1d55cd1122b698b948d59c1ecef557861`
 
 |bs_1.54.9__5.3.10
 |Keycloak |`https://npmjs.com/package/@backstage-community/plugin-catalog-backend-module-keycloak/v/3.23.1[@backstage-community/plugin-catalog-backend-module-keycloak]` |3.23.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak@sha256:23c7b705cf3f014ca5bed0348d74ccd5b270371227b78eb4a1953928802105da`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak@sha256:5125e703e2849d5aaefab22bb6db499952abe83b7d84e7388e3bc118b3782a73`
 
 `KEYCLOAK_BASE_URL`
 
@@ -190,11 +190,11 @@
 
 |bs_1.54.9__3.23.1
 |Kubernetes |`https://npmjs.com/package/@backstage/plugin-kubernetes/v/0.12.22[@backstage/plugin-kubernetes]` |0.12.22
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:d4932657b2c4a8b85fc468b9ae322429798e5969f1d4d53ac7ff8af16c7c9f29`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:527f218118b8ac4450806a7ad0203d6130518e9f253fe3172b30a5bf22b59688`
 
 |bs_1.54.9__0.12.22
 |Kubernetes |`https://npmjs.com/package/@backstage/plugin-kubernetes-backend/v/0.21.10[@backstage/plugin-kubernetes-backend]` |0.21.10
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:c683364d7ff9d7ee0e3ad84efbc06c4a1a75b7e644b5e33ee8fff817b361456d`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:48e63f7e327330cc039f0cfc61c6d5e1b1ea0ba237713896d7f8ef33e6adeb7b`
 
 `K8S_CLUSTER_NAME`
 
@@ -204,11 +204,11 @@
 
 |bs_1.54.9__0.21.10
 |Kubernetes |`https://npmjs.com/package/@backstage-community/plugin-scaffolder-backend-module-kubernetes/v/2.21.0[@backstage-community/plugin-scaffolder-backend-module-kubernetes]` |2.21.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:4eacbd413d81fe82991ce1cf935e8ff384f53405712afd7a7978db4abd746485`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:2bd0ca0fcacce8b8cf9ed9b31df4c6732c6d70fa8d735aadcdbc88615f3113ca`
 
 |bs_1.54.9__2.21.0
 |Ldap |`https://npmjs.com/package/@backstage/plugin-catalog-backend-module-ldap/v/0.12.8[@backstage/plugin-catalog-backend-module-ldap]` |0.12.8
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:4cac3507d59abf5ce5114396b01511aa85a2652fb704fc6d53f693112e5d51b5`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:1b3d0575c6c31133a86f542c3eebae14c4bd6d56215bd2316da637fafdc3e171`
 
 `LDAP_BIND_DN`
 
@@ -222,7 +222,7 @@
 
 |bs_1.54.9__0.12.8
 |MS Graph |`https://npmjs.com/package/@backstage/plugin-catalog-backend-module-msgraph/v/0.10.5[@backstage/plugin-catalog-backend-module-msgraph]` |0.10.5
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph@sha256:346058a81047dd905ef4973cb59d4050bb829ff11186002dac8c77566fd3e9a1`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph@sha256:4fcb1f5ec7983cf057114c08b2b53905a36121448916edc7f5e193898bbe9ff8`
 
 `MICROSOFT_CLIENT_ID`
 
@@ -256,53 +256,53 @@
 
 |bs_1.54.9__2.2.1
 |Org |`https://npmjs.com/package/@backstage/plugin-org/v/0.7.8[@backstage/plugin-org]` |0.7.8
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:5efd034285b652cbbdf65023192a0544ee1485f00ce4b7e2c5c9b18282ad1bff`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:8b599ee980907016006dd75049a2ebf5f202a5f0855b474c4bce80079241acd0`
 
 |bs_1.54.9__0.7.8
 |Quickstart |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-quickstart/v/2.2.0[@red-hat-developer-hub/backstage-plugin-quickstart]` |2.2.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:8ab83abe5d26a7f0e5677bfb654b3f8e024bf1c21053ee79ee2a3d106c89b668`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:a1f048ec1f00980b4e015a11839a57d1bf3107b2d5d6e29ebef175b4f1e68734`
 
 |bs_1.54.9__2.2.0
 |RBAC |`https://npmjs.com/package/@backstage-community/plugin-rbac/v/2.3.6[@backstage-community/plugin-rbac]` |2.3.6
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:943d46fb5f9760376eb4e24133998e090bea50ec00e667cac10570ada35dfc42`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:0807730690f4f4f2f628c115bbe795f44ce2a5be2c52e43096534a90d48c0466`
 
 |bs_1.54.9__2.3.6
 |Regex |`https://npmjs.com/package/@backstage-community/plugin-scaffolder-backend-module-regex/v/2.18.0[@backstage-community/plugin-scaffolder-backend-module-regex]` |2.18.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:81726a0fe9ec93e1837f742d59f23ffc6d086ff8b3b4dd4e2a8c64935b0e504c`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:67957ac3fead15cc9a64de7f69e747b67b89791259a04416a2ecb31aa23995dd`
 
 |bs_1.54.9__2.18.0
 |Signals |`https://npmjs.com/package/@backstage/plugin-signals/v/0.0.34[@backstage/plugin-signals]` |0.0.34
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:910884d1d31a161a0ea5e46b86beaf861cb851f3306163a238077a77bfb368df`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:5f09661d93741dbe9f1455cdc94d7656aff208fb548336aad8870ca4b050335c`
 
 |bs_1.54.9__0.0.34
 |Signals |`https://npmjs.com/package/@backstage/plugin-signals-backend/v/0.3.18[@backstage/plugin-signals-backend]` |0.3.18
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:bb176f1d37e892c68953ed44d1aa1e33c1c618d6e059afc5ea30e638c2b8def9`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:15fb8f9fa780e4196d185c0c7dc56b7c38baa38a33b1266a015808f68047a9d2`
 
 |bs_1.54.9__0.3.18
 |Tech Radar |`https://npmjs.com/package/@backstage-community/plugin-tech-radar/v/1.22.0[@backstage-community/plugin-tech-radar]` |1.22.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:ce0df1fc873bdb68960f3475d320ba16fee4dd8b90005a15b5892dca380b4ce6`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:2ccab99348f372769cd02bd8a852d043bcff6129ed22189bcd55c46118749656`
 
 |bs_1.54.9__1.22.0
 |Tech Radar |`https://npmjs.com/package/@backstage-community/plugin-tech-radar-backend/v/1.21.0[@backstage-community/plugin-tech-radar-backend]` |1.21.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:4274a19b4baa58f87c5540166754bb439de9004828a2aee81e8ea873989649a5`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:66d7b106fbf4f6c021be8eaf09a528325ccd1a0c87b2c1e29978e1b0a92072a6`
 
 `TECH_RADAR_DATA_URL`
 
 |bs_1.54.9__1.21.0
 |TechDocs |`https://npmjs.com/package/@backstage/plugin-techdocs/v/1.18.0[@backstage/plugin-techdocs]` |1.18.0
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:3c94d6423598ea358b6ef321b764d1d5eedb0d8a67aeb8e9d6b677f9db45591e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:e71d87c8983b486b072cdb8b57bd9e0e2a37edfa4bc6a890aeab0677ed26afac`
 
 |bs_1.54.9__1.18.0
 |TechDocs |`https://npmjs.com/package/@backstage/plugin-techdocs-backend/v/2.2.5[@backstage/plugin-techdocs-backend]` |2.2.5
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend@sha256:45caed895d0d4aa4091d6b3f772f748cbf1eecf0ae354e21f52da355c2bc75c5`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend@sha256:35e5e167a39581da10643da42116291d56de8a7b01c6b5e97d58b3134f5444bb`
 
 |bs_1.54.9__2.2.5
 |TechDocs Module Addons Contrib |`https://npmjs.com/package/@backstage/plugin-techdocs-module-addons-contrib/v/1.1.39[@backstage/plugin-techdocs-module-addons-contrib]` |1.1.39
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib@sha256:5905926fe606c9dd786d7686ecbfc7513213ba8967acb0ae239b25e3adcfc371`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib@sha256:fdfda48d6f2ef3496bcce3ff1c87991a0ba8c4f4c374d10689a2f2ab3f829893`
 
 |bs_1.54.9__1.1.39
 |Topology |`https://npmjs.com/package/@backstage-community/plugin-topology/v/3.0.7[@backstage-community/plugin-topology]` |3.0.7
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:fd6955aa37879c81c349044b176f39cd45793381f9873e6f53061d80d9d2094f`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:408c14c78b67d8009a2900897214e688421f86544a3cce89e8434e713fdcb48b`
 
 |bs_1.54.9__3.0.7
 
