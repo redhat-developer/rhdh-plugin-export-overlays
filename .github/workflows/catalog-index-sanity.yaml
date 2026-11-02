@@ -76,12 +76,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        # skopeo: both the extractor and the install CLI shell out to it. PyYAML is all
-        # validateCatalogIndex.py needs; pinned and wheels-only so no source
-        # distribution runs a setup script.
+        # skopeo: both the extractor and the install CLI shell out to it. The
+        # validator imports generatePluginBuildInfo.py, which also needs requests.
+        # Install the shared script requirements instead of relying on packages
+        # bundled with the runner. Keep PyYAML pinned and use wheels only.
         run: |
           sudo apt-get update && sudo apt-get install -y skopeo
-          pip install --only-binary :all: "PyYAML==6.0.3"
+          python3 -m pip install --only-binary :all: "PyYAML==6.0.3" -r scripts/requirements.txt
 
       - name: Resolve the catalog index image
         id: index
@@ -152,7 +153,7 @@ jobs:
             --json validation.json
           )
           if [[ "${STRICT:-}" == "true" ]]; then ARGS+=(--strict); fi
-          python3 scripts/validateCatalogIndex.py "${ARGS[@]}" | tee validation.log
+          python3 scripts/validateCatalogIndex.py "${ARGS[@]}" 2>&1 | tee validation.log
 
       - name: Run the catalog index sanity check
         id: sanity
@@ -179,7 +180,7 @@ jobs:
           # the redirect and losing the validation section exactly when it is wanted.
           set +e
           {
-            echo "### Catalog index sanity"
+            echo "### Catalog index install and boot"
             echo
             if [[ -f smoke-tests-native/results-catalog-index.json ]]; then
               jq -r '
@@ -200,8 +201,13 @@ jobs:
             fi
             echo
             echo "### Static validation"
+            if [[ -s validation.json ]] && jq -e '(.status == "pass" or .status == "fail") and (.findings | type == "array")' validation.json > /dev/null 2>&1; then
+              jq -r '"- status: **\(.status)**; errors: \([.findings[] | select(.severity == "error")] | length); warnings: \([.findings[] | select(.severity == "warning")] | length)"' validation.json
+            else
+              echo "- status: **error** — the validator did not produce a valid report; check the validation step traceback"
+            fi
             echo '```'
-            cat validation.log 2> /dev/null || echo "(not run)"
+            if [[ -s validation.log ]]; then cat validation.log; else echo "(no output)"; fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -220,9 +226,10 @@ jobs:
           retention-days: 14
 
       - name: Verdict
-        # The sanity run is what fails the job. Static validation is reported but not
-        # gating: against a published index the build-metadata rules cannot fire, so a
-        # pass would overstate what was checked. They gate at generation time instead.
+        # Install-and-boot failures and a validator that could not run fail the job.
+        # Static findings gate only when strict validation was requested: against a
+        # published index the build-metadata rules cannot fire, so a pass would
+        # overstate what was checked. They gate at generation time instead.
         if: ${{ !cancelled() }}
         env:
           SANITY: ${{ steps.sanity.outcome }}
@@ -230,9 +237,13 @@ jobs:
           STRICT: ${{ inputs.strict_validation }}
         run: |
           echo "sanity=${SANITY} static-validation=${VALIDATION}"
+          if [[ ! -s validation.json ]] || ! jq -e '(.status == "pass" or .status == "fail") and (.findings | type == "array")' validation.json > /dev/null 2>&1; then
+            echo "::error::static validation did not produce a valid report; check the validation step traceback"
+            exit 1
+          fi
           if [[ "${VALIDATION}" != "success" ]]; then
-            # continue-on-error makes that step green; without this the only trace is a
-            # line in the job summary.
+            # continue-on-error makes that step green; a finding would otherwise
+            # be visible only in the job summary.
             echo "::warning::static validation reported findings — see the job summary"
           fi
           # Honouring strict only inside a continue-on-error step would leave the job
