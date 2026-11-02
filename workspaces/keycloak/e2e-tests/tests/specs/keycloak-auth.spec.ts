@@ -80,6 +80,68 @@ test.describe("Keycloak auth provider", () => {
     current[parts[parts.length - 1]!] = value;
   }
 
+  /**
+   * Login handling both popup and redirect-based Keycloak auth.
+   *
+   * After a pod restart ({@link applyPatchedAppConfig}), the RHDH frontend
+   * may not have fully initialised its popup-based auth flow. In that state,
+   * clicking "Sign In" navigates the main page to Keycloak instead of
+   * opening a popup, causing `page.waitForEvent("popup")` to time out.
+   *
+   * This helper races a popup event against an in-page redirect and fills
+   * the Keycloak form on whichever target it lands on.
+   */
+  async function loginWithRedirectFallback(
+    page: Page,
+    uiHelper: UIhelper,
+    loginHelper: LoginHelper,
+    username: string,
+    password: string,
+  ) {
+    await page.goto("/");
+    await uiHelper.waitForLoad(240_000);
+
+    // Case 1: the page auto-redirected to Keycloak (no sign-in page shown).
+    const keycloakForm = page.locator("#kc-login");
+    if (await keycloakForm.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await loginHelper.logintoKeycloak(page, username, password);
+      await page
+        .getByLabel("sidebar nav")
+        .getByRole("link")
+        .first()
+        .waitFor({ state: "visible", timeout: 60_000 });
+      return;
+    }
+
+    // Case 2: on the RHDH sign-in page — try popup, fall back to redirect.
+    const popupPromise = page
+      .waitForEvent("popup", { timeout: 15_000 })
+      .catch(() => null);
+
+    const keycloakBtn = page.getByRole("button", {
+      name: /sign in using keycloak/i,
+    });
+    if (await keycloakBtn.isVisible().catch(() => false)) {
+      await keycloakBtn.click();
+    } else {
+      await uiHelper.clickButton("Sign In");
+    }
+
+    const popup = await popupPromise;
+    if (popup) {
+      await loginHelper.logintoKeycloak(popup, username, password);
+    } else {
+      // Click triggered an in-page redirect to Keycloak.
+      await loginHelper.logintoKeycloak(page, username, password);
+    }
+
+    await page
+      .getByLabel("sidebar nav")
+      .getByRole("link")
+      .first()
+      .waitFor({ state: "visible", timeout: 60_000 });
+  }
+
   async function applyPatchedAppConfig(patches: Array<[string, unknown]>) {
     const appConfig = yaml.load(
       fs.readFileSync(
@@ -565,7 +627,13 @@ test.describe("Keycloak auth provider", () => {
     try {
       await clearSession(context);
       const { username, password } = KEYCLOAK_AUTH_USERS.test1;
-      await loginHelper.loginAsKeycloakUser(username, password);
+      await loginWithRedirectFallback(
+        page,
+        uiHelper,
+        loginHelper,
+        username,
+        password,
+      );
 
       await uiHelper.verifyTextVisible(
         "Logging out due to inactivity",
@@ -627,7 +695,13 @@ test.describe("Keycloak auth provider", () => {
     try {
       await clearSession(context);
       const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
-      await loginHelper.loginAsKeycloakUser(username, password);
+      await loginWithRedirectFallback(
+        page,
+        uiHelper,
+        loginHelper,
+        username,
+        password,
+      );
 
       await uiHelper.clickButtonByText("Don't log me out", {
         timeout: 60_000,
