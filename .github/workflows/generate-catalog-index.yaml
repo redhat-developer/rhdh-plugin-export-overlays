@@ -131,7 +131,7 @@ jobs:
           # for version-regression. Without it the extractor exits 2 and the
           # gate cannot run.
           sudo apt-get update && sudo apt-get install -y skopeo
-          pip install -r scripts/requirements.txt
+          python3 -m pip install --require-hashes --only-binary=:all: -r scripts/requirements.txt
 
           # Install mikefarah yq (required by generateDynamicPluginsDefaultYaml.sh)
           mkdir -p "$HOME/.local/bin"
@@ -567,7 +567,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -r scripts/requirements.txt
+        run: "python3 -m pip install --require-hashes --only-binary=:all: -r scripts/requirements.txt"
 
       - name: Update build reports with publish status
         env:

@@ -78,11 +78,11 @@ jobs:
       - name: Install dependencies
         # skopeo: both the extractor and the install CLI shell out to it. The
         # validator imports generatePluginBuildInfo.py, which also needs requests.
-        # Install the shared script requirements instead of relying on packages
-        # bundled with the runner. Keep PyYAML pinned and use wheels only.
+        # Install the hash-locked script requirements instead of relying on
+        # packages bundled with the runner.
         run: |
           sudo apt-get update && sudo apt-get install -y skopeo
-          python3 -m pip install --only-binary :all: "PyYAML==6.0.3" -r scripts/requirements.txt
+          python3 -m pip install --require-hashes --only-binary=:all: -r scripts/requirements.txt
 
       - name: Resolve the catalog index image
         id: index
@@ -303,8 +303,8 @@ jobs:
 
       # renderCatalogIndexIssue.py imports plugin_utils, which imports yaml at module
       # scope. Without this the step rode on whatever the runner image happens to ship,
-      # and an ImportError here means no issue is filed at all. Same pin and same
-      # wheels-only install as the sanity job above.
+      # and an ImportError here means no issue is filed at all. Use the same
+      # hash-locked dependencies as the sanity job above.
       - name: Setup Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
@@ -312,7 +312,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --only-binary :all: "PyYAML==6.0.3"
+          python3 -m pip install --require-hashes --only-binary=:all: -r scripts/requirements.txt
 
       - name: Render the issue
         env:
