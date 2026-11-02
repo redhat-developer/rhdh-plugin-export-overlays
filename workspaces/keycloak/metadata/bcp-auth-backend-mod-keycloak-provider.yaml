@@ -33,19 +33,11 @@ spec:
         auth:
           providers:
             keycloak:
-              development:
+              production:
                 clientId: ${KEYCLOAK_CLIENT_ID}
                 clientSecret: ${KEYCLOAK_CLIENT_SECRET}
                 baseUrl: ${KEYCLOAK_BASE_URL}
                 realm: ${KEYCLOAK_REALM}
-                signIn:
-                  resolvers:
-                    - resolver: emailMatchingUserEntityProfileEmail
-              production:
-                clientId: ${AUTH_KEYCLOAK_CLIENT_ID}
-                clientSecret: ${AUTH_KEYCLOAK_CLIENT_SECRET}
-                baseUrl: ${AUTH_KEYCLOAK_BASE_URL}
-                realm: ${AUTH_KEYCLOAK_REALM}
                 prompt: auto
                 signIn:
                   resolvers:

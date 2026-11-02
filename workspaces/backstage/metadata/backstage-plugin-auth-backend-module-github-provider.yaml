@@ -38,4 +38,4 @@ spec:
                 clientSecret: ${GITHUB_CLIENT_SECRET}
                 signIn:
                   resolvers:
-                    - resolver: emailMatchingUserEntityProfileEmail
+                    - resolver: userIdMatchingUserEntityAnnotation
