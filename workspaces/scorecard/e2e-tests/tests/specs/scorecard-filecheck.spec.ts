@@ -20,8 +20,6 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
       appConfig: "tests/config/filecheck/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/filecheck/dynamic-plugins.yaml",
     });
-    // Wait 2 minutes for deployment to stabilize before running tests
-    await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
     ({ context, catalog, scorecard, aggregated } = await createScorecardContext(
       browser,
       rhdh.rhdhUrl,
