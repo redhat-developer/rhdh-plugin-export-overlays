@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage/plugin-auth-backend-module-github-provider"
   # Tag: bs_1.54.9__0.5.6
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:7a0ac83e648d2a29cc5d1cf7b8c08b887e9cbc656fd5ae71513ad9780a7b04ed"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:f0d0fbda2f5a92d11a8fa43adc662127ec2c91fad44d581ddbbb2d7a8bb8adb4"
   version: 0.5.6
   backstage:
     role: backend-plugin-module
@@ -39,4 +39,4 @@ spec:
                 clientSecret: ${GITHUB_CLIENT_SECRET}
                 signIn:
                   resolvers:
-                    - resolver: emailMatchingUserEntityProfileEmail
+                    - resolver: userIdMatchingUserEntityAnnotation
