@@ -15,7 +15,6 @@
 # - midstream: from container env MIDSTREAM_REPO
 
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -29,6 +28,7 @@ import yaml
 from plugin_utils import (
     BuildReport,
     Colors,
+    decode_dynamic_packages,
     log_debug,
     log_info,
     log_warn,
@@ -52,22 +52,6 @@ DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 
 # Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
 VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
-
-
-def decode_dynamic_packages(annotation: str | None) -> list | None:
-    """Decode the ``io.backstage.dynamic-packages`` annotation into its package list.
-
-    Returns the list, ``[]`` when the annotation declares nothing, or ``None`` when it
-    cannot be read. Callers act on those three differently, so they stay distinct.
-    """
-    if not annotation:
-        return []
-    try:
-        decoded = base64.b64decode("".join(annotation.split()), validate=True)
-        packages = json.loads(decoded)
-    except ValueError:
-        return None
-    return packages if isinstance(packages, list) else None
 
 
 # Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
