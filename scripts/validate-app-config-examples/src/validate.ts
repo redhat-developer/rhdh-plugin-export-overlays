@@ -114,9 +114,34 @@ export type PluginPathTally = {
 
 /**
  * A metadata file's row and the ref its plugin-path check reads. `retargeted`
- * marks a ref pointed at an image from --published-images.
+ * marks a ref pointed at an image from --published-images; `checked` and
+ * `failed` record what the check made of it.
  */
-export type PluginPathJob = { row: Row; ref: string; retargeted?: boolean };
+export type PluginPathJob = {
+  row: Row;
+  ref: string;
+  retargeted?: boolean;
+  /** Counted as checked in the tally: a manifest was read, or the form rejected. */
+  checked?: boolean;
+  /** The plugin-path check failed the row. */
+  failed?: boolean;
+};
+
+/**
+ * The run's exit codes. auto-publish-pr.yaml reads them to word the
+ * plugin-paths status, so a new verdict needs its own code here.
+ */
+export const EXIT = {
+  clean: 0,
+  /** A row failed a check other than its plugin path. */
+  failed: 1,
+  /** The tool could not run as asked. */
+  toolError: 2,
+  /** --published-images matched none of the well-formed own refs. */
+  noPublishedMatch: 3,
+  /** A row failed its plugin-path check. */
+  pluginPathFailed: 4,
+} as const;
 
 /** Manifests fetched at once; a full tree has ~200 refs. */
 const PLUGIN_PATH_CONCURRENCY = 8;
@@ -145,18 +170,22 @@ const USAGE = `Usage: validate-app-config-examples [options]
                      to this repository's ghcr images whose tag does not exist
                      yet. A PR's bs_* tags are published on merge.
   --workspace <name> Only validate workspaces/<name>/metadata/*.yaml.
-                     Cannot be combined with --since.
+                     Exits 2 when it has none. Cannot be combined with --since.
   --published-images <file>
                      With --check-plugin-paths, check each ref to this
                      repository's ghcr images against the image of the same
                      name listed in <file> (one registry/path/name:tag per
                      line, as /publish writes published-exports.txt), keeping
                      its !plugin-path. <file> must be under the working or
-                     temp directory. Exits 2 when well-formed own refs exist
+                     temp directory. Exits 3 when well-formed own refs exist
                      and none matches a listed image.
   --warn-only        Report schema mismatches without failing. Structural
                      failures still fail the run.
   --help             Show this message.
+
+Exit codes: 0 clean, 1 a check other than plugin paths failed, 2 the tool
+could not run, 3 --published-images matched no own ref, 4 a plugin path
+failed. A plugin-path failure wins over 1, and both win over 3.
 `;
 
 export async function main(
@@ -194,26 +223,34 @@ export async function main(
   const argError = argumentError({ ...values, workspace });
   if (argError) {
     writeError(`${argError}\n`);
-    return 2;
+    return EXIT.toolError;
   }
 
-  const paths = values.since
-    ? await changedMetadataPaths(values.since, repoRoot)
-    : await collectAllMetadata(repoRoot, workspace);
-
-  const nothing = nothingToValidate(paths, values.since, workspace);
-  if (nothing) {
-    write(nothing);
-    return 0;
-  }
-
+  // Read before the selection, so a bad file is reported even when no
+  // metadata matches.
   const publishedImages =
     values["published-images"] === undefined
       ? undefined
       : readPublishedImages(values["published-images"]);
   if (publishedImages && "error" in publishedImages) {
     writeError(`${publishedImages.error}\n`);
-    return 2;
+    return EXIT.toolError;
+  }
+
+  const paths = values.since
+    ? await changedMetadataPaths(values.since, repoRoot)
+    : await collectAllMetadata(repoRoot, workspace);
+
+  if (paths.length === 0 && workspace !== undefined) {
+    // A run that checked nothing must not read as a pass.
+    writeError(
+      `--workspace ${workspace}: no workspaces/${workspace}/metadata/*.yaml to validate\n`,
+    );
+    return EXIT.toolError;
+  }
+  if (paths.length === 0 && values.since) {
+    write("No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n");
+    return EXIT.clean;
   }
 
   // Undeclared keys are found by comparing a strict schema against the lenient
@@ -284,39 +321,30 @@ export async function main(
     write,
     writeError,
   );
-  return runExitCode(rows, published, writeError);
+  return runExitCode(rows, pluginPathJobs, published, writeError);
 }
 
-/** exitCodeFor, or 2 when --published-images matched none of the own refs. */
-function runExitCode(
+/** The run's EXIT code; a failed row wins over an unmatched list. */
+export function runExitCode(
   rows: Row[],
+  jobs: readonly PluginPathJob[],
   published: PublishedMatches | undefined,
   writeError: (text: string) => void,
 ): number {
-  if (published && !anyPublishedMatch(published)) {
+  const unmatched = published !== undefined && !anyPublishedMatch(published);
+  if (unmatched) {
     writeError(
       "--published-images: no ref matches a listed image, so none was checked against it\n",
     );
-    return 2;
   }
-  return exitCodeFor(rows);
-}
-
-/** Why an empty selection is not an error, or undefined when files were found. */
-function nothingToValidate(
-  paths: readonly string[],
-  since: string | undefined,
-  workspace: string | undefined,
-): string | undefined {
-  if (paths.length > 0) {
-    return undefined;
+  if (jobs.some((job) => job.failed)) {
+    return EXIT.pluginPathFailed;
   }
-  if (since) {
-    return "No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n";
+  const code = exitCodeFor(rows);
+  if (code !== EXIT.clean) {
+    return code;
   }
-  return workspace === undefined
-    ? undefined
-    : `No workspaces/${workspace}/metadata/*.yaml; nothing to validate.\n`;
+  return unmatched ? EXIT.noPublishedMatch : EXIT.clean;
 }
 
 /**
@@ -352,14 +380,18 @@ function argumentError(values: {
   return undefined;
 }
 
-/** How many own refs were retargeted at a published image, of how many. */
-export type PublishedMatches = { matched: number; own: number };
+/**
+ * Of the own refs, how many were retargeted at a published image (`matched`)
+ * and how many of those had a manifest read (`checked`).
+ */
+export type PublishedMatches = { matched: number; checked: number; own: number };
 
 export function countPublishedMatches(jobs: readonly PluginPathJob[]): PublishedMatches {
   // A retargeted ref can name a fork's registry, so it counts as own as is.
   // A malformed ref fails on its form and says nothing about the mapping.
   return {
     matched: jobs.filter((job) => job.retargeted).length,
+    checked: jobs.filter((job) => job.retargeted && job.checked).length,
     own: jobs.filter((job) => job.retargeted || isWellFormedOwnRef(job.ref)).length,
   };
 }
@@ -397,15 +429,19 @@ export async function checkPluginPaths(
   return tally;
 }
 
-/** Annotates a row with its ref's plugin-path outcome. */
+/** Annotates a row and its job with the ref's plugin-path outcome. */
 export function recordPluginPathOutcome(
-  { row, ref, retargeted }: PluginPathJob,
+  job: PluginPathJob,
   outcome: PluginPathOutcome,
   allowUnpublished: boolean,
   tally: PluginPathTally,
 ): void {
+  const { row, ref, retargeted } = job;
+  job.checked = outcome.kind === "ok" || outcome.kind === "mismatch";
+  job.failed = true;
   switch (outcome.kind) {
     case "ok":
+      job.failed = false;
       tally.checked += 1;
       return;
     case "mismatch":
@@ -419,6 +455,7 @@ export function recordPluginPathOutcome(
       // that cannot be pulled is as broken for the installer as a bad path.
       // A retargeted ref names an image this run pushed, so it is no exception.
       if (allowUnpublished && !retargeted && isOwnImage(ref)) {
+        job.failed = false;
         tally.unpublished += 1;
         row.notes.push(`plugin path not checked: ${ref} is not published yet (${outcome.reason})`);
         return;
@@ -665,9 +702,9 @@ async function collectAllMetadata(repoRoot: string, workspace = "*"): Promise<st
   return found.toSorted(byCodepoint);
 }
 
-/** The run's exit code: 1 when any row failed, 0 otherwise. */
+/** 1 when any row failed, 0 otherwise. */
 export function exitCodeFor(rows: Row[]): number {
-  return rows.some((row) => row.status === "FAIL") ? 1 : 0;
+  return rows.some((row) => row.status === "FAIL") ? EXIT.failed : EXIT.clean;
 }
 
 export function printReport(
@@ -761,7 +798,7 @@ function printPluginPathTally(
   );
   if (published) {
     write(
-      `Published images — own refs checked against them: ${published.matched} of ${published.own}\n`,
+      `Published images — own refs checked against them: ${published.checked} of ${published.own}\n`,
     );
   }
   if (tally.checked === 0) {
@@ -777,12 +814,12 @@ if (isInvokedDirectly()) {
   try {
     process.exitCode = await main();
   } catch (error) {
-    // Exit 2 marks a tool failure, distinct from exit 1 for a validation
-    // failure — CI can tell "the metadata is wrong" from "the check broke".
+    // A tool failure, distinct from a validation failure — CI can tell
+    // "the metadata is wrong" from "the check broke".
     process.stderr.write(
       `${error instanceof Error ? (error.stack ?? error.message) : String(error)}
 `,
     );
-    process.exitCode = 2;
+    process.exitCode = EXIT.toolError;
   }
 }

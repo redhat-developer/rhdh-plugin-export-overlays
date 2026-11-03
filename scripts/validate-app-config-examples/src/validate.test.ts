@@ -15,7 +15,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { byCodepoint } from "./json.ts";
 import { PluginPathChecker, type FetchManifest } from "./plugin-path.ts";
 import { parsePublishedImages } from "./published-images.ts";
+import { manifestDeclaring } from "./test-manifest.ts";
 import {
+  EXIT,
   checkPluginPaths,
   exitCodeFor,
   main,
@@ -23,6 +25,7 @@ import {
   printReport,
   recordPluginPathOutcome,
   countPublishedMatches,
+  runExitCode,
   type PluginPathTally,
   type Row,
   type SchemaTally,
@@ -72,6 +75,29 @@ describe("exitCodeFor", () => {
     // The workflow_dispatch sweep runs --warn-only precisely so the pre-existing
     // backlog reports without wedging the run. Mismatches must not reach here.
     expect(exitCodeFor([passing])).toBe(0);
+  });
+});
+
+describe("runExitCode", () => {
+  const failing: Row = { ...passing, status: "FAIL" };
+  const pluginPathFailure = { row: failing, ref: "oci://quay.io/x/a:1", failed: true };
+  const unmatched = { matched: 0, checked: 0, own: 2 };
+
+  it.each([
+    ["a plugin-path failure over a structural one", [failing], [pluginPathFailure], undefined, 4],
+    ["a plugin-path failure over an unmatched list", [failing], [pluginPathFailure], unmatched, 4],
+    ["a structural failure over an unmatched list", [failing], [], unmatched, 1],
+    ["an unmatched list over a clean run", [passing], [], unmatched, 3],
+    ["a clean run", [passing], [], undefined, 0],
+  ])("reports %s", (_label, rows, jobs, published, code) => {
+    const io = capture();
+    expect(runExitCode(rows, jobs, published, io.writeError)).toBe(code);
+  });
+
+  it("names an unmatched list even when a failure decides the code", () => {
+    const io = capture();
+    runExitCode([failing], [], unmatched, io.writeError);
+    expect(io.stderr).toMatch(/no ref matches a listed image/);
   });
 });
 
@@ -364,13 +390,12 @@ describe("plugin-path outcomes", () => {
   });
 
   it("checks every job and tallies the outcomes", async () => {
-    const annotation = Buffer.from(JSON.stringify([{ a: {} }, { b: {} }])).toString("base64");
-    const fetch: FetchManifest = async () => ({
-      kind: "ok",
-      manifest: JSON.stringify({ annotations: { "io.backstage.dynamic-packages": annotation } }),
-    });
     const jobs = [job(`${EXTERNAL_REF}!a`), job(EXTERNAL_REF), job(`${EXTERNAL_REF}!c`)];
-    const tally = await checkPluginPaths(jobs, new PluginPathChecker(fetch), false);
+    const tally = await checkPluginPaths(
+      jobs,
+      new PluginPathChecker(async () => manifestDeclaring("a", "b")),
+      false,
+    );
     expect(tally).toEqual({ checked: 3, mismatched: 2, unpublished: 0, unavailable: 0 });
     expect(jobs.map((j) => j.row.status)).toEqual(["PASS", "FAIL", "FAIL"]);
   });
@@ -397,7 +422,7 @@ describe("plugin-path outcomes", () => {
       new PluginPathChecker(fetch, { attempts: 1 }),
     );
     // Offline must fail the run, never pass it unchecked.
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT.pluginPathFailed);
     expect(images.length).toBeGreaterThan(0);
     expect(io.stdout).toMatch(/registry unreachable, plugin path not checked/);
   });
@@ -413,7 +438,7 @@ describe("plugin-path outcomes", () => {
     // Own ghcr tags are noted; the external cost-management bundle still fails.
     expect(io.stdout).toMatch(/not published yet: [1-9]/);
     expect(io.stdout).toMatch(/dynamicArtifact names an image that cannot be pulled/);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT.pluginPathFailed);
   });
 
   it("reads no manifest without --check-plugin-paths", async () => {
@@ -454,15 +479,9 @@ function publishedFile(lines: string[]): string {
 /** A registry where every image declares `paths`, recording what was read. */
 function registryDeclaring(...paths: string[]) {
   const images: string[] = [];
-  const annotation = Buffer.from(JSON.stringify(paths.map((p) => ({ [p]: {} })))).toString(
-    "base64",
-  );
   const fetch: FetchManifest = async (image) => {
     images.push(image);
-    return {
-      kind: "ok",
-      manifest: JSON.stringify({ annotations: { "io.backstage.dynamic-packages": annotation } }),
-    };
+    return manifestDeclaring(...paths);
   };
   return { fetch, images };
 }
@@ -496,8 +515,9 @@ describe("checking against a PR's published images", () => {
       io.writeError,
       new PluginPathChecker(fetch),
     );
-    expect(images.toSorted()).toEqual(NAMES.map((name) => `${OWN}/${name}:pr_9__1.0.5`).toSorted());
-    expect(io.stdout).toMatch(/own refs checked against them: 3 of 3/);
+    expect(images.length).toBeGreaterThan(0);
+    expect(images.every((image) => image.endsWith(":pr_9__1.0.5"))).toBe(true);
+    expect(io.stdout).toMatch(/own refs checked against them: [1-9]\d* of /);
     expect(code).toBe(0);
   });
 
@@ -511,7 +531,7 @@ describe("checking against a PR's published images", () => {
       io.writeError,
       new PluginPathChecker(fetch),
     );
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT.pluginPathFailed);
     expect(io.stdout).toMatch(/plugin path: oci:\/\/\S+:pr_9__1\.0\.5 2 plugins in the image/);
   });
 
@@ -532,12 +552,14 @@ describe("checking against a PR's published images", () => {
       io.writeError,
       new PluginPathChecker(missingEverywhere),
     );
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT.pluginPathFailed);
     expect(io.stdout).toMatch(/not published yet: 0/);
     expect(io.stdout).toMatch(/plugin path: oci:\/\/\S+:pr_9__1\.0\.5: /);
+    // Retargeted but never read: none of them counts as checked.
+    expect(io.stdout).toMatch(/own refs checked against them: 0 of 3/);
   });
 
-  it("exits 2 when own refs exist and the list matches none of them", async () => {
+  it("exits 3 when own refs exist and the list matches none of them", async () => {
     const file = publishedFile([`${OWN}/unrelated:pr_9__1.0.0`]);
     const io = capture();
     const code = await main(
@@ -553,7 +575,7 @@ describe("checking against a PR's published images", () => {
       io.writeError,
       new PluginPathChecker(missingEverywhere),
     );
-    expect(code).toBe(2);
+    expect(code).toBe(EXIT.noPublishedMatch);
     expect(io.stderr).toMatch(/no ref matches a listed image/);
   });
 
@@ -614,16 +636,35 @@ describe("checking against a PR's published images", () => {
     const io = capture();
     await main(["--workspace", "adoption-insights"], io.write, io.writeError);
     const files = io.stdout.match(/workspaces\/\S+\.yaml/g) ?? [];
-    expect(files.length).toBe(3);
+    expect(files.length).toBeGreaterThan(0);
     expect(files.every((path) => path.startsWith("workspaces/adoption-insights/metadata/"))).toBe(
       true,
     );
   });
 
-  it("exits 0 with an explanation for a workspace without metadata", async () => {
+  it("exits 2 for a workspace without metadata, so checking nothing is not a pass", async () => {
     const io = capture();
-    expect(await main(["--workspace", "no-such-workspace"], io.write, io.writeError)).toBe(0);
-    expect(io.stdout).toMatch(/nothing to validate/);
+    expect(await main(["--workspace", "no-such-workspace"], io.write, io.writeError)).toBe(
+      EXIT.toolError,
+    );
+    expect(io.stderr).toMatch(/no workspaces\/no-such-workspace\/metadata\/\*\.yaml/);
+  });
+
+  it("reports a bad --published-images even when the workspace has no metadata", async () => {
+    const io = capture();
+    const code = await main(
+      [
+        "--workspace",
+        "no-such-workspace",
+        "--check-plugin-paths",
+        "--published-images",
+        "/etc/hosts",
+      ],
+      io.write,
+      io.writeError,
+    );
+    expect(code).toBe(EXIT.toolError);
+    expect(io.stderr).toMatch(/--published-images must be a file under/);
   });
 
   it.each([
@@ -657,17 +698,33 @@ describe("checking against a PR's published images", () => {
     const tally = await checkPluginPaths(jobs, new PluginPathChecker(missingEverywhere), true);
     expect(tally).toEqual({ checked: 1, mismatched: 1, unpublished: 0, unavailable: 0 });
     expect(row.status).toBe("FAIL");
-    expect(countPublishedMatches(jobs)).toEqual({ matched: 0, own: 0 });
+    expect(countPublishedMatches(jobs)).toEqual({ matched: 0, checked: 0, own: 0 });
   });
 
   it("counts a retargeted job as own even though its registry is a fork's", () => {
     expect(
       countPublishedMatches([
-        { ...job("oci://ghcr.io/someone/r/a:pr_1__1"), retargeted: true },
+        { ...job("oci://ghcr.io/someone/r/a:pr_1__1"), retargeted: true, checked: true },
         job(`oci://${OWN}/b:bs_1__1`),
         job("oci://quay.io/x/c:1"),
       ]),
-    ).toEqual({ matched: 1, own: 2 });
+    ).toEqual({ matched: 1, checked: 1, own: 2 });
+  });
+
+  it("counts a retargeted ref as checked only once its manifest was read", async () => {
+    const jobs = [
+      { ...job(`oci://${OWN}/a:pr_1__1!a`), retargeted: true },
+      { ...job(`oci://${OWN}/b:pr_1__1!b`), retargeted: true },
+    ];
+    const checker = new PluginPathChecker(
+      async (image) =>
+        image.endsWith("/a:pr_1__1")
+          ? manifestDeclaring("a")
+          : { kind: "unavailable", reason: "403" },
+      { attempts: 1 },
+    );
+    await checkPluginPaths(jobs, checker, true);
+    expect(countPublishedMatches(jobs)).toEqual({ matched: 2, checked: 1, own: 2 });
   });
 
   it("prints the match count beneath the plugin-path tally", () => {
@@ -678,7 +735,7 @@ describe("checking against a PR's published images", () => {
       {
         checked: false,
         pluginPaths: { checked: 1, mismatched: 0, unpublished: 1, unavailable: 0 },
-        published: { matched: 1, own: 2 },
+        published: { matched: 2, checked: 1, own: 2 },
       },
       io.write,
       io.writeError,

@@ -19,22 +19,10 @@ import {
   type FetchManifest,
   type ManifestResult,
 } from "./plugin-path.ts";
+import { manifestDeclaring as manifest } from "./test-manifest.ts";
 
 const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
 const NO_DELAY = { retryDelayMs: 0 };
-
-/** A manifest whose annotation declares `paths`, as `plugin package` writes it. */
-function manifest(...paths: string[]): ManifestResult {
-  const entries = paths.map((path) => ({ [path]: {} }));
-  return {
-    kind: "ok",
-    manifest: JSON.stringify({
-      annotations: {
-        "io.backstage.dynamic-packages": Buffer.from(JSON.stringify(entries)).toString("base64"),
-      },
-    }),
-  };
-}
 
 /** A fetch answering from `table` (one answer per call, last one repeated). */
 function fakeRegistry(table: Record<string, ManifestResult[]>) {

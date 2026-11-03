@@ -51,9 +51,19 @@ metadata it touched.
 `--warn-only` remains for surveying a tree you have not cleaned up yet — a
 release branch, say.
 
-Exit codes match the Python script this replaced: `0` clean, `1` validation
-failed, `2` the tool itself failed. With `--published-images`, exit 2 also
-means no well-formed own ref matched a listed image (see below).
+Exit codes (`EXIT` in `src/validate.ts`):
+
+| Code | Meaning                                                           |
+| ---- | ----------------------------------------------------------------- |
+| `0`  | clean                                                             |
+| `1`  | a row failed a check other than its plugin path                   |
+| `2`  | the tool could not run as asked, or `--workspace` matched no file |
+| `3`  | `--published-images` matched no well-formed own ref (see below)   |
+| `4`  | a row failed its plugin-path check                                |
+
+A failed row wins over `3`, and `4` wins over `1`, so a verdict never hides
+a failure. `auto-publish-pr.yaml` words the `plugin-paths` status from these
+codes, so a new verdict needs a new code.
 
 ## Why this is TypeScript and not Python
 
@@ -295,16 +305,21 @@ prefix, and cannot be combined with `--since`.
 keeps its `bs_*` tag. A ref pointed at a listed image is not noted: the run just
 pushed that image, so a registry without it fails the row.
 
-The result lands on the PR as a `plugin-paths` commit status and a section in
-the publish comment. It does not change the `publish` status, and it does not
-stop the smoke tests. The job runs this tool from the workflow's own ref; the PR
-supplies only its metadata YAML.
+On a metadata-only PR, `/publish` builds nothing and the job runs without
+`--published-images`: the refs are checked as written, against the `bs_*`
+images the merge keeps. An earlier `/publish` of the same PR built other
+sources, so its images are not used.
+
+The result lands on the PR as a `plugin-paths` commit status and a comment of
+its own. It does not change or delay the `publish` status and comment, and it
+does not stop the smoke tests. The job runs this tool from the workflow's own
+ref; the PR supplies only its metadata YAML.
 
 A malformed ref (no tag, an empty tag, a bare `!`) is not retargeted: it is
 checked as written, so it fails on its form instead of passing as a `pr_*` ref.
 
 If well-formed own refs exist and none matches a published image, the run exits
-2: the mapping is broken, and each ref would otherwise fall back to its
+3: the mapping is broken, and each ref would otherwise fall back to its
 unpublished `bs_*` tag and pass as a note.
 
 ## Layout
@@ -317,6 +332,7 @@ unpublished `bs_*` tag and pass as a note.
 | `src/plugin-path.ts`      | manifest fetch, retries, plugin-path outcomes        |
 | `src/published-images.ts` | metadata refs mapped onto a PR's `/publish` images   |
 | `src/validate.ts`         | CLI, reporting, exit codes                           |
+| `src/test-manifest.ts`    | the image manifest the tests share                   |
 | `src/*.test.ts`           | the unit tests                                       |
 
 The tests never touch the network: the semantic layer is exercised through
