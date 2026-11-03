@@ -280,6 +280,7 @@ def _plugin_tag(plugin: dict) -> str:
 # Icons for the cross-branch comparison rendered on the main-branch page.
 SAME_TAG_ICON = "⚠️"
 OLDER_ICON = "⛔"
+STATUS_ICONS = {"bs-mismatch": "⛔", "outdated": "⚠️"}
 
 
 def compute_cross_branch_flags(report: dict, peer_report: dict) -> dict[str, dict]:
@@ -312,18 +313,22 @@ def compute_cross_branch_flags(report: dict, peer_report: dict) -> dict[str, dic
     return flags
 
 
-def version_marker(cross_flags: dict[str, dict], name: str) -> str:
-    """Marker for a Version cell: same tag, or 'this tag < release tag'."""
+def version_marker(
+    cross_flags: dict[str, dict], name: str, status_kind: str = ""
+) -> str:
+    """Marker for a Version cell: tier status, then cross-branch flag."""
+    parts = []
+    if status_kind in STATUS_ICONS:
+        parts.append(STATUS_ICONS[status_kind])
     flag = cross_flags.get(name)
-    if not flag:
-        return ""
-    if flag["kind"] == "same-tag":
-        return f"{SAME_TAG_ICON} "
-    own = flag.get("own_tag") or ""
-    peer = flag.get("peer_tag") or ""
-    if own and peer:
-        return f"{OLDER_ICON} `{own} < {peer}` "
-    return f"{OLDER_ICON} "
+    if flag:
+        if flag["kind"] == "same-tag":
+            parts.append(SAME_TAG_ICON)
+        else:
+            own = flag.get("own_tag") or ""
+            peer = flag.get("peer_tag") or ""
+            parts.append(f"{OLDER_ICON} `{own} < {peer}`" if own and peer else OLDER_ICON)
+    return f"{' '.join(parts)} " if parts else ""
 
 
 def render_tier(
@@ -341,8 +346,8 @@ def render_tier(
     status = report.get("status", "unknown")
     cross_flags = cross_flags or {}
 
-    def _mark(name: str) -> str:
-        return version_marker(cross_flags, name)
+    def _mark(name: str, status_kind: str = "") -> str:
+        return version_marker(cross_flags, name, status_kind)
 
     if status == "initial":
         lines.extend([
@@ -426,7 +431,7 @@ def render_tier(
             ws_link = workspace_link(source_repo, branch, ws) if ws else f"`{ws}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | `{pkg}` | {ws_link} | {expected} | {_mark(name)}{found} | {oci_link} |"
+                f"| {name_link} | `{pkg}` | {ws_link} | {expected} | {_mark(name, "bs-mismatch")}{found} | {oci_link} |"
             )
         lines.append("")
 
@@ -457,7 +462,7 @@ def render_tier(
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | `{pkg}` | `{requested}` | {_mark(name)}`{resolved}` | {oci_link} |"
+                f"| {name_link} | `{pkg}` | `{requested}` | {_mark(name, "outdated")}`{resolved}` | {oci_link} |"
             )
         lines.append("")
 

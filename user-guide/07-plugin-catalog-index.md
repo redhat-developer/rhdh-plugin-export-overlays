@@ -399,6 +399,8 @@ The status page includes:
 - Summary counts per tier (total, passed, failed)
 - Per-plugin tables with links to metadata files, OCI references, and failure reasons
 - Links to the workflow run for debugging failures
+- Two markers in the Version (or Found/Resolved) cell of problem rows: ⛔ for a
+  **Backstage version mismatch**, ⚠️ for an **outdated** (fallback) tag.
 - On the `main` page only, a comparison against the latest `release-2.y` branch:
   two Summary columns (⚠️ Same Tag, ⛔ Older) holding the per-tier counts, and the
   matching marker in the Version cell of every affected row.

@@ -246,6 +246,17 @@ class TestVersionMarker:
     def test_unflagged_plugin_has_no_marker(self):
         assert version_marker({}, "p") == ""
 
+    def test_bs_mismatch_gets_error_marker(self):
+        assert version_marker({}, "p", "bs-mismatch") == "⛔ "
+
+    def test_outdated_gets_warning_marker(self):
+        assert version_marker({}, "p", "outdated") == "⚠️ "
+
+    def test_status_and_cross_branch_markers_combine(self):
+        flags = {"p": {"kind": "same-tag", "own_tag": "a", "peer_tag": "a"}}
+
+        assert version_marker(flags, "p", "outdated") == "⚠️ ⚠️ "
+
 
 class TestCrossBranchRendering:
     def test_marker_sits_in_the_version_cell(self):
