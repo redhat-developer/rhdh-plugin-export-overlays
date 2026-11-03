@@ -398,18 +398,21 @@ jobs:
           echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$WORKSPACE"
 
   # The PR check can only note refs to bs_* tags, which exist after merge.
-  # This checks the workspace metadata against the pr_* images just pushed.
+  # This checks the workspace metadata against the pr_* images just pushed,
+  # or, on a metadata-only PR, against the bs_* images its refs name.
   # The validator comes from this workflow's own (trusted) ref; the PR
   # supplies only metadata YAML, and the job holds no secrets.
   check-plugin-paths:
-    name: Check plugin paths against the PR images
+    name: Check plugin paths
     needs:
       - prepare
+      - detect-changes
       - export
     if: |
       always() &&
       needs.prepare.outputs.workspace != '' &&
-      needs.export.outputs.published-exports != ''
+      (needs.export.outputs.published-exports != '' ||
+       needs.detect-changes.outputs.only-metadata-changed == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # A failing check does not fail the job: the result goes out as its own
@@ -420,15 +423,21 @@ jobs:
       contents: read
     outputs:
       exit-code: ${{ steps.check.outputs.exit-code }}
+      against: ${{ steps.check.outputs.against }}
       report: ${{ steps.check.outputs.report }}
     steps:
-      # Before any use: the workspace name can come from a fork's branch name.
+      # Before any use: the workspace name can come from a fork's branch name
+      # or a PR file path, so it is logged with workflow commands stopped.
       - name: Check the workspace path
         env:
           WORKSPACE: ${{ needs.prepare.outputs.workspace }}
         run: |
           if [[ ! "$WORKSPACE" =~ ^workspaces/[A-Za-z0-9_.-]+$ || "$WORKSPACE" =~ /\.\.?$ ]]; then
-            echo "::error::unexpected workspace path: $WORKSPACE"
+            echo "::error::unexpected workspace path; it is printed below"
+            token="$(openssl rand -hex 16)"
+            echo "::stop-commands::$token"
+            printf '%s\n' "$WORKSPACE"
+            echo "::$token::"
             exit 1
           fi
 
@@ -476,22 +485,34 @@ jobs:
           # --published-images only reads under the cwd or the temp dir.
           TMPDIR: ${{ runner.temp }}
         # --allow-unpublished: an own ref /publish did not push (a failed
-        # export) keeps its bs_* tag, which does not exist yet.
+        # export, or a metadata-only PR) keeps a bs_* tag that may not exist yet.
         run: |
           images="$RUNNER_TEMP/published-exports.txt"
           report="$RUNNER_TEMP/plugin-paths.txt"
-          printf '%s\n' "$PUBLISHED_EXPORTS" > "$images"
+          args=(--workspace "$WORKSPACE" --check-plugin-paths --allow-unpublished)
+          # Empty on a metadata-only PR: the refs are checked as written.
+          if [[ -n "$PUBLISHED_EXPORTS" ]]; then
+            printf '%s\n' "$PUBLISHED_EXPORTS" > "$images"
+            args+=(--published-images "$images")
+            against=pr-images
+          else
+            against=as-written
+          fi
           set +e
-          vp exec validate-app-config-examples --workspace "$WORKSPACE" \
-            --check-plugin-paths --allow-unpublished --published-images "$images" \
-            > "$report" 2>&1
+          vp exec validate-app-config-examples "${args[@]}" > "$report" 2>&1
           code=$?
           set -e
+          # The report quotes refs from the PR: no line of it may run as a
+          # workflow command.
+          token="$(openssl rand -hex 16)"
+          echo "::stop-commands::$token"
           cat "$report"
+          echo "::$token::"
           # Random delimiter: the report quotes refs from the PR.
           delimiter="EOF_$(openssl rand -hex 16)"
           {
             echo "exit-code=$code"
+            echo "against=$against"
             echo "report<<$delimiter"
             # Ends the report with a newline, so the delimiter is a line of its own.
             printf '%s\n' "$(cat "$report")"
@@ -500,6 +521,103 @@ jobs:
           if [[ "$code" != 0 ]]; then
             echo "::error::plugin-path check exited $code; see the report above"
           fi
+
+  # Separate from add-completion-comment so the publish status, its comment
+  # and the published-exports artifact do not wait for the registry reads.
+  report-plugin-paths:
+    name: Report plugin paths
+    needs:
+      - prepare
+      - check-plugin-paths
+    if: always() && needs.check-plugin-paths.result != 'skipped'
+    runs-on: ubuntu-latest
+    # Like the check: a broken report must not fail the publish run.
+    continue-on-error: true
+    permissions:
+      statuses: write
+      pull-requests: write
+    steps:
+      - name: Post the plugin-path status and comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_EXIT_CODE: ${{ needs.check-plugin-paths.outputs.exit-code }}
+          INPUT_AGAINST: ${{ needs.check-plugin-paths.outputs.against }}
+          INPUT_REPORT: ${{ needs.check-plugin-paths.outputs.report }}
+        with:
+          script: |
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+            const asWritten = core.getInput('against') === 'as-written';
+            const images = asWritten
+              ? 'the images its refs name (metadata-only PR)'
+              : 'the images this PR published';
+            // Exit codes are EXIT in scripts/validate-app-config-examples/src/validate.ts.
+            // Empty when the job broke before the check ran.
+            let state = 'failure';
+            let description;
+            let text;
+            switch (core.getInput('exit_code')) {
+              case '0':
+                state = 'success';
+                description = asWritten
+                  ? 'No plugin-path problem found in the refs as written'
+                  : 'No plugin-path problem found against the PR images';
+                text = `✅ No plugin-path problem found against ${images}. The report shows how many refs were checked.`;
+                break;
+              case '4':
+                description = asWritten
+                  ? 'Plugin-path check failed for the refs as written'
+                  : 'Plugin-path check failed against the PR images';
+                text = `❌ The plugin-path check failed against ${images}. The report names each failing file and why: a \`!plugin-path\` the image does not declare installs nothing, a ref without one needs an image with exactly one plugin, and an image the registry did not answer for is not a pass.`;
+                break;
+              case '3':
+                description = 'No metadata ref matched an image this PR published';
+                text = '❌ None of the workspace\'s refs matched an image this PR published, so no ref was checked against them. The image names and the `dynamicArtifact` refs disagree; the report has both counts.';
+                break;
+              case '1':
+                description = 'Metadata failed a check other than plugin paths';
+                text = '❌ A metadata file failed a check other than its plugin path, such as a missing `appConfigExamples`. The report names the file.';
+                break;
+              default:
+                description = 'Plugin-path check did not run to completion';
+                text = '⚠️ The plugin-path check did not run to completion; see the workflow run.';
+            }
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: core.getInput('overlay_commit'),
+              description,
+              state,
+              target_url: workflowRun.data.html_url,
+              context: 'plugin-paths',
+            });
+            let body = `[Publish workflow](${workflowRun.data.html_url}) — plugin-path check\n\n#### Plugin Paths\n${text}`;
+            const fullReport = core.getInput('report');
+            // The report quotes refs from the PR: no backtick may close the
+            // fence, and every line is indented so a newline in a ref cannot
+            // start a bot command such as /test at column 0.
+            const safeReport = fullReport
+              .replaceAll('`', "'")
+              .replace(/\r\n?/g, '\n')
+              .replace(/^/gm, '  ');
+            const reportLimit = 20000;
+            const report = safeReport.length > reportLimit
+              ? `${safeReport.slice(0, reportLimit)}\n  [truncated; the full report is in the workflow run]`
+              : safeReport;
+            if (fullReport !== '') {
+              body += '\n\n<details><summary>Report</summary>\n\n```\n' + report + '\n```\n\n</details>';
+            }
+            await github.rest.issues.createComment({
+              issue_number: Number(core.getInput('pr_number')),
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
 
   check-backstage-compatibility:
     name: Check workspace backstage compatibility
@@ -528,7 +646,6 @@ jobs:
       - export
       - check-backstage-compatibility
       - validate-metadata-only
-      - check-plugin-paths
     if: always() && needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
 
@@ -565,9 +682,6 @@ jobs:
           INPUT_CHECK_BACKSTAGE_COMPATIBILITY_RESULT: ${{ needs.check-backstage-compatibility.result }}
           INPUT_VALIDATE_METADATA_RESULT: ${{ needs.validate-metadata-only.result }}
           INPUT_DETECT_CHANGES_RESULT: ${{ needs.detect-changes.result }}
-          INPUT_PLUGIN_PATHS_RESULT: ${{ needs.check-plugin-paths.result }}
-          INPUT_PLUGIN_PATHS_EXIT_CODE: ${{ needs.check-plugin-paths.outputs.exit-code }}
-          INPUT_PLUGIN_PATHS_REPORT: ${{ needs.check-plugin-paths.outputs.report }}
         with:
           script: |
             const fs = require('fs');
@@ -675,56 +789,6 @@ jobs:
               metadataWarningPackages.forEach(pkg => {
                 body += `\n  - \`${pkg}\``;
               });
-            }
-
-            // Own status context, so a plugin-path failure does not read as a
-            // failed publish.
-            const pluginPathsResult = core.getInput('plugin_paths_result');
-            if (pluginPathsResult !== 'skipped' && pluginPathsResult !== '') {
-              // Empty when the job broke before the check ran.
-              const exitCode = core.getInput('plugin_paths_exit_code');
-              const fullReport = core.getInput('plugin_paths_report');
-              const passed = exitCode === '0';
-              // Exit 1 without the tally is a crash (a failed import, say),
-              // not a metadata problem.
-              const failed = exitCode === '1' && fullReport.includes('Plugin paths — checked:');
-              let description = 'Plugin-path check did not run to completion';
-              if (passed) {
-                description = 'No plugin-path problem found against the PR images';
-              } else if (failed) {
-                description = 'Plugin-path check failed against the PR images';
-              }
-              await github.rest.repos.createCommitStatus({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                sha: core.getInput('overlay_commit'),
-                description,
-                state: passed ? 'success' : 'failure',
-                target_url: workflowRun.data.html_url,
-                context: 'plugin-paths',
-              });
-              body += '\n\n#### Plugin Paths\n';
-              if (passed) {
-                body += '✅ No plugin-path problem found. The report shows how many refs were checked against the images this PR published.';
-              } else if (failed) {
-                body += '❌ The plugin-path check failed against the images this PR published. The report names each failing file and why: a `!plugin-path` the image does not declare installs nothing, a ref without one needs an image with exactly one plugin, and an image the registry did not answer for is not a pass.';
-              } else {
-                body += '⚠️ The plugin-path check did not run to completion; see the workflow run.';
-              }
-              // The report quotes refs from the PR: no backtick may close the
-              // fence, and every line is indented so a newline in a ref cannot
-              // start a bot command such as /test at column 0.
-              const safeReport = fullReport
-                .replaceAll('`', "'")
-                .replace(/\r\n?/g, '\n')
-                .replace(/^/gm, '  ');
-              const reportLimit = 20000;
-              const report = safeReport.length > reportLimit
-                ? `${safeReport.slice(0, reportLimit)}\n  [truncated; the full report is in the workflow run]`
-                : safeReport;
-              if (fullReport !== '') {
-                body += '\n\n<details><summary>Report</summary>\n\n```\n' + report + '\n```\n\n</details>';
-              }
             }
 
             if (publishSuccess) {
