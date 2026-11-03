@@ -28,10 +28,10 @@ from typing import NamedTuple
 
 import yaml
 
-from generatePluginBuildInfo import decode_dynamic_packages
 from plugin_utils import (
     BuildReport,
     Colors,
+    decode_dynamic_packages,
     log_debug,
     log_error,
     log_info,
