@@ -12,14 +12,16 @@ import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 const EXPECTED_CARD_TEXTS = [
   "Good (morning|afternoon|evening)",
   "Explore Your Software Catalog",
-  "Explore Templates",
+  "Recently Visited",
+  "Top Visited",
 ] as const;
 
 /** Add-widget dialog labels on the NFS (Backstage app) home page. */
 export const AVAILABLE_WIDGETS = [
   "Red Hat Developer Hub - Onboarding",
   "Red Hat Developer Hub - Software Catalog",
-  "Red Hat Developer Hub - Explore templates",
+  "Recently Visited",
+  "Top Visited",
 ] as const;
 
 /** Map stable test labels to NFS AddWidgetDialog button names. */
@@ -27,7 +29,8 @@ const WIDGET_DIALOG_LABELS = new Map<string, string>([
   ["Onboarding Section", "Red Hat Developer Hub - Onboarding"],
   ["Entity Section", "Red Hat Developer Hub - Software Catalog"],
   ["Entity section", "Red Hat Developer Hub - Software Catalog"],
-  ["Template Section", "Red Hat Developer Hub - Explore templates"],
+  ["Recently Visited", "Recently Visited"],
+  ["Top Visited", "Top Visited"],
 ]);
 
 const COMMON = ["Explore Your Software Catalog"];
@@ -273,7 +276,8 @@ export class DynamicHomePagePo {
     await this.deleteAllCards();
     await this.addWidget("Entity Section");
     await this.addWidget("Onboarding Section");
-    await this.addWidget("Template Section");
+    await this.addWidget("Recently Visited");
+    await this.addWidget("Top Visited");
     await this.exitEditMode();
   }
 
