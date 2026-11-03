@@ -412,8 +412,9 @@ jobs:
       needs.export.outputs.published-exports != ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Reported through its own commit status: a failure here must not fail the
-    # publish run, which would stop pr-actions from dispatching smoke tests.
+    # A failing check does not fail the job: the result goes out as its own
+    # commit status. This covers a job that breaks (checkout, setup), which
+    # must not fail the publish run and stop the smoke-test dispatch.
     continue-on-error: true
     permissions:
       contents: read
@@ -421,6 +422,16 @@ jobs:
       exit-code: ${{ steps.check.outputs.exit-code }}
       report: ${{ steps.check.outputs.report }}
     steps:
+      # Before any use: the workspace name can come from a fork's branch name.
+      - name: Check the workspace path
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          if [[ ! "$WORKSPACE" =~ ^workspaces/[A-Za-z0-9_.-]+$ || "$WORKSPACE" =~ /\.\.?$ ]]; then
+            echo "::error::unexpected workspace path: $WORKSPACE"
+            exit 1
+          fi
+
       - name: Checkout validator
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -441,11 +452,6 @@ jobs:
         env:
           WORKSPACE: ${{ needs.prepare.outputs.workspace }}
         run: |
-          # The workspace name can come from a fork's branch name.
-          if [[ ! "$WORKSPACE" =~ ^workspaces/[A-Za-z0-9_.-]+$ || "$WORKSPACE" =~ /\.\.?$ ]]; then
-            echo "::error::unexpected workspace path: $WORKSPACE"
-            exit 1
-          fi
           rm -rf "${WORKSPACE}/metadata"
           mkdir -p "${WORKSPACE}/metadata"
           # Regular YAML files only: a symlink could point outside the tree.
@@ -677,12 +683,12 @@ jobs:
               // Empty when the job broke before the check ran.
               const exitCode = core.getInput('plugin_paths_exit_code');
               const passed = exitCode === '0';
-              const mismatch = exitCode === '1';
+              const failed = exitCode === '1';
               let description = 'Plugin-path check did not run to completion';
               if (passed) {
-                description = 'Plugin paths match the PR images';
-              } else if (mismatch) {
-                description = 'Metadata fails the check against the PR images';
+                description = 'No plugin-path problem found against the PR images';
+              } else if (failed) {
+                description = 'Plugin-path check failed against the PR images';
               }
               await github.rest.repos.createCommitStatus({
                 owner: context.repo.owner,
@@ -695,14 +701,18 @@ jobs:
               });
               body += '\n\n#### Plugin Paths\n';
               if (passed) {
-                body += '✅ Every `dynamicArtifact` was checked against the image this PR published.';
-              } else if (mismatch) {
-                body += '❌ The workspace metadata fails the check against the images this PR published. A `!plugin-path` the image does not declare installs nothing; a ref without one needs an image with exactly one plugin. The report names each failing file.';
+                body += '✅ No plugin-path problem found. The report shows how many refs were checked against the images this PR published.';
+              } else if (failed) {
+                body += '❌ The plugin-path check failed against the images this PR published. The report names each failing file and why: a `!plugin-path` the image does not declare installs nothing, a ref without one needs an image with exactly one plugin, and an image the registry did not answer for is not a pass.';
               } else {
                 body += '⚠️ The plugin-path check did not run to completion; see the workflow run.';
               }
               // The report quotes refs from the PR; no backtick may close the fence.
-              const report = core.getInput('plugin_paths_report').replaceAll('`', "'").slice(0, 20000);
+              const fullReport = core.getInput('plugin_paths_report').replaceAll('`', "'");
+              const reportLimit = 20000;
+              const report = fullReport.length > reportLimit
+                ? `${fullReport.slice(0, reportLimit)}\n[truncated; the full report is in the workflow run]`
+                : fullReport;
               if (report !== '') {
                 body += '\n\n<details><summary>Report</summary>\n\n```\n' + report + '\n```\n\n</details>';
               }
