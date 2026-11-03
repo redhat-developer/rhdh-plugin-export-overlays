@@ -12,9 +12,11 @@ import { readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, sep } from "node:path";
 import {
+  isInstallableOciRef,
   pluginSelector,
   registryRefFromOciRef,
 } from "../../../smoke-tests-native/src/plugin-path.ts";
+import { errorMessage } from "../../../smoke-tests-native/src/util.ts";
 import { errorProperty } from "./json.ts";
 import { isWellFormedOwnRef } from "./plugin-path.ts";
 
@@ -109,7 +111,7 @@ function reasonOf(cause: unknown): string {
   if (typeof code === "string") {
     return code;
   }
-  return cause instanceof Error ? cause.message : String(cause);
+  return errorMessage(cause);
 }
 
 /**
@@ -138,9 +140,7 @@ function repositoryName(image: string): string {
   return colon === -1 ? lastSegment : lastSegment.slice(0, colon);
 }
 
-/** Whether `image` is `registry/path/name:tag`, with no digest or whitespace. */
+/** Whether `image` is `registry/path/name:tag`, by the install CLI's grammar, without a digest. */
 function isTaggedImage(image: string): boolean {
-  const slash = image.lastIndexOf("/");
-  const colon = image.lastIndexOf(":");
-  return !/[\s@]/.test(image) && slash > 0 && colon > slash + 1 && colon < image.length - 1;
+  return !image.includes("@") && isInstallableOciRef(`oci://${image}`);
 }

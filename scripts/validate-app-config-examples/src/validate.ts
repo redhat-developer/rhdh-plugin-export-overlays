@@ -321,7 +321,7 @@ export async function main(
     write,
     writeError,
   );
-  return runExitCode(rows, pluginPathJobs, published, writeError);
+  return runExitCode(rows, pluginPathJobs, published);
 }
 
 /** The run's EXIT code; a failed row wins over an unmatched list. */
@@ -329,14 +329,8 @@ export function runExitCode(
   rows: Row[],
   jobs: readonly PluginPathJob[],
   published: PublishedMatches | undefined,
-  writeError: (text: string) => void,
 ): number {
   const unmatched = published !== undefined && !anyPublishedMatch(published);
-  if (unmatched) {
-    writeError(
-      "--published-images: no ref matches a listed image, so none was checked against it\n",
-    );
-  }
   if (jobs.some((job) => job.failed)) {
     return EXIT.pluginPathFailed;
   }
@@ -778,6 +772,12 @@ export function printReport(
 
   if (pluginPaths) {
     printPluginPathTally(pluginPaths, published, write);
+  }
+  // Said even when a failed row decides the exit code.
+  if (published && !anyPublishedMatch(published)) {
+    writeError(
+      "--published-images: no ref matches a listed image, so none was checked against it\n",
+    );
   }
 
   if (failures > 0) {

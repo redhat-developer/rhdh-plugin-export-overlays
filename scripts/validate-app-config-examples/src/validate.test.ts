@@ -19,12 +19,12 @@ import { manifestDeclaring } from "./test-manifest.ts";
 import {
   EXIT,
   checkPluginPaths,
+  countPublishedMatches,
   exitCodeFor,
   main,
   pluginPathJobFor,
   printReport,
   recordPluginPathOutcome,
-  countPublishedMatches,
   runExitCode,
   type PluginPathTally,
   type Row,
@@ -83,20 +83,47 @@ describe("runExitCode", () => {
   const pluginPathFailure = { row: failing, ref: "oci://quay.io/x/a:1", failed: true };
   const unmatched = { matched: 0, checked: 0, own: 2 };
 
+  it("keeps the codes auto-publish-pr.yaml reads", () => {
+    expect(EXIT).toEqual({
+      clean: 0,
+      failed: 1,
+      toolError: 2,
+      noPublishedMatch: 3,
+      pluginPathFailed: 4,
+    });
+  });
+
   it.each([
-    ["a plugin-path failure over a structural one", [failing], [pluginPathFailure], undefined, 4],
-    ["a plugin-path failure over an unmatched list", [failing], [pluginPathFailure], unmatched, 4],
-    ["a structural failure over an unmatched list", [failing], [], unmatched, 1],
-    ["an unmatched list over a clean run", [passing], [], unmatched, 3],
-    ["a clean run", [passing], [], undefined, 0],
+    [
+      "a plugin-path failure over a structural one",
+      [failing],
+      [pluginPathFailure],
+      undefined,
+      EXIT.pluginPathFailed,
+    ],
+    [
+      "a plugin-path failure over an unmatched list",
+      [failing],
+      [pluginPathFailure],
+      unmatched,
+      EXIT.pluginPathFailed,
+    ],
+    ["a structural failure over an unmatched list", [failing], [], unmatched, EXIT.failed],
+    ["an unmatched list over a clean run", [passing], [], unmatched, EXIT.noPublishedMatch],
+    ["a clean run", [passing], [], undefined, EXIT.clean],
   ])("reports %s", (_label, rows, jobs, published, code) => {
-    const io = capture();
-    expect(runExitCode(rows, jobs, published, io.writeError)).toBe(code);
+    expect(runExitCode(rows, jobs, published)).toBe(code);
   });
 
   it("names an unmatched list even when a failure decides the code", () => {
     const io = capture();
-    runExitCode([failing], [], unmatched, io.writeError);
+    printReport(
+      [failing],
+      NO_SCHEMAS,
+      { checked: false, published: unmatched },
+      io.write,
+      io.writeError,
+    );
     expect(io.stderr).toMatch(/no ref matches a listed image/);
   });
 });
@@ -522,7 +549,7 @@ describe("checking against a PR's published images", () => {
     expect(images.length).toBeGreaterThan(0);
     expect(images.every((image) => image.endsWith(":pr_9__1.0.5"))).toBe(true);
     expect(io.stdout).toMatch(/own refs checked against them: [1-9]\d* of /);
-    expect(code).toBe(0);
+    expect(code).toBe(EXIT.clean);
   });
 
   it("fails a published image that would leave a selector-less ref ambiguous, naming the PR image", async () => {
@@ -601,7 +628,7 @@ describe("checking against a PR's published images", () => {
       io.writeError,
       new PluginPathChecker(missingEverywhere),
     );
-    expect(code).toBe(2);
+    expect(code).toBe(EXIT.toolError);
     expect(io.stderr).toMatch(/--published-images must be a file under/);
   });
 
@@ -614,7 +641,7 @@ describe("checking against a PR's published images", () => {
       io.writeError,
       new PluginPathChecker(missingEverywhere),
     );
-    expect(code).toBe(2);
+    expect(code).toBe(EXIT.toolError);
     expect(io.stderr).toMatch(/--published-images cannot be read: .*absent\.txt/);
   });
 
@@ -633,7 +660,7 @@ describe("checking against a PR's published images", () => {
       new PluginPathChecker(fetch),
     );
     expect(io.stdout).toMatch(/own refs checked against them: 0 of 0/);
-    expect(code).toBe(0);
+    expect(code).toBe(EXIT.clean);
   });
 
   it("validates only the named workspace", async () => {
@@ -680,7 +707,7 @@ describe("checking against a PR's published images", () => {
     [["--published-images", "x.txt"], /needs --check-plugin-paths/],
   ])("rejects %j", async (argv, message) => {
     const io = capture();
-    expect(await main(argv, io.write, io.writeError)).toBe(2);
+    expect(await main(argv, io.write, io.writeError)).toBe(EXIT.toolError);
     expect(io.stderr).toMatch(message);
   });
 
