@@ -13,10 +13,9 @@ import { tmpdir } from "node:os";
 import { resolve, sep } from "node:path";
 import {
   pluginSelector,
-  refFormProblem,
   registryRefFromOciRef,
 } from "../../../smoke-tests-native/src/plugin-path.ts";
-import { isOwnImage } from "./plugin-path.ts";
+import { isWellFormedOwnRef } from "./plugin-path.ts";
 
 /** Published images keyed by repository name, the last path segment. */
 export type PublishedImages = ReadonlyMap<string, string>;
@@ -79,7 +78,7 @@ export function readPublishedImages(
  * would hide its form problem behind a well-formed pr_* ref.
  */
 export function publishedRef(ref: string, published: PublishedImages): string | undefined {
-  if (!isOwnImage(ref) || refFormProblem(ref) !== undefined) {
+  if (!isWellFormedOwnRef(ref)) {
     return undefined;
   }
   const image = published.get(repositoryName(registryRefFromOciRef(ref)));

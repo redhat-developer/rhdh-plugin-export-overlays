@@ -52,7 +52,8 @@ metadata it touched.
 release branch, say.
 
 Exit codes match the Python script this replaced: `0` clean, `1` validation
-failed, `2` the tool itself failed.
+failed, `2` the tool itself failed. With `--published-images`, exit 2 also
+means no well-formed own ref matched a listed image (see below).
 
 ## Why this is TypeScript and not Python
 

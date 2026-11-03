@@ -41,10 +41,10 @@ import {
 import {
   PluginPathChecker,
   isOwnImage,
+  isWellFormedOwnRef,
   mapWithConcurrency,
   type PluginPathOutcome,
 } from "./plugin-path.ts";
-import { refFormProblem } from "../../../smoke-tests-native/src/plugin-path.ts";
 import { byCodepoint } from "./json.ts";
 import { publishedRef, readPublishedImages, type PublishedImages } from "./published-images.ts";
 import {
@@ -113,10 +113,10 @@ export type PluginPathTally = {
 };
 
 /**
- * A metadata file's row and the ref its plugin-path check reads. `published`
- * marks a ref retargeted at an image from --published-images.
+ * A metadata file's row and the ref its plugin-path check reads. `retargeted`
+ * marks a ref pointed at an image from --published-images.
  */
-export type PluginPathJob = { row: Row; ref: string; published?: boolean };
+export type PluginPathJob = { row: Row; ref: string; retargeted?: boolean };
 
 /** Manifests fetched at once; a full tree has ~200 refs. */
 const PLUGIN_PATH_CONCURRENCY = 8;
@@ -152,8 +152,8 @@ const USAGE = `Usage: validate-app-config-examples [options]
                      name listed in <file> (one registry/path/name:tag per
                      line, as /publish writes published-exports.txt), keeping
                      its !plugin-path. <file> must be under the working or
-                     temp directory. Exits 2 when own refs exist and none
-                     matches a listed image.
+                     temp directory. Exits 2 when well-formed own refs exist
+                     and none matches a listed image.
   --warn-only        Report schema mismatches without failing. Structural
                      failures still fail the run.
   --help             Show this message.
@@ -190,9 +190,9 @@ export async function main(
   // then be invoked from any directory without its behaviour changing.
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-  const scopeError = scopeArgumentError(values);
-  if (scopeError) {
-    writeError(`${scopeError}\n`);
+  const argError = argumentError(values);
+  if (argError) {
+    writeError(`${argError}\n`);
     return 2;
   }
   const workspace = values.workspace?.replace(/^workspaces\//, "");
@@ -327,8 +327,8 @@ function anyPublishedMatch({ matched, own }: PublishedMatches): boolean {
   return own === 0 || matched > 0;
 }
 
-/** Why the scope flags cannot run together, or undefined when they can. */
-function scopeArgumentError(values: {
+/** Why the flags cannot run as given, or undefined when they can. */
+function argumentError(values: {
   since?: string;
   workspace?: string;
   "published-images"?: string;
@@ -362,10 +362,8 @@ export function countPublishedMatches(jobs: readonly PluginPathJob[]): Published
   // A retargeted ref can name a fork's registry, so it counts as own as is.
   // A malformed ref fails on its form and says nothing about the mapping.
   return {
-    matched: jobs.filter((job) => job.published).length,
-    own: jobs.filter(
-      (job) => job.published || (isOwnImage(job.ref) && refFormProblem(job.ref) === undefined),
-    ).length,
+    matched: jobs.filter((job) => job.retargeted).length,
+    own: jobs.filter((job) => job.retargeted || isWellFormedOwnRef(job.ref)).length,
   };
 }
 
@@ -380,7 +378,7 @@ export function pluginPathJobFor(
     return [];
   }
   const retargeted = published && publishedRef(ref, published);
-  return retargeted ? [{ row, ref: retargeted, published: true }] : [{ row, ref }];
+  return retargeted ? [{ row, ref: retargeted, retargeted: true }] : [{ row, ref }];
 }
 
 /** Checks every job's ref and records each outcome on its row. */

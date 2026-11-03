@@ -557,6 +557,24 @@ describe("checking against a PR's published images", () => {
     expect(io.stderr).toMatch(/--published-images must be a file under/);
   });
 
+  it("exits 0 when the workspace has no own refs to match", async () => {
+    // cost-management points only at an external bundle.
+    const file = publishedFile([`${OWN}/unrelated:pr_9__1.0.0`]);
+    const { fetch } = registryDeclaring(
+      "red-hat-developer-hub-plugin-cost-management",
+      "red-hat-developer-hub-plugin-cost-management-backend",
+    );
+    const io = capture();
+    const code = await main(
+      ["--workspace", "cost-management", "--check-plugin-paths", "--published-images", file],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(fetch),
+    );
+    expect(io.stdout).toMatch(/own refs checked against them: 0 of 0/);
+    expect(code).toBe(0);
+  });
+
   it("validates only the named workspace", async () => {
     const io = capture();
     await main(["--workspace", "adoption-insights"], io.write, io.writeError);
@@ -589,7 +607,7 @@ describe("checking against a PR's published images", () => {
     const published = parsePublishedImages(`${OWN}/a:pr_1__2.0.0`);
     expect(
       pluginPathJobFor(passing, packageDoc(`oci://${OWN}/a:bs_1__2.0.0!a`), published),
-    ).toEqual([{ row: passing, ref: `oci://${OWN}/a:pr_1__2.0.0!a`, published: true }]);
+    ).toEqual([{ row: passing, ref: `oci://${OWN}/a:pr_1__2.0.0!a`, retargeted: true }]);
     expect(pluginPathJobFor(passing, packageDoc(`oci://${OWN}/b:bs_1__2.0.0`), published)).toEqual([
       { row: passing, ref: `oci://${OWN}/b:bs_1__2.0.0` },
     ]);
@@ -609,7 +627,7 @@ describe("checking against a PR's published images", () => {
   it("counts a retargeted job as own even though its registry is a fork's", () => {
     expect(
       countPublishedMatches([
-        { ...job("oci://ghcr.io/someone/r/a:pr_1__1"), published: true },
+        { ...job("oci://ghcr.io/someone/r/a:pr_1__1"), retargeted: true },
         job(`oci://${OWN}/b:bs_1__1`),
         job("oci://quay.io/x/c:1"),
       ]),

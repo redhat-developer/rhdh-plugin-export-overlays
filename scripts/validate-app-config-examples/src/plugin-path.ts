@@ -60,6 +60,11 @@ export function isOwnImage(ref: string): boolean {
   return registryRefFromOciRef(ref).startsWith(OWN_IMAGES);
 }
 
+/** An own ref the install CLI accepts: the only kind a published image can stand in for. */
+export function isWellFormedOwnRef(ref: string): boolean {
+  return isOwnImage(ref) && refFormProblem(ref) === undefined;
+}
+
 // Registry answers that a retry cannot change. Anonymous pulls of a repository
 // that does not exist get 403 from ghcr and "unauthorized" from quay, and the
 // installer pulls anonymously too.
