@@ -493,7 +493,8 @@ jobs:
           {
             echo "exit-code=$code"
             echo "report<<$delimiter"
-            cat "$report"
+            # Ends the report with a newline, so the delimiter is a line of its own.
+            printf '%s\n' "$(cat "$report")"
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
           if [[ "$code" != 0 ]]; then
@@ -682,8 +683,11 @@ jobs:
             if (pluginPathsResult !== 'skipped' && pluginPathsResult !== '') {
               // Empty when the job broke before the check ran.
               const exitCode = core.getInput('plugin_paths_exit_code');
+              const fullReport = core.getInput('plugin_paths_report');
               const passed = exitCode === '0';
-              const failed = exitCode === '1';
+              // Exit 1 without the tally is a crash (a failed import, say),
+              // not a metadata problem.
+              const failed = exitCode === '1' && fullReport.includes('Plugin paths — checked:');
               let description = 'Plugin-path check did not run to completion';
               if (passed) {
                 description = 'No plugin-path problem found against the PR images';
@@ -707,13 +711,18 @@ jobs:
               } else {
                 body += '⚠️ The plugin-path check did not run to completion; see the workflow run.';
               }
-              // The report quotes refs from the PR; no backtick may close the fence.
-              const fullReport = core.getInput('plugin_paths_report').replaceAll('`', "'");
+              // The report quotes refs from the PR: no backtick may close the
+              // fence, and every line is indented so a newline in a ref cannot
+              // start a bot command such as /test at column 0.
+              const safeReport = fullReport
+                .replaceAll('`', "'")
+                .replace(/\r\n?/g, '\n')
+                .replace(/^/gm, '  ');
               const reportLimit = 20000;
-              const report = fullReport.length > reportLimit
-                ? `${fullReport.slice(0, reportLimit)}\n[truncated; the full report is in the workflow run]`
-                : fullReport;
-              if (report !== '') {
+              const report = safeReport.length > reportLimit
+                ? `${safeReport.slice(0, reportLimit)}\n  [truncated; the full report is in the workflow run]`
+                : safeReport;
+              if (fullReport !== '') {
                 body += '\n\n<details><summary>Report</summary>\n\n```\n' + report + '\n```\n\n</details>';
               }
             }
