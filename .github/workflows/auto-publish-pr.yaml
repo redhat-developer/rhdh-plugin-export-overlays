@@ -408,8 +408,9 @@ jobs:
       - prepare
       - detect-changes
       - export
+    # !cancelled(), not always(): a cancelled run reads no registry.
     if: |
-      always() &&
+      !cancelled() &&
       needs.prepare.outputs.workspace != '' &&
       (needs.export.outputs.published-exports != '' ||
        needs.detect-changes.outputs.only-metadata-changed == 'true')
@@ -515,8 +516,12 @@ jobs:
             echo "exit-code=$code"
             echo "against=$against"
             echo "report<<$delimiter"
-            # Ends the report with a newline, so the delimiter is a line of its own.
-            printf '%s\n' "$(cat "$report")"
+            # Capped: the report job gets it as an env var (128 KiB max on Linux).
+            # Ends with a newline, so the delimiter is a line of its own.
+            printf '%s\n' "$(head -c 60000 "$report")"
+            if [[ "$(wc -c < "$report")" -gt 60000 ]]; then
+              echo "[truncated; the full report is in the workflow run]"
+            fi
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
           if [[ "$code" != 0 ]]; then
@@ -530,7 +535,7 @@ jobs:
     needs:
       - prepare
       - check-plugin-paths
-    if: always() && needs.check-plugin-paths.result != 'skipped'
+    if: "!cancelled() && needs.check-plugin-paths.result != 'skipped'"
     runs-on: ubuntu-latest
     # Like the check: a broken report must not fail the publish run.
     continue-on-error: true
