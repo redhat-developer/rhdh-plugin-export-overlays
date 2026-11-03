@@ -36,8 +36,12 @@ on:
           - 'false'
         default: auto
 
+# Group by workflow ref AND source/target branch: a workflow_dispatch from main for source
+# release-2.1 must not cancel a dispatch from main for source main. Two runs touching the same
+# source/target branch still cancel each other. Empty inputs fall back to the push ref / derived
+# target, matching the defaults in the "Determine branches and floating tag" step.
 concurrency:
-  group: catalog-index-${{ github.ref }}
+  group: catalog-index-${{ github.ref }}-${{ inputs.source-branch || github.ref_name }}-${{ inputs.target-branch || '' }}
   cancel-in-progress: true
 
 env:
@@ -614,6 +618,35 @@ jobs:
             fi
           done
 
+      - name: Fetch latest release branch reports
+        id: peer
+        if: needs.generate.outputs.source-branch == 'main'
+        run: |
+          # Only main is compared: release branches are the reference, not the subject.
+          git fetch --depth 1 --no-tags origin \
+            '+refs/heads/catalog-index-release-*:refs/remotes/origin/catalog-index-release-*' \
+            || { echo "No release catalog-index branches to compare against"; exit 0; }
+
+          PEER_BRANCH=$(git branch -r --format='%(refname:short)' \
+            | sed -n 's|^origin/catalog-index-\(release-[0-9]*\.[0-9]*\)$|\1|p' \
+            | sort -V | tail -1)
+          if [[ -z "$PEER_BRANCH" ]]; then
+            echo "No release branch found to compare against"
+            exit 0
+          fi
+          echo "Comparing main against ${PEER_BRANCH}"
+          echo "branch=${PEER_BRANCH}" >> "$GITHUB_OUTPUT"
+
+          for TIER in supported community; do
+            if git show "origin/catalog-index-${PEER_BRANCH}:catalog-index/${TIER}/build-report.json" \
+              > "/tmp/peer-${TIER}.json" 2>/dev/null; then
+              echo "Fetched peer ${TIER} report from ${PEER_BRANCH}"
+            else
+              rm -f "/tmp/peer-${TIER}.json"
+              echo "Peer ${TIER} report missing on ${PEER_BRANCH}"
+            fi
+          done
+
       - name: Render catalog status page
         env:
           SOURCE_BRANCH: ${{ needs.generate.outputs.source-branch }}
@@ -623,6 +656,7 @@ jobs:
           SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GITHUB_TOKEN: ${{ github.token }}
+          PEER_BRANCH: ${{ steps.peer.outputs.branch }}
         run: |
           ARGS=""
           if [[ -f catalog-index/supported/build-report.json ]]; then
@@ -630,6 +664,15 @@ jobs:
           fi
           if [[ -f catalog-index/community/build-report.json ]]; then
             ARGS="$ARGS --community catalog-index/community/build-report.json"
+          fi
+          if [[ -n "${PEER_BRANCH}" ]]; then
+            ARGS="$ARGS --compare-branch ${PEER_BRANCH}"
+            if [[ -f /tmp/peer-supported.json ]]; then
+              ARGS="$ARGS --compare-supported /tmp/peer-supported.json"
+            fi
+            if [[ -f /tmp/peer-community.json ]]; then
+              ARGS="$ARGS --compare-community /tmp/peer-community.json"
+            fi
           fi
 
           if [[ -z "$ARGS" ]]; then
