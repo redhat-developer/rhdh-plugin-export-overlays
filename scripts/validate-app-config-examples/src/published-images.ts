@@ -10,6 +10,7 @@
 
 import {
   pluginSelector,
+  refFormProblem,
   registryRefFromOciRef,
 } from "../../../smoke-tests-native/src/plugin-path.ts";
 import { isOwnImage } from "./plugin-path.ts";
@@ -45,10 +46,11 @@ export function parsePublishedImages(text: string): PublishedImages {
 /**
  * The ref to check in place of `ref`: the published image of the same name,
  * keeping the `!plugin-path` selector. Undefined for a ref to another
- * registry, or one this run did not publish.
+ * registry, one this run did not publish, or a malformed one: retargeting
+ * would hide its form problem behind a well-formed pr_* ref.
  */
 export function publishedRef(ref: string, published: PublishedImages): string | undefined {
-  if (!isOwnImage(ref)) {
+  if (!isOwnImage(ref) || refFormProblem(ref) !== undefined) {
     return undefined;
   }
   const image = published.get(repositoryName(registryRefFromOciRef(ref)));

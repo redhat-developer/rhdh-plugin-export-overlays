@@ -573,6 +573,17 @@ describe("checking against a PR's published images", () => {
     ]);
   });
 
+  it("fails a malformed own ref on its form, not as an unmatched published image", async () => {
+    const published = parsePublishedImages(`${OWN}/a:pr_1__2.0.0`);
+    const row: Row = { ...passing, notes: [] };
+    // No tag: retargeted, it would read as a well-formed pr_* ref.
+    const jobs = pluginPathJobFor(row, packageDoc(`oci://${OWN}/a!a`), published);
+    const tally = await checkPluginPaths(jobs, new PluginPathChecker(missingEverywhere), true);
+    expect(tally).toEqual({ checked: 1, mismatched: 1, unpublished: 0, unavailable: 0 });
+    expect(row.status).toBe("FAIL");
+    expect(countPublishedMatches(jobs)).toEqual({ matched: 0, own: 0 });
+  });
+
   it("counts a retargeted job as own even though its registry is a fork's", () => {
     expect(
       countPublishedMatches([

@@ -63,10 +63,12 @@ describe("publishedRef", () => {
     );
   });
 
-  it("keeps a bare ! so the ref-form check still rejects it", () => {
-    expect(publishedRef(`oci://${THEME}:bs_1.54.9__1.5.0!`, published)).toBe(
-      `oci://${THEME}:pr_4593__1.5.0!`,
-    );
+  it.each([
+    ["no tag", `oci://${THEME}!theme`],
+    ["an empty tag", `oci://${THEME}:!theme`],
+    ["a bare !", `oci://${THEME}:bs_1.54.9__1.5.0!`],
+  ])("leaves a ref with %s alone, so its form problem is still reported", (_label, ref) => {
+    expect(publishedRef(ref, published)).toBeUndefined();
   });
 
   it("maps a ref pinned by digest by its name", () => {

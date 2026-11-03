@@ -44,6 +44,7 @@ import {
   mapWithConcurrency,
   type PluginPathOutcome,
 } from "./plugin-path.ts";
+import { refFormProblem } from "../../../smoke-tests-native/src/plugin-path.ts";
 import { byCodepoint } from "./json.ts";
 import { parsePublishedImages, publishedRef, type PublishedImages } from "./published-images.ts";
 import {
@@ -327,9 +328,12 @@ export type PublishedMatches = { matched: number; own: number };
 
 export function countPublishedMatches(jobs: readonly PluginPathJob[]): PublishedMatches {
   // A retargeted ref can name a fork's registry, so it counts as own as is.
+  // A malformed ref fails on its form and says nothing about the mapping.
   return {
     matched: jobs.filter((job) => job.published).length,
-    own: jobs.filter((job) => job.published || isOwnImage(job.ref)).length,
+    own: jobs.filter(
+      (job) => job.published || (isOwnImage(job.ref) && refFormProblem(job.ref) === undefined),
+    ).length,
   };
 }
 

@@ -292,9 +292,12 @@ the publish comment. It does not change the `publish` status, and it does not
 stop the smoke tests. The job runs this tool from the workflow's own ref; the PR
 supplies only its metadata YAML.
 
-If own refs exist and none matches a published image, the run exits 2: the
-mapping is broken, and each ref would otherwise fall back to its unpublished
-`bs_*` tag and pass as a note.
+A malformed ref (no tag, an empty tag, a bare `!`) is not retargeted: it is
+checked as written, so it fails on its form instead of passing as a `pr_*` ref.
+
+If well-formed own refs exist and none matches a published image, the run exits
+2: the mapping is broken, and each ref would otherwise fall back to its
+unpublished `bs_*` tag and pass as a note.
 
 ## Layout
 
