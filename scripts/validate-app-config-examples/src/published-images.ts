@@ -59,20 +59,23 @@ export function readPublishedImages(
   const error = { error: `--published-images must be a file under ${roots.join(" or ")}: ${file}` };
   // The path is checked before any filesystem call, then again with symlinks
   // followed, so a link inside a root cannot point out of it.
-  const isUnderRoot = (path: string) => bases.some((base) => path.startsWith(`${base}${sep}`));
   const candidate = resolve(file);
-  if (!isUnderRoot(candidate)) {
+  if (!bases.some((base) => candidate.startsWith(`${base}${sep}`))) {
     return error;
   }
   let real: string;
   try {
     real = realpathSync(candidate);
   } catch (cause) {
-    return {
-      error: `--published-images cannot be read: ${file} (${String(errorProperty(cause, "code") ?? cause)})`,
-    };
+    const reason = String(errorProperty(cause, "code") ?? cause);
+    return { error: `--published-images cannot be read: ${file} (${reason})` };
   }
-  return isUnderRoot(real) ? parsePublishedImages(readFileSync(real, "utf8")) : error;
+  for (const base of bases) {
+    if (real.startsWith(`${base}${sep}`)) {
+      return parsePublishedImages(readFileSync(real, "utf8"));
+    }
+  }
+  return error;
 }
 
 /**
