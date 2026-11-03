@@ -8,7 +8,7 @@
 // The CLI's reporting and exit-code policy. `report` takes writers rather than
 // touching process.stdout so these can assert on the exact output CI shows.
 
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
@@ -533,6 +533,28 @@ describe("checking against a PR's published images", () => {
     );
     expect(code).toBe(2);
     expect(io.stderr).toMatch(/no ref matches a listed image/);
+  });
+
+  it.each([
+    ["outside the working and temp directories", () => "/etc/hosts"],
+    [
+      "a temp-dir symlink to a file outside them",
+      () => {
+        const link = join(mkdtempSync(join(tmpdir(), "published-images-")), "link.txt");
+        symlinkSync("/etc/hosts", link);
+        return link;
+      },
+    ],
+  ])("refuses a --published-images file %s", async (_label, path) => {
+    const io = capture();
+    const code = await main(
+      ["--workspace", "adoption-insights", "--check-plugin-paths", "--published-images", path()],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(missingEverywhere),
+    );
+    expect(code).toBe(2);
+    expect(io.stderr).toMatch(/--published-images must be a file under/);
   });
 
   it("validates only the named workspace", async () => {

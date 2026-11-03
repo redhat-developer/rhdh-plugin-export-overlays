@@ -467,6 +467,8 @@ jobs:
         env:
           WORKSPACE: ${{ needs.prepare.outputs.workspace }}
           PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+          # --published-images only reads under the cwd or the temp dir.
+          TMPDIR: ${{ runner.temp }}
         # --allow-unpublished: an own ref /publish did not push (a failed
         # export) keeps its bs_* tag, which does not exist yet.
         run: |

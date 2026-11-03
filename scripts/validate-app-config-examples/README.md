@@ -285,7 +285,8 @@ PR's `pr_<number>__<version>` images, the `check-plugin-paths` job in
 `--published-images`. Each ref to this repository's ghcr images is checked
 against the published image of the same repository name, with its
 `!plugin-path` kept. The list is the run's `published-exports` output, one
-`registry/path/name:tag` per line.
+`registry/path/name:tag` per line. The file must resolve, symlinks followed,
+under the working directory or the system temp directory (`TMPDIR`).
 
 The result lands on the PR as a `plugin-paths` commit status and a section in
 the publish comment. It does not change the `publish` status, and it does not

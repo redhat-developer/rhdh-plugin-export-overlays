@@ -8,6 +8,10 @@
 // Maps metadata refs onto the images a PR's `/publish` pushed (`pr_<n>__*`
 // tags), so the plugin-path layer can check a PR before its `bs_*` tags exist.
 
+import { realpathSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve, sep } from "node:path";
 import {
   pluginSelector,
   refFormProblem,
@@ -41,6 +45,22 @@ export function parsePublishedImages(text: string): PublishedImages {
     images.set(name, image);
   }
   return images;
+}
+
+/**
+ * Reads the list from `file`, which must resolve (symlinks followed) under one
+ * of `roots`: the flag names a file the run wrote, not any file on the host.
+ */
+export async function readPublishedImages(
+  file: string,
+  roots: readonly string[] = [process.cwd(), tmpdir()],
+): Promise<PublishedImages | { error: string }> {
+  const real = realpathSync(resolve(file));
+  const bases = roots.map((root) => realpathSync(root));
+  if (!bases.some((base) => real.startsWith(`${base}${sep}`))) {
+    return { error: `--published-images must be a file under ${bases.join(" or ")}: ${file}` };
+  }
+  return parsePublishedImages(await readFile(real, "utf8"));
 }
 
 /**

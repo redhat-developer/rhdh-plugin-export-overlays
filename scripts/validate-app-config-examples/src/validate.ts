@@ -25,7 +25,7 @@
 //      checked against the images a PR's /publish pushed instead.
 
 import { realpathSync } from "node:fs";
-import { glob, readFile } from "node:fs/promises";
+import { glob } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
@@ -46,7 +46,7 @@ import {
 } from "./plugin-path.ts";
 import { refFormProblem } from "../../../smoke-tests-native/src/plugin-path.ts";
 import { byCodepoint } from "./json.ts";
-import { parsePublishedImages, publishedRef, type PublishedImages } from "./published-images.ts";
+import { publishedRef, readPublishedImages, type PublishedImages } from "./published-images.ts";
 import {
   SchemaResolver,
   findUndeclaredKeys,
@@ -151,7 +151,8 @@ const USAGE = `Usage: validate-app-config-examples [options]
                      repository's ghcr images against the image of the same
                      name listed in <file> (one registry/path/name:tag per
                      line, as /publish writes published-exports.txt), keeping
-                     its !plugin-path. Exits 2 when own refs exist and none
+                     its !plugin-path. <file> must be under the working or
+                     temp directory. Exits 2 when own refs exist and none
                      matches a listed image.
   --warn-only        Report schema mismatches without failing. Structural
                      failures still fail the run.
@@ -207,19 +208,20 @@ export async function main(
     ? await changedMetadataPaths(values.since, repoRoot)
     : await collectAllMetadata(repoRoot, workspace);
 
-  if (values.since && paths.length === 0) {
-    write("No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n");
-    return 0;
-  }
-  if (workspace !== undefined && paths.length === 0) {
-    write(`No workspaces/${workspace}/metadata/*.yaml; nothing to validate.\n`);
+  const nothing = nothingToValidate(paths, values.since, workspace);
+  if (nothing) {
+    write(nothing);
     return 0;
   }
 
   const publishedImages =
     values["published-images"] === undefined
       ? undefined
-      : parsePublishedImages(await readFile(values["published-images"], "utf8"));
+      : await readPublishedImages(values["published-images"]);
+  if (publishedImages && "error" in publishedImages) {
+    writeError(`${publishedImages.error}\n`);
+    return 2;
+  }
 
   // Undeclared keys are found by comparing a strict schema against the lenient
   // one, so the schema layer has to be running for this to mean anything.
@@ -289,15 +291,38 @@ export async function main(
     write,
     writeError,
   );
-  // Own refs and no match: the mapping is broken, and every ref would
-  // otherwise fall back to an unpublished tag and pass as a note.
-  if (published && published.own > 0 && published.matched === 0) {
+  if (published && !anyPublishedMatch(published)) {
     writeError(
       "--published-images: no ref matches a listed image, so none was checked against it\n",
     );
     return 2;
   }
   return exitCodeFor(rows);
+}
+
+/** Why an empty selection is not an error, or undefined when files were found. */
+function nothingToValidate(
+  paths: readonly string[],
+  since: string | undefined,
+  workspace: string | undefined,
+): string | undefined {
+  if (paths.length > 0) {
+    return undefined;
+  }
+  if (since) {
+    return "No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n";
+  }
+  return workspace === undefined
+    ? undefined
+    : `No workspaces/${workspace}/metadata/*.yaml; nothing to validate.\n`;
+}
+
+/**
+ * False when own refs exist and none matched: the mapping is broken, and every
+ * ref would otherwise fall back to an unpublished tag and pass as a note.
+ */
+function anyPublishedMatch({ matched, own }: PublishedMatches): boolean {
+  return own === 0 || matched > 0;
 }
 
 /** Why the scope flags cannot run together, or undefined when they can. */
@@ -712,12 +737,7 @@ export function printReport(
   }
 
   if (pluginPaths) {
-    printPluginPathTally(pluginPaths, write);
-  }
-  if (pluginPaths && published) {
-    write(
-      `Published images — own refs checked against them: ${published.matched} of ${published.own}\n`,
-    );
+    printPluginPathTally(pluginPaths, published, write);
   }
 
   if (failures > 0) {
@@ -725,13 +745,22 @@ export function printReport(
   }
 }
 
-function printPluginPathTally(tally: PluginPathTally, write: (text: string) => void): void {
+function printPluginPathTally(
+  tally: PluginPathTally,
+  published: PublishedMatches | undefined,
+  write: (text: string) => void,
+): void {
   write(
     `Plugin paths — checked: ${tally.checked}  ` +
       `mismatched: ${tally.mismatched}  ` +
       `not published yet: ${tally.unpublished}  ` +
       `unreachable: ${tally.unavailable}\n`,
   );
+  if (published) {
+    write(
+      `Published images — own refs checked against them: ${published.matched} of ${published.own}\n`,
+    );
+  }
   if (tally.checked === 0) {
     write("NOTE: no dynamicArtifact was checked against its image.\n");
   }
