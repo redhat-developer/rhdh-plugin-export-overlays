@@ -260,6 +260,78 @@ def first_failed_stage(stages: dict) -> tuple[str, str]:
     return "Unknown", "Unknown error"
 
 
+def _semver_key(version: str) -> tuple:
+    """Return a comparable key for a version string ('1.10.0' > '1.9.0')."""
+    parts = []
+    for piece in str(version).lstrip("v").split("."):
+        digits = "".join(c for c in piece if c.isdigit())
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
+
+
+def _plugin_tag(plugin: dict) -> str:
+    """Return the OCI tag a plugin publishes (bs_<backstage>__<npm>), or ''."""
+    oci_ref = plugin.get("stages", {}).get("bootstrap", {}).get("oci_ref", "") or ""
+    head = oci_ref.rsplit("@", 1)[0]
+    if ":" not in head.rsplit("/", 1)[-1]:
+        return ""
+    return head.rsplit(":", 1)[1]
+
+
+# Icons for the cross-branch comparison rendered on the main-branch page.
+CROSS_BRANCH_ICONS = {
+    "same-tag": "⚠️",
+    "older": "⛔",
+}
+
+
+def compute_cross_branch_flags(report: dict, peer_report: dict) -> dict[str, str]:
+    """Flag plugins whose build collides with, or lags behind, a release branch.
+
+    Returns ``{plugin_name: 'same-tag' | 'older'}``:
+
+    - ``same-tag``: the release branch publishes the very same OCI tag, so a
+      rebuild from either branch lands on the same tag and downstream docs can
+      resolve the wrong digest.
+    - ``older``: this branch builds a lower version than the release branch.
+    """
+    peer_plugins = peer_report.get("plugins", {})
+    flags: dict[str, str] = {}
+    for name, plugin in report.get("plugins", {}).items():
+        peer = peer_plugins.get(name)
+        if not peer:
+            continue
+        tag = _plugin_tag(plugin)
+        if tag and tag == _plugin_tag(peer):
+            flags[name] = "same-tag"
+            continue
+        own_key = _semver_key(plugin.get("version", ""))
+        peer_key = _semver_key(peer.get("version", ""))
+        if own_key and peer_key and own_key < peer_key:
+            flags[name] = "older"
+    return flags
+
+
+def _plugin_digest(plugin: dict) -> str:
+    return plugin.get("stages", {}).get("image-metadata-fetch", {}).get("digest", "")
+
+
+def count_same_tag_digest_mismatch(
+    report: dict, peer_report: dict, flags: dict[str, str]
+) -> int:
+    """Count same-tag plugins whose published digest already differs per branch."""
+    peer_plugins = peer_report.get("plugins", {})
+    mismatches = 0
+    for name, flag in flags.items():
+        if flag != "same-tag":
+            continue
+        own_digest = _plugin_digest(report["plugins"][name])
+        peer_digest = _plugin_digest(peer_plugins[name])
+        if own_digest and peer_digest and own_digest != peer_digest:
+            mismatches += 1
+    return mismatches
+
+
 def render_tier(
     tier_name: str,
     report: dict,
@@ -267,11 +339,17 @@ def render_tier(
     branch: str,
     troubleshooting_content: str = "",
     ghcr_version_ids: dict[str, int] | None = None,
+    cross_flags: dict[str, str] | None = None,
 ) -> list[str]:
     """Render a single tier section."""
     lines = []
     plugins = report.get("plugins", {})
     status = report.get("status", "unknown")
+    cross_flags = cross_flags or {}
+
+    def _name_cell(name: str, link: str) -> str:
+        icon = CROSS_BRANCH_ICONS.get(cross_flags.get(name, ""), "")
+        return f"{icon} {link}" if icon else link
 
     if status == "initial":
         lines.extend([
@@ -319,6 +397,7 @@ def render_tier(
             ver = p.get("version", "")
             stage_label, reason = first_failed_stage(p.get("stages", {}))
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
+            name_link = _name_cell(name, name_link)
             reason_link = reason_to_link(reason, troubleshooting_content, ghcr_version_ids)
             lines.append(f"| {name_link} | `{pkg}` | {ver} | {stage_label} | {reason_link} |")
         lines.append("")
@@ -350,6 +429,7 @@ def render_tier(
             found = bootstrap.get("found_version", "")
             oci_ref = bootstrap.get("oci_ref", "")
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
+            name_link = _name_cell(name, name_link)
             ws_link = workspace_link(source_repo, branch, ws) if ws else f"`{ws}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
@@ -382,6 +462,7 @@ def render_tier(
                 # Use fallback tag instead of requested tag
                 oci_ref = oci_ref.rsplit(":", 1)[0] + ":" + resolved
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
+            name_link = _name_cell(name, name_link)
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(f"| {name_link} | `{pkg}` | `{requested}` | `{resolved}` | {oci_link} |")
         lines.append("")
@@ -412,6 +493,7 @@ def render_tier(
             previous = matched.group("previous") if matched else ""
             current = matched.group("current") if matched else p.get("version", "")
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
+            name_link = _name_cell(name, name_link)
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
                 f"| {name_link} | `{pkg}` | `{previous}` | `{current}` | {oci_link} |"
@@ -433,6 +515,7 @@ def render_tier(
             stages = p.get("stages", {})
             oci_ref = stages.get("bootstrap", {}).get("oci_ref", "")
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
+            name_link = _name_cell(name, name_link)
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(f"| {name_link} | `{pkg}` | {ver} | {oci_link} |")
         lines.append("")
@@ -536,6 +619,32 @@ def render_catalog_image(report: dict, ghcr_version_ids: dict[str, int] | None =
     return "—"
 
 
+def render_cross_branch_section(
+    peer_branch: str,
+    source_repo: str,
+    same_tag: int,
+    older: int,
+    digest_mismatch: int,
+) -> list[str]:
+    """Render the main-vs-release tag comparison summary."""
+    branch_label = f"[{peer_branch}]({source_repo}/tree/{peer_branch})" if source_repo else peer_branch
+    return [
+        "## Cross-branch Tag Comparison",
+        "",
+        f"Compared against the latest stable release branch {branch_label}.",
+        "",
+        "| Flag | Count | Meaning |",
+        "|------|-------|---------|",
+        f"| ⚠️ | {same_tag} | Same OCI tag published from both branches — "
+        "a rebuild from either branch can overwrite the other's image, so "
+        "downstream docs may resolve the wrong digest. "
+        f"{digest_mismatch} of them already resolve to different digests. |",
+        f"| ⛔ | {older} | This branch builds an older version than the release "
+        "branch — backport the release-branch workspace bump here, or bump it. |",
+        "",
+    ]
+
+
 def render_status_page(
     supported_report: dict,
     community_report: dict,
@@ -547,10 +656,28 @@ def render_status_page(
     workflow_run_url: str,
     target_branch: str = "",
     troubleshooting_content: str = "",
+    peer_reports: dict[str, dict] | None = None,
+    peer_branch: str = "",
 ) -> str:
     """Render the complete status page markdown."""
     ghcr_refs = collect_ghcr_refs(supported_report, community_report)
     ghcr_version_ids = resolve_ghcr_version_ids(ghcr_refs) if ghcr_refs else {}
+    peer_reports = peer_reports or {}
+
+    sup_flags: dict[str, str] = {}
+    com_flags: dict[str, str] = {}
+    digest_mismatch = 0
+    if peer_branch:
+        if peer_reports.get("supported"):
+            sup_flags = compute_cross_branch_flags(supported_report, peer_reports["supported"])
+            digest_mismatch += count_same_tag_digest_mismatch(
+                supported_report, peer_reports["supported"], sup_flags
+            )
+        if peer_reports.get("community"):
+            com_flags = compute_cross_branch_flags(community_report, peer_reports["community"])
+            digest_mismatch += count_same_tag_digest_mismatch(
+                community_report, peer_reports["community"], com_flags
+            )
 
     lines = []
 
@@ -613,11 +740,24 @@ def render_status_page(
         lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_fallback} | {com_bs_mismatch} | {com_summary.get('failed', 0)} | {com_img} | {com_pub} |")
     lines.append("")
 
+    # Cross-branch comparison (main page only: release branches are the reference)
+    if peer_branch:
+        all_flags = list(sup_flags.values()) + list(com_flags.values())
+        lines.extend(
+            render_cross_branch_section(
+                peer_branch,
+                source_repo,
+                sum(1 for flag in all_flags if flag == "same-tag"),
+                sum(1 for flag in all_flags if flag == "older"),
+                digest_mismatch,
+            )
+        )
+
     # Tier details
     if supported_report:
-        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids))
+        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids, sup_flags))
     if community_report:
-        lines.extend(render_tier("Community", community_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids))
+        lines.extend(render_tier("Community", community_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids, com_flags))
 
     if troubleshooting_content:
         lines.extend([
@@ -704,6 +844,24 @@ def main():
         metavar='PATH',
         help='Output file path (default: stdout)',
     )
+    parser.add_argument(
+        '--compare-branch',
+        type=str,
+        default='',
+        help='Stable release branch to compare against (e.g. release-2.1)',
+    )
+    parser.add_argument(
+        '--compare-supported',
+        type=str,
+        metavar='PATH',
+        help='Path to the compare branch supported build-report.json',
+    )
+    parser.add_argument(
+        '--compare-community',
+        type=str,
+        metavar='PATH',
+        help='Path to the compare branch community build-report.json',
+    )
 
     args = parser.parse_args()
 
@@ -722,6 +880,13 @@ def main():
         else:
             print(f"Warning: Troubleshooting file not found: {args.troubleshooting_content}", file=sys.stderr)
 
+    peer_reports = {}
+    peer_branch = args.compare_branch if (args.compare_supported or args.compare_community) else ''
+    if args.compare_supported:
+        peer_reports['supported'] = load_report(args.compare_supported)
+    if args.compare_community:
+        peer_reports['community'] = load_report(args.compare_community)
+
     markdown = render_status_page(
         supported_report=supported_report,
         community_report=community_report,
@@ -733,6 +898,8 @@ def main():
         workflow_run_url=args.workflow_run_url,
         target_branch=args.target_branch,
         troubleshooting_content=troubleshooting_content,
+        peer_reports=peer_reports,
+        peer_branch=peer_branch,
     )
 
     if args.output:
