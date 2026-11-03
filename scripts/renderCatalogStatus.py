@@ -279,9 +279,9 @@ def _plugin_tag(plugin: dict) -> str:
 
 
 # Icons for the cross-branch comparison rendered on the main-branch page.
-SAME_TAG_ICON = "⚠️"
-OLDER_ICON = "⛔"
-STATUS_ICONS = {"bs-mismatch": "⛔", "outdated": "⚠️"}
+SAME_TAG_LABEL = "🔁 Same tag"
+OLD_TAG_LABEL = "📉 Old tag"
+STATUS_LABELS = {"bs-mismatch": "🧬 BS mismatch", "outdated": "⏳ Stale pin"}
 
 
 def compute_cross_branch_flags(report: dict, peer_report: dict) -> dict[str, dict]:
@@ -319,17 +319,19 @@ def version_marker(
 ) -> str:
     """Marker for a Version cell: tier status, then cross-branch flag."""
     parts = []
-    if status_kind in STATUS_ICONS:
-        parts.append(STATUS_ICONS[status_kind])
+    if status_kind in STATUS_LABELS:
+        parts.append(STATUS_LABELS[status_kind])
     flag = cross_flags.get(name)
     if flag:
         if flag["kind"] == "same-tag":
-            parts.append(SAME_TAG_ICON)
+            parts.append(SAME_TAG_LABEL)
         else:
             own = flag.get("own_tag") or ""
             peer = flag.get("peer_tag") or ""
-            parts.append(f"{OLDER_ICON} `{own} < {peer}`" if own and peer else OLDER_ICON)
-    return f"{' '.join(parts)} " if parts else ""
+            parts.append(
+                f"{OLD_TAG_LABEL} `{own} < {peer}`" if own and peer else OLD_TAG_LABEL
+            )
+    return f"{' · '.join(parts)} " if parts else ""
 
 
 def render_tier(
@@ -405,10 +407,10 @@ def render_tier(
     if bs_mismatch:
         if troubleshooting_content:
             lines.append(
-                f"### ⚠️ [Backstage Version Mismatch](#backstage-version-mismatch) ({len(bs_mismatch)})"
+                f"### 🧬 [Backstage Version Mismatch](#backstage-version-mismatch) ({len(bs_mismatch)})"
             )
         else:
-            lines.append(f"### ⚠️ Backstage Version Mismatch ({len(bs_mismatch)})")
+            lines.append(f"### 🧬 Backstage Version Mismatch ({len(bs_mismatch)})")
         lines.extend([
             "",
             "> These plugins are included in the catalog but their workspace targets an older "
@@ -438,9 +440,9 @@ def render_tier(
 
     if fallback:
         if troubleshooting_content:
-            lines.append(f"### ⚠️ [Outdated](#plugin-marked-as-outdated) ({len(fallback)})")
+            lines.append(f"### ⏳ [Outdated](#plugin-marked-as-outdated) ({len(fallback)})")
         else:
-            lines.append(f"### ⚠️ Outdated ({len(fallback)})")
+            lines.append(f"### ⏳ Outdated ({len(fallback)})")
         lines.extend([
             "",
             "> These plugins are using an older published tag because the requested version was not found in the registry.",
@@ -690,15 +692,15 @@ def render_status_page(
         lines.extend([
             "## Summary",
             "",
-            "| Tier | Total | Passed | Outdated | BS Mismatch | ⚠️ Same Tag | ⛔ Older | Failed | Latest Catalog Index Image | Last Successful Publish |",
-            "|------|-------|--------|----------|-------------|------------|---------|--------|----------------------------|-------------------------|",
+            "| Tier | Total | Passed | ⏳ Outdated | 🧬 BS Mismatch | 🔁 Same tag | 📉 Old tag | Failed | Latest Catalog Index Image | Last Successful Publish |",
+            "|------|-------|--------|------------|---------------|------------|-----------|--------|----------------------------|-------------------------|",
         ])
     else:
         lines.extend([
             "## Summary",
             "",
-            "| Tier | Total | Passed | Outdated | BS Mismatch | Failed | Latest Catalog Index Image | Last Successful Publish |",
-            "|------|-------|--------|----------|-------------|--------|----------------------------|-------------------------|",
+            "| Tier | Total | Passed | ⏳ Outdated | 🧬 BS Mismatch | Failed | Latest Catalog Index Image | Last Successful Publish |",
+            "|------|-------|--------|----------|---------------|------------|--------|----------------------------|-------------------------|",
         ])
     if supported_report:
         sup_img = render_catalog_image(supported_report, ghcr_version_ids)
@@ -730,9 +732,9 @@ def render_status_page(
             f"[{peer_branch}]({source_repo}/tree/{peer_branch})" if source_repo else peer_branch
         )
         lines.extend([
-            f"⚠️ Same Tag: this branch publishes the same OCI tag as {branch_label}, so a "
+            f"🔁 Same tag: this branch publishes the same OCI tag as {branch_label}, so a "
             "rebuild from either branch can overwrite the other image. "
-            f"⛔ Older: this branch builds an older version than {branch_label}.",
+            f"📉 Old tag: this branch builds an older version than {branch_label}.",
             "",
         ])
 
