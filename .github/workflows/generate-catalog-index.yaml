@@ -119,9 +119,27 @@ jobs:
           if git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
             git fetch origin "$TARGET_BRANCH"
             git checkout "$TARGET_BRANCH"
-            git merge "origin/$SOURCE_BRANCH" --no-edit -X theirs || true
+            PREV_TARGET=$(git rev-parse HEAD)
+            # squash, not merge: the generated branch keeps a linear history and the
+            # synced tree lands in the single "Generate catalog-index" commit below
+            git merge --squash -X theirs "origin/$SOURCE_BRANCH" || true
           else
+            PREV_TARGET=""
             git checkout -b "$TARGET_BRANCH"
+          fi
+
+          # GITHUB_TOKEN cannot create or update files under .github/workflows, so a push
+          # that carries source workflow edits into this generated branch is rejected
+          # ("refusing to allow a GitHub App to create or update workflow ... without
+          # `workflows` permission") and the run dies before publishing anything. Keep the
+          # workflow files the target branch already has; a brand new target gets none.
+          # git push sends commits, not paths, so the rollback lands in the single
+          # generated-data commit below rather than a commit of its own.
+          if [[ -n "$PREV_TARGET" ]] && \
+             git cat-file -e "$PREV_TARGET:.github/workflows" 2>/dev/null; then
+            git checkout "$PREV_TARGET" -- .github/workflows
+          else
+            git rm -r -q --ignore-unmatch .github/workflows
           fi
 
       - name: Setup Python
@@ -380,7 +398,10 @@ jobs:
             fi
             if [[ $i -lt $MAX_RETRIES ]]; then
               echo "Push failed, retrying (attempt $((i+1))/$MAX_RETRIES)..."
-              git pull -X theirs origin "$TARGET_BRANCH"
+              git fetch origin "$TARGET_BRANCH"
+              # rebase, not pull: keep the branch linear; -X theirs keeps this run's
+              # freshly generated data over the stale remote copy
+              git rebase -X theirs "origin/$TARGET_BRANCH" || git rebase --abort
             else
               echo "Push failed after $MAX_RETRIES attempts"
               exit 1
