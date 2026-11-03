@@ -55,10 +55,19 @@ export async function readPublishedImages(
   file: string,
   roots: readonly string[] = [process.cwd(), tmpdir()],
 ): Promise<PublishedImages | { error: string }> {
-  const real = realpathSync(resolve(file));
-  const bases = roots.map((root) => realpathSync(root));
-  if (!bases.some((base) => real.startsWith(`${base}${sep}`))) {
-    return { error: `--published-images must be a file under ${bases.join(" or ")}: ${file}` };
+  // Each root as given and resolved: on macOS the temp dir is a symlink.
+  const bases = [...new Set(roots.flatMap((root) => [resolve(root), realpathSync(root)]))];
+  const isUnderRoot = (path: string) => bases.some((base) => path.startsWith(`${base}${sep}`));
+  const error = { error: `--published-images must be a file under ${roots.join(" or ")}: ${file}` };
+  // The path is checked before any filesystem call, then again with symlinks
+  // followed, so a link inside a root cannot point out of it.
+  const candidate = resolve(file);
+  if (!isUnderRoot(candidate)) {
+    return error;
+  }
+  const real = realpathSync(candidate);
+  if (!isUnderRoot(real)) {
+    return error;
   }
   return parsePublishedImages(await readFile(real, "utf8"));
 }

@@ -190,13 +190,6 @@ export async function main(
   // then be invoked from any directory without its behaviour changing.
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-  // `--since ''` is a caller mistake, not a request to scan everything: with
-  // --check-schemas that would silently become a full-tree download.
-  if (values.since !== undefined && values.since.trim() === "") {
-    writeError("--since needs a commit-ish\n");
-    return 2;
-  }
-
   const scopeError = scopeArgumentError(values);
   if (scopeError) {
     writeError(`${scopeError}\n`);
@@ -291,6 +284,15 @@ export async function main(
     write,
     writeError,
   );
+  return runExitCode(rows, published, writeError);
+}
+
+/** exitCodeFor, or 2 when --published-images matched none of the own refs. */
+function runExitCode(
+  rows: Row[],
+  published: PublishedMatches | undefined,
+  writeError: (text: string) => void,
+): number {
   if (published && !anyPublishedMatch(published)) {
     writeError(
       "--published-images: no ref matches a listed image, so none was checked against it\n",
@@ -332,6 +334,11 @@ function scopeArgumentError(values: {
   "published-images"?: string;
   "check-plugin-paths"?: boolean;
 }): string | undefined {
+  // `--since ''` is a caller mistake, not a request to scan everything: with
+  // --check-schemas that would silently become a full-tree download.
+  if (values.since?.trim() === "") {
+    return "--since needs a commit-ish";
+  }
   if (values.workspace !== undefined && values.since !== undefined) {
     return "--workspace and --since cannot be combined";
   }
