@@ -485,15 +485,16 @@ jobs:
           # --published-images only reads under the cwd or the temp dir.
           TMPDIR: ${{ runner.temp }}
         # --allow-unpublished: an own ref /publish did not push (a failed
-        # export, or a metadata-only PR) keeps a bs_* tag that may not exist yet.
+        # export) keeps its bs_* tag, which does not exist yet. A metadata-only
+        # PR builds nothing, so its bs_* tags must already exist.
         run: |
           images="$RUNNER_TEMP/published-exports.txt"
           report="$RUNNER_TEMP/plugin-paths.txt"
-          args=(--workspace "$WORKSPACE" --check-plugin-paths --allow-unpublished)
+          args=(--workspace "$WORKSPACE" --check-plugin-paths)
           # Empty on a metadata-only PR: the refs are checked as written.
           if [[ -n "$PUBLISHED_EXPORTS" ]]; then
             printf '%s\n' "$PUBLISHED_EXPORTS" > "$images"
-            args+=(--published-images "$images")
+            args+=(--allow-unpublished --published-images "$images")
             against=pr-images
           else
             against=as-written
@@ -508,7 +509,7 @@ jobs:
           echo "::stop-commands::$token"
           cat "$report"
           echo "::$token::"
-          # Random delimiter: the report quotes refs from the PR.
+          # Random delimiter, for the same reason.
           delimiter="EOF_$(openssl rand -hex 16)"
           {
             echo "exit-code=$code"

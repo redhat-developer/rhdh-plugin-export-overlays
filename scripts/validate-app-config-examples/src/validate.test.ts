@@ -8,7 +8,7 @@
 // The CLI's reporting and exit-code policy. `report` takes writers rather than
 // touching process.stdout so these can assert on the exact output CI shows.
 
-import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
@@ -492,12 +492,16 @@ function packageDoc(ref: string) {
 
 describe("checking against a PR's published images", () => {
   const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
-  // adoption-insights: own refs without a selector.
-  const NAMES = [
-    "red-hat-developer-hub-backstage-plugin-adoption-insights-backend",
-    "red-hat-developer-hub-backstage-plugin-adoption-insights",
-    "red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights",
-  ];
+  // adoption-insights' own image names, read from its metadata so a Package
+  // added or removed there does not break these tests. Its refs carry no selector.
+  const metadataDir = new URL("../../../workspaces/adoption-insights/metadata/", import.meta.url);
+  const NAMES = readdirSync(metadataDir)
+    .map((file) => readFileSync(new URL(file, metadataDir), "utf8"))
+    .flatMap((text) => /dynamicArtifact: oci:\/\/\S+\/([^/:\s]+):/.exec(text)?.[1] ?? []);
+
+  it("reads the adoption-insights own image names from its metadata", () => {
+    expect(NAMES.length).toBeGreaterThan(0);
+  });
 
   it("reads only the published images of the workspace's own refs", async () => {
     const file = publishedFile(NAMES.map((name) => `${OWN}/${name}:pr_9__1.0.5`));
@@ -556,7 +560,7 @@ describe("checking against a PR's published images", () => {
     expect(io.stdout).toMatch(/not published yet: 0/);
     expect(io.stdout).toMatch(/plugin path: oci:\/\/\S+:pr_9__1\.0\.5: /);
     // Retargeted but never read: none of them counts as checked.
-    expect(io.stdout).toMatch(/own refs checked against them: 0 of 3/);
+    expect(io.stdout).toMatch(/own refs checked against them: 0 of [1-9]/);
   });
 
   it("exits 3 when own refs exist and the list matches none of them", async () => {

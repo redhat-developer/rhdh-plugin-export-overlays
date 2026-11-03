@@ -306,9 +306,10 @@ keeps its `bs_*` tag. A ref pointed at a listed image is not noted: the run just
 pushed that image, so a registry without it fails the row.
 
 On a metadata-only PR, `/publish` builds nothing and the job runs without
-`--published-images`: the refs are checked as written, against the `bs_*`
-images the merge keeps. An earlier `/publish` of the same PR built other
-sources, so its images are not used.
+`--published-images` or `--allow-unpublished`: the refs are checked as
+written, against the `bs_*` images the merge keeps, and a missing tag fails.
+An earlier `/publish` of the same PR built other sources, so its images are
+not used.
 
 The result lands on the PR as a `plugin-paths` commit status and a comment of
 its own. It does not change or delay the `publish` status and comment, and it
