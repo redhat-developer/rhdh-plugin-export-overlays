@@ -10,17 +10,17 @@ metadata:
     - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/search-backend-module-catalog
+      url: https://github.com/backstage/backstage/tree/master/plugins/search-backend-module-catalog
   annotations:
-    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/search-backend-module-catalog
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/search-backend-module-catalog
   tags: []
 spec:
   packageName: '@backstage/plugin-search-backend-module-catalog'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-search-backend-module-catalog-dynamic
-  version: 0.3.13
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-search-backend-module-catalog:bs_1.54.9__0.3.18!backstage-plugin-search-backend-module-catalog
+  version: 0.3.18
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active

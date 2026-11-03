@@ -10,17 +10,17 @@ metadata:
     - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/catalog
+      url: https://github.com/backstage/backstage/tree/master/plugins/catalog
   annotations:
-    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/catalog
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/catalog
   tags: []
 spec:
   packageName: '@backstage/plugin-catalog'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog
-  version: 2.0.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog:bs_1.54.9__2.0.8!backstage-plugin-catalog
+  version: 2.0.8
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active

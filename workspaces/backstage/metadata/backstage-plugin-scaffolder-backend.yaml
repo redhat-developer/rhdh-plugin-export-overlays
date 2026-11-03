@@ -10,17 +10,17 @@ metadata:
     - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/scaffolder-backend
+      url: https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend
   annotations:
-    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/scaffolder-backend
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend
   tags: []
 spec:
   packageName: '@backstage/plugin-scaffolder-backend'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-dynamic
-  version: 3.3.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend:bs_1.54.9__4.1.0!backstage-plugin-scaffolder-backend
+  version: 4.1.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active

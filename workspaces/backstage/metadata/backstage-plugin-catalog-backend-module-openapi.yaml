@@ -10,17 +10,17 @@ metadata:
     - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/catalog-backend-module-openapi
+      url: https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-openapi
   annotations:
-    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/catalog-backend-module-openapi
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-openapi
   tags: []
 spec:
   packageName: '@backstage/plugin-catalog-backend-module-openapi'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-openapi-dynamic
-  version: 0.2.20
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-openapi:bs_1.54.9__0.2.25!backstage-plugin-catalog-backend-module-openapi
+  version: 0.2.25
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active

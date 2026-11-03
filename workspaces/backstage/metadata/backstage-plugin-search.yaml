@@ -10,17 +10,17 @@ metadata:
     - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/search
+      url: https://github.com/backstage/backstage/tree/master/plugins/search
   annotations:
-    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/search
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/search
   tags: []
 spec:
   packageName: '@backstage/plugin-search'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-search
-  version: 1.7.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-search:bs_1.54.9__1.7.7!backstage-plugin-search
+  version: 1.7.7
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.9
   author: Red Hat
   support: generally-available
   lifecycle: active
