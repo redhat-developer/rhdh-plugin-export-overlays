@@ -6,6 +6,7 @@
 # and multi-format package list handling (YAML npm names + txt workspace paths).
 
 import atexit
+import base64
 import json
 import subprocess
 import sys
@@ -47,6 +48,26 @@ def log_warn(message: str) -> None:
 
 def log_error(message: str) -> None:
     print(f"{Colors.RED}[ERROR]{Colors.NORM} {message}")
+
+
+def decode_dynamic_packages(annotation: str | None) -> list | None:
+    """Decode the ``io.backstage.dynamic-packages`` annotation into its package list.
+
+    Returns the list, ``[]`` when the annotation declares nothing, or ``None`` when it
+    cannot be read. Callers act on those three differently, so they stay distinct.
+
+    Lives here rather than in generatePluginBuildInfo.py so that readers which only
+    decode annotations (validateCatalogIndex.py) do not import that module's registry
+    client, and with it ``requests``.
+    """
+    if not annotation:
+        return []
+    try:
+        decoded = base64.b64decode("".join(annotation.split()), validate=True)
+        packages = json.loads(decoded)
+    except ValueError:
+        return None
+    return packages if isinstance(packages, list) else None
 
 
 def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
