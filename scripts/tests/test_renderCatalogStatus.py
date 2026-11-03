@@ -236,26 +236,26 @@ class TestVersionMarker:
     def test_same_tag_is_a_warning_icon_only(self):
         flags = {"p": {"kind": "same-tag", "own_tag": "bs__1.0.0", "peer_tag": "bs__1.0.0"}}
 
-        assert version_marker(flags, "p") == "⚠️ "
+        assert version_marker(flags, "p") == "🔁 Same tag "
 
     def test_older_shows_both_tags(self):
         flags = {"p": {"kind": "older", "own_tag": "bs__1.0.0", "peer_tag": "bs__1.1.0"}}
 
-        assert version_marker(flags, "p") == "⛔ `bs__1.0.0 < bs__1.1.0` "
+        assert version_marker(flags, "p") == "📉 Old tag `bs__1.0.0 < bs__1.1.0` "
 
     def test_unflagged_plugin_has_no_marker(self):
         assert version_marker({}, "p") == ""
 
     def test_bs_mismatch_gets_error_marker(self):
-        assert version_marker({}, "p", "bs-mismatch") == "⛔ "
+        assert version_marker({}, "p", "bs-mismatch") == "🧬 BS mismatch "
 
     def test_outdated_gets_warning_marker(self):
-        assert version_marker({}, "p", "outdated") == "⚠️ "
+        assert version_marker({}, "p", "outdated") == "⏳ Stale pin "
 
     def test_status_and_cross_branch_markers_combine(self):
         flags = {"p": {"kind": "same-tag", "own_tag": "a", "peer_tag": "a"}}
 
-        assert version_marker(flags, "p", "outdated") == "⚠️ ⚠️ "
+        assert version_marker(flags, "p", "outdated") == "⏳ Stale pin · 🔁 Same tag "
 
 
 class TestCrossBranchRendering:
@@ -270,7 +270,7 @@ class TestCrossBranchRendering:
         row = next(line for line in lines if "`@scope/plugin-a`" in line)
 
         assert row.startswith("| [plugin-a]")
-        assert "| ⛔ `a < b` 1.0.0 |" in row
+        assert "| 📉 Old tag `a < b` 1.0.0 |" in row
 
     def test_no_marker_without_flags(self):
         plugin = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0")
@@ -279,7 +279,7 @@ class TestCrossBranchRendering:
         lines = render_tier("Supported", report, SOURCE_REPO, "main")
         row = next(line for line in lines if "`@scope/plugin-a`" in line)
 
-        assert "⚠️" not in row and "⛔" not in row
+        assert "🚧" not in row and "🧬" not in row and "⏳" not in row and "📉" not in row
 
     def test_page_marks_rows_when_peer_reports_given(self):
         own = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0")
@@ -298,7 +298,7 @@ class TestCrossBranchRendering:
             peer_branch="release-2.1",
         )
 
-        assert "| ⚠️ 1.0.0 |" in text
+        assert "🔁 Same tag 1.0.0" in text
         assert "Cross-branch" not in text
 
     def test_page_has_no_markers_without_peer_branch(self):
@@ -306,7 +306,7 @@ class TestCrossBranchRendering:
 
         text = _render({"status": "ok", "plugins": {"plugin-a": plugin}})
 
-        assert "⚠️ 1.0.0" not in text
+        assert "🔁 Same tag 1.0.0" not in text
 
 
 class TestSummaryComparisonCounts:
@@ -342,7 +342,7 @@ class TestSummaryComparisonCounts:
 
         text = self._page(own, peer)
 
-        assert "| ⚠️ Same Tag | ⛔ Older |" in text
+        assert "| 🔁 Same tag | 📉 Old tag |" in text
         assert "| Supported | 2 | 2 | 0 | 0 | 1 | 1 | 0 |" in text
 
     def test_columns_absent_without_peer_branch(self):
@@ -350,5 +350,5 @@ class TestSummaryComparisonCounts:
 
         text = _render({"status": "ok", "plugins": {"plugin-a": plugin}})
 
-        assert "⚠️ Same Tag" not in text
-        assert "⛔ Older" not in text
+        assert "🔁 Same tag" not in text
+        assert "📉 Old tag" not in text
