@@ -15,6 +15,7 @@ import {
   pluginSelector,
   registryRefFromOciRef,
 } from "../../../smoke-tests-native/src/plugin-path.ts";
+import { errorProperty } from "./json.ts";
 import { isWellFormedOwnRef } from "./plugin-path.ts";
 
 /** Published images keyed by repository name, the last path segment. */
@@ -32,10 +33,10 @@ export function parsePublishedImages(text: string): PublishedImages {
     }
     // Older exports append `!<package id>`, which is not part of the image.
     const image = line.split("!")[0] ?? "";
-    const name = taggedRepositoryName(image);
-    if (name === undefined) {
+    if (!isTaggedImage(image)) {
       throw new Error(`published image is not registry/path/name:tag: ${line}`);
     }
+    const name = repositoryName(image);
     const previous = images.get(name);
     if (previous !== undefined && previous !== image) {
       throw new Error(`two published images are named ${name}: ${previous}, ${image}`);
@@ -58,17 +59,20 @@ export function readPublishedImages(
   const error = { error: `--published-images must be a file under ${roots.join(" or ")}: ${file}` };
   // The path is checked before any filesystem call, then again with symlinks
   // followed, so a link inside a root cannot point out of it.
+  const isUnderRoot = (path: string) => bases.some((base) => path.startsWith(`${base}${sep}`));
   const candidate = resolve(file);
-  if (!bases.some((base) => candidate.startsWith(`${base}${sep}`))) {
+  if (!isUnderRoot(candidate)) {
     return error;
   }
-  const real = realpathSync(candidate);
-  for (const base of bases) {
-    if (real.startsWith(`${base}${sep}`)) {
-      return parsePublishedImages(readFileSync(real, "utf8"));
-    }
+  let real: string;
+  try {
+    real = realpathSync(candidate);
+  } catch (cause) {
+    return {
+      error: `--published-images cannot be read: ${file} (${String(errorProperty(cause, "code") ?? cause)})`,
+    };
   }
-  return error;
+  return isUnderRoot(real) ? parsePublishedImages(readFileSync(real, "utf8")) : error;
 }
 
 /**
@@ -97,12 +101,9 @@ function repositoryName(image: string): string {
   return colon === -1 ? lastSegment : lastSegment.slice(0, colon);
 }
 
-/** repositoryName for a `registry/path/name:tag`, or undefined for any other form. */
-function taggedRepositoryName(image: string): string | undefined {
+/** Whether `image` is `registry/path/name:tag`, with no digest or whitespace. */
+function isTaggedImage(image: string): boolean {
   const slash = image.lastIndexOf("/");
   const colon = image.lastIndexOf(":");
-  if (/[\s@]/.test(image) || slash <= 0 || colon <= slash + 1 || colon === image.length - 1) {
-    return undefined;
-  }
-  return image.slice(slash + 1, colon);
+  return !/[\s@]/.test(image) && slash > 0 && colon > slash + 1 && colon < image.length - 1;
 }

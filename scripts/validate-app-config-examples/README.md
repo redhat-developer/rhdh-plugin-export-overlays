@@ -288,6 +288,12 @@ against the published image of the same repository name, with its
 `!plugin-path` kept. The list is the run's `published-exports` output, one
 `registry/path/name:tag` per line. The file must resolve, symlinks followed,
 under the working directory or the system temp directory (`TMPDIR`).
+`--workspace` takes a workspace name, with or without the `workspaces/`
+prefix, and cannot be combined with `--since`.
+
+`--allow-unpublished` still notes an own ref that the run did not push, which
+keeps its `bs_*` tag. A ref pointed at a listed image is not noted: the run just
+pushed that image, so a registry without it fails the row.
 
 The result lands on the PR as a `plugin-paths` commit status and a section in
 the publish comment. It does not change the `publish` status, and it does not

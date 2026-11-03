@@ -579,6 +579,19 @@ describe("checking against a PR's published images", () => {
     expect(io.stderr).toMatch(/--published-images must be a file under/);
   });
 
+  it("explains a --published-images file that does not exist instead of throwing", async () => {
+    const missing = join(mkdtempSync(join(tmpdir(), "published-images-")), "absent.txt");
+    const io = capture();
+    const code = await main(
+      ["--workspace", "adoption-insights", "--check-plugin-paths", "--published-images", missing],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(missingEverywhere),
+    );
+    expect(code).toBe(2);
+    expect(io.stderr).toMatch(/--published-images cannot be read: .*absent\.txt/);
+  });
+
   it("exits 0 when the workspace has no own refs to match", async () => {
     // cost-management points only at an external bundle.
     const file = publishedFile([`${OWN}/unrelated:pr_9__1.0.0`]);
@@ -618,6 +631,7 @@ describe("checking against a PR's published images", () => {
     [["--workspace", "*"], /needs a workspace name/],
     [["--workspace", "../a"], /needs a workspace name/],
     [["--workspace", ".."], /needs a workspace name/],
+    [["--workspace", "workspaces/.."], /needs a workspace name/],
     [["--published-images", "x.txt"], /needs --check-plugin-paths/],
   ])("rejects %j", async (argv, message) => {
     const io = capture();

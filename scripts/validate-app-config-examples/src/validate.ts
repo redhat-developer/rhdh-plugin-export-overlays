@@ -190,12 +190,12 @@ export async function main(
   // then be invoked from any directory without its behaviour changing.
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-  const argError = argumentError(values);
+  const workspace = values.workspace?.replace(/^workspaces\//, "");
+  const argError = argumentError({ ...values, workspace });
   if (argError) {
     writeError(`${argError}\n`);
     return 2;
   }
-  const workspace = values.workspace?.replace(/^workspaces\//, "");
 
   const paths = values.since
     ? await changedMetadataPaths(values.since, repoRoot)
@@ -343,10 +343,7 @@ function argumentError(values: {
     return "--workspace and --since cannot be combined";
   }
   // A single directory name: no glob characters, no traversal.
-  if (
-    values.workspace !== undefined &&
-    !/^(?:workspaces\/)?(?!\.{1,2}$)[\w.-]+$/.test(values.workspace)
-  ) {
+  if (values.workspace !== undefined && !/^(?!\.{1,2}$)[\w.-]+$/.test(values.workspace)) {
     return `--workspace needs a workspace name: ${values.workspace}`;
   }
   if (values["published-images"] !== undefined && !values["check-plugin-paths"]) {
