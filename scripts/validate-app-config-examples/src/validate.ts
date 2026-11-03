@@ -402,7 +402,7 @@ export async function checkPluginPaths(
 
 /** Annotates a row with its ref's plugin-path outcome. */
 export function recordPluginPathOutcome(
-  { row, ref }: PluginPathJob,
+  { row, ref, retargeted }: PluginPathJob,
   outcome: PluginPathOutcome,
   allowUnpublished: boolean,
   tally: PluginPathTally,
@@ -420,7 +420,8 @@ export function recordPluginPathOutcome(
     case "missing":
       // Only this repo's own tags are published on merge; any other image
       // that cannot be pulled is as broken for the installer as a bad path.
-      if (allowUnpublished && isOwnImage(ref)) {
+      // A retargeted ref names an image this run pushed, so it is no exception.
+      if (allowUnpublished && !retargeted && isOwnImage(ref)) {
         tally.unpublished += 1;
         row.notes.push(`plugin path not checked: ${ref} is not published yet (${outcome.reason})`);
         return;

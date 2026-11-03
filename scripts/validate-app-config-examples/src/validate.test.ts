@@ -515,6 +515,28 @@ describe("checking against a PR's published images", () => {
     expect(io.stdout).toMatch(/plugin path: oci:\/\/\S+:pr_9__1\.0\.5 2 plugins in the image/);
   });
 
+  it("fails a listed image the registry does not have, even with --allow-unpublished", async () => {
+    // The run just pushed it: a missing pr_* tag is a broken list, not a pending merge.
+    const file = publishedFile(NAMES.map((name) => `${OWN}/${name}:pr_9__1.0.5`));
+    const io = capture();
+    const code = await main(
+      [
+        "--workspace",
+        "adoption-insights",
+        "--check-plugin-paths",
+        "--allow-unpublished",
+        "--published-images",
+        file,
+      ],
+      io.write,
+      io.writeError,
+      new PluginPathChecker(missingEverywhere),
+    );
+    expect(code).toBe(1);
+    expect(io.stdout).toMatch(/not published yet: 0/);
+    expect(io.stdout).toMatch(/plugin path: oci:\/\/\S+:pr_9__1\.0\.5: /);
+  });
+
   it("exits 2 when own refs exist and the list matches none of them", async () => {
     const file = publishedFile([`${OWN}/unrelated:pr_9__1.0.0`]);
     const io = capture();
