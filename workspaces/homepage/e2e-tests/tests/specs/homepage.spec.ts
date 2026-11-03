@@ -98,12 +98,20 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify cards can be individually deleted in edit mode", async () => {
+    test.skip(
+      true,
+      "Depends on skipped Homepage login and widget seeding (RHDHBUGS-3983); re-enable with seeding test",
+    );
     await home.enterEditMode();
     await home.deleteAllCards();
     await home.verifyCardsDeleted();
   });
 
   test("Verify cards can be resized in edit mode", async () => {
+    test.skip(
+      true,
+      "Depends on skipped Homepage login and widget seeding (RHDHBUGS-3983); re-enable with seeding test",
+    );
     await home.addWidget("Entity Section");
     await home.resizeFirstCard();
     await home.exitEditMode();
@@ -160,6 +168,10 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Multiple widgets of the same type produce distinct cards", async () => {
+      test.skip(
+        true,
+        "Depends on skipped Homepage login and widget seeding (RHDHBUGS-3983); re-enable with seeding test",
+      );
       await home.enterEditMode();
       await home.clearAllCardsWithButton();
       await home.verifyCardsDeleted();
@@ -172,6 +184,10 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Widget layout survives edit mode toggle", async () => {
+      test.skip(
+        true,
+        "Depends on skipped Homepage login and widget seeding (RHDHBUGS-3983); re-enable with seeding test",
+      );
       await home.enterEditMode();
       await home.clearAllCardsWithButton();
       await home.addWidget("Entity Section");
@@ -223,6 +239,10 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Resized layout persists after reload", async () => {
+      test.skip(
+        true,
+        "Depends on skipped Homepage login and widget seeding (RHDHBUGS-3983); re-enable with seeding test",
+      );
       await home.enterEditMode();
       await home.clearAllCardsWithButton();
       await home.addWidget("Entity Section");
