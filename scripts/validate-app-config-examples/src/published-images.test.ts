@@ -5,13 +5,12 @@
  * you may not use this file except in compliance with the License.
  */
 
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { parsePublishedImages, publishedRef, readPublishedImages } from "./published-images.ts";
+import { OWN, scratchDir as scratch } from "./test-support.ts";
 
-const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
 const THEME = `${OWN}/red-hat-developer-hub-backstage-plugin-theme`;
 
 describe("parsePublishedImages", () => {
@@ -107,8 +106,6 @@ describe("publishedRef", () => {
   });
 });
 
-const scratch = () => mkdtempSync(join(tmpdir(), "published-images-"));
-
 describe("readPublishedImages", () => {
   it("reads a list under a root, even when another root does not exist", () => {
     const root = scratch();
@@ -116,6 +113,32 @@ describe("readPublishedImages", () => {
     writeFileSync(file, `${OWN}/a:pr_1__1.0.0\n`);
     const images = readPublishedImages(file, [join(root, "absent"), root]);
     expect(images).toEqual(new Map([["a", `${OWN}/a:pr_1__1.0.0`]]));
+  });
+
+  it("reads a list under the working directory by default", () => {
+    const file = join(scratch(process.cwd()), "published-exports.txt");
+    writeFileSync(file, `${OWN}/a:pr_1__1.0.0\n`);
+    expect(readPublishedImages(relative(process.cwd(), file))).toEqual(
+      new Map([["a", `${OWN}/a:pr_1__1.0.0`]]),
+    );
+  });
+
+  it("refuses a path outside the roots before touching the filesystem", () => {
+    // Not "cannot be read": the path is refused before realpath runs.
+    expect(readPublishedImages("/nonexistent-dir/published-exports.txt", [scratch()])).toEqual({
+      error: expect.stringMatching(/must be a file under/),
+    });
+  });
+
+  it("refuses a sibling directory that shares the root's name as a prefix", () => {
+    const dir = scratch();
+    mkdirSync(join(dir, "a"));
+    mkdirSync(join(dir, "ab"));
+    const file = join(dir, "ab", "published-exports.txt");
+    writeFileSync(file, `${OWN}/a:pr_1__1.0.0\n`);
+    expect(readPublishedImages(file, [join(dir, "a")])).toEqual({
+      error: expect.stringMatching(/must be a file under/),
+    });
   });
 
   it("returns an error for a directory instead of throwing", () => {

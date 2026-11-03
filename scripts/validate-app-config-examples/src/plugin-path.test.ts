@@ -19,9 +19,8 @@ import {
   type FetchManifest,
   type ManifestResult,
 } from "./plugin-path.ts";
-import { manifestDeclaring as manifest } from "./test-manifest.ts";
+import { OWN, manifestDeclaring as manifest } from "./test-support.ts";
 
-const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
 const NO_DELAY = { retryDelayMs: 0 };
 
 /** A fetch answering from `table` (one answer per call, last one repeated). */

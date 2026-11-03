@@ -112,14 +112,11 @@ export type PluginPathTally = {
   unavailable: number;
 };
 
-/**
- * A metadata file's row and the ref its plugin-path check reads. `retargeted`
- * marks a ref pointed at an image from --published-images; `checked` and
- * `failed` record what the check made of it.
- */
+/** A metadata file's row and the ref its plugin-path check reads. */
 export type PluginPathJob = {
   row: Row;
   ref: string;
+  /** The ref points at an image from --published-images. */
   retargeted?: boolean;
   /** Counted as checked in the tally: a manifest was read, or the form rejected. */
   checked?: boolean;
@@ -142,6 +139,8 @@ export const EXIT = {
   /** A row failed its plugin-path check. */
   pluginPathFailed: 4,
 } as const;
+
+export type ExitCode = (typeof EXIT)[keyof typeof EXIT];
 
 /** Manifests fetched at once; a full tree has ~200 refs. */
 const PLUGIN_PATH_CONCURRENCY = 8;
@@ -168,7 +167,8 @@ const USAGE = `Usage: validate-app-config-examples [options]
   --allow-unpublished
                      With --check-plugin-paths, note instead of failing a ref
                      to this repository's ghcr images whose tag does not exist
-                     yet. A PR's bs_* tags are published on merge.
+                     yet. A PR's bs_* tags are published on merge. A ref
+                     retargeted by --published-images is never noted.
   --workspace <name> Only validate workspaces/<name>/metadata/*.yaml.
                      Exits 2 when it has none. Cannot be combined with --since.
   --published-images <file>
@@ -184,8 +184,9 @@ const USAGE = `Usage: validate-app-config-examples [options]
   --help             Show this message.
 
 Exit codes: 0 clean, 1 a check other than plugin paths failed, 2 the tool
-could not run, 3 --published-images matched no own ref, 4 a plugin path
-failed. A plugin-path failure wins over 1, and both win over 3.
+could not run, 3 well-formed own refs exist and --published-images matched
+none of them, 4 a plugin path failed. A plugin-path failure wins over 1,
+and both win over 3.
 `;
 
 export async function main(
@@ -305,16 +306,16 @@ export async function main(
       )
     : undefined;
 
-  const published = publishedImages && countPublishedMatches(pluginPathJobs);
+  const matches = publishedImages && countPublishedMatches(pluginPathJobs);
 
   printReport(
     rows,
     tally,
-    { checked: checkSchemasFlag, undeclared, pluginPaths, published },
+    { checked: checkSchemasFlag, undeclared, pluginPaths, matches },
     write,
     writeError,
   );
-  return runExitCode(rows, pluginPathJobs, published);
+  return runExitCode(rows, pluginPathJobs, matches);
 }
 
 /** Reports a selection with no metadata and returns its EXIT code, or undefined. */
@@ -324,7 +325,7 @@ function emptySelection(
   workspace: string | undefined,
   write: (text: string) => void,
   writeError: (text: string) => void,
-): number | undefined {
+): ExitCode | undefined {
   if (paths.length > 0) {
     return undefined;
   }
@@ -346,9 +347,9 @@ function emptySelection(
 export function runExitCode(
   rows: Row[],
   jobs: readonly PluginPathJob[],
-  published: PublishedMatches | undefined,
-): number {
-  const unmatched = published !== undefined && !anyPublishedMatch(published);
+  matches: PublishedMatches | undefined,
+): ExitCode {
+  const unmatched = matches !== undefined && !anyPublishedMatch(matches);
   if (jobs.some((job) => job.failed)) {
     return EXIT.pluginPathFailed;
   }
@@ -418,8 +419,8 @@ export function pluginPathJobFor(
   if (!ref) {
     return [];
   }
-  const retargeted = published && publishedRef(ref, published);
-  return retargeted ? [{ row, ref: retargeted, retargeted: true }] : [{ row, ref }];
+  const publishedTarget = published && publishedRef(ref, published);
+  return publishedTarget ? [{ row, ref: publishedTarget, retargeted: true }] : [{ row, ref }];
 }
 
 /** Checks every job's ref and records each outcome on its row. */
@@ -450,7 +451,6 @@ export function recordPluginPathOutcome(
 ): void {
   const { row, ref, retargeted } = job;
   job.checked = outcome.kind === "ok" || outcome.kind === "mismatch";
-  job.failed = false;
   switch (outcome.kind) {
     case "ok":
       tally.checked += 1;
@@ -715,7 +715,7 @@ async function collectAllMetadata(repoRoot: string, workspace = "*"): Promise<st
 }
 
 /** 1 when any row failed, 0 otherwise. */
-export function exitCodeFor(rows: Row[]): number {
+export function exitCodeFor(rows: Row[]): ExitCode {
   return rows.some((row) => row.status === "FAIL") ? EXIT.failed : EXIT.clean;
 }
 
@@ -726,12 +726,12 @@ export function printReport(
     checked: boolean;
     undeclared?: UndeclaredTally;
     pluginPaths?: PluginPathTally;
-    published?: PublishedMatches;
+    matches?: PublishedMatches;
   },
   write: (text: string) => void,
   writeError: (text: string) => void,
 ): void {
-  const { checked: checkedSchemas, undeclared, pluginPaths, published } = layers;
+  const { checked: checkedSchemas, undeclared, pluginPaths, matches } = layers;
   const statusWidth = Math.max("STATUS".length, ...rows.map((row) => row.status.length));
 
   write(`${"STATUS".padEnd(statusWidth)}  FILE\n`);
@@ -789,9 +789,9 @@ export function printReport(
   }
 
   if (pluginPaths) {
-    printPluginPathTally(pluginPaths, published, write);
+    printPluginPathTally(pluginPaths, matches, write);
   }
-  warnIfUnmatched(published, writeError);
+  warnIfUnmatched(matches, writeError);
 
   if (failures > 0) {
     writeError("\nValidation failed.\n");
@@ -800,10 +800,10 @@ export function printReport(
 
 /** Says when --published-images matched no own ref, whatever decides the exit code. */
 function warnIfUnmatched(
-  published: PublishedMatches | undefined,
+  matches: PublishedMatches | undefined,
   writeError: (text: string) => void,
 ): void {
-  if (published && !anyPublishedMatch(published)) {
+  if (matches && !anyPublishedMatch(matches)) {
     writeError(
       "--published-images: no ref matches a listed image, so none was checked against it\n",
     );
@@ -812,7 +812,7 @@ function warnIfUnmatched(
 
 function printPluginPathTally(
   tally: PluginPathTally,
-  published: PublishedMatches | undefined,
+  matches: PublishedMatches | undefined,
   write: (text: string) => void,
 ): void {
   write(
@@ -821,9 +821,9 @@ function printPluginPathTally(
       `not published yet: ${tally.unpublished}  ` +
       `unreachable: ${tally.unavailable}\n`,
   );
-  if (published) {
+  if (matches) {
     write(
-      `Published images — own refs checked against them: ${published.checked} of ${published.own}\n`,
+      `Published images — own refs checked against them: ${matches.checked} of ${matches.own}\n`,
     );
   }
   if (tally.checked === 0) {

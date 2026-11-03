@@ -8,14 +8,13 @@
 // The CLI's reporting and exit-code policy. `report` takes writers rather than
 // touching process.stdout so these can assert on the exact output CI shows.
 
-import { mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { byCodepoint } from "./json.ts";
-import { PluginPathChecker, type FetchManifest } from "./plugin-path.ts";
+import { PluginPathChecker, type FetchManifest, type ManifestResult } from "./plugin-path.ts";
 import { parsePublishedImages } from "./published-images.ts";
-import { manifestDeclaring } from "./test-manifest.ts";
+import { OWN, manifestDeclaring, scratchDir } from "./test-support.ts";
 import {
   EXIT,
   checkPluginPaths,
@@ -111,24 +110,24 @@ describe("runExitCode", () => {
     ["a structural failure over an unmatched list", [failing], [], unmatched, EXIT.failed],
     ["an unmatched list over a clean run", [passing], [], unmatched, EXIT.noPublishedMatch],
     ["a clean run", [passing], [], undefined, EXIT.clean],
-  ])("reports %s", (_label, rows, jobs, published, code) => {
-    expect(runExitCode(rows, jobs, published)).toBe(code);
+  ])("reports %s", (_label, rows, jobs, matches, code) => {
+    expect(runExitCode(rows, jobs, matches)).toBe(code);
   });
+});
 
+describe("printReport", () => {
   it("names an unmatched list even when a failure decides the code", () => {
     const io = capture();
     printReport(
-      [failing],
+      [{ ...passing, status: "FAIL" }],
       NO_SCHEMAS,
-      { checked: false, published: unmatched },
+      { checked: false, matches: { matched: 0, checked: 0, own: 2 } },
       io.write,
       io.writeError,
     );
     expect(io.stderr).toMatch(/no ref matches a listed image/);
   });
-});
 
-describe("printReport", () => {
   it("says on stderr when a row failed", () => {
     const io = capture();
     printReport(
@@ -498,7 +497,7 @@ describe("plugin-path outcomes", () => {
 });
 
 function publishedFile(lines: string[]): string {
-  const file = join(mkdtempSync(join(tmpdir(), "published-images-")), "published-exports.txt");
+  const file = join(scratchDir(), "published-exports.txt");
   writeFileSync(file, `${lines.join("\n")}\n`);
   return file;
 }
@@ -518,7 +517,6 @@ function packageDoc(ref: string) {
 }
 
 describe("checking against a PR's published images", () => {
-  const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
   // adoption-insights' own image names, read from its metadata so a Package
   // added or removed there does not break these tests. Its refs carry no selector.
   const metadataDir = new URL("../../../workspaces/adoption-insights/metadata/", import.meta.url);
@@ -615,7 +613,7 @@ describe("checking against a PR's published images", () => {
     [
       "a temp-dir symlink to a file outside them",
       () => {
-        const link = join(mkdtempSync(join(tmpdir(), "published-images-")), "link.txt");
+        const link = join(scratchDir(), "link.txt");
         symlinkSync("/etc/hosts", link);
         return link;
       },
@@ -633,7 +631,7 @@ describe("checking against a PR's published images", () => {
   });
 
   it("explains a --published-images file that does not exist instead of throwing", async () => {
-    const missing = join(mkdtempSync(join(tmpdir(), "published-images-")), "absent.txt");
+    const missing = join(scratchDir(), "absent.txt");
     const io = capture();
     const code = await main(
       ["--workspace", "adoption-insights", "--check-plugin-paths", "--published-images", missing],
@@ -742,20 +740,27 @@ describe("checking against a PR's published images", () => {
     ).toEqual({ matched: 1, checked: 1, own: 2 });
   });
 
-  it("counts a retargeted ref as checked only once its manifest was read", async () => {
+  it("counts a retargeted ref as checked once its manifest was read, matching or not", async () => {
     const jobs = [
       { ...job(`oci://${OWN}/a:pr_1__1!a`), retargeted: true },
       { ...job(`oci://${OWN}/b:pr_1__1!b`), retargeted: true },
+      { ...job(`oci://${OWN}/c:pr_1__1!c`), retargeted: true },
     ];
+    // a matches, b is a mismatch, c is unreachable.
+    const manifests: Record<string, ManifestResult> = {
+      a: manifestDeclaring("a"),
+      b: manifestDeclaring("x"),
+    };
     const checker = new PluginPathChecker(
       async (image) =>
-        image.endsWith("/a:pr_1__1")
-          ? manifestDeclaring("a")
-          : { kind: "unavailable", reason: "403" },
+        manifests[/\/(\w):pr_1__1$/.exec(image)?.[1] ?? ""] ?? {
+          kind: "unavailable",
+          reason: "403",
+        },
       { attempts: 1 },
     );
     await checkPluginPaths(jobs, checker, true);
-    expect(countPublishedMatches(jobs)).toEqual({ matched: 2, checked: 1, own: 2 });
+    expect(countPublishedMatches(jobs)).toEqual({ matched: 3, checked: 2, own: 3 });
   });
 
   it("prints the match count beneath the plugin-path tally", () => {
@@ -766,7 +771,7 @@ describe("checking against a PR's published images", () => {
       {
         checked: false,
         pluginPaths: { checked: 1, mismatched: 0, unpublished: 1, unavailable: 0 },
-        published: { matched: 2, checked: 1, own: 2 },
+        matches: { matched: 2, checked: 1, own: 2 },
       },
       io.write,
       io.writeError,

@@ -58,12 +58,14 @@ export function readPublishedImages(
 ): PublishedImages | { error: string } {
   // Each root as given and resolved: on macOS the temp dir is a symlink.
   const bases = [...new Set(roots.flatMap((root) => [resolve(root), ...realpathOf(root)]))];
-  const error = { error: `--published-images must be a file under ${roots.join(" or ")}: ${file}` };
+  const outsideRoots = {
+    error: `--published-images must be a file under ${roots.join(" or ")}: ${file}`,
+  };
   // The path is checked before any filesystem call, then again with symlinks
   // followed, so a link inside a root cannot point out of it.
   const candidate = resolve(file);
   if (!bases.some((base) => candidate.startsWith(`${base}${sep}`))) {
-    return error;
+    return outsideRoots;
   }
   let real: string;
   try {
@@ -88,10 +90,10 @@ export function readPublishedImages(
       }
     }
   }
-  return error;
+  return outsideRoots;
 }
 
-/** The error for a file that exists but cannot be read. */
+/** The error for a file that cannot be resolved or read. */
 function unreadable(file: string, cause: unknown): { error: string } {
   return { error: `--published-images cannot be read: ${file} (${reasonOf(cause)})` };
 }
@@ -132,7 +134,7 @@ export function publishedRef(ref: string, published: PublishedImages): string | 
   return selector === undefined ? `oci://${image}` : `oci://${image}!${selector}`;
 }
 
-/** The last path segment of `registry/path/name[:tag][@digest]`. */
+/** The repository name: the last path segment, without tag or digest. */
 function repositoryName(image: string): string {
   const name = image.split("@")[0] ?? "";
   const lastSegment = name.slice(name.lastIndexOf("/") + 1);

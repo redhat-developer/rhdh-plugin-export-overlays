@@ -333,7 +333,7 @@ unpublished `bs_*` tag and pass as a note.
 | `src/plugin-path.ts`      | manifest fetch, retries, plugin-path outcomes        |
 | `src/published-images.ts` | metadata refs mapped onto a PR's `/publish` images   |
 | `src/validate.ts`         | CLI, reporting, exit codes                           |
-| `src/test-manifest.ts`    | the image manifest the tests share                   |
+| `src/test-support.ts`     | the manifest builder and temp dirs the tests share   |
 | `src/*.test.ts`           | the unit tests                                       |
 
 The tests never touch the network: the semantic layer is exercised through
