@@ -399,6 +399,15 @@ The status page includes:
 - Summary counts per tier (total, passed, failed)
 - Per-plugin tables with links to metadata files, OCI references, and failure reasons
 - Links to the workflow run for debugging failures
+- On the `main` page only, a **Cross-branch Tag Comparison** section and two row
+  markers, comparing each plugin against the latest `release-2.y` branch:
+  - ⚠️ — `main` builds the **same OCI tag** (`bs_<backstage>__<npm>`) as the release
+    branch, so a rebuild from either branch can overwrite the other image and
+    downstream docs can resolve the wrong digest. The section reports how many of
+    those tags already resolve to different digests.
+  - ⛔ — `main` builds an **older npm version** than the release branch, so the
+    release line is ahead of `main`; backport the release-branch workspace bump to
+    `main` or bump it there.
 
 The raw `build-report.json` files are also available on the `catalog-index-{branch}` git branch in `catalog-index/supported/build-report.json` and `catalog-index/community/build-report.json`.
 

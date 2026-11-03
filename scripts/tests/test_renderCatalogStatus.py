@@ -1,6 +1,12 @@
 """Tests for renderCatalogStatus.py — the generated catalog-index status page."""
 
-from renderCatalogStatus import render_status_page, render_tier, version_regression_warning
+from renderCatalogStatus import (
+    compute_cross_branch_flags,
+    count_same_tag_digest_mismatch,
+    render_status_page,
+    render_tier,
+    version_regression_warning,
+)
 
 
 def test_source_links_to_exact_commit():
@@ -180,3 +186,143 @@ def test_published_catalog_image_is_kept():
     assert f"[{image}](https://{image})" in text
     assert UPSTREAM_TAGS not in text
     assert DOWNSTREAM_TAGS not in text
+
+
+def _tagged_plugin(name, version, tag, digest=""):
+    plugin = _plugin(name, version=version)
+    plugin["stages"]["bootstrap"]["oci_ref"] = (
+        f"ghcr.io/org/{name}:{tag}"
+    )
+    if digest:
+        plugin["stages"]["image-metadata-fetch"] = {"digest": digest}
+    return plugin
+
+
+class TestCrossBranchFlags:
+    def test_same_tag_is_flagged(self):
+        own = {"plugins": {"p": _tagged_plugin("p", "1.0.4", "bs_1.54.9__1.0.4")}}
+        peer = {"plugins": {"p": _tagged_plugin("p", "1.0.4", "bs_1.54.9__1.0.4")}}
+
+        assert compute_cross_branch_flags(own, peer) == {"p": "same-tag"}
+
+    def test_lower_version_is_flagged_older(self):
+        own = {"plugins": {"p": _tagged_plugin("p", "6.2.4", "bs_1.54.9__6.2.4")}}
+        peer = {"plugins": {"p": _tagged_plugin("p", "6.2.5", "bs_1.54.9__6.2.5")}}
+
+        assert compute_cross_branch_flags(own, peer) == {"p": "older"}
+
+    def test_newer_version_is_not_flagged(self):
+        own = {"plugins": {"p": _tagged_plugin("p", "6.2.5", "bs_1.54.9__6.2.5")}}
+        peer = {"plugins": {"p": _tagged_plugin("p", "6.2.4", "bs_1.54.9__6.2.4")}}
+
+        assert compute_cross_branch_flags(own, peer) == {}
+
+    def test_version_ordering_is_numeric(self):
+        own = {"plugins": {"p": _tagged_plugin("p", "1.9.0", "bs_1.54.9__1.9.0")}}
+        peer = {"plugins": {"p": _tagged_plugin("p", "1.10.0", "bs_1.54.9__1.10.0")}}
+
+        assert compute_cross_branch_flags(own, peer) == {"p": "older"}
+
+    def test_plugin_absent_from_release_is_not_flagged(self):
+        own = {"plugins": {"p": _tagged_plugin("p", "0.1.0", "bs_1.54.9__0.1.0")}}
+
+        assert compute_cross_branch_flags(own, {"plugins": {}}) == {}
+
+    def test_counts_same_tag_plugins_with_differing_digest_only(self):
+        own = {
+            "plugins": {
+                "same": _tagged_plugin("same", "1.0.0", "bs_1.54.9__1.0.0", "sha256:aaa"),
+                "differs": _tagged_plugin(
+                    "differs", "1.0.0", "bs_1.54.9__1.0.0", "sha256:bbb"
+                ),
+                "ahead": _tagged_plugin("ahead", "2.0.0", "bs_1.54.9__2.0.0", "sha256:ccc"),
+            }
+        }
+        peer = {
+            "plugins": {
+                "same": _tagged_plugin("same", "1.0.0", "bs_1.54.9__1.0.0", "sha256:aaa"),
+                "differs": _tagged_plugin(
+                    "differs", "1.0.0", "bs_1.54.9__1.0.0", "sha256:ddd"
+                ),
+                "ahead": _tagged_plugin("ahead", "1.0.0", "bs_1.54.9__1.0.0", "sha256:eee"),
+            }
+        }
+
+        flags = compute_cross_branch_flags(own, peer)
+
+        assert flags == {"same": "same-tag", "differs": "same-tag"}
+        assert count_same_tag_digest_mismatch(own, peer, flags) == 1
+
+
+class TestCrossBranchRendering:
+    def _report(self, plugin):
+        return {"status": "ok", "plugins": {plugin["package"]: plugin}}
+
+    def test_icon_prefixes_the_plugin_cell(self):
+        plugin = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0")
+        report = {"status": "ok", "plugins": {"plugin-a": plugin}}
+
+        lines = render_tier(
+            "Supported",
+            report,
+            SOURCE_REPO,
+            "main",
+            cross_flags={"plugin-a": "same-tag"},
+        )
+        row = next(line for line in lines if "`@scope/plugin-a`" in line)
+
+        assert row.startswith("| ⚠️ [plugin-a]")
+
+    def test_older_flag_uses_error_icon(self):
+        plugin = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0")
+        report = {"status": "ok", "plugins": {"plugin-a": plugin}}
+
+        lines = render_tier(
+            "Supported",
+            report,
+            SOURCE_REPO,
+            "main",
+            cross_flags={"plugin-a": "older"},
+        )
+        row = next(line for line in lines if "`@scope/plugin-a`" in line)
+
+        assert row.startswith("| ⛔ ")
+
+    def test_no_icon_without_flags(self):
+        plugin = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0")
+        report = {"status": "ok", "plugins": {"plugin-a": plugin}}
+
+        lines = render_tier("Supported", report, SOURCE_REPO, "main")
+        row = next(line for line in lines if "`@scope/plugin-a`" in line)
+
+        assert row.startswith("| [plugin-a]")
+
+    def test_section_and_icons_appear_when_peer_reports_given(self):
+        own = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0", "sha256:aaa")
+        peer = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0", "sha256:bbb")
+
+        text = render_status_page(
+            {"status": "ok", "plugins": {"plugin-a": own}},
+            {},
+            SOURCE_REPO,
+            "main",
+            "abc1234",
+            "",
+            "",
+            "",
+            peer_reports={"supported": {"plugins": {"plugin-a": peer}}},
+            peer_branch="release-2.1",
+        )
+
+        assert "## Cross-branch Tag Comparison" in text
+        assert "| ⚠️ | 1 |" in text
+        assert "1 of them already resolve to different digests" in text
+        assert "| ⚠️ [plugin-a]" in text
+
+    def test_no_section_without_peer_branch(self):
+        plugin = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0")
+
+        text = _render({"status": "ok", "plugins": {"plugin-a": plugin}})
+
+        assert "Cross-branch" not in text
+        assert "| ⚠️ [" not in text
