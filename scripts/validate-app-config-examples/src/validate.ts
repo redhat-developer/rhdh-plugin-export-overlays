@@ -241,10 +241,9 @@ export async function main(
     ? await changedMetadataPaths(values.since, repoRoot)
     : await collectAllMetadata(repoRoot, workspace);
 
-  const empty = emptySelection(paths, values.since, workspace);
-  if (empty) {
-    (empty.code === EXIT.clean ? write : writeError)(empty.message);
-    return empty.code;
+  const empty = emptySelection(paths, values.since, workspace, write, writeError);
+  if (empty !== undefined) {
+    return empty;
   }
 
   // Undeclared keys are found by comparing a strict schema against the lenient
@@ -318,27 +317,27 @@ export async function main(
   return runExitCode(rows, pluginPathJobs, published);
 }
 
-/** The verdict on a selection with no metadata, or undefined when it has some. */
+/** Reports a selection with no metadata and returns its EXIT code, or undefined. */
 function emptySelection(
   paths: readonly string[],
   since: string | undefined,
   workspace: string | undefined,
-): { code: number; message: string } | undefined {
+  write: (text: string) => void,
+  writeError: (text: string) => void,
+): number | undefined {
   if (paths.length > 0) {
     return undefined;
   }
   // A --workspace run that checked nothing must not read as a pass.
   if (workspace !== undefined) {
-    return {
-      code: EXIT.toolError,
-      message: `--workspace ${workspace}: no workspaces/${workspace}/metadata/*.yaml to validate\n`,
-    };
+    writeError(
+      `--workspace ${workspace}: no workspaces/${workspace}/metadata/*.yaml to validate\n`,
+    );
+    return EXIT.toolError;
   }
   if (since) {
-    return {
-      code: EXIT.clean,
-      message: "No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n",
-    };
+    write("No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n");
+    return EXIT.clean;
   }
   return undefined;
 }
@@ -792,15 +791,22 @@ export function printReport(
   if (pluginPaths) {
     printPluginPathTally(pluginPaths, published, write);
   }
-  // Said even when a failed row decides the exit code.
+  warnIfUnmatched(published, writeError);
+
+  if (failures > 0) {
+    writeError("\nValidation failed.\n");
+  }
+}
+
+/** Says when --published-images matched no own ref, whatever decides the exit code. */
+function warnIfUnmatched(
+  published: PublishedMatches | undefined,
+  writeError: (text: string) => void,
+): void {
   if (published && !anyPublishedMatch(published)) {
     writeError(
       "--published-images: no ref matches a listed image, so none was checked against it\n",
     );
-  }
-
-  if (failures > 0) {
-    writeError("\nValidation failed.\n");
   }
 }
 
