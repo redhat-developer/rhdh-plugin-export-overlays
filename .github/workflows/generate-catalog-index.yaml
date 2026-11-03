@@ -119,9 +119,26 @@ jobs:
           if git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
             git fetch origin "$TARGET_BRANCH"
             git checkout "$TARGET_BRANCH"
+            PREV_TARGET=$(git rev-parse HEAD)
             git merge "origin/$SOURCE_BRANCH" --no-edit -X theirs || true
           else
+            PREV_TARGET=""
             git checkout -b "$TARGET_BRANCH"
+          fi
+
+          # GITHUB_TOKEN cannot create or update files under .github/workflows, so a push
+          # that carries source workflow edits into this generated branch is rejected
+          # ("refusing to allow a GitHub App to create or update workflow ... without
+          # `workflows` permission") and the run dies before publishing anything. Keep the
+          # workflow files the target branch already has; a brand new target gets none.
+          if [[ -n "$PREV_TARGET" ]] && \
+             git cat-file -e "$PREV_TARGET:.github/workflows" 2>/dev/null; then
+            git checkout "$PREV_TARGET" -- .github/workflows
+          else
+            git rm -r -q --ignore-unmatch .github/workflows
+          fi
+          if ! git diff --cached --quiet -- .github/workflows; then
+            git commit -q -m "Keep workflow files of ${TARGET_BRANCH}; GITHUB_TOKEN cannot update them"
           fi
 
       - name: Setup Python
