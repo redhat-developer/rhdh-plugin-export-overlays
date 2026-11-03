@@ -36,8 +36,12 @@ on:
           - 'false'
         default: auto
 
+# Group by workflow ref AND source/target branch: a workflow_dispatch from main for source
+# release-2.1 must not cancel a dispatch from main for source main. Two runs touching the same
+# source/target branch still cancel each other. Empty inputs fall back to the push ref / derived
+# target, matching the defaults in the "Determine branches and floating tag" step.
 concurrency:
-  group: catalog-index-${{ github.ref }}
+  group: catalog-index-${{ github.ref }}-${{ inputs.source-branch || github.ref_name }}-${{ inputs.target-branch || '' }}
   cancel-in-progress: true
 
 env:
