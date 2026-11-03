@@ -55,7 +55,7 @@ export function readPublishedImages(
   roots: readonly string[] = [process.cwd(), tmpdir()],
 ): PublishedImages | { error: string } {
   // Each root as given and resolved: on macOS the temp dir is a symlink.
-  const bases = [...new Set(roots.flatMap((root) => [resolve(root), realpathSync(root)]))];
+  const bases = [...new Set(roots.flatMap((root) => [resolve(root), ...realpathOf(root)]))];
   const error = { error: `--published-images must be a file under ${roots.join(" or ")}: ${file}` };
   // The path is checked before any filesystem call, then again with symlinks
   // followed, so a link inside a root cannot point out of it.
@@ -67,15 +67,44 @@ export function readPublishedImages(
   try {
     real = realpathSync(candidate);
   } catch (cause) {
-    const reason = String(errorProperty(cause, "code") ?? cause);
-    return { error: `--published-images cannot be read: ${file} (${reason})` };
+    return { error: `--published-images cannot be read: ${file} (${reasonOf(cause)})` };
   }
   for (const base of bases) {
     if (real.startsWith(`${base}${sep}`)) {
-      return parsePublishedImages(readFileSync(real, "utf8"));
+      let text: string;
+      try {
+        text = readFileSync(real, "utf8");
+      } catch (cause) {
+        return { error: `--published-images cannot be read: ${file} (${reasonOf(cause)})` };
+      }
+      try {
+        return parsePublishedImages(text);
+      } catch (cause) {
+        return {
+          error: `--published-images is not a list of images: ${file} (${reasonOf(cause)})`,
+        };
+      }
     }
   }
   return error;
+}
+
+/** The root with symlinks followed, or nothing when it cannot be resolved. */
+function realpathOf(root: string): string[] {
+  try {
+    return [realpathSync(root)];
+  } catch {
+    return [];
+  }
+}
+
+/** A filesystem error's code, or the error's message. */
+function reasonOf(cause: unknown): string {
+  const code = errorProperty(cause, "code");
+  if (typeof code === "string") {
+    return code;
+  }
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 /**

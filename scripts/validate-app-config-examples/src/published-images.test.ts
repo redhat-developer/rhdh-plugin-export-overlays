@@ -5,8 +5,11 @@
  * you may not use this file except in compliance with the License.
  */
 
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { parsePublishedImages, publishedRef } from "./published-images.ts";
+import { parsePublishedImages, publishedRef, readPublishedImages } from "./published-images.ts";
 
 const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
 const THEME = `${OWN}/red-hat-developer-hub-backstage-plugin-theme`;
@@ -101,5 +104,38 @@ describe("publishedRef", () => {
 
   it("does not match on a name prefix", () => {
     expect(publishedRef(`oci://${THEME}-extra:bs_1__1!x`, published)).toBeUndefined();
+  });
+});
+
+const scratch = () => mkdtempSync(join(tmpdir(), "published-images-"));
+
+describe("readPublishedImages", () => {
+  it("reads a list under a root, even when another root does not exist", () => {
+    const root = scratch();
+    const file = join(root, "published-exports.txt");
+    writeFileSync(file, `${OWN}/a:pr_1__1.0.0\n`);
+    const images = readPublishedImages(file, [join(root, "absent"), root]);
+    expect(images).toEqual(new Map([["a", `${OWN}/a:pr_1__1.0.0`]]));
+  });
+
+  it("returns an error for a directory instead of throwing", () => {
+    const root = scratch();
+    const dir = join(root, "published-exports.txt");
+    mkdirSync(dir);
+    expect(readPublishedImages(dir, [root])).toEqual({
+      error: expect.stringMatching(/--published-images cannot be read: .*\(EISDIR\)/),
+    });
+  });
+
+  it.each([
+    ["a malformed line", `${OWN}/a\n`, /is not registry\/path\/name:tag/],
+    ["two images with one name", `${OWN}/a:pr_1__1\nquay.io/x/a:pr_1__1\n`, /two published/],
+  ])("returns an error for %s instead of throwing", (_label, text, reason) => {
+    const root = scratch();
+    const file = join(root, "published-exports.txt");
+    writeFileSync(file, text);
+    const result = readPublishedImages(file, [root]);
+    expect(result).toEqual({ error: expect.stringMatching(/is not a list of images/) });
+    expect(result).toEqual({ error: expect.stringMatching(reason) });
   });
 });
