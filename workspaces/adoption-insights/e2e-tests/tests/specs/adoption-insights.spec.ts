@@ -81,7 +81,12 @@ test.describe.serial("Test Adoption Insights", () => {
 
     test("Active users panel shows the visitor", async () => {
       const panel = getPanel(page, "Active users");
-      await expect(panel.locator(".recharts-surface")).toBeVisible();
+      // The analytics backend needs time to process page-view events
+      // before they appear in the 'Today' bucket. Poll until the chart
+      // surface renders, indicating data is available.
+      await expect(async () => {
+        await expect(panel.locator(".recharts-surface")).toBeVisible();
+      }).toPass({ timeout: 60_000 });
       await expect(
         panel.getByText(
           /^Average peak active user count was \d+ per hour for this period\.$/,

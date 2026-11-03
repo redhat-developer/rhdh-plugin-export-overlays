@@ -72,13 +72,24 @@ test.describe.serial("Scorecard SonarQube Tests", () => {
     await catalog.goToByName("sonarqube-low");
     await scorecard.openTab();
 
+    // Wait for SonarQube metric data to become available. After a pod
+    // restart, SonarQube may need extra time to complete its analysis
+    // scan — the metric shows "Metric data unavailable" with no status
+    // icon until the data is ready.
+    const coverageCard = scorecard.getScorecardCard(
+      SONARQUBE_METRICS.codeCoverage,
+    );
+    await expect(
+      coverageCard.locator(
+        '[data-testid="DangerousOutlinedIcon"], [data-testid="CheckCircleOutlineIcon"]',
+      ),
+    ).toBeVisible({ timeout: 2 * 60 * 1000 });
+
     await scorecard.expectScorecardValue(
       SONARQUBE_METRICS.codeCoverage.title,
       "DangerousOutlinedIcon",
     );
-    await expect(
-      scorecard.getScorecardCard(SONARQUBE_METRICS.codeCoverage),
-    ).toContainText("33");
+    await expect(coverageCard).toContainText("33");
   });
 
   test("missing project shows the metric error state", async () => {

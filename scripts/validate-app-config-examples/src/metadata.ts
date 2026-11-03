@@ -157,6 +157,18 @@ export function packageCoordinates(
 }
 
 /**
+ * The `oci://` ref a Package's spec.dynamicArtifact names, or undefined when it
+ * names none (a non-Package, or a package bundled in the RHDH image).
+ */
+export function dynamicArtifactRef(doc: Record<string, unknown> | undefined): string | undefined {
+  if (doc?.kind !== "Package" || !isPlainObject(doc.spec)) {
+    return undefined;
+  }
+  const artifact = doc.spec.dynamicArtifact;
+  return typeof artifact === "string" && artifact.startsWith("oci://") ? artifact : undefined;
+}
+
+/**
  * Every `appConfigExamples[]` entry that carries content worth validating.
  *
  * The filtering is load-bearing, hence the name: callers rely on empty entries

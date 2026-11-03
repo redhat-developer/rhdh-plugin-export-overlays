@@ -62,6 +62,11 @@ test.describe("Test Keycloak plugin", () => {
     page: Page;
     uiHelper: UIhelper;
   }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "RHDH next build does not restore auth session on subsequent full-page navigations after Keycloak OIDC login",
+    );
+
     const keycloakUsers = await keycloakHelper.getUsers(keycloakRealm);
     const backStageUsersLocator = CatalogUsersPO.getListOfUsers(page);
     await uiHelper.waitForLoad();

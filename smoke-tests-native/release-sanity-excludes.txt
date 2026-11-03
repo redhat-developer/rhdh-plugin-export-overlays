@@ -1,0 +1,25 @@
+# Packages the release plugin sanity check (`yarn release-sanity`) does not install.
+#
+# Same grammar as catalog-index-sanity-excludes.txt (see src/exclusions.ts). Only the
+# `install` scope applies here: the check boots the real RHDH image, so a package is
+# either installed and expected to load, or not installed at all. Write patterns
+# against the OCI image name; community packages are also matched by npm name, which
+# candidateNames() normalizes to the same form. Every entry needs a `TODO(TICKET)`.
+#
+# Prefer a dummy config entry (src/plugin-config.ts, or the workspace's
+# smoke-tests/app-config.test.yaml) whenever the failure is startup config validation.
+
+# TODO(RHIDP-15961): the orchestrator backend needs a SonataFlow environment to
+# initialize, and its failure takes the whole backend down.
+install ^red-hat-developer-hub-backstage-plugin-orchestrator-backend$
+install ^red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki$
+
+# TODO(RHDHBUGS-3558): mta-backend connects to its MTA server while initializing
+# (ECONNREFUSED on the dummy URL) and its failure takes the whole backend down.
+install ^backstage-community-backstage-plugin-mta-backend$
+
+# TODO(RHIDP-18257): x2a-backend and x2a-mcp-extras test a Kubernetes connection while
+# initializing and take the whole backend down without one. The workspace's kubeconfig
+# stub (smoke-tests/, issue #3054) is not wired into this check yet.
+install ^red-hat-developer-hub-backstage-plugin-x2a-backend$
+install ^red-hat-developer-hub-backstage-plugin-x2a-mcp-extras$

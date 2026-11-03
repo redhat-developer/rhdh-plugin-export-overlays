@@ -1,19 +1,22 @@
 # validate-app-config-examples
 
 Validates the `appConfigExamples` carried by Package metadata under
-`workspaces/*/metadata/*.yaml`.
+`workspaces/*/metadata/*.yaml`, and the plugin path of each `dynamicArtifact`.
 
-Three independent layers:
+Four independent layers:
 
 | Layer           | What it checks                                                                                                       | Jira        |
 | --------------- | -------------------------------------------------------------------------------------------------------------------- | ----------- |
 | Structural      | every Package has a non-empty first `appConfigExamples[].content`, or opts out via `spec.appConfigNotRequired: true` | RHIDP-12590 |
 | Semantic        | each example's content satisfies the plugin's own config schema                                                      | RHIDP-13509 |
 | Undeclared keys | within the subtrees a plugin's schema owns, every key is one it declares                                             | RHIDP-15902 |
+| Plugin paths    | each `dynamicArtifact` installs a plugin its image declares                                                          | RHIDP-17312 |
 
 The structural layer runs always and fails the run. The semantic layer is opt-in
 via `--check-schemas` and fails unless `--warn-only`. The undeclared-key layer is
-opt-in via `--check-undeclared-keys` and only ever reports.
+opt-in via `--check-undeclared-keys` and only ever reports. The plugin-path layer
+is opt-in via `--check-plugin-paths` and fails the run; see
+[Plugin paths](#plugin-paths).
 
 ## Usage
 
@@ -30,13 +33,17 @@ vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas
 # add schema validation, reporting without failing
 vp exec validate-app-config-examples --check-schemas --warn-only
 
+# check every dynamicArtifact's plugin path against its image (needs skopeo)
+vp exec validate-app-config-examples --check-plugin-paths
+
 # the full-tree sweep CI runs weekly and on workflow_dispatch
-vp exec validate-app-config-examples --check-schemas --check-undeclared-keys
+vp exec validate-app-config-examples --check-plugin-paths --check-schemas --check-undeclared-keys
 ```
 
-The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
-mismatch rather than warning — the weekly schedule is what gives that verdict
-somewhere to land, since a PR only ever sees the metadata it touched.
+The full-tree sweep's schema layer reports `mismatched: 0` as of RHIDP-15903,
+so it fails on a schema mismatch rather than warning — the weekly schedule is
+what gives that verdict somewhere to land, since a PR only ever sees the
+metadata it touched.
 `--warn-only` remains for surveying a tree you have not cleaned up yet — a
 release branch, say.
 
@@ -232,17 +239,51 @@ a subtree in which nothing can be found. And a schema declaring its top-level
 keys through `allOf`/`$ref` rather than a literal `properties` map yields no
 declared keys at all, so its files are skipped silently.
 
+## Plugin paths
+
+The installer extracts each OCI ref into the directory its `!plugin-path`
+selector names. A selector the image does not declare in its
+`io.backstage.dynamic-packages` annotation installs nothing, and the install
+still exits 0. A ref without a selector needs an image that declares exactly one
+plugin, or the install fails with "Multiple plugins found".
+
+With `--check-plugin-paths`, each `spec.dynamicArtifact` is checked against its
+image's manifest, read with `skopeo inspect --raw` the way the installer reads it,
+including its fallback from `registry.access.redhat.com/rhdh/` to `quay.io/rhdh/`.
+Pulls are anonymous, as the installer's are. The rule itself
+(`selectedPluginPathProblem`) lives in `smoke-tests-native/src/plugin-path.ts`
+and is shared with the native smoke harness.
+
+What a ref and its registry answer mean for the run:
+
+| Answer                                       | Verdict                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| ref not in the form the install CLI accepts  | fail, without reading the registry                                |
+| manifest read, path declared                 | pass                                                              |
+| manifest read, path not declared             | fail                                                              |
+| image or tag missing (or not public)         | fail, except with `--allow-unpublished` for this repo's ghcr tags |
+| no answer after 3 tries, or after the budget | fail: a ref that was not checked must not read as a clean one     |
+
+The run gives the registry 10 minutes from its first fetch. Fetches and retries
+not started by then count as unreachable, so a hanging registry still ends in a
+tally inside the job's timeout.
+
+`--allow-unpublished` is for PRs: their `bs_*` tags are only published on merge,
+so those refs are noted and counted as `not published yet`. The weekly sweep runs
+without it, so a tag that is still missing then fails.
+
 ## Layout
 
-| Path              | Role                                                 |
-| ----------------- | ---------------------------------------------------- |
-| `src/json.ts`     | the shared mapping guard and error-property reader   |
-| `src/metadata.ts` | YAML reading and the structural verdicts             |
-| `src/schema.ts`   | package download, schema loading, example validation |
-| `src/validate.ts` | CLI, reporting, exit codes                           |
-| `src/*.test.ts`   | the unit tests                                       |
+| Path                 | Role                                                 |
+| -------------------- | ---------------------------------------------------- |
+| `src/json.ts`        | the shared mapping guard and error-property reader   |
+| `src/metadata.ts`    | YAML reading and the structural verdicts             |
+| `src/schema.ts`      | package download, schema loading, example validation |
+| `src/plugin-path.ts` | manifest fetch, retries, plugin-path outcomes        |
+| `src/validate.ts`    | CLI, reporting, exit codes                           |
+| `src/*.test.ts`      | the unit tests                                       |
 
 The tests never touch the network: the semantic layer is exercised through
 `loadConfigSchema({ serialized })`, which builds a real Backstage schema in
 memory, so the suite stays fast and deterministic while still testing the
-actual validator.
+actual validator. The plugin-path tests hand the checker a fake registry.
