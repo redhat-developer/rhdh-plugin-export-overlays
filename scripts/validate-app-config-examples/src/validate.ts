@@ -210,7 +210,7 @@ export async function main(
   const publishedImages =
     values["published-images"] === undefined
       ? undefined
-      : await readPublishedImages(values["published-images"]);
+      : readPublishedImages(values["published-images"]);
   if (publishedImages && "error" in publishedImages) {
     writeError(`${publishedImages.error}\n`);
     return 2;
