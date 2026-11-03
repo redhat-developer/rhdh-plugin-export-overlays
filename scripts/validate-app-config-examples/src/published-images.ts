@@ -67,7 +67,7 @@ export function readPublishedImages(
   try {
     real = realpathSync(candidate);
   } catch (cause) {
-    return { error: `--published-images cannot be read: ${file} (${reasonOf(cause)})` };
+    return unreadable(file, cause);
   }
   for (const base of bases) {
     if (real.startsWith(`${base}${sep}`)) {
@@ -75,7 +75,7 @@ export function readPublishedImages(
       try {
         text = readFileSync(real, "utf8");
       } catch (cause) {
-        return { error: `--published-images cannot be read: ${file} (${reasonOf(cause)})` };
+        return unreadable(file, cause);
       }
       try {
         return parsePublishedImages(text);
@@ -87,6 +87,11 @@ export function readPublishedImages(
     }
   }
   return error;
+}
+
+/** The error for a file that exists but cannot be read. */
+function unreadable(file: string, cause: unknown): { error: string } {
+  return { error: `--published-images cannot be read: ${file} (${reasonOf(cause)})` };
 }
 
 /** The root with symlinks followed, or nothing when it cannot be resolved. */

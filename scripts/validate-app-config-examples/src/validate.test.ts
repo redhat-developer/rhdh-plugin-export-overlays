@@ -492,7 +492,7 @@ function packageDoc(ref: string) {
 
 describe("checking against a PR's published images", () => {
   const OWN = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
-  // adoption-insights: three own refs, none with a selector.
+  // adoption-insights: own refs without a selector.
   const NAMES = [
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend",
     "red-hat-developer-hub-backstage-plugin-adoption-insights",

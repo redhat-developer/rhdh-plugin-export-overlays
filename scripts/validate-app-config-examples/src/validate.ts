@@ -438,16 +438,15 @@ export function recordPluginPathOutcome(
 ): void {
   const { row, ref, retargeted } = job;
   job.checked = outcome.kind === "ok" || outcome.kind === "mismatch";
-  job.failed = true;
+  job.failed = false;
   switch (outcome.kind) {
     case "ok":
-      job.failed = false;
       tally.checked += 1;
       return;
     case "mismatch":
       tally.checked += 1;
       tally.mismatched += 1;
-      failRow(row, "dynamicArtifact plugin path does not match its image");
+      failJob(job, "dynamicArtifact plugin path does not match its image");
       row.notes.push(`plugin path: ${ref} ${outcome.problem}`);
       return;
     case "missing":
@@ -455,25 +454,26 @@ export function recordPluginPathOutcome(
       // that cannot be pulled is as broken for the installer as a bad path.
       // A retargeted ref names an image this run pushed, so it is no exception.
       if (allowUnpublished && !retargeted && isOwnImage(ref)) {
-        job.failed = false;
         tally.unpublished += 1;
         row.notes.push(`plugin path not checked: ${ref} is not published yet (${outcome.reason})`);
         return;
       }
-      failRow(row, "dynamicArtifact names an image that cannot be pulled");
+      failJob(job, "dynamicArtifact names an image that cannot be pulled");
       row.notes.push(`plugin path: ${ref}: ${outcome.reason}`);
       return;
     case "unavailable":
       // Failing, not passing: an unchecked ref must not read as a clean one.
       tally.unavailable += 1;
-      failRow(row, "registry unreachable, plugin path not checked");
+      failJob(job, "registry unreachable, plugin path not checked");
       row.notes.push(`plugin path: ${ref}: ${outcome.reason}`);
       return;
   }
 }
 
-/** Fails a row, keeping the detail of an earlier failure. */
-function failRow(row: Row, detail: string): void {
+/** Fails a job's row, keeping the detail of an earlier failure. */
+function failJob(job: PluginPathJob, detail: string): void {
+  job.failed = true;
+  const { row } = job;
   if (row.status !== "FAIL") {
     row.status = "FAIL";
     row.detail = detail;
