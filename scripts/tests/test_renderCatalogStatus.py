@@ -2,6 +2,8 @@
 
 from renderCatalogStatus import (
     compute_cross_branch_flags,
+    npm_link,
+    version_cell,
     version_marker,
     render_status_page,
     render_tier,
@@ -270,7 +272,7 @@ class TestCrossBranchRendering:
         row = next(line for line in lines if "`@scope/plugin-a`" in line)
 
         assert row.startswith("| [plugin-a]")
-        assert "| 📉 Old tag `a < b` 1.0.0 |" in row
+        assert "| 📉 Old tag `a < b` [1.0.0](https://ghcr.io/org/plugin-a:bs_1.54.9__1.0.0) |" in row
 
     def test_no_marker_without_flags(self):
         plugin = _tagged_plugin("plugin-a", "1.0.0", "bs_1.54.9__1.0.0")
@@ -298,7 +300,7 @@ class TestCrossBranchRendering:
             peer_branch="release-2.1",
         )
 
-        assert "🔁 Same tag 1.0.0" in text
+        assert "🔁 Same tag [1.0.0](https://ghcr.io/org/plugin-a:bs_1.54.9__1.0.0)" in text
         assert "Cross-branch" not in text
 
     def test_page_has_no_markers_without_peer_branch(self):
@@ -306,7 +308,26 @@ class TestCrossBranchRendering:
 
         text = _render({"status": "ok", "plugins": {"plugin-a": plugin}})
 
-        assert "🔁 Same tag 1.0.0" not in text
+        assert "🔁 Same tag" not in text
+
+
+class TestRowLinks:
+    def test_package_links_to_npm_at_version(self):
+        assert (
+            npm_link("@scope/pkg", "2.0.0")
+            == "[`@scope/pkg`](https://www.npmjs.com/package/@scope/pkg/v/2.0.0)"
+        )
+
+    def test_version_links_to_registry_without_digest(self):
+        assert version_cell("2.0.0", "ghcr.io/org/pkg:bs_1.54.9__2.0.0@sha256:abc") == (
+            "[2.0.0](https://ghcr.io/org/pkg:bs_1.54.9__2.0.0)"
+        )
+
+    def test_version_without_ref_stays_plain(self):
+        assert version_cell("2.0.0", "") == "2.0.0"
+
+    def test_empty_version_is_not_linked(self):
+        assert version_cell("``", "ghcr.io/org/pkg:bs_1.0.0") == "``"
 
 
 class TestSummaryComparisonCounts:

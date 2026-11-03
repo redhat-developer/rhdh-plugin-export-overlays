@@ -314,6 +314,33 @@ def compute_cross_branch_flags(report: dict, peer_report: dict) -> dict[str, dic
     return flags
 
 
+def npm_link(package: str, version: str = "") -> str:
+    """Link a package cell to its npmjs.com page, at the given version when known."""
+    if not package:
+        return ""
+    url = f"https://www.npmjs.com/package/{package}"
+    if version:
+        url += f"/v/{version}"
+    return f"[`{package}`]({url})"
+
+
+def oci_ref_url(oci_ref: str) -> str:
+    """Registry URL for an OCI ref, digest stripped."""
+    if not oci_ref:
+        return ""
+    ref = oci_ref.replace("oci://", "").split("@", 1)[0]
+    return f"https://{ref}" if "/" in ref else ""
+
+
+def version_cell(text: str, oci_ref: str) -> str:
+    """Version text linked to its published artifact."""
+    url = oci_ref_url(oci_ref)
+    text = text.strip()
+    if not url or not text.strip("`"):
+        return text
+    return f"[{text}]({url})"
+
+
 def version_marker(
     cross_flags: dict[str, dict], name: str, status_kind: str = ""
 ) -> str:
@@ -396,11 +423,12 @@ def render_tier(
             ws = p.get("workspace", "")
             pkg = p.get("package", "")
             ver = p.get("version", "")
+            oci_ref = p.get("stages", {}).get("bootstrap", {}).get("oci_ref", "")
             stage_label, reason = first_failed_stage(p.get("stages", {}))
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             reason_link = reason_to_link(reason, troubleshooting_content, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | `{pkg}` | {_mark(name)}{ver} | {stage_label} | {reason_link} |"
+                f"| {name_link} | {npm_link(pkg, ver)} | {_mark(name)}{version_cell(ver, oci_ref)} | {stage_label} | {reason_link} |"
             )
         lines.append("")
 
@@ -434,7 +462,7 @@ def render_tier(
             ws_link = workspace_link(source_repo, branch, ws) if ws else f"`{ws}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | `{pkg}` | {ws_link} | {expected} | {_mark(name, "bs-mismatch")}{found} | {oci_link} |"
+                f"| {name_link} | {npm_link(pkg, p.get("version", ""))} | {ws_link} | {expected} | {_mark(name, "bs-mismatch")}{version_cell(found, oci_ref)} | {oci_link} |"
             )
         lines.append("")
 
@@ -465,7 +493,7 @@ def render_tier(
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | `{pkg}` | `{requested}` | {_mark(name, "outdated")}`{resolved}` | {oci_link} |"
+                f"| {name_link} | {npm_link(pkg, p.get("version", ""))} | `{requested}` | {_mark(name, "outdated")}{version_cell(f'`{resolved}`', oci_ref)} | {oci_link} |"
             )
         lines.append("")
 
@@ -497,7 +525,7 @@ def render_tier(
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | `{pkg}` | `{previous}` | {_mark(name)}`{current}` | {oci_link} |"
+                f"| {name_link} | {npm_link(pkg, p.get("version", ""))} | `{previous}` | {_mark(name)}{version_cell(f'`{current}`', oci_ref)} | {oci_link} |"
             )
         lines.append("")
 
@@ -517,7 +545,9 @@ def render_tier(
             oci_ref = stages.get("bootstrap", {}).get("oci_ref", "")
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
-            lines.append(f"| {name_link} | `{pkg}` | {_mark(name)}{ver} | {oci_link} |")
+            lines.append(
+                f"| {name_link} | {npm_link(pkg, ver)} | {_mark(name)}{version_cell(ver, oci_ref)} | {oci_link} |"
+            )
         lines.append("")
 
     return lines
