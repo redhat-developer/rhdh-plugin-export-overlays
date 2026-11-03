@@ -1,6 +1,12 @@
 """Tests for renderCatalogStatus.py — the generated catalog-index status page."""
 
-from renderCatalogStatus import render_status_page, render_tier, version_regression_warning
+from renderCatalogStatus import (
+    npm_link,
+    render_status_page,
+    render_tier,
+    version_cell,
+    version_regression_warning,
+)
 
 
 def test_source_links_to_exact_commit():
@@ -180,3 +186,28 @@ def test_published_catalog_image_is_kept():
     assert f"[{image}](https://{image})" in text
     assert UPSTREAM_TAGS not in text
     assert DOWNSTREAM_TAGS not in text
+
+
+class TestLinks:
+    def test_package_links_to_npmjs_at_version(self):
+        text = "\n".join(
+            render_tier("Supported", {"status": "ok", "plugins": {"p": _plugin("p")}},
+                        "https://github.com/org/repo", "main")
+        )
+        assert "[`@scope/p`](https://www.npmjs.com/package/@scope/p/v/1.0.0)" in text
+
+    def test_version_links_to_published_artifact(self):
+        text = "\n".join(
+            render_tier("Supported", {"status": "ok", "plugins": {"p": _plugin("p")}},
+                        "https://github.com/org/repo", "main")
+        )
+        assert "[1.0.0](https://quay.io/rhdh/p)" in text
+
+    def test_links_degrade_without_version_or_ref(self):
+        assert npm_link("@scope/pkg", "") == "[`@scope/pkg`](https://www.npmjs.com/package/@scope/pkg)"
+        assert npm_link("", "1.0.0") == ""
+        assert version_cell("1.0.0", "") == "1.0.0"
+        assert version_cell("``", "ghcr.io/org/pkg:bs_1.0.0") == "``"
+        assert version_cell(
+            "1.0.0", "ghcr.io/org/pkg:bs_1.54.9__2.0.0@sha256:abc"
+        ) == "[1.0.0](https://ghcr.io/org/pkg:bs_1.54.9__2.0.0)"
