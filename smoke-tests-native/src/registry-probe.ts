@@ -6,11 +6,8 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import {
-  pluginPathProblem,
-  probeCandidates,
-  type ProbeResult,
-} from "./catalog-index";
+import type { ProbeResult } from "./catalog-index";
+import { pluginPathProblem, probeCandidates } from "./plugin-path";
 import { isRecord, lastErrorLine } from "./util";
 
 // A manifest fetch is one small request; a registry that has not answered in this long

@@ -177,7 +177,7 @@ The final step that produces the catalog index:
 3. Uses the package list filter to select entries for `index.json`; copied Package entities outside that selection can remain in the directory
 4. Verifies each selected plugin's OCI image exists in the registry
 5. Generates `index.json` with digest-based references
-6. Updates selected Package entity files and DPDY with OCI references and Tag/Build date comments
+6. Updates selected Package entity files and DPDY with OCI references and Tag/Build date comments. A ref's `!plugin-path` selector from the workspace metadata is kept on the digest ref.
 7. Regenerates `all.yaml` location files
 
 ### Step 5: Validation (`validateCatalogIndex.py`)
@@ -202,8 +202,10 @@ that matter most:
 | `unknown-image`        | error    | An `oci://` ref names an image with no `plugin_builds/` entry — the index and build metadata disagree.     |
 | `digest-mismatch`      | error    | A digest-pinned ref does not match the digest `plugin_builds/` recorded.                                  |
 | `registry-not-allowed` | error    | A selected plugin's OCI ref uses a registry other than `--community-registry` for `support: community`, or `--registry` for every other support tier. The check covers DPDY, `plugin_builds/`, `index.json`, and selected Package entities. |
+| `ref-form`             | error    | A ref does not parse as an `oci://` image reference: wrong scheme, truncated digest, or an empty `!plugin-path` (bare trailing `!`). No allowlist entry can suppress it. |
 | `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
 | `not-digest-pinned`    | error    | A ref carries a tag rather than a digest — the tag points at the manifest list, which lacks `io.backstage.dynamic-packages` (RHDHBUGS-3815). Always fails. |
+| `plugin-path-mismatch` | error    | A DPDY ref or selected Package entity's `dynamicArtifact` selects a `!plugin-path` its image does not declare (install extracts nothing), or selects none on an image declaring several (install fails). Images with no `plugin_builds/` entry are not checked. |
 | `fallback-tag`         | warning  | The requested build was missing and an older tag was substituted — the index ships a stale build.          |
 | `backstage-version-mismatch` | warning | Workspace Backstage minor is older than this branch expects.                                      |
 | `version-regression`   | warning  | Plugin version is lower than the previous published catalog index (RHIDP-16252).                           |
@@ -211,8 +213,11 @@ that matter most:
 
 **Modes.** The registry policy is a hard gate after generation, before downstream
 cleanup, regardless of `--validate-mode`. It compares exact registry bases and names
-the plugin, generated file, actual base, and expected base when it fails. The other
-validation findings use `--validate-mode`:
+the plugin, generated file, actual base, and expected base when it fails. It also
+fails a ref whose registry cannot be read (a malformed `oci://` DPDY ref, or an
+unparseable `plugin_builds/`, `index.json`, or Package entity ref) as `ref-form`, naming
+the plugin, generated file, and expected base. The other validation findings use
+`--validate-mode`:
 
 - `report` (**default**) — prints the other findings without failing the build.
 - `gate` — fails the build on any error.
@@ -238,7 +243,8 @@ still fails the build (RHIDP-15725).
 using the same `TODO(TICKET)` discipline as the smoke harness's exclusion files: a
 pattern with no ticket is a parse error, so exceptions get removed rather than
 accumulated. Patterns are matched against the OCI **image name**
-(`backstage-community-plugin-quay`). `registry-not-allowed` cannot be allowlisted.
+(`backstage-community-plugin-quay`). `registry-not-allowed` and `ref-form` cannot be
+allowlisted: a line naming either is a parse error that fails the run.
 
 Findings are also recorded per plugin in `build-report.json` as a `validate` stage, so
 they reach the generated status page. Only errors set that stage to `fail` — a
@@ -251,7 +257,8 @@ a `default.packages.yaml` is among the `--packages-file` arguments. The communit
 is generated with `--packages-file rhdh-community-packages.txt` alone, so it has no DPDY.
 Step 5 still walks `plugin_builds/` for `unresolved-image`, `missing-annotation`, and
 `fallback-tag` so a missing community image fails under `--validate-mode gate`
-(RHIDP-15725). The mandatory registry policy still checks `plugin_builds/` and
+(RHIDP-15725), and checks the selected Package entities for `plugin-path-mismatch`.
+The mandatory registry policy still checks `plugin_builds/` and
 `index.json`; DPDY-only rules do not run.
 
 ### Catalog Index Sanity Check (scheduled, not part of `update-index.sh`)
@@ -386,6 +393,21 @@ The status page includes:
 - Summary counts per tier (total, passed, failed)
 - Per-plugin tables with links to metadata files, OCI references, and failure reasons
 - Links to the workflow run for debugging failures
+- Two status markers in the Version (or Found/Resolved) cell of problem rows:
+  🧬 **BS mismatch** — the workspace targets an older Backstage minor version than
+  the branch expects; ⏳ **Stale pin** — the requested tag was missing from the
+  registry, so an older published tag is used.
+- On the `main` page only, a comparison against the latest `release-2.y` branch:
+  two Summary columns (🔁 Same tag, 📉 Old tag) holding the per-tier counts, and the
+  matching marker in the Version cell of every affected row.
+  - 🔁 **Same tag** — `main` builds the same OCI tag (`bs_<backstage>__<npm>`) as the
+    release branch, so a rebuild from either branch can overwrite the other image
+    and downstream docs can resolve the wrong digest.
+  - 📉 **Old tag** — `main` builds an older npm version than the release branch, so
+    the release line is ahead of `main`; backport the release-branch workspace bump
+    to `main` or bump it there. The cell shows both tags, `main < release`.
+  - A row can carry both a status and a cross-branch marker, separated by `·`.
+  - Release pages carry neither the columns nor the markers.
 
 The raw `build-report.json` files are also available on the `catalog-index-{branch}` git branch in `catalog-index/supported/build-report.json` and `catalog-index/community/build-report.json`.
 

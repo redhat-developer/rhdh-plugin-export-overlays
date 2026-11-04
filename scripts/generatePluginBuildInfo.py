@@ -15,7 +15,6 @@
 # - midstream: from container env MIDSTREAM_REPO
 
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -29,6 +28,7 @@ import yaml
 from plugin_utils import (
     BuildReport,
     Colors,
+    decode_dynamic_packages,
     log_debug,
     log_info,
     log_warn,
@@ -52,22 +52,6 @@ DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 
 # Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
 VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
-
-
-def decode_dynamic_packages(annotation: str | None) -> list | None:
-    """Decode the ``io.backstage.dynamic-packages`` annotation into its package list.
-
-    Returns the list, ``[]`` when the annotation declares nothing, or ``None`` when it
-    cannot be read. Callers act on those three differently, so they stay distinct.
-    """
-    if not annotation:
-        return []
-    try:
-        decoded = base64.b64decode("".join(annotation.split()), validate=True)
-        packages = json.loads(decoded)
-    except ValueError:
-        return None
-    return packages if isinstance(packages, list) else None
 
 
 # Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
@@ -1114,7 +1098,10 @@ def _sync_one_overlay_metadata(
     if not da.startswith("oci://"):
         return False
 
-    new_oci = f"oci://{registry_reference_digest}"
+    # Keep the !plugin-path selector: it picks the plugin inside the image.
+    plugin_path = da.partition("!")[2]
+    selector = f"!{plugin_path}" if plugin_path else ""
+    new_oci = f"oci://{registry_reference_digest}{selector}"
     fallback_version = None
     if plugin_data.get("fallback"):
         fallback_version = _version_from_registry_tag(registry_reference_tag)
@@ -1281,7 +1268,7 @@ def update_plugin_build_files(
     from the Docker Registry HTTP API v2 and writes the results back into the
     JSON. Also updates the corresponding ``workspaces/*/metadata/*.yaml``
     overlay files with the resolved ``dynamicArtifact`` OCI reference
-    (including digest).
+    (including digest, and keeping any ``!plugin-path`` selector).
 
     Returns:
         A 6-tuple of ``(updated_count, error_count, missing_refs,

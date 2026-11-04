@@ -1043,6 +1043,57 @@ spec:
         assert json_path.stat().st_mtime_ns == before_mtime
 
 
+class TestMetadataWriteBackKeepsPluginPath:
+    """The digest write-back must not drop a metadata ref's !plugin-path selector."""
+
+    RESOLVED = f"oci://registry.access.redhat.com/rhdh/{_TEST_PLUGIN}@{_TEST_DIGEST}"
+    TAG_REF = (
+        "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/"
+        f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0"
+    )
+
+    @pytest.fixture(autouse=True)
+    def _rarc_registry(self, monkeypatch):
+        monkeypatch.setattr(
+            generatePluginBuildInfo,
+            "REGISTRY_BASE",
+            "registry.access.redhat.com/rhdh",
+        )
+
+    def _sync(self, mock_get_metadata, tmp_path, body):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        _, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        meta_path = metadata_dir / f"{_TEST_PLUGIN}.yaml"
+        meta_path.write_text(body, encoding="utf-8")
+        _, _, _, changes, _, _ = generatePluginBuildInfo.update_plugin_build_files(
+            tmp_path / "plugin_builds", tmp_path, None
+        )
+        return changes, meta_path.read_text(encoding="utf-8")
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_selector_is_kept(self, mock_get_metadata, tmp_path):
+        _, text = self._sync(
+            mock_get_metadata, tmp_path, _metadata_yaml_body(f"{self.TAG_REF}!{_TEST_PLUGIN}-x")
+        )
+        assert f'  dynamicArtifact: "{self.RESOLVED}!{_TEST_PLUGIN}-x"\n' in text
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_pathless_ref_stays_pathless(self, mock_get_metadata, tmp_path):
+        _, text = self._sync(mock_get_metadata, tmp_path, _metadata_yaml_body(self.TAG_REF))
+        assert f'  dynamicArtifact: "{self.RESOLVED}"\n' in text
+        assert "!" not in text
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_rerun_on_written_back_metadata_changes_nothing(self, mock_get_metadata, tmp_path):
+        body = _metadata_yaml_body(f'"{self.RESOLVED}!{_TEST_PLUGIN}"').replace(
+            "  dynamicArtifact:",
+            f"  # Tag: 1.10--1.0.0, Build date: {_TEST_BUILD_DATE}\n  dynamicArtifact:",
+        )
+        changes, text = self._sync(mock_get_metadata, tmp_path, body)
+        assert changes == 0
+        assert text == body
+
+
 # ---------------------------------------------------------------------------
 # decode_dynamic_packages / empty-annotation detection
 # ---------------------------------------------------------------------------

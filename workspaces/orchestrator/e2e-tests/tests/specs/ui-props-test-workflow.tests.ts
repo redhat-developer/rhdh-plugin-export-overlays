@@ -1,9 +1,9 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
-import { loginAsKeycloakUserWithRetry } from "./orchestrator-rbac.tests.js";
 import {
   PRIMARY_USER,
   setupAuthenticatedPage,
+  loginAsKeycloakUserWithRetry,
   createRoleWithPolicies,
   deleteRoleAndPolicies,
   globalWorkflowPolicies,
