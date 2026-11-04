@@ -5,7 +5,7 @@
  * ML-KEM against a peer that cannot complete that TLS path, those entities
  * must not ingest until the LDAP TLS peer offers a hybrid group.
  *
- * Peer image: OpenLDAP on UBI 10.2 / OpenSSL 3.5 (built from ldap-pqc/openldap/).
+ * Peer image: OpenLDAP on UBI 10.2 / OpenSSL 3.5.
  * @see https://quay.io/repository/rhdh-test/security/tag/openldap-ubi10.2
  */
 export const CONFIG_DIR = "tests/config/ldap-pqc";
