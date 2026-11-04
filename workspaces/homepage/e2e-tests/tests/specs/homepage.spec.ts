@@ -133,14 +133,14 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.verifyCardsDeleted();
 
       await home.addWidget("Entity Section");
-      await home.addWidget("Recently Visited");
+      await home.addWidget("Explore Templates");
       await home.exitEditMode();
 
       await home.verifySpecificCardsDisplayed([
         "Explore Your Software Catalog",
-        "Recently Visited",
+        "Explore Templates",
       ]);
-      await home.verifyCardNotDisplayed("Top Visited");
+      await home.verifyCardNotDisplayed("Good morning");
     });
 
     test("Multiple widgets of the same type produce distinct cards", async () => {
