@@ -14,7 +14,7 @@ include::{docdir}/artifacts/snip-technology-preview.adoc[]
 |===
 |*Name* |*Plugin* |*Plugin Version* |*Path and required variables* |*Artifact Tag*
 |Events Backend Module GitHub |`https://npmjs.com/package/@backstage/plugin-events-backend-module-github/v/0.4.15[@backstage/plugin-events-backend-module-github]` |0.4.15
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:f34354a9ea1d5630fbb8e8185e6f42079bed75020e0b232486eef4c93a637253`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:2572556d03d8c8bcabedae0e90bb5303b5366cfcd4c14688480f5bf89ecee190`
 
 `GITHUB_WEBHOOK_SECRET`
 
@@ -36,19 +36,19 @@ include::{docdir}/artifacts/snip-technology-preview.adoc[]
 
 |bs_1.54.9__1.0.2
 |GitLab |`https://npmjs.com/package/@backstage/plugin-scaffolder-backend-module-gitlab/v/0.11.10[@backstage/plugin-scaffolder-backend-module-gitlab]` |0.11.10
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:88421a1a6d01960fcdcfb804999e683dd951ef6fa6463880ace4efb17907432a`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:b28f7348d8b9d56738fc6d41f7f99c2787aaa1608a73344ebeb3291a4d9319ad`
 
 |bs_1.54.9__0.11.10
 |Notifications |`https://npmjs.com/package/@backstage/plugin-notifications/v/0.5.20[@backstage/plugin-notifications]` |0.5.20
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:a1c2b9f09252dc3eebb58d3d146868aced99f1089195aa7feaf4e8c1b2792122`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:f52453dcdaaa176b142375c1e1d1fe81cf76ae9a17094b28b0311ba1ad2e14f8`
 
 |bs_1.54.9__0.5.20
 |Notifications |`https://npmjs.com/package/@backstage/plugin-notifications-backend/v/0.6.8[@backstage/plugin-notifications-backend]` |0.6.8
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:f369d3b3f83dde7bdbd86e1932e77b528a3c210489d69d2fb07c5646bd18aacb`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:53f6f04d9ff41371d8e19c52e9c708adec62c594bf55d5302862fc793ffb85bf`
 
 |bs_1.54.9__0.6.8
 |Notifications |`https://npmjs.com/package/@backstage/plugin-notifications-backend-module-email/v/0.3.24[@backstage/plugin-notifications-backend-module-email]` |0.3.24
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:10ae362e601efd2c9d67e68723cb292eb852729bfdb64de4be2bc8f6bd36e681`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:eeb8ea3d961146e39a482a82f10c345526be76826720adc3775d5b9f5abdc16a`
 
 `EMAIL_HOSTNAME`
 

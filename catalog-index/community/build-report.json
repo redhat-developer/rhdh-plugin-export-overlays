@@ -1,8 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.1-bs_1.54.9-c865936",
-    "last-successful-publish": "c86593689608d7e3bc68e051914e3139a0ead8ae"
-  },
+  "metadata": {},
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -210,7 +207,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a624a452b1d794d729ffad5c7fa4c2fb77960e9787aeebbe7c9205eb23428dce"
+          "digest": "sha256:5aeb97997611d23e3ed22adfcc260b52f9817d3d5af23de18b08b646d7394d6d"
         },
         "dpdy": {
           "status": "skip"
@@ -232,7 +229,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d214debceb3171f24355164cd06ce05b490d355a2e45bb1864758a4516d3c429"
+          "digest": "sha256:7751a7b9e95430f4c2fc9322840728f4cd1c9560a0aac1d3c70ccd6c30b129b1"
         },
         "dpdy": {
           "status": "skip"
@@ -254,7 +251,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:521214f66839e337af06c849e66ce75bc8dbe29419cae5510254ea4583d1fbdb"
+          "digest": "sha256:14fa8cc9813904f834e82a6c70d82a31ada1d17eb8c327812ac88645263d5a32"
         },
         "dpdy": {
           "status": "skip"
@@ -276,7 +273,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2174c34cfb44422b09d3619334fcb546ffb5677319de5d069a484c643d4a4060"
+          "digest": "sha256:5570c5cbc34aa2c77a02448e22853ee577033e2db179ad846e14eaaab61e7781"
         },
         "dpdy": {
           "status": "skip"
