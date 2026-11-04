@@ -21,16 +21,17 @@ import argparse
 import json
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import NamedTuple
 
 import yaml
 
-from generatePluginBuildInfo import decode_dynamic_packages
 from plugin_utils import (
     BuildReport,
     Colors,
+    decode_dynamic_packages,
     log_debug,
     log_error,
     log_info,
@@ -65,7 +66,8 @@ class Rule(NamedTuple):
 RULES: dict[str, Rule] = {
     "ref-form": Rule(
         ERROR,
-        "a plugins[].package value is not an oci:// reference",
+        "a package ref does not parse as an oci:// image reference (for example "
+        "a non-oci scheme, a truncated digest, or an empty !plugin-path)",
     ),
     "duplicate-ref": Rule(
         ERROR,
@@ -124,6 +126,13 @@ RULES: dict[str, Rule] = {
         "annotation (missing, empty, or unreadable) — always fails the build",
         needs_builds=True,
     ),
+    "plugin-path-mismatch": Rule(
+        ERROR,
+        "a ref's !plugin-path is not a plugin its image declares (install extracts "
+        "nothing and exits 0), or a ref with no path names an image declaring "
+        "several plugins (install fails with 'Multiple plugins found')",
+        needs_builds=True,
+    ),
     "backstage-version-mismatch": Rule(
         WARNING,
         "the workspace targets an older Backstage minor than this branch "
@@ -145,8 +154,9 @@ RULES: dict[str, Rule] = {
 #: The rules `--no-build-metadata` cannot run, derived rather than listed.
 RULES_NEEDING_BUILDS = sorted(r for r, spec in RULES.items() if spec.needs_builds)
 # Registry policy is a hard gate even when the other rules run in report mode. A
-# ticketed exception must not let a non-product registry into a product index.
-NON_ALLOWLISTABLE_RULES = {"registry-not-allowed"}
+# ticketed exception must not let a non-product registry into a product index, nor a
+# ref whose registry cannot be read past that gate.
+NON_ALLOWLISTABLE_RULES = {"registry-not-allowed", "ref-form"}
 
 OCI_PREFIX = "oci://"
 LOCAL_PREFIX = "./dynamic-plugins/dist/"
@@ -205,6 +215,8 @@ class ParsedRef:
     image: str
     digest: str = ""
     tag: str = ""
+    #: The `!plugin-path` selector, empty when the ref has none.
+    plugin_path: str = ""
 
 
 @dataclass(frozen=True)
@@ -242,12 +254,15 @@ def parse_oci_ref(ref: str) -> ParsedRef | None:
     generateCatalogIndex.py uses to write these refs. A second grammar here is what once
     made this the only parser in the repo to reject `name:tag@digest`.
 
-    The `!plugin-path` selector is stripped BEFORE parsing: it names a plugin inside the
-    image, and a selector containing `/` would otherwise be read as a path segment.
+    The `!plugin-path` selector is split off BEFORE parsing and kept as `plugin_path`:
+    it names a plugin inside the image, and a selector containing `/` would otherwise be
+    read as a path segment. A bare trailing `!` is rejected, as the install CLI does.
     """
     if not ref.startswith(OCI_PREFIX):
         return None
-    body = ref[len(OCI_PREFIX):].split("!", 1)[0]
+    body, bang, plugin_path = ref[len(OCI_PREFIX):].partition("!")
+    if bang and not plugin_path:
+        return None
     name, tag, digest = parse_image_reference(body)
     # A bare `oci://plugin-a` or `oci://registry:5000` names no image: registry and
     # image are not separable, so every rule that reasons about either would be
@@ -257,7 +272,9 @@ def parse_oci_ref(ref: str) -> ParsedRef | None:
         return None
     if digest and not DIGEST_RE.match(digest):
         return None
-    return ParsedRef(registry=registry, image=image, digest=digest, tag=tag)
+    return ParsedRef(
+        registry=registry, image=image, digest=digest, tag=tag, plugin_path=plugin_path
+    )
 
 
 def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
@@ -400,22 +417,24 @@ def load_selected_package_entities(
     return entities
 
 
-def check_registry_policy(
-    entries: list[DpdyEntry],
+#: image -> (expected registry base, support tier label)
+ExpectedFor = Callable[[str], tuple[str, str]]
+
+
+def expected_base_for(
     index: dict[str, dict] | None,
     builds: dict[str, dict],
     package_entities: dict[str, tuple[str, str, Path]],
     registry: str,
     community_registry: str,
-) -> list[Finding]:
-    """Require each selected plugin's OCI refs to use its support tier's base.
+) -> ExpectedFor:
+    """Resolve each image's registry base from its support tier.
 
     Package metadata is the source of the support tier; bootstrap copies it into
     plugin_builds/ and index.json. Fall back to those copies when validating an
     extracted index without Package entities or build metadata. Missing support is
     treated as non-community, so it can never grant access to the community base.
     """
-    findings: list[Finding] = []
 
     def expected_for(image: str) -> tuple[str, str]:
         package = package_entities.get(image)
@@ -431,22 +450,53 @@ def check_registry_policy(
             support or "unspecified",
         )
 
+    return expected_for
+
+
+def _malformed_reason(value: str, *, oci: bool) -> str:
+    """Why a ref is `ref-form`. `oci` is false for schemeless plugin_builds/index values."""
+    if not value:
+        return "the reference is empty"
+    kind = f"{OCI_PREFIX} image" if oci else "image"
+    hint = " (the !plugin-path selector is empty)" if value.endswith("!") else ""
+    return f"'{value}' is not a well-formed {kind} reference{hint}"
+
+
+def _ref_form_finding(
+    image: str, value: str, source: str, expected_for: ExpectedFor, *, oci: bool
+) -> Finding:
+    """One message shape for an unparseable image ref from any of the four sources."""
+    expected, support = expected_for(image)
+    return Finding(
+        rule="ref-form",
+        message=(
+            f"'{image}' ({support}) in {source}: {_malformed_reason(value, oci=oci)}; "
+            f"expected {expected}"
+        ),
+        image=image,
+    )
+
+
+def check_registry_policy(
+    entries: list[DpdyEntry],
+    index: dict[str, dict] | None,
+    builds: dict[str, dict],
+    package_entities: dict[str, tuple[str, str, Path]],
+    expected_for: ExpectedFor,
+) -> list[Finding]:
+    """Require each selected plugin's OCI refs to use its support tier's base."""
+    findings: list[Finding] = []
+
     def check(image: str, value: str, source: str) -> None:
-        expected, support = expected_for(image)
         oci_value = value if value.startswith(OCI_PREFIX) else f"{OCI_PREFIX}{value}"
         ref = parse_oci_ref(oci_value)
         if ref is None:
-            findings.append(
-                Finding(
-                    rule="registry-not-allowed",
-                    message=(
-                        f"'{image}' ({support}) in {source} has an invalid OCI "
-                        f"reference '{value}' (expected {expected})"
-                    ),
-                    image=image,
-                )
-            )
-        elif ref.registry != expected:
+            findings.append(_ref_form_finding(
+                image, value, source, expected_for, oci=value.startswith(OCI_PREFIX)
+            ))
+            return
+        expected, support = expected_for(image)
+        if ref.registry != expected:
             findings.append(
                 Finding(
                     rule="registry-not-allowed",
@@ -459,7 +509,8 @@ def check_registry_policy(
             )
 
     for entry in entries:
-        if entry.package.startswith(OCI_PREFIX):
+        # A DPDY ref that does not parse is check_ref_form's to report.
+        if parse_oci_ref(entry.package) is not None:
             image = _image_of(entry.package)
             check(image, entry.package, f"{DPDY_FILENAME} plugins[{entry.position}]")
 
@@ -529,8 +580,8 @@ def _parse_allowlist_entry(
         )
     if rule in NON_ALLOWLISTABLE_RULES:
         raise ValueError(
-            f"{file_path}:{line}: '{rule}' is a mandatory registry policy and "
-            "cannot be allowlisted"
+            f"{file_path}:{line}: '{rule}' is part of the mandatory registry policy "
+            "and cannot be allowlisted"
         )
     if not ticket:
         raise ValueError(
@@ -588,6 +639,40 @@ def apply_allowlist(
     return kept, suppressed
 
 
+def check_ref_form(
+    entries: list[DpdyEntry], expected_for: ExpectedFor, *, oci_only: bool
+) -> list[Finding]:
+    """Report each distinct DPDY package that does not parse.
+
+    The registry rule skips DPDY refs it cannot parse, so --registry-policy-only runs
+    this with `oci_only` to keep a malformed `oci://` ref failing that gate. A repeated
+    package is one finding naming the first position; `duplicate-ref` reports the rest.
+    """
+    findings: list[Finding] = []
+    seen: set[str] = set()
+    for entry in entries:
+        if entry.package in seen:
+            continue
+        seen.add(entry.package)
+        if oci_only and not entry.package.startswith(OCI_PREFIX):
+            continue
+        if entry.package.startswith(LOCAL_PREFIX):
+            # A local path names no image or registry: no plugin and no expected base.
+            findings.append(Finding(
+                rule="ref-form",
+                message=(
+                    f"{DPDY_FILENAME} plugins[{entry.position}]: '{entry.package}' "
+                    f"is a local path, not an {OCI_PREFIX} reference"
+                ),
+            ))
+        elif parse_oci_ref(entry.package) is None:
+            findings.append(_ref_form_finding(
+                _image_of(entry.package), entry.package,
+                f"{DPDY_FILENAME} plugins[{entry.position}]", expected_for, oci=True,
+            ))
+    return findings
+
+
 def check_dpdy(
     entries: list[DpdyEntry],
     builds: dict[str, dict],
@@ -620,12 +705,7 @@ def check_dpdy(
 
         ref = parse_oci_ref(package)
         if ref is None:
-            findings.append(
-                Finding(
-                    rule="ref-form",
-                    message=f"plugins[{entry.position}]: '{package}' is not an {OCI_PREFIX} reference",
-                )
-            )
+            # Reported by check_ref_form, which also runs in policy-only mode.
             continue
 
         by_image[ref.image] = ref
@@ -775,6 +855,95 @@ def _annotation_finding(image: str, build: dict) -> Finding | None:
             image=image,
         )
     return None
+
+
+def check_plugin_paths(
+    entries: list[DpdyEntry],
+    builds: dict[str, dict],
+    package_entities: dict[str, tuple[str, str, Path]],
+) -> list[Finding]:
+    """Check each ref's `!plugin-path` against the plugins its image declares.
+
+    Covers the DPDY refs and the selected Package entities' dynamicArtifact. A ref to an
+    image with no plugin_builds/ entry, such as an external bundle, is not checked:
+    nothing here records that image's plugins. Generation keeps the metadata's selector
+    when it pins the digest, so that selector is what is checked here. A ref the DPDY
+    and an entity share is reported once, from the DPDY.
+    A ref is only judged against a build that is the same image: same digest, or same
+    repository when the ref has no digest. Builds are keyed by image name alone.
+    """
+    findings: list[Finding] = []
+    seen: set[ParsedRef] = set()
+    refs = [
+        (ref, f"{DPDY_FILENAME} plugins[{entry.position}]")
+        for entry in entries
+        if (ref := parse_oci_ref(entry.package)) is not None
+    ]
+    refs += [
+        (ref, str(path))
+        for _, (_, artifact, path) in sorted(package_entities.items())
+        if (ref := parse_oci_ref(artifact)) is not None
+    ]
+    for ref, source in refs:
+        if ref in seen:
+            continue
+        seen.add(ref)
+        problem = _plugin_path_problem(ref, builds.get(ref.image))
+        if problem:
+            findings.append(
+                Finding(
+                    rule="plugin-path-mismatch",
+                    message=f"'{ref.image}' in {source} {problem}",
+                    image=ref.image,
+                )
+            )
+    return findings
+
+
+def _plugin_path_problem(ref: ParsedRef, build: dict | None) -> str | None:
+    """What is wrong with the ref's selector for this build, or None when nothing is."""
+    if build is None or not _is_build_of(ref, build):
+        return None
+    paths = _plugin_paths(build)
+    if paths is None:
+        if build.get(DYNAMIC_PACKAGES_ANNOTATION):
+            log_debug(f"plugin-path-mismatch: '{ref.image}' annotation names no paths")
+        return None
+    if ref.plugin_path and ref.plugin_path not in paths:
+        problem = f"selects !{ref.plugin_path}"
+    elif not ref.plugin_path and len(paths) > 1:
+        problem = "selects no plugin path"
+    else:
+        return None
+    return f"{problem}, but the image declares {', '.join(paths)}"
+
+
+def _is_build_of(ref: ParsedRef, build: dict) -> bool:
+    """Whether a plugin_builds/ entry describes the image the ref names."""
+    if ref.digest:
+        return ref.digest == build.get("digest")
+    name, _, _ = parse_image_reference(str(build.get("registryReference", "")))
+    return name == f"{ref.registry}/{ref.image}"
+
+
+def _plugin_paths(build: dict) -> list[str] | None:
+    """The plugin paths an image's annotation declares, or None when unknown.
+
+    Each annotation item maps one plugin path to its package.json. Anything else is
+    left to `missing-annotation`, or is an older shape that names no paths.
+    """
+    packages = decode_dynamic_packages(build.get(DYNAMIC_PACKAGES_ANNOTATION))
+    if not packages or not all(isinstance(p, dict) and len(p) == 1 for p in packages):
+        return None
+    return sorted(next(iter(p)) for p in packages)
+
+
+def _count_builds_without_plugin_paths(builds: dict[str, dict]) -> int:
+    """Builds whose annotation is present but names no paths; plugin-path-mismatch skips them."""
+    return sum(
+        1 for build in builds.values()
+        if build.get(DYNAMIC_PACKAGES_ANNOTATION) and _plugin_paths(build) is None
+    )
 
 
 def npm_to_image_name(package_name: str) -> str:
@@ -1138,15 +1307,19 @@ def validate(
 
     entries = load_dpdy_entries(dpdy_path) if dpdy_path.is_file() else []
     selected_images = set(builds) | set(index or {})
+    # _image_of, not parse_oci_ref, so a malformed ref still finds its support tier.
     selected_images.update(
-        ref.image for entry in entries
-        if (ref := parse_oci_ref(entry.package)) is not None
+        _image_of(entry.package) for entry in entries
+        if entry.package.startswith(OCI_PREFIX)
     )
     package_entities = load_selected_package_entities(output_dir, selected_images)
-    findings = check_registry_policy(
-        entries, index, builds, package_entities,
-        registry, community_registry or registry,
+    expected_for = expected_base_for(
+        index, builds, package_entities, registry, community_registry or registry
     )
+    findings = check_ref_form(entries, expected_for, oci_only=registry_policy_only)
+    findings.extend(check_registry_policy(
+        entries, index, builds, package_entities, expected_for
+    ))
     if registry_policy_only:
         # update-index.sh calls this unconditionally, even when its other rules run
         # in report/off mode. No allowlist is applied to this result.
@@ -1168,6 +1341,7 @@ def validate(
         findings.extend(
             check_builds_outside_dpdy(builds, set(by_image))
         )
+        findings.extend(check_plugin_paths(entries, builds, package_entities))
 
     findings.extend(check_dpdy_vs_default_packages(default_packages_file, entries))
     findings.extend(check_backstage_mismatch(report_file))
@@ -1197,6 +1371,7 @@ def validate(
             "enabled": sum(1 for e in entries if e.enabled),
             "plugin_builds": len(builds),
             "index_entries": len(index) if index is not None else 0,
+            "builds_without_plugin_paths": _count_builds_without_plugin_paths(builds),
         },
         skipped_rules=skipped,
     )
@@ -1214,6 +1389,13 @@ def render(result: ValidationResult) -> str:
         f"{stats.get('plugin_builds', 0)} plugin_builds entries and "
         f"{stats.get('index_entries', 0)} index.json entries"
     )
+
+    without_paths = stats.get("builds_without_plugin_paths", 0)
+    if without_paths:
+        lines.append(
+            f"plugin-path-mismatch skipped {without_paths} plugin_builds "
+            "entr(ies) whose annotation names no plugin paths"
+        )
 
     if result.skipped_rules:
         # A pass must never read as "everything was checked" when some rules could not
@@ -1419,7 +1601,8 @@ Examples:
     )
     parser.add_argument(
         "--registry-policy-only", action="store_true",
-        help="Check only the mandatory per-support-tier registry policy. "
+        help="Check only the mandatory per-support-tier registry policy, including "
+             "refs whose registry cannot be parsed (ref-form). "
              "Used by update-index.sh even when other validation is report/off.",
     )
     parser.add_argument(

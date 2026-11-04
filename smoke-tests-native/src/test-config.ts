@@ -16,22 +16,23 @@ import { parse } from "yaml";
 import type { JsonObject } from "@backstage/types";
 
 /**
- * Load KEY=VALUE pairs from an env file into process.env. Pre-set variables win, so
- * real secrets provided by the environment/CI take precedence over the committed
- * test placeholders. Returns the names of the variables actually applied.
+ * Parse KEY=VALUE env text: blank and `#` lines skipped, matching outer quotes
+ * stripped. Lines without a key are returned as `malformed` for the caller to report.
  */
-export function loadEnvFile(path: string): string[] {
-  const applied: string[] = [];
-  for (const rawLine of readFileSync(path, "utf8").split("\n")) {
+export function parseEnvText(text: string): {
+  entries: Array<[string, string]>;
+  malformed: string[];
+} {
+  const entries: Array<[string, string]> = [];
+  const malformed: string[] = [];
+  for (const rawLine of text.split("\n")) {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
     const eq = line.indexOf("=");
     if (eq <= 0) {
-      // A typo'd `KEY VALUE` line would otherwise vanish silently.
-      console.warn(`⚠ ${path}: ignoring malformed env line: ${line}`);
+      malformed.push(line);
       continue;
     }
-    const key = line.slice(0, eq).trim();
     let value = line.slice(eq + 1).trim();
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
@@ -39,6 +40,24 @@ export function loadEnvFile(path: string): string[] {
     ) {
       value = value.slice(1, -1);
     }
+    entries.push([line.slice(0, eq).trim(), value]);
+  }
+  return { entries, malformed };
+}
+
+/**
+ * Load KEY=VALUE pairs from an env file into process.env. Pre-set variables win, so
+ * real secrets provided by the environment/CI take precedence over the committed
+ * test placeholders. Returns the names of the variables actually applied.
+ */
+export function loadEnvFile(path: string): string[] {
+  const applied: string[] = [];
+  const { entries, malformed } = parseEnvText(readFileSync(path, "utf8"));
+  for (const line of malformed) {
+    // A typo'd `KEY VALUE` line would otherwise vanish silently.
+    console.warn(`⚠ ${path}: ignoring malformed env line: ${line}`);
+  }
+  for (const [key, value] of entries) {
     if (process.env[key] === undefined) {
       process.env[key] = value;
       applied.push(key);

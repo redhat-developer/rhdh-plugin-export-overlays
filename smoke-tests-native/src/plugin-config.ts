@@ -122,6 +122,11 @@ const configOverrides: Record<string, JsonObject> = {
       ],
     },
   },
+  // Its frontend schema requires dynatrace.baseUrl as soon as any plugin (dql) writes a
+  // `dynatrace` section.
+  "backstage-community-plugin-dynatrace": {
+    dynatrace: { baseUrl: "http://localhost:8081" },
+  },
   "dynatrace-backstage-plugin-dql-backend": {
     dynatrace: {
       environments: [
@@ -182,11 +187,22 @@ export function buildMergedConfig(
   plugins: LoadedPlugin[],
   extra?: JsonObject,
 ): JsonObject {
+  return buildDummyConfig(
+    plugins.map(({ plugin }) => plugin.dirName),
+    extra,
+  );
+}
+
+/** buildMergedConfig keyed by install directory name, for callers with no LoadedPlugin. */
+export function buildDummyConfig(
+  dirNames: string[],
+  extra?: JsonObject,
+): JsonObject {
   const merged: Record<string, unknown> = structuredClone(
     baseConfig as Record<string, unknown>,
   );
-  for (const { plugin } of plugins) {
-    const overrides = configOverrides[plugin.dirName];
+  for (const dirName of dirNames) {
+    const overrides = configOverrides[dirName];
     // Clone: deepMerge assigns source values by reference when the target key is
     // absent, so merging the override directly made `merged.integrations` BE the
     // constant's object — and the caller's app-config layer below then wrote into
