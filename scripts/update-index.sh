@@ -309,7 +309,7 @@ if [[ -n "$RHDH_VERSION" ]]; then
     RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
 fi
 # shellcheck disable=SC2086
-if ! python "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
+if ! python3 "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
@@ -348,7 +348,7 @@ trap restore_metadata EXIT
 ##############################################
 echo -e "\n${green}=== Step 2: Enrich plugin_builds/ with registry metadata ===${norm}"
 # shellcheck disable=SC2086
-if ! python "$SCRIPT_DIR/generatePluginBuildInfo.py" \
+if ! python3 "$SCRIPT_DIR/generatePluginBuildInfo.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
@@ -384,7 +384,7 @@ if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
         DPDY_STATUS="fail"
         echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2
         if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
-            python -c "
+            python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR')
 from plugin_utils import BuildReport
 r = BuildReport('$REPORT_FILE')
@@ -414,7 +414,7 @@ fi
 ##############################################
 echo -e "\n${green}=== Step 4: Generate catalog index ===${norm}"
 # shellcheck disable=SC2086
-if ! python "$SCRIPT_DIR/generateCatalogIndex.py" \
+if ! python3 "$SCRIPT_DIR/generateCatalogIndex.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --output-dir "$OUTPUT_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
@@ -439,7 +439,7 @@ REGISTRY_POLICY_ARGS=(
 if [[ "$COMMUNITY_REGISTRY" != "$REGISTRY" ]]; then
     REGISTRY_POLICY_ARGS+=(--community-registry "$COMMUNITY_REGISTRY")
 fi
-if ! python "$SCRIPT_DIR/validateCatalogIndex.py" "${REGISTRY_POLICY_ARGS[@]}"; then
+if ! python3 "$SCRIPT_DIR/validateCatalogIndex.py" "${REGISTRY_POLICY_ARGS[@]}"; then
     echo -e "${red}[ERROR] Catalog registry policy failed${norm}" >&2
     exit 1
 fi
@@ -514,7 +514,7 @@ else
     fi
 
     VALIDATE_RC=0
-    python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}" || VALIDATE_RC=$?
+    python3 "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}" || VALIDATE_RC=$?
     if [[ -n "$PREV_EXTRACTED" ]]; then
         rm -rf "$PREV_EXTRACTED"
     fi
@@ -608,7 +608,7 @@ echo -e "${blue}Output: $OUTPUT_DIR${norm}"
 echo -e "${blue}Plugin builds: $PLUGIN_BUILDS_DIR${norm}"
 
 # Last thing logged: clear CTA to rebuild plugins still on older fallback tags
-python -c "
+python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
 from pathlib import Path
