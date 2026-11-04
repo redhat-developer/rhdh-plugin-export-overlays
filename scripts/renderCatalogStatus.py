@@ -462,7 +462,7 @@ def render_tier(
             ws_link = workspace_link(source_repo, branch, ws) if ws else f"`{ws}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | {npm_link(pkg, p.get("version", ""))} | {ws_link} | {expected} | {_mark(name, "bs-mismatch")}{version_cell(found, oci_ref)} | {oci_link} |"
+                f"| {name_link} | {npm_link(pkg, p.get('version', ''))} | {ws_link} | {expected} | {_mark(name, 'bs-mismatch')}{version_cell(found, oci_ref)} | {oci_link} |"
             )
         lines.append("")
 
@@ -493,7 +493,7 @@ def render_tier(
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | {npm_link(pkg, p.get("version", ""))} | `{requested}` | {_mark(name, "outdated")}{version_cell(f'`{resolved}`', oci_ref)} | {oci_link} |"
+                f"| {name_link} | {npm_link(pkg, p.get('version', ''))} | `{requested}` | {_mark(name, 'outdated')}{version_cell(f'`{resolved}`', oci_ref)} | {oci_link} |"
             )
         lines.append("")
 
@@ -525,7 +525,7 @@ def render_tier(
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | {npm_link(pkg, p.get("version", ""))} | `{previous}` | {_mark(name)}{version_cell(f'`{current}`', oci_ref)} | {oci_link} |"
+                f"| {name_link} | {npm_link(pkg, p.get('version', ''))} | `{previous}` | {_mark(name)}{version_cell(f'`{current}`', oci_ref)} | {oci_link} |"
             )
         lines.append("")
 
