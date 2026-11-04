@@ -1,10 +1,8 @@
 name: Check Plugin Paths
-# Called by pr-actions.yaml after /publish, beside the smoke-test dispatch and
-# not before it. The PR check can only note refs to bs_* tags, which exist
-# after merge. This checks the workspace metadata against the pr_* images
-# /publish pushed, or, on a metadata-only PR, against the bs_* images its refs
-# name. The validator comes from this workflow's own (trusted) ref; the PR
-# supplies only metadata YAML, and the jobs hold no secrets.
+# Called by pr-actions.yaml after /publish. Checks the workspace metadata
+# against the pr_* images /publish pushed, or, on a metadata-only PR, the bs_*
+# images its refs name. The validator comes from this workflow's own (trusted)
+# ref; the PR supplies only metadata YAML, and the jobs hold no secrets.
 on:
   workflow_call:
     inputs:
