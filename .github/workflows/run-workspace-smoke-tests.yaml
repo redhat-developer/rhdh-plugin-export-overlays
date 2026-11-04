@@ -193,12 +193,12 @@ jobs:
           failures=()
 
           echo "===== Checking startup markers"
-          if ! echo "$LOGS" | grep -qiE "$STARTUP_SUCCESS_PATTERN"; then
+          if ! grep -qiE "$STARTUP_SUCCESS_PATTERN" <<< "$LOGS"; then
             echo "Startup marker missing: $STARTUP_SUCCESS_PATTERN"
             failures+=("(startup-marker-missing)")
           fi
 
-          if echo "$LOGS" | grep -qiE "$SHARED_HARD_ERROR_PATTERN"; then
+          if grep -qiE "$SHARED_HARD_ERROR_PATTERN" <<< "$LOGS"; then
             echo "Detected startup/plugin hard errors in logs"
             failures+=("(log-errors)")
           fi
@@ -209,7 +209,7 @@ jobs:
             # Scalprum (OFS): "Loaded dynamic … from 'file:///…/<plugin>'"
             # NFS:           "Exposed dynamic … from '/…/<plugin>/dist'"
             # rhdh:next may emit only the NFS line for NFS-only packages.
-            if echo "$LOGS" | grep -qiE "(loaded|exposed) dynamic (frontend|backend) plugin .* from ['\"](file://)?/opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?(/dist)?([/'\"]|$)" ; then
+            if grep -qiE "(loaded|exposed) dynamic (frontend|backend) plugin .* from ['\"](file://)?/opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?(/dist)?([/'\"]|$)" <<< "$LOGS"; then
               echo "Plugin loaded: $plugin"
             else
               echo "Plugin NOT loaded: $plugin"
