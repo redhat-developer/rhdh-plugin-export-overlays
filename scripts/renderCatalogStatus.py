@@ -312,7 +312,6 @@ def compute_cross_branch_flags(report: dict, peer_report: dict) -> dict[str, dic
             flags[name] = {**entry, "kind": "older"}
     return flags
 
-
 def npm_link(package: str, version: str = "") -> str:
     """Link a package cell to its npmjs.com page, at the given version when known."""
     if not package:
