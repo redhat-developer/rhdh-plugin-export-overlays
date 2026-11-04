@@ -7,7 +7,6 @@ import fs from "fs";
 import yaml from "js-yaml";
 import os from "os";
 import path from "path";
-import { openChatDrawer } from "./sidebar";
 
 function isNightlyMode(): boolean {
   if (process.env.GIT_PR_NUMBER) {
@@ -348,15 +347,4 @@ export async function openLightspeed(page: Page): Promise<void> {
   ).toBeHidden({ timeout: 60_000 });
   await expect(page).toHaveURL(/\/intelligent-assistant/, { timeout: 60_000 });
   await chatUi.first().waitFor({ state: "visible", timeout: 120_000 });
-}
-
-/** Reload IA and recover Keycloak session (in-memory hub sessions). */
-export async function reloadLightspeedAuthenticated(page: Page): Promise<void> {
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await ensureKeycloakSession(page);
-  await openLightspeed(page);
-  const drawerOpen = page.getByRole("button", { name: "Close drawer panel" });
-  if (!(await drawerOpen.isVisible())) {
-    await openChatDrawer(page);
-  }
 }
