@@ -1,5 +1,12 @@
 import { expect, type Page } from "@playwright/test";
-import { openChatbotSettings } from "./chat-management";
+
+export async function openChatbotSettings(page: Page): Promise<void> {
+  const options = page
+    .locator(".pf-chatbot__header")
+    .getByRole("button", { name: "Options" });
+  await expect(options).toBeVisible({ timeout: 15_000 });
+  await options.click();
+}
 
 export const screenContextChip = (page: Page) =>
   page.locator(".lightspeed-page-context-label");
