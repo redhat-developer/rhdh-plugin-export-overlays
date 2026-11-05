@@ -1,7 +1,8 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
 /**
- * Intelligent Assistant E2E tests use the current RHDH frontend configuration.
+ * Smoke checks that Intelligent Assistant is installed and can answer.
+ * Detailed IA flows live in the ai-rolling-demo-gitops e2e suite.
  */
 export default defineConfig({
   projects: [
