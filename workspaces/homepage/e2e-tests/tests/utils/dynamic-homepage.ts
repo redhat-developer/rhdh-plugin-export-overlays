@@ -12,16 +12,14 @@ import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 const EXPECTED_CARD_TEXTS = [
   "Good (morning|afternoon|evening)",
   "Explore Your Software Catalog",
-  "Recently Visited",
-  "Top Visited",
+  "Explore Templates",
 ] as const;
 
 /** Add-widget dialog labels on the NFS (Backstage app) home page. */
 export const AVAILABLE_WIDGETS = [
   "Red Hat Developer Hub - Onboarding",
   "Red Hat Developer Hub - Software Catalog",
-  "Recently Visited",
-  "Top Visited",
+  "Red Hat Developer Hub - Explore templates",
 ] as const;
 
 /** Map stable test labels to NFS AddWidgetDialog button names. */
@@ -29,13 +27,12 @@ const WIDGET_DIALOG_LABELS = new Map<string, string>([
   ["Onboarding Section", "Red Hat Developer Hub - Onboarding"],
   ["Entity Section", "Red Hat Developer Hub - Software Catalog"],
   ["Entity section", "Red Hat Developer Hub - Software Catalog"],
-  ["Recently Visited", "Recently Visited"],
-  ["Top Visited", "Top Visited"],
+  ["Explore Templates", "Red Hat Developer Hub - Explore templates"],
 ]);
 
 const COMMON = ["Explore Your Software Catalog"];
 const ADMIN_ONLY = ["Explore Templates", "Quick Access"];
-const DEVELOPER_ONLY = ["Recently Visited", "Top Visited"];
+const DEVELOPER_ONLY: string[] = [];
 
 /** Expected default widgets per persona based on if.groups config. */
 export const DEFAULT_WIDGETS = {
@@ -276,8 +273,7 @@ export class DynamicHomePagePo {
     await this.deleteAllCards();
     await this.addWidget("Entity Section");
     await this.addWidget("Onboarding Section");
-    await this.addWidget("Recently Visited");
-    await this.addWidget("Top Visited");
+    await this.addWidget("Explore Templates");
     await this.exitEditMode();
   }
 
