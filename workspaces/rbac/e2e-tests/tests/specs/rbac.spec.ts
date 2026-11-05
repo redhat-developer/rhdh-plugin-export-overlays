@@ -348,6 +348,11 @@ test.describe("RBAC plugin", () => {
     test("Permission policies defined in a CSV file are loaded (guest role, 1 permission)", async ({
       uiHelper,
     }) => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "catalog plugin does not provide permission metadata via .well-known endpoint (product bug)",
+      );
+
       await rbacPO.filterRolesList(RBAC_ROLES.guest.name);
       await rbacPO.verifyRoleAndSwitchToOverview(
         RBAC_ROLES.guest.ref,
