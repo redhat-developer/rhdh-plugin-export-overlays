@@ -22,7 +22,6 @@ test.describe("GitHub Integration Org", () => {
       appConfig: "tests/config/github-org-discovery/app-config-rhdh.yaml",
       secrets: "tests/config/github-org-discovery/rhdh-secrets.yaml",
       dynamicPlugins: "tests/config/github-org-discovery/dynamic-plugins.yaml",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
     // Wait 1 minute for github provider to refresh entities before running tests

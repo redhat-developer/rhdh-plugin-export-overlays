@@ -8,13 +8,14 @@
 #
 # This script does NOT:
 #   - Push branches or create PRs (code agent handles that)
-#   - Perform dedup logic (the agent handles dedup in Phase 4)
+#   - Perform grouping or dedup (the agent handles both — each result entry
+#     is one already-grouped, already-deduplicated cause)
 #   - Manage JIRA (removed from triage pipeline)
 #
 # Steps:
 #   1. Locate and validate agent-result.json
 #   2. Scan result file for secrets (gitleaks)
-#   3. For each workspace: execute issue directive (create/comment/skip)
+#   3. For each cause: execute issue directive (create/comment/skip)
 #   4. Handle cycle_ready_to_code label re-triggering
 #   5. Comment on trigger issue with summary table
 #
@@ -145,15 +146,15 @@ if ! jq empty "${RESULT_FILE}" 2>/dev/null; then
   exit 1
 fi
 
-WORKSPACE_COUNT="$(jq '.workspaces | length' "${RESULT_FILE}")"
+ISSUE_COUNT="$(jq '.issues | length' "${RESULT_FILE}")"
 
-if [[ -z "${WORKSPACE_COUNT}" || "${WORKSPACE_COUNT}" -lt 1 ]]; then
-  echo "::error::agent-result.json has no workspaces entries"
+if [[ -z "${ISSUE_COUNT}" || "${ISSUE_COUNT}" -lt 1 ]]; then
+  echo "::error::agent-result.json has no issues entries"
   exit 1
 fi
 
 echo "Target branch: $(jq -r '.target_branch // "main"' "${RESULT_FILE}")"
-echo "Workspaces to process: ${WORKSPACE_COUNT}"
+echo "Causes to process: ${ISSUE_COUNT}"
 
 # ---------------------------------------------------------------------------
 # 2. Scan agent-result.json for secrets
@@ -174,19 +175,71 @@ rm -rf "${SCAN_DIR}"
 echo "Result file scan passed"
 
 # ---------------------------------------------------------------------------
-# 3. Execute issue directives per workspace
+# 3. Execute issue directives per cause
 # ---------------------------------------------------------------------------
 declare -a SUMMARY_LINES=()
+declare -a CATEGORIES=()
 
-for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
-  WS_JSON="$(jq -c ".workspaces[$i]" "${RESULT_FILE}")"
+# update_tracking_workspaces — keep an existing issue's workspace tracking lines
+# in sync with the cause's current membership.
+#
+# Tracking lines (`fullsend-tracking: workspace=<name>`) are the search anchor
+# the next night's dedup relies on, and they live only in the issue BODY. When
+# we merely comment, a workspace that starts failing under this cause AFTER the
+# issue was created never gets a tracking line, so a later slug-drift run (where
+# the workspace net is the only fallback) can miss the open issue and file a
+# duplicate. On every comment we UNION tonight's affected set into the body's
+# workspace lines — union, not replace, so a workspace that passed tonight but
+# may regress later keeps its anchor. Editing the body is safe: the issues
+# workflow only reacts to `labeled`, never `edited`.
+update_tracking_workspaces() {
+  local issue="$1"; shift
+  local -a want=("$@")
+  local body ws missing=() block new_body
+  if ! body="$(gh api "repos/${REPO_FULL_NAME}/issues/${issue}" --jq '.body' 2>/dev/null)"; then
+    echo "::warning::Could not fetch #${issue} body to sync tracking lines"
+    return 0
+  fi
+  for ws in "${want[@]}"; do
+    grep -Fq "fullsend-tracking: workspace=${ws}" <<<"${body}" || missing+=("${ws}")
+  done
+  [[ ${#missing[@]} -eq 0 ]] && return 0
 
-  IFS=$'\t' read -r WS_NAME FIX_CAT TEST_COUNT ISSUE_ACTION ROOT_SLUG < <(
-    echo "${WS_JSON}" | jq -r '[.workspace, .fix_category, (.tests|length), (.issue.action // "skip"), .root_cause_slug] | @tsv'
+  block=""
+  for ws in "${missing[@]}"; do
+    block+="\`fullsend-tracking: workspace=${ws}\`"$'\n'
+  done
+  # Insert the missing lines right after the last existing workspace line so the
+  # tracking block stays grouped; if none exist, append at the end (search is
+  # in:body, so position is functionally irrelevant either way). The block is
+  # passed via the environment (ENVIRON) rather than -v because it contains
+  # newlines, which -v mishandles on BSD awk.
+  new_body="$(TRACK_BLOCK="${block}" awk '
+    { lines[NR]=$0; if ($0 ~ /fullsend-tracking: workspace=/) last=NR }
+    END {
+      for (i=1;i<=NR;i++) { print lines[i]; if (i==last) printf "%s", ENVIRON["TRACK_BLOCK"] }
+      if (last=="") printf "%s", ENVIRON["TRACK_BLOCK"]
+    }' <<<"${body}")"
+
+  if ! printf '%s' "${new_body}" | gh issue edit "${issue}" \
+    --repo "${REPO_FULL_NAME}" --body-file - >/dev/null 2>&1; then
+    echo "::warning::Failed to sync tracking lines on #${issue}"
+  fi
+}
+
+for i in $(seq 0 $((ISSUE_COUNT - 1))); do
+  WS_JSON="$(jq -c ".issues[$i]" "${RESULT_FILE}")"
+
+  # Root cause for the summary table — collapse to a single line and trim.
+  ROOT_CAUSE="$(echo "${WS_JSON}" | jq -r '.root_cause // ""' \
+    | tr '\n' ' ' | sed 's/  */ /g; s/^ //; s/ $//' | cut -c1-200)"
+
+  IFS=$'\t' read -r WS_NAME FIX_CAT TEST_COUNT ISSUE_ACTION < <(
+    echo "${WS_JSON}" | jq -r '[(.affected_workspaces | join(", ")), .fix_category, (.tests|length), (.issue.action // "skip")] | @tsv'
   )
 
   echo ""
-  echo "--- Workspace: ${WS_NAME} (${FIX_CAT}) ---"
+  echo "--- Cause: ${WS_NAME} (${FIX_CAT}) ---"
 
   ISSUE_REF=""
 
@@ -230,7 +283,7 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
           add_label "${REPO_FULL_NAME}" "${ISSUE_NUMBER}" "ready-to-code"
         fi
       else
-        echo "::warning::Failed to create issue for ${WS_NAME}: $(sanitize_for_gha "$(cat "${create_stderr}")")"
+        echo "::warning::Failed to create issue for $(sanitize_for_gha "${WS_NAME}"): $(sanitize_for_gha "$(cat "${create_stderr}")")"
       fi
       rm -f "${create_stderr}"
       ;;
@@ -248,10 +301,22 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
       fi
       ISSUE_REF="#${ISSUE_NUMBER}"
 
+      # Keep the body's workspace tracking lines in sync with this cause's
+      # current membership so next night's dedup can still find the issue.
+      mapfile -t AFFECTED_WS < <(echo "${WS_JSON}" | jq -r '.affected_workspaces[]')
+      if [[ ${#AFFECTED_WS[@]} -gt 0 ]]; then
+        update_tracking_workspaces "${ISSUE_NUMBER}" "${AFFECTED_WS[@]}"
+      fi
+
       # ---------------------------------------------------------------
       # 4. Handle cycle_ready_to_code
       # ---------------------------------------------------------------
-      if [[ "${CYCLE}" == "true" ]]; then
+      # Only cycle for auto-fixable causes. ready-to-code wakes the code agent;
+      # cycling it on an environment or upstream_test_utils cause (or an umbrella
+      # tracking a cluster-wide outage) would aim a code-fix run at something no
+      # code change in this repo can fix. The agent should already gate the flag
+      # this way — this is a defensive backstop.
+      if [[ "${CYCLE}" == "true" && ( "${FIX_CAT}" == "test_fix" || "${FIX_CAT}" == "product_bug" ) ]]; then
         echo "  Cycling ready-to-code label on #${ISSUE_NUMBER}..."
         if remove_label "${REPO_FULL_NAME}" "${ISSUE_NUMBER}" "ready-to-code"; then
           sleep 1
@@ -260,6 +325,8 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
         else
           echo "::warning::Failed to remove ready-to-code from #${ISSUE_NUMBER} — label cycle skipped, coder may not re-trigger"
         fi
+      elif [[ "${CYCLE}" == "true" ]]; then
+        echo "  cycle_ready_to_code set on a '${FIX_CAT}' cause — not cycling (needs human)"
       fi
       ;;
 
@@ -268,11 +335,14 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
       ;;
 
     *)
-      echo "::warning::Unknown issue action '${ISSUE_ACTION}' for ${WS_NAME} — skipping"
+      echo "::warning::Unknown issue action '$(sanitize_for_gha "${ISSUE_ACTION}")' for $(sanitize_for_gha "${WS_NAME}") — skipping"
       ;;
   esac
 
-  SUMMARY_LINES+=("| ${WS_NAME} | \`${FIX_CAT}\` | ${ROOT_SLUG} | ${TEST_COUNT} | ${ISSUE_REF:-—} |")
+  # Escape pipes so root-cause prose can't break the markdown table.
+  ROOT_CAUSE_CELL="${ROOT_CAUSE//|/\\|}"
+  SUMMARY_LINES+=("| ${WS_NAME} | \`${FIX_CAT}\` | ${TEST_COUNT} | ${ISSUE_REF:-—} | ${ROOT_CAUSE_CELL:-—} |")
+  CATEGORIES+=("${FIX_CAT}")
   echo "  [${WS_NAME}] ${FIX_CAT} — ${TEST_COUNT} test(s) — ${ISSUE_ACTION}"
 done
 
@@ -283,17 +353,42 @@ if [[ -n "${TRIGGER_ISSUE_NUMBER}" ]]; then
   echo ""
   echo "Posting summary to trigger issue #${TRIGGER_ISSUE_NUMBER}..."
 
-  SUMMARY="## Triage Summary"$'\n\n'
-  SUMMARY+="| Workspace | Category | Root Cause | Tests | Issue |"$'\n'
-  SUMMARY+="|-----------|----------|------------|-------|-------|"$'\n'
+  TARGET_BRANCH="$(jq -r '.target_branch // "main"' "${RESULT_FILE}")"
+
+  # Category breakdown for the headline. test_fix + product_bug are handed to
+  # the code agent automatically; environment + upstream_test_utils need a
+  # human (fix belongs elsewhere); infra_flake is transient (no issue).
+  AUTO_FIX=0; NEEDS_HUMAN=0; FLAKE=0; OTHER=0
+  for c in "${CATEGORIES[@]:-}"; do
+    case "${c}" in
+      test_fix|product_bug) AUTO_FIX=$((AUTO_FIX + 1)) ;;
+      environment|upstream_test_utils) NEEDS_HUMAN=$((NEEDS_HUMAN + 1)) ;;
+      infra_flake)          FLAKE=$((FLAKE + 1)) ;;
+      *)
+        OTHER=$((OTHER + 1))
+        echo "::warning::Unexpected fix_category '$(sanitize_for_gha "${c}")' in breakdown — counted under 'other'"
+        ;;
+    esac
+  done
+
+  CAUSE_WORD="causes"; [[ "${ISSUE_COUNT}" -eq 1 ]] && CAUSE_WORD="cause"
+  BREAKDOWN_STR=""
+  append_breakdown() {
+    [[ -n "${BREAKDOWN_STR}" ]] && BREAKDOWN_STR+=" · "
+    BREAKDOWN_STR+="$1"
+  }
+  [[ "${AUTO_FIX}" -gt 0 ]] && append_breakdown "${AUTO_FIX} queued for auto-fix"
+  [[ "${NEEDS_HUMAN}" -gt 0 ]] && append_breakdown "${NEEDS_HUMAN} need manual attention"
+  [[ "${FLAKE}" -gt 0 ]] && append_breakdown "${FLAKE} transient flake"
+  [[ "${OTHER}" -gt 0 ]] && append_breakdown "${OTHER} uncategorized"
+
+  SUMMARY="## E2E Nightly Triage — \`${TARGET_BRANCH}\` (${ISSUE_COUNT} ${CAUSE_WORD})"$'\n\n'
+  [[ -n "${BREAKDOWN_STR}" ]] && SUMMARY+="${BREAKDOWN_STR}"$'\n\n'
+  SUMMARY+="| Workspaces | Category | Tests | Issue | Root cause |"$'\n'
+  SUMMARY+="|------------|----------|-------|-------|------------|"$'\n'
   for line in "${SUMMARY_LINES[@]}"; do
     SUMMARY+="${line}"$'\n'
   done
-
-  AGENT_SUMMARY="$(jq -r '.summary // empty' "${RESULT_FILE}")"
-  if [[ -n "${AGENT_SUMMARY}" ]]; then
-    SUMMARY+=$'\n'"### Analysis"$'\n\n'"${AGENT_SUMMARY}"
-  fi
 
   printf '%s' "${SUMMARY}" | gh issue comment "${TRIGGER_ISSUE_NUMBER}" \
     --repo "${REPO_FULL_NAME}" \
@@ -302,6 +397,6 @@ fi
 
 echo ""
 echo "=== E2E Triage Results ==="
-echo "Workspaces: ${WORKSPACE_COUNT}"
+echo "Causes: ${ISSUE_COUNT}"
 echo ""
 echo "Post-e2e-triage complete."

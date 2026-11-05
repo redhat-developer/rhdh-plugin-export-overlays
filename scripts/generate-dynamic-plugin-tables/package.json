@@ -1,0 +1,16 @@
+{
+  "name": "generate-dynamic-plugin-tables",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generates plugin reference pages and CSV inventories from a resolved catalog index.",
+  "bin": "src/cli.ts",
+  "type": "module",
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

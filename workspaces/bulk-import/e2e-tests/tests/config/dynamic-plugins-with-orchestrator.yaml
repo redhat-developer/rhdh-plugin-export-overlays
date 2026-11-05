@@ -1,9 +1,9 @@
 plugins:
   # bulk-import plugins
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import-backend-dynamic
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -25,56 +25,28 @@ plugins:
                   text: Bulk import
 
   - package: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-github-dynamic
-    disabled: true
+    enabled: false
 
   # Group: Orchestrator
-  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.52.0__6.0.0"
-    disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-orchestrator:
-            appIcons:
-              - importName: OrchestratorIcon
-                name: orchestratorIcon
-            dynamicRoutes:
-              - importName: OrchestratorPage
-                menuItem:
-                  icon: orchestratorIcon
-                  text: Orchestrator
-                  textKey: menuItem.orchestrator
-                path: /orchestrator
-            entityTabs:
-              - path: /workflows
-                title: Workflows
-                titleKey: catalog.entityPage.workflows.title
-                mountPoint: entity.page.workflows
-            mountPoints:
-              - mountPoint: entity.page.workflows/cards
-                importName: OrchestratorCatalogTab
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                    if:
-                      anyOf:
-                        - IsOrchestratorCatalogTabAvailable
+  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.54.9__6.2.4"
+    enabled: true
 
-  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.52.0__8.12.1"
-    disabled: false
+  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.54.9__8.13.2"
+    enabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local:80
 
-  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.52.0__1.7.2"
-    disabled: false
+  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.54.9__1.8.1"
+    enabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local:80
 
-  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.52.0__2.0.0"
-    disabled: false
+  - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.54.9__2.2.1"
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:

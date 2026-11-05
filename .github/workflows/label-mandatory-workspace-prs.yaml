@@ -150,10 +150,11 @@ jobs:
                 );
                 
                 // Analyze PR files to know what changes this PR contains
-                const prFiles = await github.rest.pulls.listFiles({
+                const prFiles = await github.paginate(github.rest.pulls.listFiles, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  pull_number: pr.number
+                  pull_number: pr.number,
+                  per_page: 100,
                 });
                 
                 // Categorize files
@@ -161,7 +162,7 @@ jobs:
                 const nonWorkspaceFiles = [];
                 const allAffectedWorkspaces = new Set();
                 
-                for (const file of prFiles.data) {
+                for (const file of prFiles) {
                   const workspaceMatch = file.filename.match(/^workspaces\/([^\/]+)\/.*/);
                   if (workspaceMatch) {
                     const workspace = workspaceMatch[1];

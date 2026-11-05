@@ -13,6 +13,8 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 | [05 - Version Updates](./05-version-updates.md) | Updating Backstage target/minimum versions |
 | [06 - Patch Management](./06-patch-management.md) | Creating, updating, and retiring patches |
 | [07 - Plugin Catalog Index](./07-plugin-catalog-index.md) | How the catalog index is built, published, and monitored |
+| [08 - Creating Release Branches](./08-creating-release-branches.md) | Admin runbook for cutting `release-x.y` from `main` |
+| [09 - Managing E2E Secrets](./09-managing-e2e-secrets.md) | Repository secret naming, local test entry points, and upstream secrets reference |
 
 ---
 
@@ -23,6 +25,7 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 | Path | Purpose |
 |------|---------|
 | `versions.json` | Target Backstage version, Node version, CLI version |
+| `e2e-secrets.profile.json` | Collection and path selectors for local E2E secrets |
 | `plugins-regexps` | Auto-discovery scope patterns |
 | `workspaces/[name]/source.json` | Source repo URL, ref, and Backstage version (Model A: overlay build) |
 | `workspaces/[name]/plugins-list.yaml` | Plugin paths and export arguments |
@@ -44,7 +47,9 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 | Fix build failure | [02 - Export Tools](./02-export-tools.md#troubleshooting) |
 | Sync metadata | [04 - Metadata Synchronization](./04-metadata-synchronization.md) |
 | Create/update a patch | [06 - Patch Management](./06-patch-management.md) |
-| Check branch workspace status reports | [Workspace Status Reports]({{AUTO:WORKSPACE_STATUS_REPORTS_PAGE}}) |
+| Create a release branch from main | [08 - Creating Release Branches](./08-creating-release-branches.md) |
+| Manage E2E secrets | [09 - Managing E2E Secrets](./09-managing-e2e-secrets.md) |
+| Check branch workspace status reports | [Workspace Status Reports](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Workspace-Status-Reports) |
 
 ---
 

@@ -1,26 +1,40 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
 /**
- * NFS-only configuration: all projects use the `-app-next` suffix to enable
- * the New Frontend System. The scorecard-grouped project tests the grid layout
- * with metric grouping (NFS extension).
+ * Scorecard E2E configuration using the current RHDH frontend. The
+ * scorecard-grouped project tests the grid layout with metric grouping.
  */
 export default defineConfig({
   projects: [
     {
-      name: "scorecard-app-next",
+      name: "scorecard",
       testMatch: "scorecard.spec.ts",
       timeout: 10 * 60 * 1000,
     },
     {
-      name: "scorecard-filecheck-app-next",
+      name: "scorecard-dora",
+      testMatch: "scorecard-dora.spec.ts",
+      timeout: 15 * 60 * 1000,
+    },
+    {
+      name: "scorecard-filecheck",
       testMatch: "scorecard-filecheck.spec.ts",
       timeout: 15 * 60 * 1000,
     },
     {
-      name: "scorecard-grouped-app-next",
+      name: "scorecard-grouped",
       testMatch: "scorecard-grouped.spec.ts",
       timeout: 10 * 60 * 1000,
+    },
+    {
+      name: "scorecard-permission",
+      testMatch: "scorecard-permission.spec.ts",
+      timeout: 15 * 60 * 1000,
+    },
+    {
+      name: "scorecard-sonarqube",
+      testMatch: "scorecard-sonarqube.spec.ts",
+      timeout: 20 * 60 * 1000,
     },
   ],
 });

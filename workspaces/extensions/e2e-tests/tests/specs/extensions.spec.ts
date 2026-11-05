@@ -28,7 +28,6 @@ test.describe("Admin > Extensions", () => {
     test.setTimeout(300_000);
     await rhdh.configure({
       auth: "keycloak",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });
@@ -37,15 +36,20 @@ test.describe("Admin > Extensions", () => {
     uiHelper = u;
     extensions = new ExtensionsPage(page, uiHelper);
     await loginHelper.loginAsKeycloakUser();
-    await uiHelper.openSidebar("Extensions");
+    const extensionsNav = page.getByRole("link", { name: "Extensions" });
+    if (!(await extensionsNav.isVisible())) {
+      await page.getByRole("button", { name: "Administration" }).click();
+    }
+    await extensionsNav.click();
     await uiHelper.verifyHeading("Extensions");
   });
 
   test.describe("Extensions > Catalog", () => {
     // eslint-disable-next-line playwright/expect-expect -- uiHelper.verifyHeading asserts internally
     test("Verify search bar in extensions", async ({ page }) => {
-      await extensions.searchExtensions("Dynatrace");
-      await uiHelper.verifyHeading("DynaTrace");
+      const extension = "Homepage";
+      await extensions.searchExtensions(extension);
+      await uiHelper.verifyHeading(extension);
       await page
         .getByRole("button", {
           name: "Clear Search",
@@ -72,7 +76,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.toggleOption(author);
       await page.keyboard.press(`Escape`);
       await uiHelper.verifyHeading(plugin);
-      await uiHelper.verifyText(` by ${author}`);
+      await uiHelper.verifyText(` by ${author}`, false);
       await page.getByRole("heading", { name: plugin }).click();
       await uiHelper.verifyTableHeadingAndRows([
         "Package name",
@@ -240,7 +244,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.waitForSearchResults(plugin);
       await extensions.clickReadMoreByPluginTitle(
         plugin,
-        "Generally available (GA)",
+        "Generally available (GA)primary",
       );
 
       await uiHelper.clickButton("Actions");
@@ -298,7 +302,7 @@ test.describe("Admin > Extensions", () => {
       await uiHelper.clickByDataTestId("header-tab-0");
       await extensions.clickReadMoreByPluginTitle(
         plugin,
-        "Generally available (GA)",
+        "Generally available (GA)primary",
       );
       await uiHelper.verifyHeading(plugin);
       await page.getByTestId("plugin-actions").click();

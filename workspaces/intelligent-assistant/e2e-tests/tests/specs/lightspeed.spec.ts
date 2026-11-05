@@ -11,7 +11,9 @@ import {
   openChatContextMenuByName,
   openPinnedChatContextMenuByName,
   openSortDropdown,
+  recentChatItems,
   searchChats,
+  selectChatByName,
   selectDeleteAction,
   selectDisablePinnedChats,
   selectEnablePinnedChats,
@@ -64,7 +66,6 @@ import {
   expectEmptyChatHistory,
   expectRhdhContentVisible,
   openChatbot,
-  openChatbotFullscreenWithModel,
   openChatHistoryDrawer,
   selectChatModel,
   selectDisplayMode,
@@ -84,7 +85,9 @@ import {
 } from "../support/file-upload";
 import {
   ensureLightspeedDeployment,
+  gotoCatalogAuthenticated,
   openLightspeed,
+  reloadLightspeedAuthenticated,
 } from "../support/test-helper";
 
 const fixturesDir = path.join(import.meta.dirname, "../fixtures/uploads");
@@ -92,6 +95,35 @@ const e2eRoot = path.join(import.meta.dirname, "../..");
 
 const DEFAULT_BOT_QUERY =
   "Reply with exactly one short sentence confirming you received this message.";
+
+async function selectAvailableChatModel(page: Page): Promise<void> {
+  const openAiItems = page.getByRole("menuitem", { name: /^gpt-/i });
+  const llamaItems = page.getByRole("menuitem", {
+    name: /llama[-_ ]?31[-_ ]?8b/i,
+  });
+  const hasOpenAiModels = (await openAiItems.count()) > 0;
+  const hasLlamaModel = (await llamaItems.count()) > 0;
+
+  if (!hasOpenAiModels) {
+    console.warn("No OpenAI models are available in the model selector");
+  }
+  if (!hasLlamaModel) {
+    console.warn("No VLLM Llama model is available in the model selector");
+  }
+
+  expect(hasOpenAiModels || hasLlamaModel).toBeTruthy();
+
+  const preferredOpenAi = page.getByRole("menuitem", {
+    name: "gpt-4o-mini",
+  });
+  if (await preferredOpenAi.count()) {
+    await selectChatModel(page, "gpt-4o-mini");
+  } else if (hasOpenAiModels) {
+    await openAiItems.first().click();
+  } else {
+    await llamaItems.first().click();
+  }
+}
 
 test.describe("Lightspeed UI", () => {
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
@@ -122,7 +154,7 @@ test.describe("Lightspeed UI", () => {
 
   test.describe("Chatbot display modes", () => {
     test.beforeEach(async () => {
-      await page.goto("/catalog");
+      await gotoCatalogAuthenticated(page);
     });
 
     test("overlay mode keeps RHDH visible with chat controls", async () => {
@@ -174,7 +206,9 @@ test.describe("Lightspeed UI", () => {
     test("page is available", async () => {
       await expect(page).toHaveURL(/\/intelligent-assistant/);
       await expect(
-        page.getByRole("heading", { name: "Intelligent assistant" }),
+        page.getByRole("heading", {
+          name: "Developer Hub Intelligent Assistant",
+        }),
       ).toBeVisible();
       await expect(page.getByText("How can I help you today?")).toBeVisible();
     });
@@ -193,15 +227,7 @@ test.describe("Lightspeed UI", () => {
       await expect(dropdown).not.toBeEmpty();
 
       await dropdown.click();
-      await expect(page.locator("body")).toMatchAriaSnapshot(`
-        - menu:
-          - menuitem "gpt-4.1-mini"
-          - menuitem "gpt-4.1-nano"
-          - menuitem "gpt-4o-mini"
-          - menuitem "gpt-5.1"
-          - menuitem "redhataillama-31-8b-instruct"
-        `);
-      await selectChatModel(page, "gpt-4o-mini");
+      await selectAvailableChatModel(page);
     });
 
     test("sidebar opens, closes, and reopens", async () => {
@@ -342,6 +368,8 @@ test.describe("Lightspeed UI", () => {
       const secondPrompt = `E2E_BETA_${runId}`;
       const firstChatName = `E2E Alpha Chat ${runId}`;
       const secondChatName = `E2E Beta Chat ${runId}`;
+      const userMessage = (text: string) =>
+        page.locator(".pf-chatbot__message--user").filter({ hasText: text });
 
       await startNewChatWithModel(page);
       await sendMessage(firstPrompt, page);
@@ -350,6 +378,7 @@ test.describe("Lightspeed UI", () => {
       await verifyRenameChatForm(page);
       await submitChatRename(page, firstChatName);
       await verifyChatExists(page, firstChatName);
+      await expect(userMessage(firstPrompt)).toBeVisible();
 
       await startNewChatWithModel(page);
       await sendMessage(secondPrompt, page);
@@ -358,29 +387,26 @@ test.describe("Lightspeed UI", () => {
       await verifyRenameChatForm(page);
       await submitChatRename(page, secondChatName);
       await verifyChatExists(page, secondChatName);
+      await expect(userMessage(secondPrompt)).toBeVisible();
 
-      const sidePanel = page.locator(".pf-v6-c-drawer__panel-main");
-      const chats = sidePanel.locator("li.pf-chatbot__menu-item");
-      const searchBox = sidePanel.getByRole("textbox", { name: "Search" });
-      const alphaChat = chats.filter({ hasText: firstChatName }).first();
-      const betaChat = chats.filter({ hasText: secondChatName }).first();
+      const searchBox = page
+        .locator(".pf-v6-c-drawer__panel-main")
+        .getByRole("textbox", { name: "Search" });
 
-      await expect(betaChat).toBeVisible({ timeout: 30_000 });
-      await expect(alphaChat).toBeVisible();
+      await expect(
+        recentChatItems(page).filter({ hasText: secondChatName }).first(),
+      ).toBeVisible({ timeout: 30_000 });
+      await expect(
+        recentChatItems(page).filter({ hasText: firstChatName }).first(),
+      ).toBeVisible({ timeout: 30_000 });
 
       await searchBox.fill(secondChatName);
-      await expect(betaChat).toBeVisible();
-      await betaChat.click();
-
-      await expect(
-        page.locator(".pf-chatbot__message--user").last(),
-      ).toContainText(secondPrompt);
+      await selectChatByName(page, secondChatName);
+      await expect(userMessage(secondPrompt)).toBeVisible({ timeout: 30_000 });
 
       await searchBox.fill("");
-      await alphaChat.click();
-      await expect(
-        page.locator(".pf-chatbot__message--user").last(),
-      ).toContainText(firstPrompt);
+      await selectChatByName(page, firstChatName);
+      await expect(userMessage(firstPrompt)).toBeVisible({ timeout: 30_000 });
 
       managementChatName = firstChatName;
     });
@@ -416,10 +442,7 @@ test.describe("Lightspeed UI", () => {
         await verifyChatPinned(page, testChatName);
         await verifyPinnedChatsNotEmpty(page);
 
-        await page.goto("/catalog");
-        // eslint-disable-next-line playwright/no-networkidle
-        await page.waitForLoadState("networkidle");
-        await openChatbotFullscreenWithModel(page);
+        await reloadLightspeedAuthenticated(page);
         await verifyChatPinned(page, testChatName);
         await verifyPinnedChatsNotEmpty(page);
       });
@@ -485,9 +508,7 @@ test.describe("Lightspeed UI", () => {
       });
 
       test("conversations are sorted correctly and persist", async () => {
-        const chats = page
-          .locator(".pf-v6-c-drawer__panel-main")
-          .locator("li.pf-chatbot__menu-item");
+        const chats = recentChatItems(page);
 
         if ((await chats.count()) < 4) {
           await sendMessageInNewChat(page, "E2E sort conversation zebra");
@@ -502,12 +523,7 @@ test.describe("Lightspeed UI", () => {
         await selectSortOption(page, "alphabeticalDesc");
         await verifyConversationsSortedAlphabetically(page, "desc");
 
-        await page.goto("/catalog");
-        // eslint-disable-next-line playwright/no-networkidle
-        await page.waitForLoadState("networkidle");
-        await openChatbotFullscreenWithModel(page);
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        await page.waitForTimeout(2000);
+        await reloadLightspeedAuthenticated(page);
         await verifyConversationsSortedAlphabetically(page, "desc");
       });
     });

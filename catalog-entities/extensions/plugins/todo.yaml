@@ -69,10 +69,6 @@ spec:
 
     Both plugins must be installed together for full functionality.
 
-  mountPoints:
-    - entityTab
-    - entityCard
-
   dependencies:
     - backstage-community-plugin-todo-backend
 

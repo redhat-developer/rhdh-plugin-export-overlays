@@ -125,6 +125,48 @@ class TestMatchWorkspaceMetadata:
             "backstage-community-plugin-catalog": "ws/plugins/catalog",
         }
 
+    def test_shortened_module_stem_matches_plugin_path(self):
+        stem = "rhdh-bsp-scorecard-backend-mod-dependabot"
+        result = _match_workspace_metadata(
+            "scorecard",
+            [
+                ("rhdh-bsp-scorecard-backend", "@red-hat-developer-hub/backstage-plugin-scorecard-backend"),
+                (stem, "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot"),
+            ],
+            [
+                "plugins/scorecard-backend",
+                "plugins/scorecard-backend-module-dependabot",
+            ],
+        )
+        assert result[stem] == "scorecard/plugins/scorecard-backend-module-dependabot"
+        assert result["rhdh-bsp-scorecard-backend"] == "scorecard/plugins/scorecard-backend"
+
+    def test_provider_suffix_pairs_with_the_only_leftover_path(self):
+        auth = "backstage-community-plugin-auth-backend-module-keycloak-provider"
+        catalog = "backstage-community-plugin-catalog-backend-module-keycloak"
+        result = _match_workspace_metadata(
+            "keycloak",
+            [
+                (catalog, "@backstage-community/plugin-catalog-backend-module-keycloak"),
+                (auth, "@backstage-community/plugin-auth-backend-module-keycloak-provider"),
+            ],
+            [
+                "plugins/auth-backend-module-keycloak",
+                "plugins/catalog-backend-module-keycloak",
+            ],
+        )
+        assert result[auth] == "keycloak/plugins/auth-backend-module-keycloak"
+        assert result[catalog] == "keycloak/plugins/catalog-backend-module-keycloak"
+
+    def test_single_action_plugin_pairs_when_names_differ(self):
+        stem = "backstage-community-plugin-scaffolder-backend-module-regex"
+        result = _match_workspace_metadata(
+            "scaffolder-backend-module-regex",
+            [(stem, "@backstage-community/plugin-scaffolder-backend-module-regex")],
+            ["plugins/regex-actions"],
+        )
+        assert result[stem] == "scaffolder-backend-module-regex/plugins/regex-actions"
+
     def test_unmatched_stems_fallback(self):
         result = _match_workspace_metadata(
             "ws",

@@ -14,32 +14,14 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-tech-insights"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights:bs_1.49.4__1.2.0
-  version: 1.2.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights:bs_1.54.9__1.5.0
+  version: 1.5.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.9
   author: Backstage Community
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-tech-insights:
-              dynamicRoutes:
-                - path: /tech-insights
-                  importName: TechInsightsScorecardPage
-                  menuItem:
-                    text: Tech Insights
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityTechInsightsScorecardCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        md: span 6
-                        xs: span 12
-                    props:
-                      title: Tech Insights
+  appConfigNotRequired: true
+  appConfigExamples: []
+

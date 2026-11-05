@@ -7,6 +7,7 @@ reports everything is as useless as one that reports nothing, and only the negat
 tests catch the over-broad rule.
 """
 
+import base64
 import json
 import re
 from pathlib import Path
@@ -15,13 +16,17 @@ import pytest
 import yaml
 
 from validateCatalogIndex import (
+    DPDY_FILENAME,
+    DYNAMIC_PACKAGES_ANNOTATION,
     ERROR,
+    NON_ALLOWLISTABLE_RULES,
     RULES,
     RULES_NEEDING_BUILDS,
     WARNING,
     AllowlistEntry,
     Finding,
     apply_allowlist,
+    check_version_regression,
     load_allowlist,
     load_dpdy_entries,
     load_plugin_builds,
@@ -31,6 +36,7 @@ from validateCatalogIndex import (
     render,
     to_json,
     validate,
+    version_less_than,
     ValidationResult,
 )
 from plugin_utils import BuildReport
@@ -39,6 +45,11 @@ REGISTRY = "quay.io/rhdh"
 COMMUNITY_REGISTRY = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 DIGEST = "sha256:" + "a" * 64
 OTHER_DIGEST = "sha256:" + "b" * 64
+
+
+def encoded_packages(packages):
+    """plugin_builds stores the raw Base64 annotation, not a placeholder string."""
+    return base64.b64encode(json.dumps(packages).encode()).decode()
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +93,9 @@ def write_index(
 
 def resolved(image, digest=DIGEST, **extra):
     """A plugin_builds entry for an image whose registry lookup succeeded."""
+    extra.setdefault(
+        DYNAMIC_PACKAGES_ANNOTATION, encoded_packages([f"@scope/{image}"])
+    )
     return {
         "workspacePath": f"ws/plugins/{image}",
         "registryReference": f"{REGISTRY}/{image}@{digest}",
@@ -96,17 +110,36 @@ SHIPPED_ALLOWLIST = (
 
 
 def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
-        registries=None, has_build_metadata=True):
+        registry=REGISTRY, community_registry=None, has_build_metadata=True,
+        default_packages_file=None, previous_index_dpdy=None, report_file=None,
+        registry_policy_only=False):
     output_dir, plugin_builds_dir = write_index(
         tmp_path, packages, builds=builds, index_json=index_json
     )
     return validate(
         output_dir,
         plugin_builds_dir,
-        registries or {REGISTRY},
+        registry,
         allowlist or [],
         has_build_metadata=has_build_metadata,
+        default_packages_file=default_packages_file,
+        previous_index_dpdy=previous_index_dpdy,
+        report_file=report_file,
+        community_registry=community_registry,
+        registry_policy_only=registry_policy_only,
     )
+
+
+def write_package_entity(output_dir, image, dynamic_artifact, support=None):
+    """Write a selected `kind: Package` entity for `image`."""
+    packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+    packages_dir.mkdir(parents=True, exist_ok=True)
+    spec = {"packageName": image, "dynamicArtifact": dynamic_artifact}
+    if support:
+        spec["support"] = support
+    (packages_dir / f"{image}.yaml").write_text(yaml.safe_dump({
+        "kind": "Package", "metadata": {"name": image}, "spec": spec,
+    }), encoding="utf-8")
 
 
 def allowlist_entry(rule, pattern, ticket="RHIDP-1"):
@@ -124,6 +157,19 @@ def rules_of(result):
 # parse_oci_ref
 # ---------------------------------------------------------------------------
 class TestParseOciRef:
+    @pytest.mark.parametrize(
+        ("ref", "plugin_path"),
+        [
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}", ""),
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a-dynamic", "plugin-a-dynamic"),
+            (f"oci://{REGISTRY}/plugin-a@{DIGEST}!scope/name", "scope/name"),
+        ],
+    )
+    def test_keeps_the_plugin_path(self, ref, plugin_path):
+        parsed = parse_oci_ref(ref)
+        assert parsed is not None
+        assert parsed.plugin_path == plugin_path
+
     @pytest.mark.parametrize(
         "ref, registry, image, digest, tag",
         [
@@ -182,6 +228,7 @@ class TestParseOciRef:
             pytest.param("oci://plugin-a", id="no_registry_segment"),
             pytest.param("oci://localhost:5000", id="registry_only"),
             pytest.param("oci://", id="prefix_only"),
+            pytest.param(f"oci://{REGISTRY}/plugin-a@{DIGEST}!", id="empty_plugin_path"),
             pytest.param("", id="empty"),
         ],
     )
@@ -193,7 +240,7 @@ class TestParseOciRef:
 
         Writing a second grammar here is what made this the only parser in the repo
         that rejected `name:tag@digest` — and rejected it as `ref-form`, an error no
-        allowlist entry can suppress because it carries no image name. Under
+        allowlist entry can suppress. Under
         `--validate-mode gate` that is an inescapable red build on a shape
         `generateCatalogIndex.py` documents as valid and writes itself.
         """
@@ -309,20 +356,27 @@ class TestRules:
             tmp_path,
             [
                 {"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}", "enabled": True},
-                {"package": "./dynamic-plugins/dist/plugin-b", "enabled": False},
+                {"package": f"oci://{REGISTRY}/plugin-b@{OTHER_DIGEST}", "enabled": False},
             ],
-            builds={"plugin-a": resolved("plugin-a")},
-            index_json={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@{DIGEST}"}},
+            builds={
+                "plugin-a": resolved("plugin-a"),
+                "plugin-b": resolved("plugin-b", OTHER_DIGEST),
+            },
+            index_json={
+                "plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@{DIGEST}"},
+                "plugin-b": {"registryReference": f"{REGISTRY}/plugin-b@{OTHER_DIGEST}"},
+            },
         )
         assert result.findings == []
         assert result.stats == {
             "packages": 2,
-            "oci_refs": 1,
-            "oci_images": 1,
-            "local_refs": 1,
+            "oci_refs": 2,
+            "oci_images": 2,
             "enabled": 1,
-            "plugin_builds": 1,
-            "index_entries": 1,
+            "plugin_builds": 2,
+            "index_entries": 2,
+            # resolved() defaults to the older package-name annotation shape.
+            "builds_without_plugin_paths": 2,
         }
 
     def test_a_non_oci_scheme_is_reported(self, tmp_path):
@@ -368,12 +422,15 @@ class TestRules:
         assert "registry-not-allowed" in rules_of(result)
 
     def test_a_declared_community_registry_is_allowed(self, tmp_path):
-        """The supported index legitimately mixes in community-tier ghcr.io packages."""
+        """The community base is valid only for community-tier packages."""
         result = run(
             tmp_path,
             [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
-            builds={"plugin-a": resolved("plugin-a")},
-            registries={REGISTRY, COMMUNITY_REGISTRY},
+            builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+            community_registry=COMMUNITY_REGISTRY,
         )
         assert "registry-not-allowed" not in rules_of(result)
 
@@ -433,14 +490,17 @@ class TestRules:
         assert "unresolved-image" in rules_of(result)
         assert next(f for f in result.findings if f.rule == "unresolved-image").severity == ERROR
 
-    def test_a_tag_only_ref_is_a_warning_not_an_error(self, tmp_path):
+    def test_a_tag_only_ref_is_an_error(self, tmp_path):
+        """A leftover tag ships the manifest list (RHDHBUGS-3815) and must fail
+        --validate-mode gate on every branch, not only under --strict."""
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-a:2.0.0--1.2.3"}],
             builds={"plugin-a": resolved("plugin-a")},
         )
         finding = next(f for f in result.findings if f.rule == "not-digest-pinned")
-        assert finding.severity == WARNING
+        assert finding.severity == ERROR
+        assert to_json(result, strict=False)["status"] == "fail"
 
     def test_a_substituted_older_build_is_a_warning(self, tmp_path):
         result = run(
@@ -508,6 +568,7 @@ class TestRules:
             },
         )
         assert "index-ref-mismatch" not in rules_of(result)
+        assert "registry-not-allowed" in rules_of(result)
 
     def test_a_missing_index_json_disables_only_the_index_rules(self, tmp_path):
         result = run(
@@ -518,16 +579,15 @@ class TestRules:
         )
         assert result.findings == []
 
-    def test_in_image_packages_are_exempt_from_every_registry_rule(self, tmp_path):
-        """`./dynamic-plugins/dist/…` ships inside the RHDH image — nothing to resolve."""
+    def test_wrapper_package_paths_are_reported_as_invalid(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": "./dynamic-plugins/dist/plugin-a-dynamic"}],
             builds={},
             index_json={},
         )
-        assert result.findings == []
-        assert result.stats["local_refs"] == 1
+        assert rules_of(result) == ["ref-form"]
+        assert result.stats["oci_refs"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -625,9 +685,9 @@ class TestAllowlist:
         assert len(suppressed) == 1
 
     def test_a_structural_finding_is_never_suppressed(self):
-        """`ref-form` is about the file, not a package — an image regex cannot judge it."""
-        allowlist = [allowlist_entry("ref-form", ".*")]
-        kept, suppressed = apply_allowlist([Finding("ref-form", "m")], allowlist)
+        """A finding with no image gives an image regex nothing to match."""
+        allowlist = [allowlist_entry("unresolved-image", ".*")]
+        kept, suppressed = apply_allowlist([Finding("unresolved-image", "m")], allowlist)
         assert len(kept) == 1
         assert suppressed == []
 
@@ -660,11 +720,20 @@ class TestOutputs:
     def test_errors_and_warnings_are_partitioned(self, tmp_path):
         result = run(
             tmp_path,
-            [{"package": f"oci://{REGISTRY}/plugin-a:1.0"}],
-            builds={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a:1.0"}},
+            [
+                {"package": f"oci://{REGISTRY}/plugin-a:1.0"},
+                {"package": f"oci://{REGISTRY}/plugin-b@{DIGEST}"},
+            ],
+            builds={
+                "plugin-a": {"registryReference": f"{REGISTRY}/plugin-a:1.0"},
+                "plugin-b": resolved(
+                    "plugin-b", fallback=True, requestedTag="2.0"
+                ),
+            },
         )
-        assert [f.rule for f in result.errors] == ["unresolved-image"]
-        assert [f.rule for f in result.warnings] == ["not-digest-pinned"]
+        assert "unresolved-image" in [f.rule for f in result.errors]
+        assert "not-digest-pinned" in [f.rule for f in result.errors]
+        assert [f.rule for f in result.warnings] == ["fallback-tag"]
 
     def test_render_names_every_finding_and_the_allowlist_ticket(self, tmp_path):
         allowlist_file = tmp_path / "allowlist.txt"
@@ -985,3 +1054,777 @@ class TestShippedAllowlist:
         for entry in load_allowlist(SHIPPED_ALLOWLIST):
             assert entry.rule in RULES, entry.pattern_source
             assert entry.ticket, entry.pattern_source
+
+
+# ---------------------------------------------------------------------------
+# Publication policy rules (RHIDP-15725, RHIDP-16251, RHIDP-16252)
+# ---------------------------------------------------------------------------
+class TestPolicyRules:
+    def test_a_tag_only_dpdy_ref_fails_without_strict(self, tmp_path):
+        """not-digest-pinned is an always-on error (RHDHBUGS-3815), not --strict.
+
+        The live defect: plugin_builds/ has a digest but DPDY still carries the
+        tag, so unresolved-image does not fire and --strict used to be the only
+        thing that failed the build. On main that meant the catalog shipped.
+        """
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a:2.0.0--1.2.3"}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        finding = next(f for f in result.findings if f.rule == "not-digest-pinned")
+        assert finding.severity == ERROR
+        assert "unresolved-image" not in rules_of(result)
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_missing_annotation_is_always_an_error(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved(image="plugin-a", **{DYNAMIC_PACKAGES_ANNOTATION: ""})
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "missing-annotation")
+        assert finding.severity == ERROR
+        assert DYNAMIC_PACKAGES_ANNOTATION in finding.message
+        assert "missing or empty" in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_empty_decoded_annotation_is_missing_annotation(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved(
+                    image="plugin-a",
+                    **{DYNAMIC_PACKAGES_ANNOTATION: encoded_packages([])},
+                )
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "missing-annotation")
+        assert finding.severity == ERROR
+        assert "missing or empty" in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_unreadable_annotation_is_missing_annotation(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved(
+                    image="plugin-a",
+                    **{DYNAMIC_PACKAGES_ANNOTATION: "!!!not-base64!!!"},
+                )
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "missing-annotation")
+        assert finding.severity == ERROR
+        assert "unreadable" in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    @staticmethod
+    def _plugins(*paths):
+        """The annotation as images carry it: one {plugin-path: package.json} per plugin."""
+        return {DYNAMIC_PACKAGES_ANNOTATION: encoded_packages([{p: {}} for p in paths])}
+
+    def test_a_ref_without_a_path_to_a_one_plugin_image_passes(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
+        )
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    def test_a_ref_without_a_path_to_a_several_plugin_image_fails(self, tmp_path):
+        """RHDHBUGS-3836: install fails with "Multiple plugins found"."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "plugin-path-mismatch")
+        assert finding.severity == ERROR
+        assert "plugin-a, plugin-a-backend" in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_a_path_the_image_declares_passes(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a-backend"}],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    def test_a_path_the_image_does_not_declare_fails(self, tmp_path):
+        """RHDHBUGS-3837: install extracts nothing and still exits 0."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a-dynamic"}],
+            builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
+        )
+        finding = next(f for f in result.findings if f.rule == "plugin-path-mismatch")
+        assert finding.severity == ERROR
+        assert "selects !plugin-a-dynamic, but the image declares plugin-a" in finding.message
+        assert finding.image == "plugin-a"
+
+    def test_a_ref_the_dpdy_and_an_entity_share_is_reported_once(self, tmp_path):
+        ref = f"oci://{REGISTRY}/plugin-a@{DIGEST}"
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": ref}],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        write_package_entity(output_dir, "plugin-a", ref)
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        findings = [f for f in result.findings if f.rule == "plugin-path-mismatch"]
+        assert len(findings) == 1
+        assert DPDY_FILENAME in findings[0].message
+
+    def test_a_package_entity_path_is_checked_against_its_image(self, tmp_path):
+        """Generation keeps the metadata's selector, so an entity can carry a wrong one."""
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-dcr@{DIGEST}"}],
+            builds={"plugin-dcr": resolved("plugin-dcr", **self._plugins("plugin-dcr"))},
+        )
+        write_package_entity(
+            output_dir, "plugin-dcr", f"oci://{REGISTRY}/plugin-dcr:1.0.0!plugin"
+        )
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        findings = [f for f in result.findings if f.rule == "plugin-path-mismatch"]
+        assert len(findings) == 1
+        assert "packages/plugin-dcr.yaml" in findings[0].message
+
+    def test_a_package_entity_on_another_image_is_not_checked(self, tmp_path):
+        """An external image has no plugin_builds/ entry to read its plugins from."""
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", **self._plugins("plugin-a"))},
+        )
+        write_package_entity(output_dir, "plugin-a", "oci://quay.io/other/bundle:2.4.2")
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    @pytest.mark.parametrize(
+        "artifact",
+        [
+            pytest.param("oci://ghcr.io/someone-else/plugin-a:1.0.0", id="other_repository"),
+            pytest.param(f"oci://{REGISTRY}/plugin-a@{OTHER_DIGEST}", id="other_digest"),
+        ],
+    )
+    def test_a_ref_to_another_image_of_the_same_name_is_not_checked(self, tmp_path, artifact):
+        """plugin_builds/ is keyed by image name; the annotation is only this build's."""
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [],
+            builds={
+                "plugin-a": resolved("plugin-a", **self._plugins("plugin-a", "plugin-a-backend"))
+            },
+        )
+        write_package_entity(output_dir, "plugin-a", artifact)
+        result = validate(output_dir, builds_dir, REGISTRY, [], has_build_metadata=True)
+        assert "plugin-path-mismatch" not in rules_of(result)
+
+    @pytest.mark.parametrize(
+        "annotation",
+        [
+            pytest.param(encoded_packages(["@scope/a", "@scope/b"]), id="package_names_only"),
+            pytest.param(encoded_packages([{"a": {}, "b": {}}]), id="item_with_two_keys"),
+            pytest.param(encoded_packages([1]), id="item_not_a_mapping"),
+            pytest.param("not base64", id="unreadable"),
+        ],
+    )
+    def test_an_annotation_that_names_no_paths_is_not_checked(self, tmp_path, annotation):
+        """No path to compare; an unreadable one is `missing-annotation`'s to report."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}!plugin-a"}],
+            builds={"plugin-a": resolved("plugin-a", **{DYNAMIC_PACKAGES_ANNOTATION: annotation})},
+        )
+        assert "plugin-path-mismatch" not in rules_of(result)
+        assert result.stats["builds_without_plugin_paths"] == 1
+        assert "plugin-path-mismatch skipped 1 plugin_builds" in render(result)
+
+    def test_dpdy_completeness_is_by_package_identity_not_count(self, tmp_path):
+        """A swap-one-for-another has the same length and must still fail."""
+        default_packages = tmp_path / "default.packages.yaml"
+        default_packages.write_text(
+            yaml.safe_dump(
+                {
+                    "packages": {
+                        "enabled": [{"package": "@scope/plugin-a"}],
+                        "disabled": [{"package": "@scope/plugin-b"}],
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/scope-plugin-a@{DIGEST}"}],
+            builds={"scope-plugin-a": resolved("scope-plugin-a")},
+            default_packages_file=default_packages,
+        )
+        missing = [f for f in result.findings if f.rule == "dpdy-missing-package"]
+        assert len(missing) == 1
+        assert missing[0].severity == ERROR
+        assert "plugin-b" in missing[0].message
+        assert missing[0].image == "scope-plugin-b"
+
+    def test_dpdy_completeness_does_not_treat_a_prefix_as_identity(self, tmp_path):
+        """A backend image must not cover the frontend package whose name it prefixes.
+
+        ``backstage-plugin-techdocs`` is a substring of
+        ``backstage-plugin-techdocs-backend``. Matching on containment would
+        swallow the missing frontend and publish anyway.
+        """
+        default_packages = tmp_path / "default.packages.yaml"
+        default_packages.write_text(
+            yaml.safe_dump(
+                {
+                    "packages": {
+                        "enabled": [
+                            {"package": "@backstage/plugin-techdocs"},
+                            {"package": "@backstage/plugin-techdocs-backend"},
+                        ],
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": (
+                        f"oci://{REGISTRY}/backstage-plugin-techdocs-backend@{DIGEST}"
+                    )
+                }
+            ],
+            builds={
+                "backstage-plugin-techdocs-backend": resolved(
+                    "backstage-plugin-techdocs-backend"
+                )
+            },
+            default_packages_file=default_packages,
+        )
+        missing = [f for f in result.findings if f.rule == "dpdy-missing-package"]
+        assert len(missing) == 1
+        assert missing[0].severity == ERROR
+        assert missing[0].message.startswith("'@backstage/plugin-techdocs'")
+        assert missing[0].image == "backstage-plugin-techdocs"
+
+    def test_two_and_three_component_versions_are_equivalent(self):
+        """VERSION_SUFFIX_RE accepts 1.2 and 1.2.0; they must not report a regression."""
+        assert not version_less_than("1.2", "1.2.0")
+        assert not version_less_than("1.2.0", "1.2")
+        assert version_less_than("1.2", "1.2.1")
+        assert not version_less_than("1.2.1", "1.2")
+        assert version_less_than("5.4.1", "5.7.12")
+
+    def test_version_regression_rhdhbugs_3503_shape(self):
+        assert version_less_than("5.4.1", "5.7.12")
+        findings = check_version_regression(
+            {"orchestrator-dynamic": "5.4.1", "other": "1.0.0"},
+            {"orchestrator-dynamic": "5.7.12", "other": "1.0.0"},
+        )
+        assert len(findings) == 1
+        assert findings[0].rule == "version-regression"
+        assert findings[0].severity == WARNING
+        assert "5.7.12" in findings[0].message
+        assert "5.4.1" in findings[0].message
+
+    def test_regression_skips_new_plugins(self):
+        assert check_version_regression(
+            {"old-plugin": "2.1.0", "new-plugin": "1.0.0"},
+            {"old-plugin": "2.0.0"},
+        ) == []
+
+    def test_previous_dpdy_regression(self, tmp_path):
+        previous = tmp_path / "previous-dpdy.yaml"
+        previous.write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.7.12",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.4.1@{DIGEST}",
+                    "enabled": False,
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+            previous_index_dpdy=previous,
+        )
+        regressions = [f for f in result.findings if f.rule == "version-regression"]
+        assert len(regressions) == 1
+        assert to_json(result, strict=False)["status"] == "pass"
+        assert to_json(result, strict=True)["status"] == "fail"
+        assert to_json(
+            result, strict=True, allowed_warnings={"version-regression"}
+        )["status"] == "pass"
+
+    def test_published_previous_index_json_tags_detect_regression(self, tmp_path):
+        """Published catalogs pin DPDY refs to digests; tags live in index.json imageTag."""
+        previous = tmp_path / "previous-index"
+        previous.mkdir()
+        (previous / "dynamic-plugins.default.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (previous / "index.json").write_text(
+            json.dumps(
+                {
+                    "orchestrator-dynamic": {
+                        "imageTag": "1.10--5.7.12",
+                        "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    "enabled": False,
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+            index_json={
+                "orchestrator-dynamic": {
+                    "imageTag": "1.10--5.4.1",
+                    "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                }
+            },
+            previous_index_dpdy=previous,
+        )
+        regressions = [f for f in result.findings if f.rule == "version-regression"]
+        assert len(regressions) == 1
+        assert "5.7.12" in regressions[0].message
+        assert "5.4.1" in regressions[0].message
+        assert to_json(result, strict=True)["status"] == "fail"
+
+    def test_digest_only_previous_dpdy_file_skips_regression(self, tmp_path):
+        previous = tmp_path / "previous-dpdy.yaml"
+        previous.write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    "enabled": False,
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+            index_json={
+                "orchestrator-dynamic": {
+                    "imageTag": "1.10--5.4.1",
+                    "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                }
+            },
+            previous_index_dpdy=previous,
+        )
+        assert "version-regression" not in rules_of(result)
+
+    def test_allow_warnings_does_not_drop_other_strict_warnings(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0")
+            },
+        )
+        assert "fallback-tag" in rules_of(result)
+        assert to_json(result, strict=True)["status"] == "fail"
+        assert to_json(
+            result, strict=True, allowed_warnings={"version-regression"}
+        )["status"] == "fail"
+        assert to_json(
+            result, strict=True, allowed_warnings={"fallback-tag"}
+        )["status"] == "pass"
+
+    def test_backstage_mismatch_from_report(self, tmp_path):
+        report_file = tmp_path / "build-report.json"
+        report_file.write_text(
+            json.dumps(
+                {
+                    "plugins": {
+                        "plugin-a": {
+                            "stages": {
+                                "bootstrap": {
+                                    "bs_version_mismatch": True,
+                                    "expected_version": "1.52.0",
+                                    "found_version": "1.49.4",
+                                }
+                            }
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a")},
+            report_file=report_file,
+        )
+        mismatch = [f for f in result.findings if f.rule == "backstage-version-mismatch"]
+        assert len(mismatch) == 1
+        assert mismatch[0].severity == WARNING
+        assert to_json(result, strict=True)["status"] == "fail"
+
+    def test_community_without_dpdy_still_flags_unresolved(self, tmp_path):
+        output_dir = tmp_path / "catalog-index"
+        output_dir.mkdir()
+        builds_dir = tmp_path / "plugin_builds" / "ws"
+        builds_dir.mkdir(parents=True)
+        (builds_dir / "plugin-a.json").write_text(
+            json.dumps(
+                {
+                    "plugin-a": {
+                        "registryReference": f"{REGISTRY}/plugin-a:1.0",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = validate(
+            output_dir,
+            tmp_path / "plugin_builds",
+            REGISTRY,
+            [],
+            has_build_metadata=True,
+        )
+        assert "unresolved-image" in rules_of(result)
+
+
+class TestRegistryPolicy:
+    def test_registry_base_must_match_exactly(self, tmp_path):
+        rhec = "registry.access.redhat.com/rhdh"
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{rhec}-extra/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved(
+                "plugin-a", registryReference=f"{rhec}/plugin-a@{DIGEST}",
+            )},
+            registry=rhec,
+        )
+        assert "registry-not-allowed" in rules_of(result)
+
+    def test_ga_plugin_cannot_use_the_configured_community_registry(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="generally-available")},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        findings = [f for f in result.findings if f.rule == "registry-not-allowed"]
+        assert len(findings) == 1
+        assert "dynamic-plugins.default.yaml plugins[0]" in findings[0].message
+        assert f"expected {REGISTRY}" in findings[0].message
+
+    def test_community_plugin_cannot_use_the_primary_registry(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="community")},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        assert "registry-not-allowed" in rules_of(result)
+        assert f"expected {COMMUNITY_REGISTRY}" in render(result)
+
+    def test_same_digest_in_index_json_does_not_hide_wrong_registry(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="generally-available")},
+            index_json={"plugin-a": {
+                "registryReference": f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+                "support": "generally-available",
+            }},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        assert "index-ref-mismatch" not in rules_of(result)
+        assert any(f.rule == "registry-not-allowed" and "index.json" in f.message
+                   for f in result.findings)
+
+    def test_index_and_build_entries_outside_dpdy_are_checked(self, tmp_path):
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": resolved(
+                "plugin-a", support="generally-available",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+            index_json={"plugin-b": {
+                "registryReference": f"{COMMUNITY_REGISTRY}/plugin-b@{DIGEST}",
+                "support": "generally-available",
+            }},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        sources = [f.message for f in result.findings if f.rule == "registry-not-allowed"]
+        assert any("plugin-a" in msg and "plugin_builds/" in msg for msg in sources)
+        assert any("plugin-b" in msg and "index.json" in msg for msg in sources)
+
+    def test_selected_package_entity_is_checked_and_unselected_one_is_ignored(self, tmp_path):
+        output_dir, builds_dir = write_index(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a", support="generally-available")},
+        )
+        packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+        packages_dir.mkdir(parents=True)
+        for image in ("plugin-a", "plugin-b"):
+            (packages_dir / f"{image}.yaml").write_text(yaml.safe_dump({
+                "kind": "Package",
+                "metadata": {"name": image},
+                "spec": {
+                    "packageName": image,
+                    "support": "generally-available",
+                    "dynamicArtifact": f"oci://{COMMUNITY_REGISTRY}/{image}@{DIGEST}",
+                },
+            }), encoding="utf-8")
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        policy = [f for f in result.findings if f.rule == "registry-not-allowed"]
+        assert len(policy) == 1
+        assert policy[0].image == "plugin-a"
+        assert "packages/plugin-a.yaml" in policy[0].message
+
+    def test_published_index_uses_index_support_without_build_metadata(self, tmp_path):
+        result = run(
+            tmp_path, [], builds=None,
+            index_json={"plugin-a": {
+                "registryReference": f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+                "support": "community",
+            }},
+            has_build_metadata=False, community_registry=COMMUNITY_REGISTRY,
+        )
+        assert "registry-not-allowed" not in rules_of(result)
+
+    @pytest.mark.parametrize("rule", sorted(NON_ALLOWLISTABLE_RULES))
+    def test_registry_policy_cannot_be_allowlisted(self, rule):
+        assert {"registry-not-allowed", "ref-form"} <= NON_ALLOWLISTABLE_RULES
+        with pytest.raises(ValueError, match="cannot be allowlisted"):
+            parse_allowlist(
+                "# TODO(RHIDP-15872): temporary exception\n"
+                f"{rule} ^plugin-a$\n",
+                "allowlist.txt",
+            )
+
+
+class TestMalformedRefIsRefForm:
+    """An unparseable ref is malformed, not a registry violation (#4570 review)."""
+
+    BANG = f"oci://{REGISTRY}/plugin-a@{DIGEST}!"
+
+    @staticmethod
+    def _stages(tmp_path, result):
+        """plugin-a's stages after record_in_report writes the result."""
+        report_file = tmp_path / "build-report.json"
+        report = BuildReport(str(report_file))
+        report.add_plugin("plugin-a", package="@scope/plugin-a")
+        record_in_report(result, report)
+        report.save()
+        return json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]
+
+    def test_a_bare_trailing_bang_is_one_ref_form_naming_the_selector(self, tmp_path):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        assert rules_of(result) == ["ref-form"]
+        message = result.findings[0].message
+        assert "not a well-formed oci:// image reference" in message
+        assert "!plugin-path selector is empty" in message
+        # Same shape as the other three sources: plugin, tier, position, expected base.
+        assert (
+            "'plugin-a' (unspecified) in dynamic-plugins.default.yaml plugins[0]: "
+            in message
+        )
+        assert message.endswith(f"; expected {REGISTRY}")
+
+    def test_a_malformed_dpdy_ref_reads_the_tier_from_its_package_entity(
+        self, tmp_path
+    ):
+        output_dir, builds_dir = write_index(
+            tmp_path, [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}!"}],
+            builds={},
+        )
+        write_package_entity(
+            output_dir, "plugin-a", f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            support="community",
+        )
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            registry_policy_only=True, community_registry=COMMUNITY_REGISTRY,
+        )
+        assert rules_of(result) == ["ref-form"]
+        message = result.findings[0].message
+        assert message.startswith("'plugin-a' (community) in ")
+        assert message.endswith(f"; expected {COMMUNITY_REGISTRY}")
+
+    def test_a_repeated_malformed_package_is_one_ref_form_naming_the_first(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [{"package": self.BANG}, {"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        ref_form = [f for f in result.findings if f.rule == "ref-form"]
+        assert len(ref_form) == 1
+        assert "plugins[0]" in ref_form[0].message
+        assert "duplicate-ref" in rules_of(result)
+
+    def test_a_bare_trailing_bang_still_fails_the_policy_only_gate(self, tmp_path):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")}, registry_policy_only=True,
+        )
+        assert rules_of(result) == ["ref-form"]
+
+    def test_policy_only_gate_ignores_a_non_oci_package(self, tmp_path):
+        """Full validation reports it; the unconditional gate never did."""
+        result = run(
+            tmp_path, [{"package": "./dynamic-plugins/dist/plugin-a-dynamic"}],
+            builds={}, registry_policy_only=True,
+        )
+        assert result.findings == []
+
+    def test_a_local_dpdy_path_is_not_attributed_or_given_an_expected_base(
+        self, tmp_path
+    ):
+        """A local path names no image or registry, so it fails no plugin's stage."""
+        local = "./dynamic-plugins/dist/plugin-a"
+        result = run(tmp_path, [{"package": local}], builds={})
+        assert rules_of(result) == ["ref-form"]
+        finding = result.findings[0]
+        assert finding.image == ""
+        # The whole message, so no plugin, tier or expected base can creep back in.
+        assert finding.message == (
+            f"dynamic-plugins.default.yaml plugins[0]: '{local}' "
+            "is a local path, not an oci:// reference"
+        )
+        assert "validate" not in self._stages(tmp_path, result)
+
+    def test_a_malformed_index_ref_is_ref_form_and_cannot_be_allowlisted(self, tmp_path):
+        result = run(
+            tmp_path, [], builds={},
+            index_json={"plugin-a": {
+                "registryReference": f"{REGISTRY}/plugin-a@sha256:abc",
+            }},
+            allowlist=[allowlist_entry("ref-form", ".*")],
+        )
+        assert rules_of(result) == ["ref-form"]
+        message = result.findings[0].message
+        assert "'plugin-a' (unspecified) in index.json" in message
+        assert f"expected {REGISTRY}" in message
+        # index.json values carry no scheme, so the scheme is not the problem.
+        assert "oci://" not in message
+        assert result.suppressed == []
+
+    def test_an_empty_registry_reference_says_so_and_names_the_expected_base(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": {"registryReference": "", "support": "community"}},
+            community_registry=COMMUNITY_REGISTRY,
+        )
+        ref_form = [f for f in result.findings if f.rule == "ref-form"]
+        assert len(ref_form) == 1
+        message = ref_form[0].message
+        assert "'plugin-a' (community) in plugin_builds/" in message
+        assert "the reference is empty" in message
+        assert f"expected {COMMUNITY_REGISTRY}" in message
+        assert "oci://" not in message
+
+    def test_a_malformed_plugin_builds_ref_still_fails_that_plugins_validate_stage(
+        self, tmp_path
+    ):
+        """The status page attributes findings by image; an image-less one marks nothing."""
+        result = run(
+            tmp_path, [],
+            builds={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@sha256:abc"}},
+        )
+        stage = self._stages(tmp_path, result)["validate"]
+        assert stage["status"] == "fail"
+        assert any(e.startswith("[ref-form]") for e in stage["errors"])
+
+    def test_a_malformed_dpdy_ref_still_fails_that_plugins_validate_stage(
+        self, tmp_path
+    ):
+        result = run(
+            tmp_path, [{"package": self.BANG}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        stage = self._stages(tmp_path, result)["validate"]
+        assert stage["status"] == "fail"
+        assert any(e.startswith("[ref-form]") for e in stage["errors"])
+
+    def test_a_malformed_package_entity_artifact_is_ref_form_on_its_plugin(
+        self, tmp_path
+    ):
+        output_dir, builds_dir = write_index(
+            tmp_path, [], builds={"plugin-a": resolved(
+                "plugin-a", support="community",
+                registryReference=f"{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}",
+            )},
+        )
+        write_package_entity(
+            output_dir, "plugin-a", f"oci://{COMMUNITY_REGISTRY}/plugin-a@sha256:abc",
+            support="community",
+        )
+        result = validate(
+            output_dir, builds_dir, REGISTRY, [], has_build_metadata=True,
+            registry_policy_only=True, community_registry=COMMUNITY_REGISTRY,
+        )
+        assert [(f.rule, f.image) for f in result.findings] == [("ref-form", "plugin-a")]
+        message = result.findings[0].message
+        assert message.startswith("'plugin-a' (community) in ")
+        assert "packages/plugin-a.yaml: " in message
+        assert "not a well-formed oci:// image reference" in message
+        assert message.endswith(f"; expected {COMMUNITY_REGISTRY}")

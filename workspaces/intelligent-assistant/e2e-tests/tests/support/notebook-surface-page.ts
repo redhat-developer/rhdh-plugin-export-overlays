@@ -401,11 +401,35 @@ export class NotebookSurfacePage {
   async clickSidebarTitle(): Promise<void> {
     const title = this.sidebarTitleText();
     const input = this.inlineRenameInput();
-    await expect(title).toBeVisible();
+    await expect(title.or(input)).toBeVisible();
     await expect(async () => {
-      await title.click();
+      if (!(await input.isVisible())) {
+        await title.click();
+      }
       await expect(input).toBeVisible({ timeout: 1_000 });
     }).toPass({ timeout: 10_000 });
+  }
+
+  /**
+   * Open the sidebar title editor and commit a name in one retry.
+   * The input closes on blur, so a later assertion can miss it.
+   */
+  async renameSidebarNotebook(newName: string): Promise<void> {
+    const title = this.sidebarTitleText();
+    const input = this.inlineRenameInput();
+    await expect(title.or(input)).toBeVisible();
+    const renamePersisted = this.waitForSessionRenamePut();
+    await expect(async () => {
+      if (!(await input.isVisible())) {
+        await title.click();
+      }
+      await expect(input).toBeVisible({ timeout: 1_000 });
+      await input.fill(newName);
+      await input.press("Enter");
+    }).toPass({ timeout: 15_000 });
+    await renamePersisted;
+    await expect(input).toBeHidden();
+    await expect(title).toContainText(newName);
   }
 
   /**

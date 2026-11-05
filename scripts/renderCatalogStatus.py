@@ -17,6 +17,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 
@@ -44,7 +45,17 @@ REASON_ANCHORS = {
     "[duplicate-ref]": "validation-duplicate-ref",
     "[ref-form]": "validation-ref-form",
     "[index-ref-mismatch]": "validation-index-ref-mismatch",
+    "[missing-annotation]": "validation-missing-annotation",
+    "[dpdy-missing-package]": "validation-dpdy-missing-package",
+    "[not-digest-pinned]": "validation-not-digest-pinned",
+    "[plugin-path-mismatch]": "validation-plugin-path-mismatch",
+    "[version-regression]": "validation-version-regression",
 }
+
+VERSION_REGRESSION_PREFIX = "[version-regression]"
+VERSION_REGRESSION_RE = re.compile(
+    r"version regressed from (?P<previous>\S+) to (?P<current>\S+)"
+)
 
 
 def reason_to_link(
@@ -69,6 +80,15 @@ def reason_to_link(
             return f"{error_link}: {oci_ref_to_link(remainder, ghcr_version_ids)}"
         return error_link
     return reason
+
+
+def version_regression_warning(plugin: dict) -> str | None:
+    """The validate-stage warning string, or None when the plugin did not regress."""
+    warnings = plugin.get("stages", {}).get("validate", {}).get("warnings") or []
+    for warning in warnings:
+        if isinstance(warning, str) and warning.startswith(VERSION_REGRESSION_PREFIX):
+            return warning
+    return None
 
 
 def load_report(path: str) -> dict:
@@ -240,6 +260,107 @@ def first_failed_stage(stages: dict) -> tuple[str, str]:
     return "Unknown", "Unknown error"
 
 
+def _semver_key(version: str) -> tuple:
+    """Return a comparable key for a version string ('1.10.0' > '1.9.0')."""
+    parts = []
+    for piece in str(version).lstrip("v").split("."):
+        digits = "".join(c for c in piece if c.isdigit())
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
+
+
+def _plugin_tag(plugin: dict) -> str:
+    """Return the OCI tag a plugin publishes (bs_<backstage>__<npm>), or ''."""
+    oci_ref = plugin.get("stages", {}).get("bootstrap", {}).get("oci_ref", "") or ""
+    head = oci_ref.rsplit("@", 1)[0]
+    if ":" not in head.rsplit("/", 1)[-1]:
+        return ""
+    return head.rsplit(":", 1)[1]
+
+
+# Icons for the cross-branch comparison rendered on the main-branch page.
+SAME_TAG_LABEL = "🔁 Same tag"
+OLD_TAG_LABEL = "📉 Old tag"
+STATUS_LABELS = {"bs-mismatch": "🧬 BS mismatch", "outdated": "⏳ Stale pin"}
+
+
+def compute_cross_branch_flags(report: dict, peer_report: dict) -> dict[str, dict]:
+    """Compare each plugin's published tag with the same plugin on a release branch.
+
+    Returns ``{plugin_name: {'kind': ..., 'own_tag': ..., 'peer_tag': ...}}`` where
+    ``kind`` is:
+
+    - ``same-tag``: the release branch publishes the very same OCI tag, so a
+      rebuild from either branch lands on the same tag and downstream docs can
+      resolve the wrong digest.
+    - ``older``: this branch publishes a lower version than the release branch.
+    """
+    peer_plugins = peer_report.get("plugins", {})
+    flags: dict[str, dict] = {}
+    for name, plugin in report.get("plugins", {}).items():
+        peer = peer_plugins.get(name)
+        if not peer:
+            continue
+        own_tag = _plugin_tag(plugin)
+        peer_tag = _plugin_tag(peer)
+        entry = {"own_tag": own_tag, "peer_tag": peer_tag}
+        if own_tag and own_tag == peer_tag:
+            flags[name] = {**entry, "kind": "same-tag"}
+            continue
+        own_key = _semver_key(plugin.get("version", ""))
+        peer_key = _semver_key(peer.get("version", ""))
+        if own_key and peer_key and own_key < peer_key:
+            flags[name] = {**entry, "kind": "older"}
+    return flags
+
+
+def npm_link(package: str, version: str = "") -> str:
+    """Link a package cell to its npmjs.com page, at the given version when known."""
+    if not package:
+        return ""
+    url = f"https://www.npmjs.com/package/{package}"
+    if version:
+        url += f"/v/{version}"
+    return f"[`{package}`]({url})"
+
+
+def oci_ref_url(oci_ref: str) -> str:
+    """Registry URL for an OCI ref, digest stripped."""
+    if not oci_ref:
+        return ""
+    ref = oci_ref.replace("oci://", "").split("@", 1)[0]
+    return f"https://{ref}" if "/" in ref else ""
+
+
+def version_cell(text: str, oci_ref: str) -> str:
+    """Version text linked to its published artifact."""
+    url = oci_ref_url(oci_ref)
+    text = text.strip()
+    if not url or not text.strip("`"):
+        return text
+    return f"[{text}]({url})"
+
+
+def version_marker(
+    cross_flags: dict[str, dict], name: str, status_kind: str = ""
+) -> str:
+    """Marker for a Version cell: tier status, then cross-branch flag."""
+    parts = []
+    if status_kind in STATUS_LABELS:
+        parts.append(STATUS_LABELS[status_kind])
+    flag = cross_flags.get(name)
+    if flag:
+        if flag["kind"] == "same-tag":
+            parts.append(SAME_TAG_LABEL)
+        else:
+            own = flag.get("own_tag") or ""
+            peer = flag.get("peer_tag") or ""
+            parts.append(
+                f"{OLD_TAG_LABEL} `{own} < {peer}`" if own and peer else OLD_TAG_LABEL
+            )
+    return f"{' · '.join(parts)} " if parts else ""
+
+
 def render_tier(
     tier_name: str,
     report: dict,
@@ -247,18 +368,25 @@ def render_tier(
     branch: str,
     troubleshooting_content: str = "",
     ghcr_version_ids: dict[str, int] | None = None,
+    cross_flags: dict[str, dict] | None = None,
 ) -> list[str]:
     """Render a single tier section."""
     lines = []
     plugins = report.get("plugins", {})
     status = report.get("status", "unknown")
+    cross_flags = cross_flags or {}
+
+    def _mark(name: str, status_kind: str = "") -> str:
+        return version_marker(cross_flags, name, status_kind)
 
     if status == "initial":
-        lines.append(f"## {tier_name} Catalog")
-        lines.append("")
-        lines.append("> **Initial build** — No plugins have been published for this branch yet.")
-        lines.append("> This is expected for newly created release branches.")
-        lines.append("")
+        lines.extend([
+            f"## {tier_name} Catalog",
+            "",
+            "> **Initial build** — No plugins have been published for this branch yet.",
+            "> This is expected for newly created release branches.",
+            "",
+        ])
         return lines
 
     failed = {k: v for k, v in plugins.items() if v.get("overall") == "fail"}
@@ -269,50 +397,59 @@ def render_tier(
         k: v for k, v in all_passed.items()
         if v.get("stages", {}).get("bootstrap", {}).get("bs_version_mismatch")
     }
+    version_regression = {
+        k: v for k, v in all_passed.items()
+        if version_regression_warning(v)
+    }
     passed = {
         k: v for k, v in all_passed.items()
-        if k not in fallback and k not in bs_mismatch
+        if k not in fallback and k not in bs_mismatch and k not in version_regression
     }
 
-    lines.append(f"## {tier_name} Catalog")
-    lines.append("")
+    lines.extend([
+        f"## {tier_name} Catalog",
+        "",
+    ])
 
     if failed:
-        lines.append(f"### Failed ({len(failed)})")
-        lines.append("")
-        lines.append("| Plugin | Package | Version | Failed Stage | Reason |")
-        lines.append("|--------|---------|---------|--------------|--------|")
+        lines.extend([
+            f"### Failed ({len(failed)})",
+            "",
+            "| Plugin | Package | Version | Failed Stage | Reason |",
+            "|--------|---------|---------|--------------|--------|",
+        ])
         for name in sorted(failed):
             p = failed[name]
             ws = p.get("workspace", "")
             pkg = p.get("package", "")
             ver = p.get("version", "")
+            oci_ref = p.get("stages", {}).get("bootstrap", {}).get("oci_ref", "")
             stage_label, reason = first_failed_stage(p.get("stages", {}))
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             reason_link = reason_to_link(reason, troubleshooting_content, ghcr_version_ids)
-            lines.append(f"| {name_link} | `{pkg}` | {ver} | {stage_label} | {reason_link} |")
+            lines.append(
+                f"| {name_link} | {npm_link(pkg, ver)} | {_mark(name)}{version_cell(ver, oci_ref)} | {stage_label} | {reason_link} |"
+            )
         lines.append("")
 
     if bs_mismatch:
         if troubleshooting_content:
             lines.append(
-                f"### ⚠️ [Backstage Version Mismatch](#backstage-version-mismatch) ({len(bs_mismatch)})"
+                f"### 🧬 [Backstage Version Mismatch](#backstage-version-mismatch) ({len(bs_mismatch)})"
             )
         else:
-            lines.append(f"### ⚠️ Backstage Version Mismatch ({len(bs_mismatch)})")
-        lines.append("")
-        lines.append(
+            lines.append(f"### 🧬 Backstage Version Mismatch ({len(bs_mismatch)})")
+        lines.extend([
+            "",
             "> These plugins are included in the catalog but their workspace targets an older "
             "Backstage minor version than the branch expects. Community (ghcr.io) images use "
-            "the workspace's actual Backstage version in the tag."
-        )
-        lines.append(
+            "the workspace's actual Backstage version in the tag.",
             "> To resolve, try running `/update-commit` on their workspace PR (if it exists) "
-            "or add a `backstage.json` override if no commit exists that updates the version."
-        )
-        lines.append("")
-        lines.append("| Plugin | Package | Workspace | Expected | Found | OCI Reference |")
-        lines.append("|--------|---------|-----------|----------|-------|---------------|")
+            "or add a `backstage.json` override if no commit exists that updates the version.",
+            "",
+            "| Plugin | Package | Workspace | Expected | Found | OCI Reference |",
+            "|--------|---------|-----------|----------|-------|---------------|",
+        ])
         for name in sorted(bs_mismatch):
             p = bs_mismatch[name]
             ws = p.get("workspace", "")
@@ -325,20 +462,22 @@ def render_tier(
             ws_link = workspace_link(source_repo, branch, ws) if ws else f"`{ws}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(
-                f"| {name_link} | `{pkg}` | {ws_link} | {expected} | {found} | {oci_link} |"
+                f"| {name_link} | {npm_link(pkg, p.get('version', ''))} | {ws_link} | {expected} | {_mark(name, 'bs-mismatch')}{version_cell(found, oci_ref)} | {oci_link} |"
             )
         lines.append("")
 
     if fallback:
         if troubleshooting_content:
-            lines.append(f"### ⚠️ [Outdated](#plugin-marked-as-outdated) ({len(fallback)})")
+            lines.append(f"### ⏳ [Outdated](#plugin-marked-as-outdated) ({len(fallback)})")
         else:
-            lines.append(f"### ⚠️ Outdated ({len(fallback)})")
-        lines.append("")
-        lines.append("> These plugins are using an older published tag because the requested version was not found in the registry.")
-        lines.append("")
-        lines.append("| Plugin | Package | Requested Tag | Resolved Tag | OCI Reference |")
-        lines.append("|--------|---------|---------------|--------------|---------------|")
+            lines.append(f"### ⏳ Outdated ({len(fallback)})")
+        lines.extend([
+            "",
+            "> These plugins are using an older published tag because the requested version was not found in the registry.",
+            "",
+            "| Plugin | Package | Requested Tag | Resolved Tag | OCI Reference |",
+            "|--------|---------|---------------|--------------|---------------|",
+        ])
         for name in sorted(fallback):
             p = fallback[name]
             ws = p.get("workspace", "")
@@ -353,14 +492,50 @@ def render_tier(
                 oci_ref = oci_ref.rsplit(":", 1)[0] + ":" + resolved
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
-            lines.append(f"| {name_link} | `{pkg}` | `{requested}` | `{resolved}` | {oci_link} |")
+            lines.append(
+                f"| {name_link} | {npm_link(pkg, p.get('version', ''))} | `{requested}` | {_mark(name, 'outdated')}{version_cell(f'`{resolved}`', oci_ref)} | {oci_link} |"
+            )
+        lines.append("")
+
+    if version_regression:
+        if troubleshooting_content:
+            lines.append(
+                f"### ⚠️ [Version regression](#validation-version-regression) "
+                f"({len(version_regression)})"
+            )
+        else:
+            lines.append(f"### ⚠️ Version regression ({len(version_regression)})")
+        lines.extend([
+            "",
+            "> These plugins resolved to a lower version than the previous published "
+            "catalog index. On `main` this is a warning; on `release-*` it fails the build.",
+            "",
+            "| Plugin | Package | Previous | Current | OCI Reference |",
+            "|--------|---------|----------|---------|---------------|",
+        ])
+        for name in sorted(version_regression):
+            p = version_regression[name]
+            ws = p.get("workspace", "")
+            pkg = p.get("package", "")
+            oci_ref = p.get("stages", {}).get("bootstrap", {}).get("oci_ref", "")
+            warning = version_regression_warning(p) or ""
+            matched = VERSION_REGRESSION_RE.search(warning)
+            previous = matched.group("previous") if matched else ""
+            current = matched.group("current") if matched else p.get("version", "")
+            name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
+            oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
+            lines.append(
+                f"| {name_link} | {npm_link(pkg, p.get('version', ''))} | `{previous}` | {_mark(name)}{version_cell(f'`{current}`', oci_ref)} | {oci_link} |"
+            )
         lines.append("")
 
     if passed:
-        lines.append(f"### Passed ({len(passed)})")
-        lines.append("")
-        lines.append("| Plugin | Package | Version | OCI Reference |")
-        lines.append("|--------|---------|---------|---------------|")
+        lines.extend([
+            f"### Passed ({len(passed)})",
+            "",
+            "| Plugin | Package | Version | OCI Reference |",
+            "|--------|---------|---------|---------------|",
+        ])
         for name in sorted(passed):
             p = passed[name]
             ws = p.get("workspace", "")
@@ -370,7 +545,9 @@ def render_tier(
             oci_ref = stages.get("bootstrap", {}).get("oci_ref", "")
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
-            lines.append(f"| {name_link} | `{pkg}` | {ver} | {oci_link} |")
+            lines.append(
+                f"| {name_link} | {npm_link(pkg, ver)} | {_mark(name)}{version_cell(ver, oci_ref)} | {oci_link} |"
+            )
         lines.append("")
 
     return lines
@@ -412,6 +589,54 @@ def render_last_publish(report: dict, source_repo: str) -> str:
     return "—"
 
 
+UPSTREAM_INDEX_TAGS_URL = (
+    "https://quay.io/repository/rhdh-community/plugin-catalog-index?tab=tags"
+)
+DOWNSTREAM_INDEX_TAGS_URL = (
+    "https://quay.io/repository/rhdh/plugin-catalog-index?tab=tags"
+)
+UPSTREAM_INDEX_IMAGE = "quay.io/rhdh-community/plugin-catalog-index"
+DOWNSTREAM_INDEX_IMAGE = "quay.io/rhdh/plugin-catalog-index"
+# Trailing slash keeps quay.io/rhdh-community from matching the production registry.
+DOWNSTREAM_OCI_PREFIXES = (
+    "quay.io/rhdh/",
+    "registry.access.redhat.com/rhdh/",
+)
+
+
+OCI_SCHEME = "oci://"
+
+
+def _bootstrap_oci_ref(plugin: dict) -> str:
+    ref = plugin.get("stages", {}).get("bootstrap", {}).get("oci_ref", "") or ""
+    if ref.startswith(OCI_SCHEME):
+        return ref[len(OCI_SCHEME):]
+    return ref
+
+
+def is_downstream_build(report: dict) -> bool:
+    """Production plugin registries identify a midstream catalog build.
+
+    ghcr.io refs are an upstream build. A report with no recognizable ref
+    stays upstream.
+    """
+    return any(
+        _bootstrap_oci_ref(plugin).startswith(DOWNSTREAM_OCI_PREFIXES)
+        for plugin in report.get("plugins", {}).values()
+    )
+
+
+def catalog_index_tags_link(report: dict) -> str:
+    """Tags page used when no catalog index image has been published."""
+    if is_downstream_build(report):
+        image = DOWNSTREAM_INDEX_IMAGE
+        url = DOWNSTREAM_INDEX_TAGS_URL
+    else:
+        image = UPSTREAM_INDEX_IMAGE
+        url = UPSTREAM_INDEX_TAGS_URL
+    return f"[{image}]({url})"
+
+
 def render_catalog_image(report: dict, ghcr_version_ids: dict[str, int] | None = None) -> str:
     """Render a link to the catalog index OCI image.
     Only shows the image if the catalog has been successfully published."""
@@ -435,23 +660,42 @@ def render_status_page(
     workflow_run_url: str,
     target_branch: str = "",
     troubleshooting_content: str = "",
+    peer_reports: dict[str, dict] | None = None,
+    peer_branch: str = "",
 ) -> str:
     """Render the complete status page markdown."""
     ghcr_refs = collect_ghcr_refs(supported_report, community_report)
     ghcr_version_ids = resolve_ghcr_version_ids(ghcr_refs) if ghcr_refs else {}
+    peer_reports = peer_reports or {}
+
+    sup_flags: dict[str, dict] = {}
+    com_flags: dict[str, dict] = {}
+    if peer_branch:
+        if peer_reports.get("supported"):
+            sup_flags = compute_cross_branch_flags(supported_report, peer_reports["supported"])
+        if peer_reports.get("community"):
+            com_flags = compute_cross_branch_flags(community_report, peer_reports["community"])
 
     lines = []
 
-    lines.append(f"# Plugin Catalog Index Status — {source_branch}")
-    lines.append("")
+    lines.extend([
+        f"# Plugin Catalog Index Status — {source_branch}",
+        "",
+    ])
 
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     short_sha = source_commit[:7] if source_commit else ""
-    commit_link = f"[{source_branch} @ {short_sha}]({source_repo}/tree/{source_branch})" if source_repo else f"{source_branch} @ {short_sha}"
+    source_label = f"{source_branch} @ {short_sha}" if source_commit else source_branch
+    source_link = (
+        f"[{source_label}]({source_repo}/commit/{source_commit})"
+        if source_repo and source_commit else source_label
+    )
     run_link = f"[View run]({workflow_run_url})" if workflow_run_url else ""
 
-    lines.append(f"**Build date:** {build_date}  ")
-    lines.append(f"**Source:** {commit_link}  ")
+    lines.extend([
+        f"**Build date:** {build_date}  ",
+        f"**Source:** {source_link}  ",
+    ])
     if backstage_version or rhdh_version:
         version_parts = []
         if backstage_version:
@@ -471,34 +715,71 @@ def render_status_page(
     sup_summary = supported_report.get("summary", {})
     com_summary = community_report.get("summary", {})
 
-    lines.append("## Summary")
-    lines.append("")
-    lines.append("| Tier | Total | Passed | Outdated | BS Mismatch | Failed | Latest Catalog Index Image | Last Successful Publish |")
-    lines.append("|------|-------|--------|----------|-------------|--------|----------------------------|-------------------------|")
+    def _count_kind(flags: dict[str, dict], kind: str) -> str:
+        return str(sum(1 for flag in flags.values() if flag["kind"] == kind))
+
+    if peer_branch:
+        lines.extend([
+            "## Summary",
+            "",
+            "| Tier | Total | Passed | ⏳ Outdated | 🧬 BS Mismatch | 🔁 Same tag | 📉 Old tag | Failed | Latest Catalog Index Image | Last Successful Publish |",
+            "|------|-------|--------|------------|---------------|------------|-----------|--------|----------------------------|-------------------------|",
+        ])
+    else:
+        lines.extend([
+            "## Summary",
+            "",
+            "| Tier | Total | Passed | ⏳ Outdated | 🧬 BS Mismatch | Failed | Latest Catalog Index Image | Last Successful Publish |",
+            "|------|-------|--------|----------|---------------|------------|--------|----------------------------|-------------------------|",
+        ])
     if supported_report:
         sup_img = render_catalog_image(supported_report, ghcr_version_ids)
+        if sup_img == "—":
+            sup_img = catalog_index_tags_link(supported_report)
         sup_pub = render_last_publish(supported_report, source_repo)
         sup_fallback = count_fallbacks(supported_report)
         sup_bs_mismatch = count_bs_version_mismatch(supported_report)
-        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_fallback} | {sup_bs_mismatch} | {sup_summary.get('failed', 0)} | {sup_img} | {sup_pub} |")
+        sup_compare = (
+            f" {_count_kind(sup_flags, 'same-tag')} | {_count_kind(sup_flags, 'older')} |"
+            if peer_branch
+            else ""
+        )
+        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_fallback} | {sup_bs_mismatch} |{sup_compare} {sup_summary.get('failed', 0)} | {sup_img} | {sup_pub} |")
     if community_report:
         com_img = render_catalog_image(community_report, ghcr_version_ids)
         com_pub = render_last_publish(community_report, source_repo)
         com_fallback = count_fallbacks(community_report)
         com_bs_mismatch = count_bs_version_mismatch(community_report)
-        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_fallback} | {com_bs_mismatch} | {com_summary.get('failed', 0)} | {com_img} | {com_pub} |")
+        com_compare = (
+            f" {_count_kind(com_flags, 'same-tag')} | {_count_kind(com_flags, 'older')} |"
+            if peer_branch
+            else ""
+        )
+        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_fallback} | {com_bs_mismatch} |{com_compare} {com_summary.get('failed', 0)} | {com_img} | {com_pub} |")
     lines.append("")
+    if peer_branch:
+        branch_label = (
+            f"[{peer_branch}]({source_repo}/tree/{peer_branch})" if source_repo else peer_branch
+        )
+        lines.extend([
+            f"🔁 Same tag: this branch publishes the same OCI tag as {branch_label}, so a "
+            "rebuild from either branch can overwrite the other image. "
+            f"📉 Old tag: this branch builds an older version than {branch_label}.",
+            "",
+        ])
 
     # Tier details
     if supported_report:
-        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids))
+        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids, sup_flags))
     if community_report:
-        lines.extend(render_tier("Community", community_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids))
+        lines.extend(render_tier("Community", community_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids, com_flags))
 
     if troubleshooting_content:
-        lines.append("")
-        lines.append(troubleshooting_content.rstrip())
-        lines.append("")
+        lines.extend([
+            "",
+            troubleshooting_content.rstrip(),
+            "",
+        ])
 
     lines.append("---")
     if workflow_run_url:
@@ -578,6 +859,24 @@ def main():
         metavar='PATH',
         help='Output file path (default: stdout)',
     )
+    parser.add_argument(
+        '--compare-branch',
+        type=str,
+        default='',
+        help='Stable release branch to compare against (e.g. release-2.1)',
+    )
+    parser.add_argument(
+        '--compare-supported',
+        type=str,
+        metavar='PATH',
+        help='Path to the compare branch supported build-report.json',
+    )
+    parser.add_argument(
+        '--compare-community',
+        type=str,
+        metavar='PATH',
+        help='Path to the compare branch community build-report.json',
+    )
 
     args = parser.parse_args()
 
@@ -596,6 +895,13 @@ def main():
         else:
             print(f"Warning: Troubleshooting file not found: {args.troubleshooting_content}", file=sys.stderr)
 
+    peer_reports = {}
+    peer_branch = args.compare_branch if (args.compare_supported or args.compare_community) else ''
+    if args.compare_supported:
+        peer_reports['supported'] = load_report(args.compare_supported)
+    if args.compare_community:
+        peer_reports['community'] = load_report(args.compare_community)
+
     markdown = render_status_page(
         supported_report=supported_report,
         community_report=community_report,
@@ -607,6 +913,8 @@ def main():
         workflow_run_url=args.workflow_run_url,
         target_branch=args.target_branch,
         troubleshooting_content=troubleshooting_content,
+        peer_reports=peer_reports,
+        peer_branch=peer_branch,
     )
 
     if args.output:

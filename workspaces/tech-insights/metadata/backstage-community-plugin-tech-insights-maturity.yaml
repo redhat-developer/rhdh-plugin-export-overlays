@@ -14,30 +14,14 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-tech-insights-maturity"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights-maturity:bs_1.49.4__0.6.5
-  version: 0.6.5
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights-maturity:bs_1.54.9__0.10.0
+  version: 0.10.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.9
   author: Backstage Community
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-tech-insights-maturity:
-              dynamicRoutes:
-                - path: /tech-insights-maturity
-                  importName: MaturityPage
-                  menuItem:
-                    text: Maturity
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityMaturitySummaryCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        md: span 6
-                        xs: span 12
+  appConfigNotRequired: true
+  appConfigExamples: []
+

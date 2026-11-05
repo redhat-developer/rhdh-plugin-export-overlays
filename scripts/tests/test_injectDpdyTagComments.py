@@ -53,64 +53,36 @@ def test_keys_for_package(pkg, expected):
 
 
 # ---------------------------------------------------------------------------
-# package_name_from_oci_comment
+# package_name_from_oci_value
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
-    "line, expected",
+    "value, expected",
     [
         pytest.param(
-            "  # - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-foo@sha256:abc",
+            "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-foo@sha256:abc",
             "red-hat-developer-hub-backstage-plugin-foo",
-            id="quay-oci-comment",
+            id="quay-oci-reference",
         ),
         pytest.param(
-            "  # - package: oci://ghcr.io/org/repo/plugin-bar@sha256:def",
+            "oci://ghcr.io/org/repo/plugin-bar:1.2.3@sha256:def",
             "plugin-bar",
-            id="ghcr-oci-comment-nested-path",
+            id="ghcr-oci-tag-and-digest",
         ),
         pytest.param(
-            "  - package: ./dynamic-plugins/dist/foo",
+            "./dynamic-plugins/dist/foo",
             None,
-            id="local-path-not-oci-comment",
+            id="wrapper-path",
         ),
         pytest.param(
             "some random line",
             None,
-            id="random-line",
+            id="non-oci-value",
         ),
     ],
 )
-def test_package_name_from_oci_comment(line, expected):
-    assert injectDpdyTagComments.package_name_from_oci_comment(line) == expected
-
-
-# ---------------------------------------------------------------------------
-# package_name_from_package_value
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize(
-    "val, expected",
-    [
-        pytest.param(
-            "./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic",
-            "rhdh-backstage-plugin-foo-dynamic",
-            id="local-path",
-        ),
-        pytest.param(
-            "oci://quay.io/rhdh/plugin-bar@sha256:abc",
-            "plugin-bar",
-            id="oci-reference",
-        ),
-        pytest.param(
-            "simple-name",
-            "simple-name",
-            id="bare-name",
-        ),
-    ],
-)
-def test_package_name_from_package_value(val, expected):
-    assert injectDpdyTagComments.package_name_from_package_value(val) == expected
+def test_package_name_from_oci_value(value, expected):
+    assert injectDpdyTagComments.package_name_from_oci_value(value) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -268,26 +240,24 @@ def plugin_builds_dir(tmp_path):
 
 
 class TestInject:
-    def test_inject_after_commented_oci_line(self, tmp_path, plugin_builds_dir):
+    def test_inject_before_active_oci_line(self, tmp_path, plugin_builds_dir):
         dpdy = tmp_path / "dynamic-plugins.default.yaml"
         dpdy.write_text(
-            "  # - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-foo@sha256:abc\n"
-            "  - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic\n"
+            "  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-foo@sha256:abc\n"
         )
 
         changed = injectDpdyTagComments.inject(dpdy, plugin_builds_dir)
 
         assert changed is True
         assert dpdy.read_text() == (
-            "  # - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-foo@sha256:abc\n"
             "  # Tag: 1.11--1.5.4, Build date: 2025-05-01\n"
-            "  - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic\n"
+            "  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-foo@sha256:abc\n"
         )
 
-    def test_inject_before_file_path_package_line(self, tmp_path, plugin_builds_dir):
+    def test_inject_before_oci_package_line_and_preserve_config(self, tmp_path, plugin_builds_dir):
         dpdy = tmp_path / "dynamic-plugins.default.yaml"
         dpdy.write_text(
-            "  - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic\n"
+            "  - package: oci://quay.io/rhdh/rhdh-backstage-plugin-foo@sha256:abc\n"
             "    pluginConfig:\n"
             "      foo: bar\n"
         )
@@ -297,16 +267,15 @@ class TestInject:
         assert changed is True
         assert dpdy.read_text() == (
             "  # Tag: 1.11--1.5.4, Build date: 2025-05-01\n"
-            "  - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic\n"
+            "  - package: oci://quay.io/rhdh/rhdh-backstage-plugin-foo@sha256:abc\n"
             "    pluginConfig:\n"
             "      foo: bar\n"
         )
 
     def test_no_change_when_tag_already_exists(self, tmp_path, plugin_builds_dir):
         content = (
-            "  # - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-foo@sha256:abc\n"
             "  # Tag: 1.11--1.5.4, Build date: 2025-05-01\n"
-            "  - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic\n"
+            "  - package: oci://quay.io/rhdh/rhdh-backstage-plugin-foo@sha256:abc\n"
         )
         dpdy = tmp_path / "dynamic-plugins.default.yaml"
         dpdy.write_text(content)
@@ -316,14 +285,13 @@ class TestInject:
         assert changed is False
         assert dpdy.read_text() == content
 
-    def test_no_change_when_no_matching_plugin(self, tmp_path):
+    def test_wrapper_reference_is_rejected(self, tmp_path):
         empty_builds = tmp_path / "plugin_builds"
         empty_builds.mkdir()
         dpdy = tmp_path / "dynamic-plugins.default.yaml"
         content = "  - package: ./dynamic-plugins/dist/unknown-plugin-dynamic\n"
         dpdy.write_text(content)
 
-        changed = injectDpdyTagComments.inject(dpdy, empty_builds)
-
-        assert changed is False
+        with pytest.raises(ValueError, match="wrapper package references are no longer supported"):
+            injectDpdyTagComments.inject(dpdy, empty_builds)
         assert dpdy.read_text() == content

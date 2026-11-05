@@ -4,6 +4,8 @@ import { TektonSupportHelper } from "../support/tekton-support-helper";
 
 test.describe("Test Tekton plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
+    test.setTimeout(900_000);
+
     // Community plugin publishes to ghcr.io; nightly mode resolves {{inherit}} to RHEC by default.
     // Remove when this community package is no longer in default.packages.yaml in the rhdh repo.
     const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
@@ -18,8 +20,10 @@ test.describe("Test Tekton plugin", () => {
     const operatorInstallPath = WorkspacePaths.resolve(
       "tests/config/operator-install.sh",
     );
-    await $`bash ${operatorInstallPath} ${namespace}`;
-    await rhdh.deploy();
+    await test.runOnce("tekton-operator-install", async () => {
+      await $`bash ${operatorInstallPath} ${namespace}`;
+    });
+    await rhdh.deploy({ timeout: 900_000 });
   });
 
   test.beforeEach(async ({ loginHelper }) => {
@@ -27,9 +31,9 @@ test.describe("Test Tekton plugin", () => {
     await loginHelper.loginAsKeycloakUser();
   });
 
-  test("Check Pipeline Run", async ({ page, uiHelper }, testInfo) => {
+  test("Check Pipeline Run", async ({ page, uiHelper }) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab(testInfo);
+    await tekton.goToBackstageJanusProjectCITab();
     await tekton.ensurePipelineRunsTableIsNotEmpty();
     await uiHelper.verifyHeading("Pipeline Runs");
     await uiHelper.verifyTableHeadingAndRows(
@@ -37,18 +41,18 @@ test.describe("Test Tekton plugin", () => {
     );
   });
 
-  test("Check search functionality", async ({ page }, testInfo) => {
+  test("Check search functionality", async ({ page }) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab(testInfo);
+    await tekton.goToBackstageJanusProjectCITab();
     await tekton.search("hello-world");
     await tekton.ensurePipelineRunsTableIsNotEmpty();
   });
 
   test("Check if modal is opened after click on the pipeline stage", async ({
     page,
-  }, testInfo) => {
+  }) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab(testInfo);
+    await tekton.goToBackstageJanusProjectCITab();
     await tekton.clickOnExpandRowFromPipelineRunsTable(
       "hello-world-pipeline-run",
     );

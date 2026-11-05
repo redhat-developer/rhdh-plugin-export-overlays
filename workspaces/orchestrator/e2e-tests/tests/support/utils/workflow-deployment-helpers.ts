@@ -41,16 +41,10 @@ async function cloneOrchestratorDemo(demoDir: string): Promise<void> {
 const MANIFEST_DIRS = [
   "workflows/greeting/manifests",
   "workflows/fail-switch/src/main/resources/manifests",
-  "workflows/sample-retry-test/manifests",
   "workflows/test-object-type-uiprops/manifests",
 ];
 
-const WORKFLOWS = [
-  "greeting",
-  "failswitch",
-  "sample-retry-test",
-  "test-object-type-uiprops",
-];
+const WORKFLOWS = ["greeting", "failswitch", "test-object-type-uiprops"];
 
 /** Default SonataFlow operator Postgres secret; e2e uses `backstage-psql-secret` instead. */
 const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
@@ -163,7 +157,7 @@ export async function deploySonataflow(namespace: string): Promise<void> {
 }
 
 function deleteExistingWorkflowCRs(namespace: string): void {
-  for (const workflow of WORKFLOWS) {
+  for (const workflow of [...WORKFLOWS, "sample-retry-test"]) {
     try {
       runOc(
         [
@@ -440,8 +434,6 @@ function alignWorkflowImages(namespace: string, imageMajorMinor: string): void {
   const imageMap: Record<string, string> = {
     greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
     failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- workflow resource name
-    "sample-retry-test": `quay.io/orchestrator/serverless-workflow-sample-retry-test:${oslTag}`,
     // eslint-disable-next-line @typescript-eslint/naming-convention -- workflow resource name
     "test-object-type-uiprops": `quay.io/orchestrator/serverless-workflow-test-object-type-uiprops:${oslTag}`,
   };

@@ -1,0 +1,4 @@
+# Disable Lightspeed/IA sidecar on Helm. Catalog externalAccess token lives in
+# app-config-rhdh.yaml so operator deployments receive it too.
+intelligentAssistant:
+  enabled: false

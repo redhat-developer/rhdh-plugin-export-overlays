@@ -26,45 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - backstage-catalog-cards
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            immobiliarelabs.backstage-plugin-gitlab:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityGitlabMergeRequestStatsCard
-                  config:
-                    layout:
-                      gridColumnEnd:
-                        lg: span 4
-                        md: span 6
-                        xs: span 12
-                    if:
-                      allOf:
-                        - isGitlabAvailable
-                - mountPoint: entity.page.ci/cards
-                  importName: EntityGitlabPipelinesTable
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGitlabAvailable
-                - mountPoint: entity.page.issues/cards
-                  importName: EntityGitlabIssuesTable
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGitlabAvailable
-                - mountPoint: entity.page.pull-requests/cards
-                  importName: EntityGitlabMergeRequestsTable
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - isGitlabAvailable
+  appConfigNotRequired: true
+  appConfigExamples: []

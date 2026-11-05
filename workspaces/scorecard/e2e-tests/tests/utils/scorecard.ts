@@ -1,80 +1,47 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import type { ScorecardMetric, ThresholdRule } from "./types";
-import { DEFAULT_THRESHOLD_LABELS } from "./constants";
+import type { ScorecardMetric } from "./types";
+import { DEFAULT_THRESHOLDS } from "./constants";
+import { thresholdRuleLegendLocator } from "./thresholds";
 
-export const FILECHECK_METRICS = {
-  readme: {
-    title: "File check: readme",
-    description: "Checks whether the readme file exists in the repository.",
-    thresholdLabels: ["Exist", "Missing"],
-  },
-  license: {
-    title: "File check: license",
-    description: "Checks whether the license file exists in the repository.",
-    thresholdLabels: ["Exist", "Missing"],
-  },
-} as const;
+/**
+ * Temporal fix for https://redhat.atlassian.net/browse/RHDHBUGS-3898.
+ * The entity tab links navigate the document instead of routing client side,
+ * so when opening a tab the sign-in page comes back.
+ */
+async function ensureSignedIn(page: Page, expectedLocator: Locator) {
+  const signIn = page.getByRole("button", { name: "Sign In", exact: true });
 
-export const SCORECARD_METRICS = [
-  {
-    title: "GitHub open PRs",
-    description:
-      "Current count of open Pull Requests for a given GitHub repository.",
-    thresholdLabels: ["Ideal", "Warning", "Critical"],
-  },
-  {
-    title: "Jira open blocking tickets",
-    description:
-      "Highlights the number of critical, blocking issues that are currently open in Jira.",
-  },
-] as const;
+  // Wait for whichever renders first - sign in or expected locator
+  const signedOut = await Promise.race([
+    signIn
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => true)
+      .catch(() => null),
+    expectedLocator
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => false)
+      .catch(() => null),
+  ]);
+  if (!signedOut) return;
 
-export const OPENSSF_MAINTAINED_SCORECARD = [
-  {
-    title: "OpenSSF Maintained",
-    description:
-      'Determines if the project is "actively maintained" according to OpenSSF Security Scorecards.',
-  },
-] as const;
-
-/** Used when openssf.maintained is disabled via scorecard.io/disabled-metrics */
-export const OPENSSF_LICENSE_SCORECARD = [
-  {
-    title: "OpenSSF License",
-    description:
-      "Determines if the project has defined a license according to OpenSSF Security Scorecards.",
-  },
-] as const;
-
-export const DEPENDABOT_METRICS = [
-  {
-    title: "Dependabot Critical Alerts",
-    description:
-      "Current count of open critical Dependabot alerts for a given repository.",
-  },
-  {
-    title: "Dependabot High Alerts",
-    description:
-      "Current count of open high-severity Dependabot alerts for a given repository.",
-  },
-  {
-    title: "Dependabot Medium Alerts",
-    description:
-      "Current count of open medium-severity Dependabot alerts for a given repository.",
-  },
-  {
-    title: "Dependabot Low Alerts",
-    description:
-      "Current count of open low-severity Dependabot alerts for a given repository.",
-  },
-] as const;
+  // The Keycloak SSO session is still alive, so this just lands back on the tab when sign in is clicked.
+  await signIn.click();
+  await expect(expectedLocator).toBeVisible({ timeout: 60_000 });
+}
 
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
-  const getScorecardCard = (metric: ScorecardMetric) =>
+  const getScorecardCard = (metric: Pick<ScorecardMetric, "title">) =>
     page
       .locator('[role="article"]')
       .filter({ has: page.getByText(metric.title, { exact: true }) });
+
+  // Exact title so "GitHub open PRs" does not also match
+  // "GitHub open PRs (weighted health)".
+  const getAggregatedCard = (metricTitle: string) =>
+    page.locator('[role="article"]').filter({
+      has: page.getByText(metricTitle, { exact: true }),
+    });
 
   return {
     getScorecardCard,
@@ -82,6 +49,7 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       const tab = page.getByRole("link", { name: "Scorecard" });
       await expect(tab).toBeVisible();
       await tab.click();
+      await ensureSignedIn(page, tab);
     },
     async expectEmptyState() {
       await expect(page.getByText("No scorecards added yet")).toBeVisible();
@@ -97,36 +65,45 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     async expectScorecardCardVisible(metric: ScorecardMetric) {
       await expect(getScorecardCard(metric)).toBeVisible();
     },
-    async validateScorecardAriaFor(scorecard: ScorecardMetric) {
+    async validateScorecardAriaFor(
+      scorecard: ScorecardMetric,
+      options?: { visualization?: "sparkline" },
+    ) {
       const scorecardCard = getScorecardCard(scorecard);
       await expect(scorecardCard).toBeVisible();
       await expect(scorecardCard).toContainText(scorecard.title);
       await expect(scorecardCard).toContainText(scorecard.description);
-      const thresholdLegendLabels =
-        scorecard.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
-      for (const label of thresholdLegendLabels) {
-        await expect(scorecardCard).toContainText(label);
-      }
+      await this.validateThresholdLegend(scorecard, options);
     },
     async validateThresholdLegend(
       metric: ScorecardMetric,
-      rules: readonly ThresholdRule[],
+      options?: { visualization?: "sparkline" },
     ) {
       const scorecardCard = getScorecardCard(metric);
       await expect(scorecardCard).toBeVisible();
 
+      const rules = metric.thresholds ?? DEFAULT_THRESHOLDS;
       for (const rule of rules) {
-        const label = rule.key.charAt(0).toUpperCase() + rule.key.slice(1);
-        const legendText = scorecardCard.getByText(
-          `${label} ${rule.expression}`,
-          { exact: true },
-        );
-        await expect(legendText).toBeVisible();
-        const swatch = scorecardCard.getByTestId(
-          `legend-colorbox-${rule.key.toLowerCase()}`,
-        );
-        if (rule.color) {
-          await expect(swatch).toHaveCSS("background-color", rule.color);
+        await expect(
+          thresholdRuleLegendLocator(scorecardCard, rule, true),
+        ).toBeVisible();
+        if (options?.visualization === "sparkline") {
+          const legendItem = scorecardCard.getByTestId(
+            `sparkline-threshold-legend-item-${rule.keyLabel.toLowerCase()}`,
+          );
+          await expect(legendItem).toBeVisible();
+          if (rule.color) {
+            await expect(
+              legendItem.getByTestId("sparkline-threshold-color"),
+            ).toHaveCSS("stroke", rule.color);
+          }
+        } else {
+          const swatch = scorecardCard.getByTestId(
+            `legend-colorbox-${rule.keyLabel.toLowerCase()}`,
+          );
+          if (rule.color) {
+            await expect(swatch).toHaveCSS("background-color", rule.color);
+          }
         }
       }
     },
@@ -156,10 +133,26 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
         // Edit button never appeared — already in edit mode.
       }
     },
-    async addWidget(cardName: string, options?: { exact?: boolean }) {
+    async addWidget(
+      cardName: string,
+      options?: { exact?: boolean; aggregationId?: string },
+    ) {
       await this.enterEditModeIfNeeded();
       await this.openAddWidgetDialog();
       await this.selectWidget(cardName, options);
+
+      if (options?.aggregationId) {
+        const addedWidget = page.locator(".react-grid-item").last();
+        await addedWidget
+          .getByRole("button", { name: "Edit settings" })
+          .click();
+        const settingsDialog = page.getByRole("dialog");
+        await settingsDialog
+          .getByRole("textbox", { name: "Aggregation ID" })
+          .fill(options.aggregationId);
+        await settingsDialog.getByRole("button", { name: "Submit" }).click();
+      }
+
       try {
         await page
           .getByRole("button", { name: "Save" })
@@ -175,9 +168,14 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await page.getByRole("button", { name: "Add widget" }).click();
     },
     async selectWidget(cardName: string, options?: { exact?: boolean }) {
-      await page
-        .getByRole("button", { name: cardName, exact: options?.exact })
-        .click();
+      const widget = page
+        .getByRole("button", {
+          name: cardName,
+          exact: options?.exact,
+        })
+        .first();
+      await widget.scrollIntoViewIfNeeded();
+      await widget.click();
     },
     async expectNoProgressBar() {
       await expect(
@@ -188,17 +186,14 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await page.getByRole("button", { name: "Save" }).click();
     },
     async expectAggregatedScorecardVisible(metricTitle: string) {
-      await expect(
-        page.locator('[role="article"]').filter({ hasText: metricTitle }),
-      ).toBeVisible({ timeout: 90_000 });
+      await expect(getAggregatedCard(metricTitle)).toBeVisible({
+        timeout: 90_000,
+      });
     },
     async getAggregatedScorecardEntityCount(
       metricTitle: string,
     ): Promise<number> {
-      const card = page
-        .locator('[role="article"]')
-        .filter({ hasText: metricTitle });
-      const text = await card.textContent();
+      const text = await getAggregatedCard(metricTitle).textContent();
       const match = text?.match(/(\d+)\s*entities/);
       return match ? Number.parseInt(match[1], 10) : 0;
     },
@@ -206,10 +201,9 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       metricTitle: string,
       expectedCount: number,
     ) {
-      const card = page
-        .locator('[role="article"]')
-        .filter({ hasText: metricTitle });
-      await expect(card).toContainText(`${expectedCount} entities`);
+      await expect(getAggregatedCard(metricTitle)).toContainText(
+        `${expectedCount} entities`,
+      );
     },
     async expectFilecheckForEntity(
       navigate: () => Promise<void>,
@@ -238,6 +232,42 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await expect(
         section.locator(`[data-testid="${expectedIconTestId}"]`),
       ).toBeVisible({ timeout: 90_000 });
+    },
+    async openDataSourcesDialog(card: Locator): Promise<Locator> {
+      await card.getByRole("button", { name: /more options/i }).click();
+      await page.getByRole("menuitem", { name: /view data sources/i }).click();
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 10_000 });
+      return dialog;
+    },
+    async closeDataSourcesDialog(dialog: Locator): Promise<void> {
+      await dialog.getByRole("button", { name: "Close" }).last().click();
+      await expect(dialog).toBeHidden();
+    },
+    async expectDataSourcesDialog(
+      scorecard: Pick<ScorecardMetric, "title">,
+      verifyData?: (locator: Locator) => Promise<void>,
+    ): Promise<void> {
+      const card = getScorecardCard(scorecard);
+      await expect(card).toBeVisible({ timeout: 90_000 });
+
+      const dialog = await this.openDataSourcesDialog(card);
+      await expect(dialog).toContainText(`${scorecard.title} sources`);
+
+      const dataSourcesDialogColumns = [
+        "PLUGIN",
+        "CHECK",
+        "VALUE",
+        "STATUS",
+        "LAST SYNCED",
+      ];
+      for (const column of dataSourcesDialogColumns) {
+        await expect(dialog.getByText(column, { exact: true })).toBeVisible();
+      }
+
+      await verifyData?.(dialog);
+
+      await this.closeDataSourcesDialog(dialog);
     },
   };
 }

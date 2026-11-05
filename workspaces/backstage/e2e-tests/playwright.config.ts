@@ -26,6 +26,11 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
     },
     {
+      name: "backstage-gitlab-pqc-forced-ml-kem",
+      testMatch: /tests\/specs\/gitlab-pqc-forced-ml-kem\.spec\.ts/,
+    },
+
+    {
       name: "backstage-gitlab-events-discovery",
       testMatch: /tests\/specs\/gitlab-events-discovery\.spec\.ts/,
     },
@@ -50,6 +55,10 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
     },
     {
+      name: "backstage-signals",
+      testMatch: /tests\/specs\/signals\.spec\.ts/,
+    },
+    {
       name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
       // ReportIssue depends on shadow-DOM text selection timing; allow one CI retry.
@@ -60,12 +69,28 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/gitlab-scaffolder-actions\.spec\.ts/,
     },
     {
+      name: "backstage-github-scaffolder-actions",
+      testMatch: /tests\/specs\/github-scaffolder-actions\.spec\.ts/,
+    },
+    {
       name: "backstage-auth",
       testMatch: /tests\/specs\/auth\.spec\.ts/,
     },
     {
       name: "backstage-microsoft-auth",
       testMatch: /tests\/specs\/microsoft-auth\.spec\.ts/,
+    },
+    {
+      name: "backstage-gitlab-auth",
+      testMatch: /tests\/specs\/gitlab-auth\.spec\.ts/,
+    },
+    {
+      name: "backstage-ldap-auth",
+      testMatch: /tests\/specs\/ldap-auth\.spec\.ts/,
+    },
+    {
+      name: "backstage-github-auth",
+      testMatch: /tests\/specs\/github-auth\.spec\.ts/,
     },
   ],
 });

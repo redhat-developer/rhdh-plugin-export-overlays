@@ -1,11 +1,13 @@
 app:
   extensions:
-    - page:home:
+    - page:home: false
+    - page:homepage:
         config:
           path: /
+          title: Home
     - api:home/visits: true
     - app-root-element:home/visit-listener: true
-    - home-page-layout:home/dynamic-homepage-layout:
+    - home-page-layout:homepage/dynamic-homepage-layout:
         config:
           customizable: true
 
@@ -35,6 +37,25 @@ app:
                 - github.openPRs
                 - dependabot.alertsMedium
                 - dependabot.alertsLow
+
+# Homepage Backend treats defaultWidgets as the NFS widget allowlist. Keep its
+# standard widgets visible and include Scorecard's HomePageWidgetBlueprint.
+homepage:
+  defaultWidgets:
+    - id: rhdh-onboarding-section
+      ref: rhdh-onboarding-section
+      props:
+        title: Onboarding section
+    - id: rhdh-entity-section
+      ref: rhdh-entity-section
+      props:
+        title: Entity section
+    - id: rhdh-template-section
+      ref: rhdh-template-section
+      props:
+        title: Template section
+    - id: scorecard-aggregated-card
+      ref: scorecard-aggregated-card
 
 catalog:
   rules:

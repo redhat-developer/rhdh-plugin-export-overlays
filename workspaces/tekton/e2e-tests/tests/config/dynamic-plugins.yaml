@@ -1,45 +1,17 @@
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
+  - package: oci://quay.io/rhdh/backstage-plugin-kubernetes-backend:{{inherit}}
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes:bs_1.52.0__0.12.20
+  - package: oci://quay.io/rhdh/backstage-plugin-kubernetes:{{inherit}}
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          backstage.plugin-kubernetes:
-            mountPoints:
-              - mountPoint: entity.page.kubernetes/cards
-                importName: EntityKubernetesContent
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                  if:
-                    anyOf:
-                      - hasAnnotation: backstage.io/kubernetes-id
-                      - hasAnnotation: backstage.io/kubernetes-namespace
   - package: ./dynamic-plugins/dist/backstage-community-plugin-tekton
     enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
-          backstage-community.plugin-tekton:
-            mountPoints:
-              - mountPoint: entity.page.tekton/cards
-                importName: TektonContent
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                  if:
-                    allOf:
-                      - isTektonAvailable
-              - mountPoint: entity.page.ci/cards
-                importName: TektonCI
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                  if:
-                    allOf:
-                      - isTektonCIAvailable
+          # NFS (RHDH 2.1): Tekton registers EntityContentBlueprint from the
+          # package default export (title "Tekton", group deployment). Legacy
+          # entity.page.ci / entity.page.tekton mountPoints are ignored on NFS.
+          backstage-community.plugin-tekton: {}
   # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
     enabled: false

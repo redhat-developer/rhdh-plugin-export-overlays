@@ -42,9 +42,10 @@ Plugins fall into three support levels, tracked in text files at the repo root:
 - `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
-Note: the community plugin sweep (`community-plugin-sweep.yaml`) selects packages from
+Note: the plugin sweep (`community-plugin-sweep.yaml`) selects packages from
 `spec.support` in `workspaces/*/metadata/*.yaml`, not from these files — the metadata is
-what the build publishes from. The two currently disagree (41 workspaces carry a
+what the build publishes from. It sweeps one tier per nightly cron, not community
+alone. The two currently disagree (41 workspaces carry a
 community package; the txt file names 20), so do not treat either as authoritative for
 the other's purpose.
 
@@ -57,7 +58,7 @@ Auto-discovery covers three npm scopes (defined in `plugins-regexps`):
 
 ## Key Workflows
 
-There is no local build system — all building, testing, and publishing happens via GitHub Actions.
+Dynamic plugin OCI packaging and publishing run through GitHub Actions. Workspace E2E tests can run locally against an OpenShift cluster or through OpenShift CI (Prow).
 
 ### PR Commands
 
@@ -74,11 +75,12 @@ On a PR, comment:
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
-| `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
+| `publish-workspace-plugins.yaml` | Push to `main` / release branches | Publishes final OCI images, then smoke tests each workspace it just published against its new `bs_*` tag |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
-| `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
-| `community-plugin-sweep.yaml` | Daily + manual | Load-tests every `spec.support: community` package with the Docker-free `smoke-tests-native/` harness |
+| `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
+| `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
 | `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
+| `release-plugin-sanity.yaml` | Daily (main + `RELEASE_BRANCHES`) + `/sanity <chart>` on the `release-sanity` issue | Boots the real RHDH image of a CI chart with every catalog index and community plugin, and fails when one does not load, or when two share an install directory even with every plugin loaded (`yarn release-sanity`) |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
@@ -101,6 +103,35 @@ git config core.hooksPath .githooks
 ```
 
 The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zero overhead otherwise. It uses the same shared script (`scripts/e2e-code-quality.sh`) as the CI workflow, so checks are always in sync. See `.githooks/README.md` for details on combining with existing hooks.
+
+### Local E2E quick start
+
+Read the [local-run documentation](#local-e2e-documentation) for prerequisites, cluster login, and Bitwarden setup. Use the Node.js version in `versions.json`; this checkout's runner rejects lower versions and warns on newer ones.
+
+From the **repository root**:
+
+```bash
+# List tests without cluster setup or test execution
+./run-e2e.sh -w tech-radar --list
+
+# Run one workspace with the repository secret profile; retain namespaces
+CI=false ./run-e2e.sh --secrets -w tech-radar
+```
+
+Omit `--secrets` when the required environment variables are already supplied. With `--secrets`, use `-w` to narrow secret selection; `--project` filters tests only. Selection rules live in the Repository E2E secrets guide below.
+
+`--list` still installs dependencies and generates configuration. Before executing tests, choose the [CI behavior](#ci-behavior-for-local-runs): the root runner defaults to `CI=true` and automatic namespace cleanup.
+
+### Local E2E documentation
+
+Read the relevant document before setting up or changing a local run. Local links are relative to this repository; upstream links point directly to Markdown source. These sources cover dependency/browser installation, workspace commands, reporting, and cleanup. Use `versions.json`, `run-e2e.sh`, and the selected workspace's configuration as the authority for checkout-specific versions and defaults.
+
+| Read when… | Documentation |
+|------------|---------------|
+| Setting up and running workspace tests locally | [Local-running guide](https://raw.githubusercontent.com/redhat-developer/rhdh-e2e-test-utils/main/docs/overlay/tutorials/running-locally.md) |
+| Selecting workspaces, forwarding test options, or using local test-utils builds | [Unified runner reference](https://raw.githubusercontent.com/redhat-developer/rhdh-e2e-test-utils/main/docs/overlay/reference/run-e2e.md) |
+| Running tests with this repository's secret profile | [Repository E2E secrets guide](./user-guide/09-managing-e2e-secrets.md#running-tests-with-secrets) |
+| Setting up Bitwarden authentication or understanding local secret execution | [Secrets API](https://raw.githubusercontent.com/redhat-developer/rhdh-e2e-test-utils/main/docs/api/secrets.md#local-command) |
 
 ## Working with Workspaces
 
@@ -197,7 +228,7 @@ Each Playwright project creates a **separate Kubernetes namespace** (project nam
 1. **Global setup** (once per run) — checks binaries (`oc`, `kubectl`, `helm`), detects cluster domain, deploys Keycloak
 2. **Worker fixture** (once per worker) — creates `RHDHDeployment(projectName)`, sets CWD to the workspace's `e2e-tests/` directory
 3. **Test execution** — `beforeAll` configures + deploys RHDH, `beforeEach` handles login, tests use `uiHelper`/`page` for assertions
-4. **Teardown** (CI only) — per-project namespace deletion via a custom Playwright reporter as soon as all tests in that project finish
+4. **Reporting and teardown** — collects failure diagnostics in both local and automated runs; deletes each project's namespaces only with `CI=true`, after its tests and retries finish
 
 ### Standard Test Pattern
 
@@ -336,12 +367,14 @@ All files in `tests/config/` are **optional** — only create them when you need
 - `rhdh-secrets.yaml` — Kubernetes Secret manifest for injecting env vars into RHDH
 - `dynamic-plugins.yaml` — Plugin overrides (usually NOT needed — auto-generated from metadata)
 - `value_file.yaml` — Helm chart value overrides
-- `subscription.yaml` — Operator subscription overrides
+- `subscription.yaml` — Operator `Backstage` CR overrides (not an OLM Subscription)
+
+Helm reads `value_file.yaml`; the operator reads `subscription.yaml` (a `Backstage` CR, not an OLM Subscription). Put shared application settings in `app-config-rhdh.yaml`. The failure-analysis skill's [Installation Methods](.fullsend/skills/e2e-failure-analysis/reference/workspace-analysis.md#installation-methods) section covers operator-specific diagnosis: which diagnostics are captured, flavour/workload/ConfigMap checks, and config-array merging.
 
 **Environment variables in RHDH config:** To use an env var in `app-config-rhdh.yaml`, it must first be defined in `rhdh-secrets.yaml`. The flow is:
 
 ```
-Environment (CI Vault / .env)     rhdh-secrets.yaml              app-config-rhdh.yaml
+Environment (CI secrets / .env)  rhdh-secrets.yaml              app-config-rhdh.yaml
 MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY_TOKEN}
                                   (envsubst replaces $VAR)       (references the K8s Secret)
 ```
@@ -358,13 +391,13 @@ The worker fixture also does `process.chdir(e2eRoot)` as a complementary safety 
 
 ### Namespace Teardown
 
-In CI (`CI=true`), namespaces are automatically deleted by a custom Playwright **reporter** — not `afterAll` hooks or worker fixture cleanup. This design is intentional:
+The default custom Playwright **reporter** runs in both local and automated test runs and collects diagnostics for failed projects. It deletes namespaces only when `CI` is exactly `"true"`. Namespace deletion uses the reporter rather than `afterAll` hooks or worker fixture cleanup. This design is intentional:
 
 - **`afterAll` hook**: Fires when a worker dies. When a test fails and Playwright restarts the worker for retries, the old worker's `afterAll` deletes the namespace before the retry can use it.
 - **Worker fixture teardown**: Same problem — runs on worker exit, not on suite completion.
 - **`globalTeardown`**: Runs after all tests but has no visibility into which projects ran or which namespaces were created.
 
-The reporter runs in the main Playwright process (survives worker restarts), tracks per-project test completion including retries, and deletes each project's namespace as soon as its last test finishes.
+The reporter runs in the main Playwright process (survives worker restarts) and tracks per-project test completion including retries. With `CI=true`, it deletes each project's namespaces as soon as its last test finishes, including failed projects after collecting their diagnostics. It also attempts cleanup of unfinished projects when the run ends.
 
 ### Playwright Fixtures
 
@@ -416,33 +449,53 @@ Nothing is committed — `package.json`, `playwright.config.ts`, `.yarnrc.yml` a
 
 ### Running Tests
 
-**From a workspace (development):**
+Start with the [Local E2E quick start](#local-e2e-quick-start). For detailed setup or local test-utils builds, follow the [local-run documentation](#local-e2e-documentation).
+
+**From a workspace (local development):**
+
 ```bash
 cd workspaces/tech-radar/e2e-tests
-cp .env.sample .env  # if exists, fill in secrets
+unset CI                     # clear inherited CI mode for this shell
 yarn install
-yarn test            # or: npx playwright test
-yarn test --headed   # watch in browser
-yarn test --ui       # Playwright UI mode
-yarn report          # open last HTML report
+npx playwright install chromium
+
+# Choose a test command:
+yarn test                    # required secrets already supplied
+yarn test:secrets            # load secrets from the repository profile
+yarn test --headed           # watch in browser
+yarn test --ui               # Playwright UI mode
+yarn report                  # open last HTML report
 ```
 
-**From repo root (CI / cross-workspace):**
-```bash
-./run-e2e.sh -w tech-radar
-# or with local e2e-test-utils build:
-E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
-```
+Use `test:secrets` instead of `test` when secrets need to be loaded; it accepts the same Playwright options, such as `yarn test:secrets --headed`. Follow the linked local-running guide for optional, non-secret `.env` configuration.
 
 **Test locally with PR-built OCI images:**
+
+Publish the PR's OCI images with `/publish` before running. From the repository root:
+
 ```bash
-export GIT_PR_NUMBER=1845
-yarn test  # uses OCI images published by that PR's /publish command
+CI=false GIT_PR_NUMBER=1845 ./run-e2e.sh --secrets -w tech-radar
 ```
+
+`GIT_PR_NUMBER` selects PR-built images.
+
+### CI behavior for local runs
+
+The current checkout has these local-run caveats:
+
+- The root runner sets an unset or empty `CI` to `"true"`. Use `CI=true` for automatic namespace cleanup or `CI=false` to retain deployments for debugging.
+- `CI=false` is a nonempty string. It still enables `forbidOnly` and ignores `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true`; it does not fully disable CI behavior.
+- In `backstage`, GitHub-discovery and TechDocs projects use one retry with either string and zero with `CI` unset. GitLab scaffolder resource cleanup defaults to enabled only for `CI=true`; override it independently with `GITLAB_SCAFFOLDER_CLEANUP=true` or `false`.
+- For local nightly reproduction, set `E2E_NIGHTLY_MODE=true`. The root runner defaults `RELEASE_BRANCH_NAME` to `main` and `RHDH_VERSION` to `next`; when reproducing another release, set both explicitly (for example `RELEASE_BRANCH_NAME=release-2.1 RHDH_VERSION=2.1`). Set the branch explicitly for direct workspace runs with a nonempty `CI`, or when reproducing a Prow job locally.
+- Set `CI` in the launching shell, not workspace `.env` files: those load after Playwright configuration evaluation and can make configuration and cleanup use different values.
+
+Direct workspace runs normally need no `CI` setting. The workspace example uses `unset CI` once to clear any inherited value for subsequent commands in that shell. For a single command without changing the shell's environment, use `env -u CI yarn test:secrets --headed` from the workspace directory instead.
+
+Both forms allow focused tests and retain namespaces for direct workspace runs. The root runner restores `CI=true` when `CI` is unset, so clearing it does not enable local-mode behavior through `run-e2e.sh`.
 
 ### Local Development Gotchas
 
-**Namespaces are NOT auto-deleted locally.** The teardown reporter only runs when `CI=true`. After local test runs, namespaces persist on the cluster. Clean up manually:
+**Retained namespaces need manual cleanup.** With `CI=false`, inspect the retained deployments, then delete their namespaces when debugging is complete:
 ```bash
 oc delete project <namespace>
 ```
@@ -453,13 +506,15 @@ oc delete project <namespace>
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `RHDH_VERSION` | RHDH version to deploy | `"next"` |
+| `RHDH_VERSION` | RHDH version to deploy; workspace configuration may override it | `next` in root runner |
 | `INSTALLATION_METHOD` | `"helm"` or `"operator"` | `"helm"` |
 | `GIT_PR_NUMBER` | PR number — enables PR mode with PR-built OCI images | - |
 | `E2E_NIGHTLY_MODE` | `"true"` or `"1"` — enables nightly mode with released OCI refs | - |
+| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution | `main` in local root runs; supplied by Prow jobs |
 | `JOB_NAME` | CI job name; `periodic-` prefix triggers nightly mode | - |
 | `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak in global setup | - |
-| `CI` | Enables `forbidOnly`, teardown reporter, namespace cleanup | - |
+| `SKIP_OPERATOR_INSTALLATION` | Reuse an installed operator when `INSTALLATION_METHOD=operator` | Unset (install operator) |
+| `CI` | See [CI behavior for local runs](#ci-behavior-for-local-runs) for cleanup and focused-test behavior | `true` in root runner |
 | `E2E_TEST_UTILS_PATH` | Local e2e-test-utils build path (takes precedence over version) | - |
 | `E2E_TEST_UTILS_VERSION` | Pin e2e-test-utils npm version | `latest` (nightly) |
 | `CATALOG_INDEX_IMAGE` | Override the catalog index image in the RHDH chart | - |
@@ -469,16 +524,19 @@ oc delete project <namespace>
 | Job | When | Workspaces | OCI Images |
 |-----|------|-----------|------------|
 | PR check (`e2e-ocp-helm`) | PR with e2e changes | Changed workspace only | PR-built (`pr_` tags) |
-| Nightly (`e2e-ocp-helm-nightly`) | Daily cron / manual | All workspaces | Released (metadata refs) |
+| PR check (`e2e-ocp-operator`) | PR with e2e changes (operator lane) | Changed workspace only | PR-built (`pr_` tags) |
+| Nightly (`e2e-ocp-helm-nightly`) | Mon/Wed/Fri on `main`; weekdays on release branches; manual | All workspaces | Released (metadata refs) |
+| Nightly (`e2e-ocp-operator-nightly`) | Tue/Thu on `main`; weekdays on release branches where enabled; manual | All workspaces | Released (metadata refs) |
 
-Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
+Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` (or `/test e2e-ocp-operator-nightly`) on a PR.
+
+Operator jobs are enabled in OpenShift CI on `main` and `release-2.1`. Diagnose the installation method from the build log, not the job name alone.
 
 ### Failure Analysis
 
-Two Claude Code skills are available at `.claude/skills/` for investigating E2E failures:
+A Claude Code skill is available at `.claude/skills/` for investigating E2E failures:
 
-- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
-- **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
+- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison. Its architecture reference covers Helm and operator configuration differences.
 
 ## E2E Nightly Fix Conventions
 
@@ -493,9 +551,18 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 - Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
 ### Skipping tests (product_bug classification)
-When the issue says `fix_category: product_bug`, add `test.skip` instead
-of fixing the test:
+When the issue says `fix_category: product_bug`, add a skip scoped to the lane
+where the bug occurs instead of fixing the test. The CI step sets
+`E2E_NIGHTLY_MODE=true` for both Helm and operator nightlies, so a bare nightly
+skip silently drops the other lane's coverage:
 
+    # Operator-only defect
+    test.skip(process.env.INSTALLATION_METHOD === "operator", "<root cause summary>");
+
+    # Helm-only defect
+    test.skip(process.env.INSTALLATION_METHOD !== "operator", "<root cause summary>");
+
+    # Affects both lanes
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
 ### Verification

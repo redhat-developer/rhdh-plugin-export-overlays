@@ -204,7 +204,6 @@ explain_missing() {
     echo "1. The package name in default.packages.yaml doesn't match the 'packageName' in metadata"
     echo "2. The package name format differs (e.g., with/without version, with/without @scope)"
     echo "3. The metadata file is missing or in an unexpected location"
-    echo "4. The package name might need to remove the '-dynamic' suffix (if moving from wrapper to oci artifact)"
   fi
 }
 
@@ -218,6 +217,10 @@ build_plugin_entry() {
 
   local dynamic_artifact package_value
   dynamic_artifact=$(yq_raw '.spec.dynamicArtifact // ""' "$meta_path" 2>/dev/null)
+  if [[ "$dynamic_artifact" == ./dynamic-plugins/dist || "$dynamic_artifact" == ./dynamic-plugins/dist/* ]]; then
+    echo "Error: Wrapper artifact '$dynamic_artifact' in $meta_path is no longer supported, use its oci:// artifact reference instead." >&2
+    return 1
+  fi
   package_value=$dynamic_artifact
 
   local entry

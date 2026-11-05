@@ -19,6 +19,9 @@
 #                    EXPECTED, CheckRun WAITING) and checks not reported at all —
 #                    the bootstrap must not block a diagnosis forever on
 #                    something a human has to kick off.
+#   "all"          → every curated check that has reported, regardless of state.
+#                    Used by the pending-check reconciliation step in ci-diagnose
+#                    to list which curated checks have ANY result on HEAD.
 #
 # ─── To change what ci-diagnose watches, edit ONLY this block ───────────────
 def curated:
@@ -73,7 +76,7 @@ def is_settling:
   end;
 
 .statusCheckRollup
-| if env.CURATED_MODE == "settling"
-  then map(select(is_curated and is_settling))
-  else map(select(is_curated and is_red))
+| if   env.CURATED_MODE == "settling" then map(select(is_curated and is_settling))
+  elif env.CURATED_MODE == "all"      then map(select(is_curated))
+  else                                     map(select(is_curated and is_red))
   end

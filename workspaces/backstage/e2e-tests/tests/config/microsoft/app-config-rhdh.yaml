@@ -6,6 +6,12 @@ backend:
   baseUrl: ${RHDH_BASE_URL}
   cors:
     origin: ${RHDH_BASE_URL}
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: microsoft-e2e-token
+          subject: microsoft-auth-e2e
 
 includeTransitiveGroupOwnership: true
 

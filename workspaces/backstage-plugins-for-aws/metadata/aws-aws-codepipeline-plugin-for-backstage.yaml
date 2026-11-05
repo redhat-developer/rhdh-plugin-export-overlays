@@ -27,19 +27,6 @@ spec:
   lifecycle: active
   partOf:
     - backstage-plugins-for-aws
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            aws.aws-codepipeline-plugin-for-backstage:
-              mountPoints:
-                - mountPoint: entity.page.overview/cards
-                  importName: EntityAwsCodePipelineCard
-                  config:
-                    layout:
-                      gridColumn: "1 / span 6"
-                    if:
-                      anyOf:
-                        - hasAnnotation: aws.amazon.com/aws-codepipeline-arn
-                        - hasAnnotation: aws.amazon.com/aws-codepipeline-tags
+  appConfigNotRequired: true
+  appConfigExamples: []
+

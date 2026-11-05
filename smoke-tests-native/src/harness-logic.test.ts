@@ -7,12 +7,27 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import {
+  createBackendFeatureLoader,
+  createBackendModule,
+  createBackendPlugin,
+  createExtensionPoint,
+  createServiceFactory,
+  createServiceRef,
+  coreServices,
+} from "@backstage/backend-plugin-api";
+import { startTestBackend } from "@backstage/backend-test-utils";
+import {
+  bootFeatureList,
   bundleNamesAreComplete,
   computeStatus,
+  configKeysNotApplicable,
   describeConfigKeyMismatch,
   describeInstallShortfall,
   describeNfsShortfall,
+  expandFeatureLoaders,
+  featureTargets,
   findConfigKeyMismatches,
+  missingHostPluginIds,
   partitionBootable,
 } from "./harness-logic";
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
@@ -325,4 +340,264 @@ test("the config-key check is skipped when the bundle names are incomplete", () 
     false,
   );
   assert.equal(bundleNamesAreComplete(null, [anError]), false);
+});
+
+// ---------------------------------------------------------------------------
+// Host plugins for loaded modules (RHIDP-17310)
+// ---------------------------------------------------------------------------
+const providersPoint = createExtensionPoint<object>({ id: "auth.providers" });
+
+const authModule = createBackendModule({
+  pluginId: "auth",
+  moduleId: "test-provider",
+  register(reg) {
+    reg.registerInit({
+      deps: { providers: providersPoint },
+      async init() {},
+    });
+  },
+});
+
+const catalogLike = createBackendPlugin({
+  pluginId: "catalog",
+  register(reg) {
+    reg.registerInit({ deps: {}, async init() {} });
+  },
+});
+
+test("featureTargets reads what a plugin and a module register", () => {
+  assert.deepEqual(featureTargets(authModule), [
+    { kind: "module", pluginId: "auth" },
+  ]);
+  assert.deepEqual(featureTargets(catalogLike), [
+    { kind: "plugin", pluginId: "catalog" },
+  ]);
+});
+
+test("featureTargets ignores anything that is not a registrations feature", () => {
+  assert.deepEqual(featureTargets(undefined), []);
+  assert.deepEqual(featureTargets({}), []);
+  assert.deepEqual(
+    featureTargets({
+      $$type: "@backstage/BackendFeature",
+      featureType: "registrations",
+      getRegistrations: () => {
+        throw new Error("boom");
+      },
+    }),
+    [],
+  );
+});
+
+test("missingHostPluginIds names the hosts nothing in the run provides", () => {
+  const targets = [
+    { kind: "module" as const, pluginId: "auth" },
+    { kind: "module" as const, pluginId: "catalog" },
+    { kind: "module" as const, pluginId: "notifications" },
+    { kind: "plugin" as const, pluginId: "notifications" },
+  ];
+  // catalog is a core feature; notifications is loaded as a plugin in the same run.
+  assert.deepEqual(missingHostPluginIds(targets, ["catalog"]), ["auth"]);
+});
+
+// ---------------------------------------------------------------------------
+// Config keys for MF-only bundles (RHIDP-17311)
+// ---------------------------------------------------------------------------
+test("a key naming an MF-only bundle is set aside, not reported", () => {
+  // tekton exported with rhdh-cli 2.1: no dist-scalprum/, package.json still declares
+  // scalprum.name = backstage-community.plugin-tekton.
+  const configured = [
+    { key: "backstage-community.plugin-tekton", source: "tekton.yaml" },
+    { key: "backstage-community.plugin-typo", source: "tekton.yaml" },
+  ];
+  const mfOnly = {
+    npmNames: [],
+    scalprumNames: ["backstage-community.plugin-tekton"],
+  };
+  const notApplicable = configKeysNotApplicable(configured, mfOnly);
+  assert.deepEqual(notApplicable, ["backstage-community.plugin-tekton"]);
+  const mismatches = findConfigKeyMismatches(configured, [], notApplicable);
+  assert.deepEqual(
+    mismatches.map((m) => m.key),
+    ["backstage-community.plugin-typo"],
+  );
+});
+
+test("without MF-only names the check behaves as before", () => {
+  const configured = [{ key: "a.b", source: "x.yaml" }];
+  assert.deepEqual(
+    findConfigKeyMismatches(configured, []).map((m) => m.key),
+    ["a.b"],
+  );
+  assert.deepEqual(
+    configKeysNotApplicable(configured, { npmNames: [], scalprumNames: [] }),
+    [],
+  );
+});
+
+test("a key is set aside when its own package installed MF-only", () => {
+  // Newer exports drop `scalprum` from package.json entirely (adoption-insights,
+  // github-*, tech-radar); the metadata's package is the only link left.
+  const configured = [
+    {
+      key: "red-hat-developer-hub.backstage-plugin-adoption-insights",
+      source: "rhdh-bsp-adoption-insights.yaml",
+      packageName: "@red-hat-developer-hub/backstage-plugin-adoption-insights",
+    },
+    { key: "someone.else", source: "other.yaml", packageName: "@x/other" },
+  ];
+  const notApplicable = configKeysNotApplicable(configured, {
+    npmNames: [
+      "@red-hat-developer-hub/backstage-plugin-adoption-insights-dynamic",
+    ],
+    scalprumNames: [],
+  });
+  assert.deepEqual(notApplicable, [
+    "red-hat-developer-hub.backstage-plugin-adoption-insights",
+  ]);
+  assert.deepEqual(
+    findConfigKeyMismatches(configured, [], notApplicable).map((m) => m.key),
+    ["someone.else"],
+  );
+});
+
+test("expandFeatureLoaders shows startTestBackend the plugin a loader yields", async () => {
+  // scorecard-backend's default export is a loader; left as is, startTestBackend adds a
+  // placeholder 'scorecard' plugin for each scorecard module and the real one collides.
+  const loader = createBackendFeatureLoader({
+    *loader() {
+      yield catalogLike;
+    },
+  });
+  const { features: expanded } = await expandFeatureLoaders([
+    loader,
+    authModule,
+  ]);
+  assert.deepEqual(expanded, [catalogLike, authModule]);
+  assert.deepEqual(
+    expanded.flatMap((f) => featureTargets(f)),
+    [
+      { kind: "plugin", pluginId: "catalog" },
+      { kind: "module", pluginId: "auth" },
+    ],
+  );
+});
+
+test("expandFeatureLoaders keeps a loader that needs services", async () => {
+  const loader = createBackendFeatureLoader({
+    deps: { config: coreServices.rootConfig },
+    *loader() {
+      yield catalogLike;
+    },
+  });
+  assert.deepEqual((await expandFeatureLoaders([loader])).features, [loader]);
+});
+
+test("expandFeatureLoaders unwraps the module.exports an import() of CJS yields", async () => {
+  // events-backend-module-gitlab's loader returns import('./x.cjs.js') promises.
+  const loader = createBackendFeatureLoader({
+    // The type forbids the extra level; the runtime shape is exactly this.
+    loader: (() => [
+      Promise.resolve({ default: { default: authModule } }),
+    ]) as unknown as () => [],
+  });
+  assert.deepEqual((await expandFeatureLoaders([loader])).features, [
+    authModule,
+  ]);
+});
+
+test("expandFeatureLoaders expands a loader that yields another loader", async () => {
+  const inner = createBackendFeatureLoader({
+    *loader() {
+      yield catalogLike;
+    },
+  });
+  const outer = createBackendFeatureLoader({
+    *loader() {
+      yield inner;
+    },
+  });
+  assert.deepEqual((await expandFeatureLoaders([outer])).features, [
+    catalogLike,
+  ]);
+});
+
+test("expandFeatureLoaders keeps a loader's service factories apart", async () => {
+  // The backend skips a loader's factory for a service already provided; flattened in,
+  // the same factory becomes an explicit duplicate and fails startup.
+  const ref = createServiceRef<object>({ id: "test.loaded", scope: "root" });
+  const factory = createServiceFactory({
+    service: ref,
+    deps: {},
+    factory: () => ({}),
+  });
+  const loader = createBackendFeatureLoader({
+    *loader() {
+      yield catalogLike;
+      yield factory;
+    },
+  });
+  assert.deepEqual(await expandFeatureLoaders([loader, factory]), {
+    features: [catalogLike, factory],
+    loaderServiceFactories: [factory],
+  });
+});
+
+test("expandFeatureLoaders unwraps one level, as the backend does", async () => {
+  // Two levels are the CJS shape the backend takes off; a third is not, and leaving it
+  // in place makes the boot fail here as it does in RHDH.
+  const loader = createBackendFeatureLoader({
+    loader: (() => [
+      Promise.resolve({ default: { default: { default: authModule } } }),
+    ]) as unknown as () => [],
+  });
+  assert.deepEqual((await expandFeatureLoaders([loader])).features, [
+    { default: authModule },
+  ]);
+});
+
+test("bootFeatureList registers loader services before a loader that depends on them", async () => {
+  // The dependency-free loader is taken apart by expandFeatureLoaders; its service must
+  // still be there when the backend runs the loader that needs it, as it is in RHDH.
+  const ref = createServiceRef<{ id: string }>({
+    id: "test.fromLoader",
+    scope: "root",
+  });
+  const provider = createBackendFeatureLoader({
+    *loader() {
+      yield createServiceFactory({
+        service: ref,
+        deps: {},
+        factory: () => ({ id: "x" }),
+      });
+    },
+  });
+  let received: { id: string } | undefined;
+  const dependent = createBackendFeatureLoader({
+    deps: { svc: ref },
+    *loader({ svc }) {
+      received = svc;
+      yield catalogLike;
+    },
+  });
+  const expanded = await expandFeatureLoaders([provider, dependent]);
+  const backend = await startTestBackend({
+    features: bootFeatureList(expanded, { head: [], tail: [] }),
+  });
+  await backend.stop();
+  // The boot succeeding is not enough on its own: the dependent loader has to have been
+  // handed the service the other loader provided.
+  assert.deepEqual(received, { id: "x" });
+});
+
+test("a failing loader is reported with its description", async () => {
+  const loader = createBackendFeatureLoader({
+    loader() {
+      throw new Error("boom");
+    },
+  });
+  await assert.rejects(
+    expandFeatureLoaders([loader]),
+    /^Error: Feature loader created at '.*' failed: boom$/,
+  );
 });

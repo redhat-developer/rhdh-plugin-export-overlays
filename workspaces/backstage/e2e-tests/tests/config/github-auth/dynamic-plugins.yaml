@@ -1,0 +1,14 @@
+# GitHub auth and GitHub org catalog modules are disabled in default.packages.yaml,
+# so {{inherit}} fails at install. Use explicit overlays tags until published on quay.io/rhdh.
+plugins:
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-auth-backend-module-github-provider:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider:bs_1.54.6__0.5.6
+    enabled: true
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-catalog-backend-module-github-org:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org:bs_1.54.6__0.3.25!backstage-plugin-catalog-backend-module-github-org
+    enabled: true
+  # Same org-entity transformer used by core auth-providers (MY_CUSTOM_ANNOTATION).
+  - package: oci://quay.io/rh-ee-jhe/catalog-github-org-transformer:v0.3.0!internal-backstage-plugin-catalog-backend-module-github-org-transformer
+    enabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.54.6__1.2.0
+    enabled: true

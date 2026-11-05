@@ -26,7 +26,10 @@ function loaded(dirName: string): LoadedPlugin {
 test("buildMergedConfig always supplies the core keys plugins read", () => {
   const merged = buildMergedConfig([]);
   assert.deepEqual(merged.app, { baseUrl: "http://localhost:3000" });
-  assert.deepEqual(merged.backend, { baseUrl: "http://localhost:7007" });
+  assert.deepEqual(merged.backend, {
+    baseUrl: "http://localhost:7007",
+    database: { client: "better-sqlite3", connection: ":memory:" },
+  });
 });
 
 test("buildMergedConfig merges the dummies of every loaded plugin", () => {
@@ -84,4 +87,16 @@ test("two plugins contributing to one section concatenate rather than clobber", 
     { host: "gitlab.com", token: "test" },
     { host: "extra.com", token: "t" },
   ]);
+});
+
+test("dynatrace frontend and dql backend dummies merge into one section", () => {
+  // dql writes dynatrace.environments; the community dynatrace frontend then requires
+  // dynatrace.baseUrl, and the app backend refuses to start without it.
+  const merged = buildMergedConfig([
+    loaded("backstage-community-plugin-dynatrace"),
+    loaded("dynatrace-backstage-plugin-dql-backend"),
+  ]);
+  const dynatrace = merged.dynatrace as JsonObject;
+  assert.equal(dynatrace.baseUrl, "http://localhost:8081");
+  assert.ok(Array.isArray(dynatrace.environments), "dql environments missing");
 });

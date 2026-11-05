@@ -11,7 +11,7 @@ NFS-ready, and the reported total read 75 instead of 80.
 A miscount here is quiet in the worst way: the report still renders, the percentage still
 looks plausible, and nothing fails. These tests pin the classification so the filter
 cannot narrow again without a red test — and they cover all three places that read it
-(the classifier, the summary denominator, and the two per-support-tier tables), because
+(the classifier, the summary denominator, and the per-support-tier tables), because
 the original bug was precisely those places disagreeing.
 
 What these do NOT cover: the ``--oci`` path, and the source-inference path #3284 added for
@@ -62,17 +62,28 @@ def _metadata(package_name: str, role: str, artifact: str) -> str:
     )
 
 
-def _repo(tmp_path, packages):
+def _repo(tmp_path, packages, tier="community"):
     """Build a minimal REPO_ROOT the script can scan: the two tier files, one workspace.
 
     ``REPO_ROOT`` is the script's own documented seam, so the run stays hermetic — no
     network, and no dependence on how the real workspaces happen to be shaped today. The
     workspace deliberately has no ``source.json``, which is what keeps #3284's source
     inference from reaching out to raw.githubusercontent.com.
+
+    ``tier`` puts the whole workspace in one tier file, through the script's
+    per-workspace fallback. ``None`` leaves both files empty, so packages are classified
+    as ``supportTier: other`` and appear under **Other** in markdown (#4073).
     """
-    (tmp_path / "rhdh-supported-packages.txt").write_text("")
-    (tmp_path / "rhdh-community-packages.txt").write_text("")
-    meta = tmp_path / "workspaces" / "sample" / "metadata"
+    workspace = "sample"
+    # The fallback keys on the text before the first "/", so this must name the workspace.
+    entry = f"{workspace}/plugins/placeholder\n"
+    (tmp_path / "rhdh-supported-packages.txt").write_text(
+        entry if tier == "supported" else ""
+    )
+    (tmp_path / "rhdh-community-packages.txt").write_text(
+        entry if tier == "community" else ""
+    )
+    meta = tmp_path / "workspaces" / workspace / "metadata"
     meta.mkdir(parents=True)
     for name, role, artifact in packages:
         slug = name.replace("@", "").replace("/", "-")
@@ -205,10 +216,39 @@ class TestMarkdownOutput:
     def test_the_per_tier_table_counts_and_lists_both_frontend_roles(tmp_path):
         """The per-tier header and table are two more reads of the same classification.
 
-        Nothing else asserts them, and a narrowed filter here is invisible: the header
-        count silently drops by one and the module's row silently vanishes.
+        Nothing else asserts them, and a narrowed filter here is invisible: the
+        summary count silently drops by one and the module's row silently vanishes.
+        The ready-count lives in the collapsible summary; the heading carries the
+        percentage.
         """
         stdout = _markdown(_repo(tmp_path, MIXED))
-        # With both tier files empty every package falls to the "other" tier.
-        assert "#### Other (0/2 frontend plugins NFS-ready — 0%)" in stdout
+        assert "#### Community (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
+        assert "| @scope/plugin-b | sample |" in stdout
+
+    @staticmethod
+    def test_supported_packages_get_their_own_table(tmp_path):
+        """A supported workspace is counted under its own header and under no other."""
+        stdout = _markdown(_repo(tmp_path, MIXED, tier="supported"))
+        assert "#### Red Hat Supported (GA + Tech Preview) (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
+        assert "#### Community" not in stdout
+        assert "#### Other" not in stdout
+
+
+class TestOtherTier:
+    """Workspaces absent from both tier files are classified ``other`` and still reported (#4073)."""
+
+    @staticmethod
+    def test_a_package_in_no_tier_file_appears_under_other(tmp_path):
+        """JSON and markdown include ``other``; the per-tier block is **Other**, not Community."""
+        root = _repo(tmp_path, MIXED, tier=None)
+        classified = _classified(root)
+        assert set(classified) == {name for name, _, _ in MIXED}
+        assert all(entry["supportTier"] == "other" for entry in classified.values())
+        stdout = _markdown(root)
+        assert "**Frontend plugins:** 2 total" in stdout
+        assert "#### Other (0%)" in stdout
+        assert "<summary>0/2 frontend plugins NFS-ready</summary>" in stdout
+        assert "#### Community" not in stdout
         assert "| @scope/plugin-b | sample |" in stdout

@@ -1,4 +1,4 @@
-import type { Locator, Page, TestInfo } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
@@ -17,11 +17,18 @@ export class TektonSupportHelper {
   }
 
   async clickTab(tabName: string): Promise<void> {
-    const tabLocator = this.page.getByRole("tab", {
+    // NFS entity content is under a group menu (argocd #3478 pattern).
+    // Tekton is registered with group "deployment", title "Tekton".
+    if (tabName === "Tekton") {
+      await this.uiHelper.clickButtonByLabel("Deployment");
+      await this.page.getByRole("menuitemradio", { name: "Tekton" }).click();
+      return;
+    }
+    const tabLocator = this.page.getByRole("link", {
       name: tabName,
       exact: true,
     });
-    await tabLocator.waitFor({ state: "visible" });
+    await expect(tabLocator).toBeVisible({ timeout: 30_000 });
     await tabLocator.click();
   }
 
@@ -29,13 +36,9 @@ export class TektonSupportHelper {
     await this.goToByName("backstage-janus");
   }
 
-  async goToBackstageJanusProjectCITab(testInfo: TestInfo): Promise<void> {
+  async goToBackstageJanusProjectCITab(): Promise<void> {
     await this.goToBackstageJanusProject();
-    if (testInfo.project.name === "tekton-app-next") {
-      await this.clickTab("Tekton");
-    } else {
-      await this.clickTab("CI");
-    }
+    await this.clickTab("Tekton");
     await this.waitForPipelineRunsOrKubernetesError();
   }
 

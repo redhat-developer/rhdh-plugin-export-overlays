@@ -28,6 +28,7 @@ import yaml
 from plugin_utils import (
     BuildReport,
     Colors,
+    decode_dynamic_packages,
     log_debug,
     log_info,
     log_warn,
@@ -48,11 +49,21 @@ RARC_RHDH_PREFIX = RARC_DOMAIN + "/rhdh/"
 
 DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 
+
 # Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
 VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
 
+
 # Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
 THREE_PART_PREFIX_RE = re.compile(r'^(\d+\.\d+)\.\d+$')
+
+# Release tags only. Digest, attestation, SBOM, and git-SHA tags never match.
+QUAY_RELEASE_TAG_RE = re.compile(r'^\d+\.\d+\.\d+--\d+\.\d+\.\d+$')
+QUAY_ALIAS_TAG_RE = re.compile(r'^\d+\.\d+--\d+\.\d+\.\d+$')
+GHCR_RELEASE_TAG_RE = re.compile(r'^bs_\d+\.\d+\.\d+__\d+\.\d+\.\d+$')
+
+# One skopeo list-tags payload per image. The x.y-- alias check reads this cache.
+_SKOPEO_TAG_CACHE: dict[tuple[str, str], list[str]] = {}
 
 
 def is_downstream_quay_rhdh() -> bool:
@@ -172,81 +183,85 @@ def parse_registry_reference(registry_reference: str) -> tuple[str, str, str] | 
     return registry, repository, tag
 
 
+def _version_tags(registry: str, tags: list) -> list[str]:
+    """Keep release tags. Quay keeps ``x.y.z--a.b.c`` and the ``x.y--a.b.c`` alias."""
+    if registry == "ghcr.io":
+        pattern = GHCR_RELEASE_TAG_RE
+        return [tag for tag in tags if isinstance(tag, str) and pattern.match(tag)]
+    kept = []
+    for tag in tags:
+        if not isinstance(tag, str):
+            continue
+        if QUAY_RELEASE_TAG_RE.match(tag) or QUAY_ALIAS_TAG_RE.match(tag):
+            kept.append(tag)
+    return kept
+
+
+def _skopeo_version_tags(registry: str, repository: str) -> list[str]:
+    """Return version tags for one image. A second call for the same image does not run skopeo."""
+    key = (registry, repository)
+    cached = _SKOPEO_TAG_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    command = ["skopeo", "list-tags", f"docker://{registry}/{repository}"]
+    authfile = os.environ.get("REGISTRY_AUTH_FILE")
+    if authfile:
+        command = ["skopeo", "list-tags", "--authfile", authfile, f"docker://{registry}/{repository}"]
+
+    try:
+        proc = subprocess.run(command, check=False, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log_warn(f"skopeo list-tags failed for {registry}/{repository}: {exc}")
+        _SKOPEO_TAG_CACHE[key] = []
+        return []
+
+    if proc.returncode != 0:
+        detail = (proc.stderr or "").strip().splitlines()
+        summary = detail[0][:200] if detail else f"exit {proc.returncode}"
+        log_warn(f"skopeo list-tags failed for {registry}/{repository}: {summary}")
+        _SKOPEO_TAG_CACHE[key] = []
+        return []
+
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        log_warn(f"skopeo list-tags returned invalid JSON for {registry}/{repository}: {exc}")
+        _SKOPEO_TAG_CACHE[key] = []
+        return []
+
+    version_tags = _version_tags(registry, payload.get("Tags") or [])
+    _SKOPEO_TAG_CACHE[key] = version_tags
+    return version_tags
+
+
 def list_tags_with_prefix(registry: str, repository: str, prefix: str, auth, headers: dict) -> list[str]:
-    """List all tags matching a prefix from the registry, filtered to clean versions, sorted ascending.
+    """List version tags with ``prefix``, sorted ascending.
 
-    Queries the Docker Registry HTTP API v2 with pagination to collect all tags,
-    then filters to only those starting with ``prefix`` whose suffix is a clean
-    version number (e.g. ``2.18.0``, ``1.5``).  This rejects Konflux/Tekton
-    build artifacts such as ``.att``, ``.sbom``, ``.sig``, ``.prefetch``, ``.git``,
-    ``.src``, ``.dockerfile``, bare SHA tags, ``on-pr-*``, ``rhdh-bsp-*``, etc.
+    One ``skopeo list-tags`` call per image returns every tag. This keeps only
+    release tags (``x.y.z--a.b.c``, the ``x.y--a.b.c`` alias, or
+    ``bs_x.y.z__a.b.c`` on ghcr) and then those that start with ``prefix``.
+    Digest, attestation, SBOM, and git-SHA tags are dropped before the sort.
+    The alias lookup reads the cached payload and does not call skopeo again.
 
-    Args:
-        registry: Registry hostname, e.g. ``"ghcr.io"`` or ``"quay.io"``.
-        repository: Image repository path, e.g. ``"rhdh/plugin-foo"``.
-        prefix: Tag prefix to match, e.g. ``"bs_1.49.4__"`` or ``"1.11--"``.
-        auth: Basic-auth tuple ``(username, password)`` or ``None``.
-        headers: Request headers dict (must include Accept and any Bearer token).
+    ``auth`` and ``headers`` are accepted for callers. Skopeo uses
+    ``REGISTRY_AUTH_FILE`` when that variable is set.
 
     Returns:
-        Tags sorted in ascending version order.  The last element is the
-        latest version.  Empty list if no matching tags are found.
-
-    Example:
-        Given these tags in the registry for ``quay.io/rhdh/plugin-foo``::
-
-            "1.11--1.5.4"           # valid
-            "1.11--1.3.0"           # valid
-            "sha256-abc123.att"     # rejected (doesn't match prefix)
-            "on-pr-abc123.prefetch" # rejected (doesn't match prefix)
-
-        With ``prefix="1.11--"``, returns::
-
-            ["1.11--1.3.0", "1.11--1.5.4"]
-
-        Given these tags for ``ghcr.io/org/repo/plugin``::
-
-            "bs_1.49.4__2.14.0"    # valid
-            "bs_1.49.4__2.18.0"    # valid
-            "sha256:d054dbee..."    # rejected (doesn't match prefix)
-
-        With ``prefix="bs_1.49.4__"``, returns::
-
-            ["bs_1.49.4__2.14.0", "bs_1.49.4__2.18.0"]
+        Tags sorted in ascending version order. The last element is the
+        latest version. Empty list if no matching tags are found.
     """
-    matched = []
-    n = 500
-    last = ""
-    while True:
-        url = f"https://{registry}/v2/{repository}/tags/list?n={n}"
-        if last:
-            url += f"&last={requests.utils.quote(last)}"
-        try:
-            resp = requests.get(url, headers=headers, auth=auth, timeout=60)
-            if resp.status_code != 200:
-                break
-            data = resp.json()
-            tags = data.get("tags") or []
-            for t in tags:
-                if t.startswith(prefix) and VERSION_SUFFIX_RE.match(t[len(prefix):]):
-                    matched.append(t)
-            if len(tags) < n:
-                break
-            last = tags[-1] if tags else ""
-            if not last:
-                break
-        except Exception as e:
-            log_debug(f"Error listing tags for {registry}/{repository}: {e}")
-            break
+    del auth, headers
+    matched = [tag for tag in _skopeo_version_tags(registry, repository) if tag.startswith(prefix)]
 
     def version_key(tag: str):
         suffix = tag[len(prefix):]
         parts = []
-        for p in suffix.split('.'):
+        for part in suffix.split('.'):
             try:
-                parts.append((0, int(p)))
+                parts.append((0, int(part)))
             except ValueError:
-                parts.append((1, p))
+                parts.append((1, part))
         return parts
 
     return sorted(matched, key=version_key)
@@ -462,8 +477,26 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
         # Extract OCI manifest-level annotations (e.g., io.backstage.dynamic-packages)
         manifest_annotations = manifest.get('annotations', {})
         dynamic_packages = manifest_annotations.get(DYNAMIC_PACKAGES_ANNOTATION)
-        if dynamic_packages:
+        # Kept even when empty: dropping it here is what made an artifact that ships
+        # nothing indistinguishable downstream from one that never declared anything.
+        if dynamic_packages is not None:
             metadata[DYNAMIC_PACKAGES_ANNOTATION] = dynamic_packages
+
+        # An artifact that ships no dynamic packages installs as a no-op, and the
+        # absence only surfaces much later. Report it here, where it is still named.
+        packages = decode_dynamic_packages(dynamic_packages)
+        if packages is None:
+            log_warn(
+                f"{registry_reference} has a malformed {DYNAMIC_PACKAGES_ANNOTATION} "
+                "annotation: it is not base64-encoded JSON, so the packages it ships "
+                "cannot be determined"
+            )
+        elif not packages and DYNAMIC_PACKAGES_ANNOTATION in manifest_annotations:
+            log_warn(
+                f"{registry_reference} declares an empty {DYNAMIC_PACKAGES_ANNOTATION} "
+                "annotation: the artifact ships no dynamic packages and installing it "
+                "is a no-op"
+            )
 
         if config_digest:
             blob_url = f"https://{registry}/v2/{repository}/blobs/{config_digest}"
@@ -600,7 +633,7 @@ def collect_fallback_entries(plugin_builds_dir: Path) -> list[tuple[str, str, st
 
     Returns:
         Sorted list of
-        ``(container_name, have_older_tag, should_have_newer_tag, workspace)``
+        ``(container_name, have_tag, requested_tag, workspace)``
         tuples (e.g. ``('backstage-community-plugin-topology', '1.11--1.5.4',
         '1.11--1.6.0', 'topology')``). ``workspace`` is the ``plugin_builds``
         subdirectory name (used for ``sync-midstream.sh --force-clone``).
@@ -638,11 +671,14 @@ def rhdh_git_branch_for_midstream(midstream_branch: str) -> str:
     """Map a midstream catalog branch to the matching ``redhat-developer/rhdh`` git branch.
 
     - ``main`` (next) → ``main``
+    - ``release-2.1`` → ``release-2.1`` (catalog release branches share the rhdh name)
     - ``rhdh-1.10-rhel-9`` → ``release-1.10``
     """
     branch = (midstream_branch or "").strip()
     if branch in (DEFAULT_MIDSTREAM_BRANCH, ""):
         return DEFAULT_MIDSTREAM_BRANCH
+    if re.fullmatch(r"release-[0-9]+(?:\.[0-9]+)+", branch):
+        return branch
     match = re.fullmatch(r"rhdh-([0-9]+(?:\.[0-9]+)+)-rhel-9", branch)
     if match:
         return f"release-{match.group(1)}"
@@ -686,17 +722,75 @@ def fetch_rhdh_package_version(rhdh_branch: str | None = None) -> str | None:
     return None
 
 
+def requested_plugin_version(tag: str) -> str:
+    """Plugin version is the suffix after ``--`` (Quay) or ``__`` (ghcr)."""
+    if "--" in tag:
+        return tag.rsplit("--", 1)[1]
+    if "__" in tag:
+        return tag.rsplit("__", 1)[1]
+    return tag
+
+
+def package_versions_in_workspace(repo_root: Path, workspace: str) -> set[str]:
+    """Top-level ``version`` values under ``workspaces/<workspace>/``, skipping ``node_modules``."""
+    root = repo_root / "workspaces" / workspace
+    if not root.is_dir():
+        return set()
+    versions: set[str] = set()
+    for package_json in root.rglob("package.json"):
+        if "node_modules" in package_json.parts:
+            continue
+        try:
+            data = json.loads(package_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        version = data.get("version") if isinstance(data, dict) else None
+        if isinstance(version, str) and version.strip():
+            versions.add(version.strip())
+    return versions
+
+
+def split_fallback_rebuild(
+    fallbacks: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
+    repo_root: Path,
+) -> tuple[list[str], list[str], set[str]]:
+    """Split fallbacks into packages ready to rebuild and workspaces that still need a sync.
+
+    A package is ready when some ``package.json`` under its workspace already has the
+    requested plugin version. A missing workspace tree is not ready: Konflux builds
+    whatever ``package.json`` is there and would republish the older tag.
+
+    Returns ``(ready_packages, manual_packages, stale_workspaces)``.
+    """
+    ready: list[str] = []
+    manual: list[str] = []
+    stale: set[str] = set()
+    for entry in fallbacks:
+        container, want_tag = entry[0], entry[2]
+        workspace = str(entry[3]) if len(entry) >= 4 and entry[3] else ""
+        want = requested_plugin_version(want_tag)
+        if workspace and want in package_versions_in_workspace(repo_root, workspace):
+            ready.append(container)
+        else:
+            manual.append(container)
+            if workspace:
+                stale.add(workspace)
+    return ready, manual, stale
+
+
 def print_fallback_rebuild_cta(
     fallbacks: list[tuple[str, str, str]] | list[tuple[str, str, str, str]],
+    repo_root: Path | None = None,
 ) -> None:
-    """Print a clear rebuild call-to-action for plugins using older published tags.
+    """Print a rebuild call-to-action for plugins that resolved to a fallback tag.
 
     Accepts 3-tuples ``(container, have, want)`` or 4-tuples with ``workspace``.
 
-    Always lists the fallback containers. Midstream-only rebuild steps (sync
-    overlays into ``rhdh-plugin-catalog``, Konflux PLRs, ``./build/ci/update-index.sh``)
-    are printed only when ``_in_midstream_repo()`` is true — those paths do not
-    exist upstream and must not be suggested from the overlays repo.
+    Always lists the fallback containers. Midstream-only rebuild steps are printed
+    only when ``_in_midstream_repo()`` is true. The sync step is limited to
+    workspaces whose ``package.json`` does not already contain the requested
+    plugin version; ``build/ci/update-index.sh`` runs ``updatePLRs.sh`` for the
+    rest. Keep this split in step with ``trigger_ready_fallback_plrs`` there.
     """
     if not fallbacks:
         return
@@ -704,66 +798,82 @@ def print_fallback_rebuild_cta(
     print("\n========")
     log_warn(
         f"Fallback Tags: {Colors.YELLOW}{len(fallbacks)}{Colors.NORM} "
-        f"plugin(s) using older published tags"
+        f"plugin(s) using a published tag other than the one requested"
     )
     print(
-        f"{Colors.YELLOW}ACTION REQUIRED:{Colors.NORM} Publish the newer requested tags "
-        f"so the catalog can stop using older fallbacks:\n"
-        f"  (container, have_older_tag, should_have_newer_tag)"
+        f"{Colors.YELLOW}ACTION REQUIRED:{Colors.NORM} Publish the requested tags "
+        f"so the catalog can stop using fallbacks:\n"
+        f"  (container, have_tag, requested_tag)"
     )
-    containers: list[str] = []
-    workspaces: set[str] = set()
     for entry in fallbacks:
         container, have_tag, want_tag = entry[0], entry[1], entry[2]
-        if len(entry) >= 4 and entry[3]:
-            workspaces.add(str(entry[3]))
         print(
             f"  - {Colors.YELLOW}{container}{Colors.NORM}: "
             f"have {Colors.YELLOW}{have_tag}{Colors.NORM}  →  "
             f"need {Colors.GREEN}{want_tag}{Colors.NORM}"
         )
-        containers.append(container)
 
-    # Upstream overlays has neither sync-midstream, Konflux PLR helpers, nor
-    # build/ci/update-index.sh — stop after the fallback list.
+    # Upstream overlays has neither sync-midstream nor build/ci/update-index.sh.
     if not _in_midstream_repo():
         print()
         return
 
-    package_filter = "|".join(containers)
-    # Prefer -v x.y.z --next on the next stream (matches generatePipelineRunsForPlugins.sh /
-    # RELEASE_GUIDE). Release branches use plain -v x.y.z from rhdh package.json.
-    # (-v main also works once package.json major matches the next stream.)
+    repo = repo_root or Path.cwd()
+    ready, manual, stale_workspaces = split_fallback_rebuild(fallbacks, repo)
+    if not manual:
+        print(
+            f"\n{Colors.GREEN}No midstream sync is required:{Colors.NORM} "
+            f"workspace package.json already has the requested plugin versions.\n"
+            f"update-index.sh runs the Konflux PipelineRun update for these packages.\n"
+        )
+        return
+
+    # Prefer -v x.y.z --next on the next stream (matches updatePLRs.sh /
+    # RELEASE_GUIDE). Catalog release branches (release-x.y, or older
+    # rhdh-1.y-rhel-9) use plain -v x.y.z from that release's rhdh package.json.
     rhdh_branch = rhdh_git_branch_for_midstream(current_midstream_branch())
     version = fetch_rhdh_package_version(rhdh_branch) or "<version>"
     version_args = (
         f"-v {version} --next" if rhdh_branch == DEFAULT_MIDSTREAM_BRANCH else f"-v {version}"
     )
+    # $ keeps a shorter container name from matching a longer sibling.
+    package_filter = "|".join(f"{name}$" for name in manual)
 
     step = 1
-    if workspaces:
-        ws_filter = "|".join(sorted(workspaces))
+    if stale_workspaces:
+        ws_filter = "|".join(sorted(stale_workspaces))
         print(
-            f"\n{Colors.YELLOW}{step}) Sync midstream sources first:{Colors.NORM}\n"
-            f"   Metadata already requests newer tags, but Quay builds from "
-            f"midstream workspaces/. If those package.json versions are still "
-            f"older, Konflux will re-publish the old tag — sync before PLRs:\n"
-            f"   ./build/ci/sync-midstream.sh --force-clone '{ws_filter}' --yes\n"
+            f"\n\n{Colors.YELLOW}{step}) Sync midstream sources first:{Colors.NORM}\n"
+            f"   Metadata already requests newer tags, but Quay images are built "
+            f"from midstream workspaces/ folders. package.json in these workspaces "
+            f"does not yet have the requested version, so Konflux would re-publish "
+            f"the old tag. Sync before updating, then run PLRs:\n\n"
+            f"   ./build/ci/sync-midstream.sh --force-clone '{ws_filter}' --yes\n\n"
             f"   (Or: sync overlays into overlay-repo, then force-clone the "
             f"affected upstream workspace(s) listed above.)"
         )
         step += 1
 
     print(
-        f"\n{Colors.YELLOW}{step}) Trigger Konflux rebuilds:{Colors.NORM}\n"
-        f"   .tekton/generatePipelineRunsForPlugins.sh --trigger "
-        f"-p '{package_filter}' {version_args}"
+        f"\n\n{Colors.YELLOW}{step}) Update Konflux PLRs, then run rebuilds:{Colors.NORM}\n"
+        f"   .tekton/updatePLRs.sh --trigger \\\n"
+        f"     -p '{package_filter}' \\\n"
+        f"     {version_args}"
     )
     step += 1
     print(
-        f"\n{Colors.YELLOW}{step}) Re-run the catalog index update:{Colors.NORM}\n"
+        f"\n\n{Colors.YELLOW}{step}) Re-run the catalog index update:{Colors.NORM}\n"
         f"   ./build/ci/update-index.sh\n"
     )
+    if ready:
+        print(
+            f"\n{Colors.GREEN}These packages already have the requested version "
+            f"in the workspace, so update-index.sh updates their PipelineRuns "
+            f"without a sync:{Colors.NORM}\n"
+            f"  {'|'.join(ready)}\n"
+        )
+    else:
+        print()
 
 
 PLUGIN_BUILD_KEY_ORDER = (
@@ -873,6 +983,15 @@ def _record_image_metadata_report(report: BuildReport, data: dict) -> None:
         if not digest:
             continue
         stage_kwargs: dict = {"digest": digest}
+        # The fetch succeeded, so the stage stays a pass — but an artifact that ships
+        # no readable package list installs as a no-op, and a green stage with no
+        # detail says the opposite.
+        if DYNAMIC_PACKAGES_ANNOTATION in pdata:
+            packages = decode_dynamic_packages(pdata[DYNAMIC_PACKAGES_ANNOTATION])
+            if packages is None:
+                stage_kwargs["dynamicPackagesUnreadable"] = True
+            elif not packages:
+                stage_kwargs["dynamicPackages"] = 0
         if pdata.get("fallback"):
             resolved_ref = pdata.get("registryReference", "")
             ref_tag = resolved_ref.rsplit(":", 1)[-1]
@@ -882,6 +1001,9 @@ def _record_image_metadata_report(report: BuildReport, data: dict) -> None:
             resolved_version = _version_from_registry_tag(resolved_ref)
             if resolved_version:
                 report.add_plugin(pname, version=resolved_version)
+        annotation = pdata.get(DYNAMIC_PACKAGES_ANNOTATION)
+        if not annotation:
+            stage_kwargs["missing_dynamic_packages_annotation"] = True
         report.set_stage(pname, "image-metadata-fetch", "pass", **stage_kwargs)
         resolved_ref = pdata.get("registryReference", "")
         if resolved_ref:
@@ -976,7 +1098,10 @@ def _sync_one_overlay_metadata(
     if not da.startswith("oci://"):
         return False
 
-    new_oci = f"oci://{registry_reference_digest}"
+    # Keep the !plugin-path selector: it picks the plugin inside the image.
+    plugin_path = da.partition("!")[2]
+    selector = f"!{plugin_path}" if plugin_path else ""
+    new_oci = f"oci://{registry_reference_digest}{selector}"
     fallback_version = None
     if plugin_data.get("fallback"):
         fallback_version = _version_from_registry_tag(registry_reference_tag)
@@ -1069,6 +1194,8 @@ def _enrich_plugins_in_build_file(
                     "fail",
                     reason=f"Image not found in registry: {registry_reference}",
                 )
+            if _strip_orphan_image_fields(plugin_data):
+                modified = True
             continue
 
         before_fallbacks = len(fallbacks)
@@ -1141,7 +1268,7 @@ def update_plugin_build_files(
     from the Docker Registry HTTP API v2 and writes the results back into the
     JSON. Also updates the corresponding ``workspaces/*/metadata/*.yaml``
     overlay files with the resolved ``dynamicArtifact`` OCI reference
-    (including digest).
+    (including digest, and keeping any ``!plugin-path`` selector).
 
     Returns:
         A 6-tuple of ``(updated_count, error_count, missing_refs,
@@ -1269,7 +1396,10 @@ Examples:
     log_info("\n=== Results ===")
     log_info(f"Updated: {Colors.GREEN}{updated_count}{Colors.NORM} of {total}")
     if fallback_count > 0:
-        log_warn(f"Fallback Tags: {Colors.YELLOW}{fallback_count}{Colors.NORM} plugin(s) using older published tags")
+        log_warn(
+            f"Fallback Tags: {Colors.YELLOW}{fallback_count}{Colors.NORM} "
+            f"plugin(s) using a published tag other than the one requested"
+        )
     if len(missing_refs) > 0:
         log_warn(f"Missing Tags: {Colors.YELLOW}{len(missing_refs)}{Colors.NORM}")
         for ref in missing_refs:

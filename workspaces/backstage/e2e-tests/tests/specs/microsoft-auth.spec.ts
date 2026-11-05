@@ -1,7 +1,6 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 import { $, requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import { request } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { load as loadYaml } from "js-yaml";
@@ -13,11 +12,26 @@ import {
   NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
 } from "../../support/constants/microsoft.js";
 
-/** Static token from tests/config/microsoft/value-file.yaml */
+import {
+  catalogQuery,
+  checkGroupDisplayNamesInCatalog,
+  checkUserDisplayNamesInCatalog,
+  groupHasRelation,
+} from "../../support/api/catalog-query-helpers.js";
+
+/** Static token from tests/config/microsoft/app-config-rhdh.yaml */
 const CATALOG_TOKEN = "microsoft-e2e-token";
 const APP_CONFIG_PATH = "tests/config/microsoft/app-config-rhdh.yaml";
 const HOMEPAGE_WRAPPER_DIST_NAME =
   "red-hat-developer-hub-backstage-plugin-homepage";
+/** Display names expected after MS Graph ingestion (login resolvers need these). */
+const MICROSOFT_INGESTED_USERS = [
+  "TEST Admin",
+  "TEST Atena",
+  "TEST Elio",
+  "TEST Tyke",
+  "TEST Zeus",
+] as const;
 
 type AppConfig = Record<string, unknown>;
 
@@ -102,8 +116,12 @@ async function applyAppConfigAndRestart(
     ns,
   );
   await rhdh.scaleDownAndRestart();
+  const deployment =
+    rhdh.deploymentConfig.method === "operator"
+      ? "backstage-developer-hub"
+      : "redhat-developer-hub";
   // waitUntilReady() is true while the old pod still serves; gate on rollout completion.
-  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
+  await $`oc rollout status deployment/${deployment} -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
@@ -140,7 +158,6 @@ test.describe(
           appConfig: APP_CONFIG_PATH,
           secrets: "tests/config/microsoft/rhdh-secrets.yaml",
           dynamicPlugins: "tests/config/microsoft/dynamic-plugins.yaml",
-          valueFile: "tests/config/microsoft/value-file.yaml",
           disablePlugins: [HOMEPAGE_WRAPPER_DIST_NAME],
         });
       });
@@ -194,6 +211,17 @@ test.describe(
       }
 
       await applyAppConfigAndRestart(rhdhDeployment, config);
+      // Mid-suite restart can clear catalog until MS Graph re-ingests; login
+      // resolvers need Users present (operator local DB is especially exposed).
+      await expect
+        .poll(
+          () =>
+            checkUserDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
+              ...MICROSOFT_INGESTED_USERS,
+            ]),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
     }
 
     test("Ingestion of Microsoft users and groups", async () => {
@@ -202,12 +230,8 @@ test.describe(
       await expect
         .poll(
           () =>
-            checkUserDisplayNamesInCatalog(baseUrl, [
-              "TEST Admin",
-              "TEST Atena",
-              "TEST Elio",
-              "TEST Tyke",
-              "TEST Zeus",
+            checkUserDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
+              ...MICROSOFT_INGESTED_USERS,
             ]),
           { timeout: 120_000, intervals: [3_000] },
         )
@@ -216,7 +240,7 @@ test.describe(
       await expect
         .poll(
           () =>
-            checkGroupDisplayNamesInCatalog(baseUrl, [
+            checkGroupDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
               "TEST_admins",
               "TEST_goddesses",
               "TEST_gods",
@@ -279,27 +303,53 @@ test.describe(
 
       await expect
         .poll(
-          () => groupHasRelation(baseUrl, "test_gods", "childOf", "test_all"),
+          () =>
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_gods",
+              "childOf",
+              "test_all",
+            ),
           { timeout: 120_000, intervals: [3_000] },
         )
         .toBe(true);
       await expect
         .poll(
           () =>
-            groupHasRelation(baseUrl, "test_goddesses", "childOf", "test_all"),
-          { timeout: 120_000, intervals: [3_000] },
-        )
-        .toBe(true);
-      await expect
-        .poll(
-          () => groupHasRelation(baseUrl, "test_all", "parentOf", "test_gods"),
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_goddesses",
+              "childOf",
+              "test_all",
+            ),
           { timeout: 120_000, intervals: [3_000] },
         )
         .toBe(true);
       await expect
         .poll(
           () =>
-            groupHasRelation(baseUrl, "test_all", "parentOf", "test_goddesses"),
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_all",
+              "parentOf",
+              "test_gods",
+            ),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () =>
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_all",
+              "parentOf",
+              "test_goddesses",
+            ),
           { timeout: 120_000, intervals: [3_000] },
         )
         .toBe(true);
@@ -335,6 +385,37 @@ test.describe(
       test.setTimeout(600_000);
 
       await setMicrosoftResolver("emailMatchingUserEntityAnnotation", false);
+
+      // Wait for MS Graph provider to sync the email annotation onto User
+      // entities.  The emailMatchingUserEntityAnnotation resolver matches
+      // against microsoft.com/email; the preceding ingestion test only
+      // verifies display names, which can be present before the email
+      // annotation is populated.
+      await expect
+        .poll(
+          async () => {
+            const users = await catalogQuery(
+              baseUrl,
+              CATALOG_TOKEN,
+              "kind=user",
+            );
+            return users.some((user) => {
+              const annotations = (
+                user as {
+                  metadata?: {
+                    annotations?: Record<string, string>;
+                  };
+                }
+              )?.metadata?.annotations;
+              return (
+                annotations?.["microsoft.com/email"] ===
+                MICROSOFT_TEST_USERS.zeus
+              );
+            });
+          },
+          { timeout: 60_000, intervals: [3_000] },
+        )
+        .toBe(true);
 
       const login = await loginHelper.microsoftAzureLogin(
         MICROSOFT_TEST_USERS.zeus,
@@ -425,7 +506,8 @@ test.describe(
       );
       expect(login).toBe("Login successful");
 
-      await page.reload();
+      await page.goto("/settings");
+      await uiHelper.verifyHeading("TEST Zeus");
 
       const cookies = await page.context().cookies();
       const authCookie = cookies.find(
@@ -440,79 +522,7 @@ test.describe(
       expect(actualDuration).toBeGreaterThan(threeDays - tolerance);
       expect(actualDuration).toBeLessThan(threeDays + tolerance);
 
-      await page.goto("/settings");
-      await uiHelper.verifyHeading("TEST Zeus");
       await loginHelper.signOut();
     });
   },
 );
-
-async function catalogQuery(
-  baseUrl: string,
-  filter: string,
-): Promise<unknown[]> {
-  const context = await request.newContext({ ignoreHTTPSErrors: true });
-  try {
-    const url = `${baseUrl}/api/catalog/entities/by-query?orderField=metadata.name%2Casc&filter=${encodeURIComponent(filter)}`;
-    const response = await context.get(url, {
-      headers: { Authorization: `Bearer ${CATALOG_TOKEN}` },
-    });
-    if (!response.ok()) {
-      return [];
-    }
-    const body = (await response.json()) as { items?: unknown[] };
-    return body.items ?? [];
-  } finally {
-    await context.dispose();
-  }
-}
-
-function profileDisplayName(entity: unknown): string | undefined {
-  if (typeof entity !== "object" || entity === null) {
-    return undefined;
-  }
-  const spec = (entity as { spec?: { profile?: { displayName?: unknown } } })
-    .spec;
-  const name = spec?.profile?.displayName;
-  return typeof name === "string" ? name : undefined;
-}
-
-async function checkUserDisplayNamesInCatalog(
-  baseUrl: string,
-  displayNames: string[],
-): Promise<boolean> {
-  const users = await catalogQuery(baseUrl, "kind=user");
-  const found = users
-    .map(profileDisplayName)
-    .filter((name): name is string => typeof name === "string");
-  return displayNames.every((name) => found.includes(name));
-}
-
-async function checkGroupDisplayNamesInCatalog(
-  baseUrl: string,
-  displayNames: string[],
-): Promise<boolean> {
-  const groups = await catalogQuery(baseUrl, "kind=group");
-  const found = groups
-    .map(profileDisplayName)
-    .filter((name): name is string => typeof name === "string");
-  return displayNames.every((name) => found.includes(name));
-}
-
-async function groupHasRelation(
-  baseUrl: string,
-  groupName: string,
-  relationType: string,
-  relatedName: string,
-): Promise<boolean> {
-  const entity = await CatalogApiHelper.getGroupEntity(
-    baseUrl,
-    CATALOG_TOKEN,
-    groupName,
-  );
-  const names =
-    entity.relations
-      ?.filter((r: { type: string }) => r.type === relationType)
-      .map((r: { targetRef: string }) => r.targetRef.split("/")[1]) ?? [];
-  return names.includes(relatedName);
-}

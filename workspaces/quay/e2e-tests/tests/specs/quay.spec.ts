@@ -1,6 +1,20 @@
-import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ImageRegistry } from "../utils/image-registry";
 import { QuayClient } from "../utils/quay-client";
+
+/** NFS places Quay under the Development entity-content group (title "Quay"). */
+async function openQuayEntityTab(
+  page: Page,
+  uiHelper: UIhelper,
+): Promise<void> {
+  await uiHelper.openCatalogSidebar("Component");
+  await uiHelper.searchInputPlaceholder("Developer Hub");
+  await uiHelper.clickLink("Red Hat Developer Hub");
+  // Same pattern as argocd #3478 e2e fix (group button + menuitemradio).
+  await uiHelper.clickButtonByLabel("Development");
+  await page.getByRole("menuitemradio", { name: "Quay" }).click();
+}
 
 test.describe("Test Quay.io plugin", () => {
   const quayRepository = "rhdh-community/rhdh";
@@ -24,15 +38,12 @@ test.describe("Test Quay.io plugin", () => {
     await loginHelper.loginAsGuest();
   });
 
-  test.describe("Image Registry tab", () => {
-    test.beforeEach(async ({ uiHelper }) => {
-      await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.searchInputPlaceholder("Developer Hub");
-      await uiHelper.clickLink("Red Hat Developer Hub");
-      await uiHelper.clickTab("Image Registry");
+  test.describe("Quay entity tab", () => {
+    test.beforeEach(async ({ page, uiHelper }) => {
+      await openQuayEntityTab(page, uiHelper);
     });
 
-    test("Check if Image Registry is present", async ({ page, uiHelper }) => {
+    test("Check if Quay tab is present", async ({ page, uiHelper }) => {
       await uiHelper.verifyHeading(quayRepository);
 
       const allGridColumnsText = ImageRegistry.getAllGridColumnsText();
@@ -62,9 +73,10 @@ test.describe("Test Quay.io plugin", () => {
     const quayClient = new QuayClient();
 
     test.beforeEach(async ({ uiHelper }) => {
-      await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.clickButton("Self-service");
-      await uiHelper.verifyHeading("Self-service");
+      // Prefer /create — Self-service was renamed to Create (RHDHBUGS-3676);
+      // clickButton("Self-service") looks for a button, but the control is a link.
+      await uiHelper.goToPageUrl("/create");
+      await uiHelper.verifyHeading(/^(Create|Templates|Self-service)$/);
     });
 
     test.afterEach(async () => {
@@ -78,7 +90,14 @@ test.describe("Test Quay.io plugin", () => {
       repository = `quay-actions-create-${Date.now()}`;
       const description =
         "This is just a test repository to test the 'quay:create-repository' template action";
-      await uiHelper.clickBtnInCard("Create a Quay repository", "Choose");
+      // clickBtnInCard can detach under NFS re-renders; click Choose directly.
+      const chooseButton = page
+        .locator('[class*="MuiCard-root"]')
+        .filter({ hasText: "Create a Quay repository" })
+        .getByRole("button", { name: /Choose/i })
+        .first();
+      await expect(chooseButton).toBeVisible({ timeout: 30_000 });
+      await chooseButton.click();
       await uiHelper.waitForTitle("Create a Quay repository", 2);
 
       await uiHelper.fillTextInputByLabel("Repository name", repository);

@@ -1,5 +1,6 @@
 """Tests for generatePluginBuildInfo.py — parsing, tag listing, and registry reference transforms."""
 
+import base64
 import json
 import re
 from unittest.mock import MagicMock, patch
@@ -149,17 +150,25 @@ GHCR_REAL_TAGS = [
 ]
 
 
-def _mock_response(tags):
-    resp = MagicMock()
-    resp.status_code = 200
-    resp.json.return_value = {"tags": tags}
-    return resp
+def _skopeo_completed(tags):
+    proc = MagicMock()
+    proc.returncode = 0
+    proc.stdout = json.dumps({"Tags": tags})
+    proc.stderr = ""
+    return proc
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_quay_prefix_filters_garbage(mock_get):
+@pytest.fixture(autouse=True)
+def _clear_skopeo_tag_cache():
+    generatePluginBuildInfo._SKOPEO_TAG_CACHE.clear()
+    yield
+    generatePluginBuildInfo._SKOPEO_TAG_CACHE.clear()
+
+
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_quay_prefix_filters_garbage(mock_run):
     """Verify only clean version tags survive from real quay.io Konflux output."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -168,10 +177,10 @@ def test_list_tags_quay_prefix_filters_garbage(mock_get):
     assert result == ["1.10--1.3.2", "1.10--1.3.3", "1.10--1.5.3", "1.10--1.5.4"]
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_quay_three_part_prefix(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_quay_three_part_prefix(mock_run):
     """Verify three-part version prefix (1.10.0--) also works."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -180,10 +189,10 @@ def test_list_tags_quay_three_part_prefix(mock_get):
     assert result == ["1.10.0--1.3.2", "1.10.0--1.3.3", "1.10.0--1.5.3", "1.10.0--1.5.4"]
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_ghcr_prefix_filters_other_families(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_ghcr_prefix_filters_other_families(mock_run):
     """Verify only bs_1.45.3__ tags returned, not next__/pr__ tags."""
-    mock_get.return_value = _mock_response(GHCR_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(GHCR_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "ghcr.io", "redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay",
@@ -192,10 +201,10 @@ def test_list_tags_ghcr_prefix_filters_other_families(mock_get):
     assert result == ["bs_1.45.3__2.11.0", "bs_1.45.3__2.14.0"]
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_no_matching_prefix(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_no_matching_prefix(mock_run):
     """Prefix that doesn't exist in the registry returns empty list."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/plugin", "1.12--", None, {}
@@ -203,9 +212,9 @@ def test_list_tags_no_matching_prefix(mock_get):
     assert result == []
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_empty_response(mock_get):
-    mock_get.return_value = _mock_response([])
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_empty_response(mock_run):
+    mock_run.return_value = _skopeo_completed([])
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/plugin", "1.11--", None, {}
@@ -213,10 +222,10 @@ def test_list_tags_empty_response(mock_get):
     assert result == []
 
 
-@patch("generatePluginBuildInfo.requests.get")
-def test_list_tags_version_sort_order(mock_get):
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_version_sort_order(mock_run):
     """Verify ascending version sort — latest tag is last."""
-    mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+    mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
 
     result = generatePluginBuildInfo.list_tags_with_prefix(
         "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -224,6 +233,45 @@ def test_list_tags_version_sort_order(mock_get):
     )
     assert result == ["1.9--1.1.0", "1.9--1.3.1"]
     assert result[-1] == "1.9--1.3.1"
+
+
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_list_tags_keeps_only_xyz_release_tags(mock_run):
+    """SHA and attestation tags are dropped. Only x.y.z--a.b.c for the prefix remains."""
+    mock_run.return_value = _skopeo_completed([
+        "sha256-000c59163f40769db932c1d4ecb2871e5cdd1e3437510776f7ad00fadaa44290",
+        "sha256-000c59163f40769db932c1d4ecb2871e5cdd1e3437510776f7ad00fadaa44290.att",
+        "207c0117f535de0eccd735c458086807165a243c",
+        "2.2.0--6.2.4",
+        "2.1.0--6.2.4",
+        "2.2--6.2.4",
+    ])
+
+    result = generatePluginBuildInfo.list_tags_with_prefix(
+        "quay.io", "rhdh/red-hat-developer-hub-backstage-plugin-orchestrator",
+        "2.2.0--", None, {}
+    )
+    assert result == ["2.2.0--6.2.4"]
+    mock_run.assert_called_once()
+
+
+@patch("generatePluginBuildInfo.subprocess.run")
+def test_alias_prefix_reuses_one_skopeo_list(mock_run):
+    """A missing 2.2.0-- tag falls through to 2.2-- without a second skopeo call."""
+    mock_run.return_value = _skopeo_completed([
+        "sha256-abc.att",
+        "2.2--6.2.4",
+        "2.1.0--6.2.1",
+    ])
+
+    result = generatePluginBuildInfo.resolve_fallback_tag(
+        "quay.io/rhdh/plugin:2.2.0--6.2.4"
+    )
+    assert result == {
+        "reference": "quay.io/rhdh/plugin:2.2--6.2.4",
+        "alias": True,
+    }
+    mock_run.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +355,7 @@ class TestFetchImageMetadata:
         assert metadata is not None
         assert SHA256_DIGEST_RE.match(metadata["digest"])
 
-    def test_ghcr_returns_dynamic_packages_annotation(self):
+    def test_ghcr_returns_dynamic_packages_b64(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
         assert metadata is not None
         assert "io.backstage.dynamic-packages" in metadata
@@ -446,47 +494,51 @@ class TestResolveFallbackTag:
 class TestResolveFallbackTagAlias:
     """Tests for RHDH version alias resolution in resolve_fallback_tag."""
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_xyz_prefix_resolves_via_alias(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_xyz_prefix_resolves_via_alias(self, mock_run):
         """Request 1.10.2--1.5.4, registry has 1.10--1.5.4 -> alias, not fallback."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.10.2--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is not None
         assert result['reference'] == "quay.io/rhdh/plugin:1.10--1.5.4"
         assert result['alias'] is True
+        mock_run.assert_called_once()
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_xyz_prefix_no_exact_version_under_xy_returns_none(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_xyz_prefix_no_exact_version_under_xy_returns_none(self, mock_run):
         """Request 1.10.2--9999.99.9, no 1.10.2-- tags, 1.10-- has tags but not 9999.99.9 -> None (needs new build)."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.10.2--9999.99.9"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
+        mock_run.assert_called_once()
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_xyz_prefix_no_xy_tags_returns_none(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_xyz_prefix_no_xy_tags_returns_none(self, mock_run):
         """Request 1.12.0--1.5.4, no 1.12.0-- or 1.12-- tags exist -> None."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.12.0--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
+        mock_run.assert_called_once()
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_ghcr_does_not_use_alias(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_ghcr_does_not_use_alias(self, mock_run):
         """ghcr.io with nonexistent bs_1.50.0__ prefix should NOT try bs_1.50__ alias."""
-        mock_get.return_value = _mock_response(GHCR_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(GHCR_REAL_TAGS)
         ref = "ghcr.io/org/repo/plugin:bs_1.50.0__2.18.0"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
 
-    @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_two_part_prefix_does_not_use_alias(self, mock_get):
+    @patch("generatePluginBuildInfo.subprocess.run")
+    def test_quay_two_part_prefix_does_not_use_alias(self, mock_run):
         """Request 1.12--1.5.4, prefix is already two-part, no alias resolution attempted."""
-        mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
+        mock_run.return_value = _skopeo_completed(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.12--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
+        mock_run.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -525,6 +577,36 @@ class TestGetImageMetadataAlias:
         assert metadata.get('fallback') is True
         assert metadata['requestedTag'] == '1.11--1.6.0'
         assert metadata['registryReference'] == 'quay.io/rhdh/plugin:1.11--1.5.4'
+
+
+class TestFailedMetadataDropsStaleDigest:
+    """A missed tag must not keep the digest from an older successful fetch."""
+
+    @patch("generatePluginBuildInfo.get_image_metadata", return_value=None)
+    def test_clears_digest_and_image_fields(self, _mock_metadata):
+        image = "red-hat-developer-hub-backstage-plugin-orchestrator"
+        data = {
+            image: {
+                "workspacePath": "orchestrator/plugins/orchestrator",
+                "registryReference": f"quay.io/rhdh/{image}:2.2.0--6.2.5",
+                "digest": "sha256:" + "ab" * 32,
+                "build-date": "2026-10-21T16:57:24Z",
+                "fallback": True,
+                "requestedTag": "2.2.0--6.2.4",
+            }
+        }
+        modified, fallback_count, _last = generatePluginBuildInfo._enrich_plugins_in_build_file(
+            data, "orchestrator", None, [], []
+        )
+        plugin = data[image]
+        assert modified is True
+        assert fallback_count == 0
+        assert "digest" not in plugin
+        assert "build-date" not in plugin
+        assert "fallback" not in plugin
+        assert "requestedTag" not in plugin
+        assert plugin["registryReference"] == f"quay.io/rhdh/{image}:2.2.0--6.2.5"
+        assert plugin["workspacePath"] == "orchestrator/plugins/orchestrator"
 
 
 # ---------------------------------------------------------------------------
@@ -584,13 +666,16 @@ class TestFallbackRebuildCta:
         assert "backstage-plugin-kubernetes" in out
         assert "2.0--1.5.4" in out
         assert "2.0--1.6.0" in out
+        assert "(container, have_tag, requested_tag)" in out
+        assert "have_older_tag" not in out
+        assert "should_have_newer_tag" not in out
         # Midstream-only guidance must not appear from the upstream overlays repo.
         assert "sync-midstream.sh" not in out
         assert "generatePipelineRunsForPlugins.sh" not in out
         assert "./build/ci/update-index.sh" not in out
         fetch_version.assert_not_called()
 
-    def test_cta_includes_midstream_steps_when_in_midstream(self, capsys):
+    def test_cta_includes_midstream_steps_when_in_midstream(self, capsys, tmp_path):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
              patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"), \
              patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
@@ -602,28 +687,138 @@ class TestFallbackRebuildCta:
                         "2.0.0--0.19.1",
                         "extensions",
                     ),
-                ]
+                ],
+                repo_root=tmp_path,
             )
         out = capsys.readouterr().out
         assert "sync-midstream.sh --force-clone 'extensions' --yes" in out
-        assert (
-            "-p 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' "
-            "-v 2.0.0 --next"
-        ) in out
+        assert "-p 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions$'" in out
+        assert "-v 2.0.0 --next" in out
         assert "./build/ci/update-index.sh" in out
 
-    def test_cta_uses_package_version_on_release_branch(self, capsys):
+    def test_cta_uses_package_version_on_release_branch(self, capsys, tmp_path):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1.10-rhel-9"), \
              patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="1.10.3"), \
              patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
-                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0", "topology")]
+                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0", "topology")],
+                repo_root=tmp_path,
             )
         out = capsys.readouterr().out
-        assert "-p 'backstage-community-plugin-topology' -v 1.10.3" in out
+        assert "-p 'backstage-community-plugin-topology$'" in out
+        assert "-v 1.10.3" in out
         assert "--next" not in out
         assert "sync-midstream.sh --force-clone 'topology' --yes" in out
         assert "./build/ci/update-index.sh" in out
+
+    def test_cta_uses_release_version_without_next_on_release_branch(self, capsys, tmp_path):
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="release-2.1"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.1.0") as fetch_version, \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [("backstage-community-plugin-topology", "2.1.0--1.5.4", "2.1.0--1.6.0", "topology")],
+                repo_root=tmp_path,
+            )
+        out = capsys.readouterr().out
+        assert "-p 'backstage-community-plugin-topology$'" in out
+        assert "-v 2.1.0" in out
+        assert "--next" not in out
+        fetch_version.assert_called_once_with("release-2.1")
+
+    def test_cta_skips_sync_when_package_json_already_matches(self, capsys, tmp_path):
+        orchestrator = tmp_path / "workspaces" / "orchestrator" / "plugins" / "orchestrator"
+        widgets = tmp_path / "workspaces" / "orchestrator" / "plugins" / "orchestrator-form-widgets"
+        nested = tmp_path / "workspaces" / "orchestrator" / "node_modules" / "old"
+        orchestrator.mkdir(parents=True)
+        widgets.mkdir(parents=True)
+        nested.mkdir(parents=True)
+        (orchestrator / "package.json").write_text('{"version": "6.2.5"}\n')
+        (widgets / "package.json").write_text('{"version": "2.2.2"}\n')
+        (nested / "package.json").write_text('{"version": "0.0.1"}\n')
+        with patch("generatePluginBuildInfo._in_midstream_repo", return_value=True), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version") as fetch_version:
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [
+                    (
+                        "red-hat-developer-hub-backstage-plugin-orchestrator",
+                        "2.2.0--6.2.4",
+                        "2.2.0--6.2.5",
+                        "orchestrator",
+                    ),
+                    (
+                        "red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets",
+                        "2.2.0--2.2.1",
+                        "2.2.0--2.2.2",
+                        "orchestrator",
+                    ),
+                ],
+                repo_root=tmp_path,
+            )
+        out = capsys.readouterr().out
+        assert "No midstream sync is required" in out
+        assert "sync-midstream.sh" not in out
+        assert "updatePLRs.sh" not in out
+        assert "./build/ci/update-index.sh" not in out
+        fetch_version.assert_not_called()
+
+    def test_cta_syncs_only_the_workspace_missing_the_requested_version(self, capsys, tmp_path):
+        ready = tmp_path / "workspaces" / "orchestrator" / "plugins" / "orchestrator"
+        ready.mkdir(parents=True)
+        (ready / "package.json").write_text('{"version": "6.2.5"}\n')
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.2.0"), \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [
+                    (
+                        "red-hat-developer-hub-backstage-plugin-orchestrator",
+                        "2.2.0--6.2.4",
+                        "2.2.0--6.2.5",
+                        "orchestrator",
+                    ),
+                    (
+                        "backstage-community-plugin-topology",
+                        "2.2.0--1.5.4",
+                        "2.2.0--1.6.0",
+                        "topology",
+                    ),
+                ],
+                repo_root=tmp_path,
+            )
+        out = capsys.readouterr().out
+        assert "sync-midstream.sh --force-clone 'topology' --yes" in out
+        assert "orchestrator" not in out.split("sync-midstream.sh", 1)[1].split("\n", 1)[0]
+        assert "-p 'backstage-community-plugin-topology$'" in out
+        assert "-v 2.2.0 --next" in out
+        assert "red-hat-developer-hub-backstage-plugin-orchestrator|" not in out
+        assert "without a sync" in out
+
+    def test_node_modules_version_does_not_count_as_synced(self, tmp_path):
+        nested = tmp_path / "workspaces" / "orchestrator" / "node_modules" / "orchestrator"
+        nested.mkdir(parents=True)
+        (nested / "package.json").write_text('{"version": "6.2.5"}\n')
+        ready, manual, stale = generatePluginBuildInfo.split_fallback_rebuild(
+            [("plugin", "2.2.0--6.2.4", "2.2.0--6.2.5", "orchestrator")],
+            tmp_path,
+        )
+        assert ready == []
+        assert manual == ["plugin"]
+        assert stale == {"orchestrator"}
+
+
+class TestRecordImageMetadataReport:
+    def test_flags_missing_dynamic_packages_annotation(self, tmp_path):
+        report = BuildReport(str(tmp_path / "report.json"))
+        data = {
+            "plugin-a": {
+                "digest": "sha256:abc",
+                "registryReference": "quay.io/rhdh/plugin-a:1.10--1.0.0",
+            }
+        }
+        generatePluginBuildInfo._record_image_metadata_report(report, data)
+        stage = report.get_stage("plugin-a", "image-metadata-fetch")
+        assert stage is not None
+        assert stage.get("missing_dynamic_packages_annotation") is True
 
 
 class TestRhdhBranchAndVersion:
@@ -633,6 +828,8 @@ class TestRhdhBranchAndVersion:
         "midstream, expected",
         [
             ("main", "main"),
+            ("release-2.1", "release-2.1"),
+            ("release-1.10", "release-1.10"),
             ("rhdh-1.10-rhel-9", "release-1.10"),
             ("rhdh-1.9-rhel-9", "release-1.9"),
             ("feature/foo", "main"),
@@ -844,3 +1041,224 @@ spec:
         assert updated_count == 0
         assert json_path.read_text(encoding="utf-8") == original_json
         assert json_path.stat().st_mtime_ns == before_mtime
+
+
+class TestMetadataWriteBackKeepsPluginPath:
+    """The digest write-back must not drop a metadata ref's !plugin-path selector."""
+
+    RESOLVED = f"oci://registry.access.redhat.com/rhdh/{_TEST_PLUGIN}@{_TEST_DIGEST}"
+    TAG_REF = (
+        "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/"
+        f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0"
+    )
+
+    @pytest.fixture(autouse=True)
+    def _rarc_registry(self, monkeypatch):
+        monkeypatch.setattr(
+            generatePluginBuildInfo,
+            "REGISTRY_BASE",
+            "registry.access.redhat.com/rhdh",
+        )
+
+    def _sync(self, mock_get_metadata, tmp_path, body):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        _, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        meta_path = metadata_dir / f"{_TEST_PLUGIN}.yaml"
+        meta_path.write_text(body, encoding="utf-8")
+        _, _, _, changes, _, _ = generatePluginBuildInfo.update_plugin_build_files(
+            tmp_path / "plugin_builds", tmp_path, None
+        )
+        return changes, meta_path.read_text(encoding="utf-8")
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_selector_is_kept(self, mock_get_metadata, tmp_path):
+        _, text = self._sync(
+            mock_get_metadata, tmp_path, _metadata_yaml_body(f"{self.TAG_REF}!{_TEST_PLUGIN}-x")
+        )
+        assert f'  dynamicArtifact: "{self.RESOLVED}!{_TEST_PLUGIN}-x"\n' in text
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_pathless_ref_stays_pathless(self, mock_get_metadata, tmp_path):
+        _, text = self._sync(mock_get_metadata, tmp_path, _metadata_yaml_body(self.TAG_REF))
+        assert f'  dynamicArtifact: "{self.RESOLVED}"\n' in text
+        assert "!" not in text
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_rerun_on_written_back_metadata_changes_nothing(self, mock_get_metadata, tmp_path):
+        body = _metadata_yaml_body(f'"{self.RESOLVED}!{_TEST_PLUGIN}"').replace(
+            "  dynamicArtifact:",
+            f"  # Tag: 1.10--1.0.0, Build date: {_TEST_BUILD_DATE}\n  dynamicArtifact:",
+        )
+        changes, text = self._sync(mock_get_metadata, tmp_path, body)
+        assert changes == 0
+        assert text == body
+
+
+# ---------------------------------------------------------------------------
+# decode_dynamic_packages / empty-annotation detection
+# ---------------------------------------------------------------------------
+
+
+def _b64(payload: bytes) -> str:
+    return base64.b64encode(payload).decode()
+
+
+class TestDecodeDynamicPackages:
+    """The annotation is base64-encoded JSON; an empty list is RHDHBUGS-3556."""
+
+    def test_decodes_a_real_package_list(self):
+        packages = generatePluginBuildInfo.decode_dynamic_packages(
+            _b64(json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode())
+        )
+        assert packages == [{"plugin-a": {"name": "@scope/plugin-a"}}]
+
+    @pytest.mark.parametrize("annotation", ["", None])
+    def test_absent_annotation_decodes_to_nothing_declared(self, annotation):
+        assert generatePluginBuildInfo.decode_dynamic_packages(annotation) == []
+
+    def test_an_explicitly_empty_list_decodes_to_empty(self):
+        # [] means "declares nothing", None means "could not be read". Collapsing the
+        # two would report a broken artifact as an empty one, or the reverse.
+        assert generatePluginBuildInfo.decode_dynamic_packages(_b64(b"[]")) == []
+
+    @pytest.mark.parametrize(
+        "wrap",
+        [
+            lambda p: base64.encodebytes(p).decode(),
+            lambda p: base64.b64encode(p).decode() + "\n",
+            lambda p: " " + base64.b64encode(p).decode() + " ",
+        ],
+        ids=["mime-wrapped", "trailing-newline", "surrounding-spaces"],
+    )
+    def test_whitespace_in_the_annotation_is_not_malformed(self, wrap):
+        # `base64` without `-w 0` wraps its output. A healthy artifact whose
+        # annotation carries a newline must not be reported as broken.
+        payload = json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode()
+        assert generatePluginBuildInfo.decode_dynamic_packages(wrap(payload)) == [
+            {"plugin-a": {"name": "@scope/plugin-a"}}
+        ]
+
+    def test_an_annotation_that_was_never_encoded_is_undecodable(self):
+        # Stripping whitespace must not soften the check into accepting raw JSON.
+        assert (
+            generatePluginBuildInfo.decode_dynamic_packages('[{"a": 1}]') is None
+        )
+
+    @pytest.mark.parametrize(
+        "annotation",
+        [
+            "!!!not-base64!!!",
+            _b64(b"not json at all"),
+            _b64(b'{"packages": []}'),  # an object, not the expected list
+        ],
+        ids=["not-base64", "not-json", "not-a-list"],
+    )
+    def test_undecodable_annotation_returns_none(self, annotation):
+        assert generatePluginBuildInfo.decode_dynamic_packages(annotation) is None
+
+
+class TestDynamicPackagesAnnotationReporting:
+    """What _fetch_image_metadata reports for each shape of the annotation."""
+
+    REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-x:bs_1.52.0__1.0.0"
+
+    def _fetch_with_annotations(self, annotations):
+        manifest = {
+            "config": {"digest": "sha256:" + "0" * 64},
+            "annotations": annotations,
+        }
+        manifest_response = MagicMock(
+            status_code=200,
+            json=MagicMock(return_value=manifest),
+            headers={"Docker-Content-Digest": "sha256:" + "1" * 64},
+        )
+        blob_response = MagicMock(status_code=404)
+        # get_registry_auth issues its own token request for ghcr.io; without stubbing it
+        # the first queued response is consumed there and the manifest never arrives.
+        with patch.object(
+            generatePluginBuildInfo, "get_registry_auth", return_value=(None, {})
+        ), patch.object(
+            generatePluginBuildInfo.requests,
+            "get",
+            side_effect=[manifest_response, blob_response],
+        ), patch.object(generatePluginBuildInfo, "log_warn") as warn:
+            generatePluginBuildInfo._fetch_image_metadata(self.REF)
+        return [call.args[0] for call in warn.call_args_list]
+
+    def test_empty_annotation_is_reported_with_the_artifact_named(self):
+        warnings = self._fetch_with_annotations(
+            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(b"[]")}
+        )
+        assert any(
+            "plugin-x:bs_1.52.0__1.0.0" in w and "empty" in w and "no-op" in w
+            for w in warnings
+        ), warnings
+
+    def test_malformed_annotation_is_reported_as_malformed_not_empty(self):
+        warnings = self._fetch_with_annotations(
+            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: "!!!not-base64!!!"}
+        )
+        assert any(
+            "plugin-x:bs_1.52.0__1.0.0" in w and "malformed" in w for w in warnings
+        ), warnings
+        assert not any("declares an empty" in w for w in warnings), warnings
+
+    def test_a_populated_annotation_is_not_reported(self):
+        warnings = self._fetch_with_annotations(
+            {
+                generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(
+                    json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()
+                )
+            }
+        )
+        assert not any("dynamic-packages" in w for w in warnings), warnings
+
+    def test_an_image_without_the_annotation_is_not_reported(self):
+        # Not every image publishes one; warning on its absence would fire on all of them.
+        warnings = self._fetch_with_annotations({})
+        assert not any("dynamic-packages" in w for w in warnings), warnings
+
+
+class TestDynamicPackagesInBuildReport:
+    """The image-metadata-fetch stage must not read green for an empty artifact."""
+
+    @staticmethod
+    def _stage(annotation, tmp_path):
+        report = BuildReport(tmp_path / "build-report.json")
+        data = {
+            "plugin-x": {
+                "digest": "sha256:" + "0" * 64,
+                **(
+                    {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: annotation}
+                    if annotation is not None
+                    else {}
+                ),
+            }
+        }
+        generatePluginBuildInfo._record_image_metadata_report(report, data)
+        return report.get_stage("plugin-x", "image-metadata-fetch")
+
+    def test_an_empty_annotation_is_recorded_on_the_stage(self, tmp_path):
+        # Without this the stage is a bare pass and build-report.json contradicts the
+        # warning the fetch already logged.
+        stage = self._stage(_b64(b"[]"), tmp_path)
+        assert stage["status"] == "pass"
+        assert stage["dynamicPackages"] == 0
+
+    def test_an_unreadable_annotation_is_recorded_as_unreadable(self, tmp_path):
+        stage = self._stage("!!!not-base64!!!", tmp_path)
+        assert stage["dynamicPackagesUnreadable"] is True
+        assert "dynamicPackages" not in stage
+
+    def test_a_populated_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(
+            _b64(json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()),
+            tmp_path,
+        )
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage
+
+    def test_an_image_without_the_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(None, tmp_path)
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage

@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { after, test } from "node:test";
+import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -14,9 +14,12 @@ import { parse, stringify } from "yaml";
 import { excluderFor, loadExclusions, parseExclusions } from "./exclusions";
 import {
   imageNameFromRef,
+  partitionResolvable,
   readCatalogIndexRefs,
   writeCatalogIndexConfig,
+  type ProbeResult,
 } from "./catalog-index";
+import { tempDir as sharedTempDir } from "./test-support";
 
 // src/ → smoke-tests-native/
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -25,16 +28,7 @@ const EXCLUDES_FILE = join(HARNESS_ROOT, "catalog-index-sanity-excludes.txt");
 const REGISTRY = "quay.io/rhdh";
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
-// Same leak guard as workspace.test.ts: an unbounded pile of temp dirs per run.
-const TEMP_DIRS: string[] = [];
-function tempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "catalog-index-test-"));
-  TEMP_DIRS.push(dir);
-  return dir;
-}
-after(() => {
-  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
-});
+const tempDir = () => sharedTempDir(join(tmpdir(), "catalog-index-test-"));
 
 /** Write a dynamic-plugins.default.yaml with the given plugins[] list verbatim. */
 function writeIndex(plugins: unknown[]): string {
@@ -293,12 +287,12 @@ test("writeCatalogIndexConfig produces a config that enables every ref", async (
   {
     const path = await writeCatalogIndexConfig(refs, dest);
     const doc = parse(readFileSync(path, "utf8")) as {
-      plugins: Array<{ package: string; disabled: boolean }>;
+      plugins: Array<{ package: string; enabled: boolean }>;
       includes?: unknown;
     };
     assert.deepEqual(
       doc.plugins,
-      refs.map((pkg) => ({ package: pkg, disabled: false })),
+      refs.map((pkg) => ({ package: pkg, enabled: true })),
     );
     // No `includes:` — it would re-import the defaults this mode overrides.
     assert.equal(doc.includes, undefined);
@@ -326,4 +320,112 @@ test("writeCatalogIndexConfig carries no pluginConfig from the index", async () 
 test("the shipped catalog-index excludes file parses", () => {
   // Loaded on every run, and parse errors are fatal.
   assert.doesNotThrow(() => loadExclusions(EXCLUDES_FILE));
+});
+
+// ---------------------------------------------------------------------------
+// partitionResolvable
+// ---------------------------------------------------------------------------
+const MISSING = `oci://${REGISTRY}/backstage-plugin-org:2.1.0--0.7.8`;
+
+test("partitionResolvable keeps installing everything but the missing image", async () => {
+  // The failure it exists for: one tag-only ref to an unpublished build made the
+  // install CLI abort, and the run validated none of the other packages.
+  const refs = [ociRef("plugin-a"), MISSING, ociRef("plugin-b")];
+  const probe = async (ref: string): Promise<ProbeResult> =>
+    ref === MISSING
+      ? { ok: false, error: "reading manifest 2.1.0--0.7.8: manifest unknown" }
+      : { ok: true };
+
+  const result = await partitionResolvable(refs, probe, { retryDelayMs: 0 });
+
+  assert.deepEqual(result.resolvable, [ociRef("plugin-a"), ociRef("plugin-b")]);
+  assert.deepEqual(result.unresolved, [
+    {
+      ref: MISSING,
+      error: "reading manifest 2.1.0--0.7.8: manifest unknown",
+    },
+  ]);
+});
+
+test("partitionResolvable retries a probe before giving up on a ref", async () => {
+  // A registry blip must not drop a package that is actually there.
+  let calls = 0;
+  const flaky = async (): Promise<ProbeResult> => {
+    calls += 1;
+    return calls < 3 ? { ok: false, error: "503" } : { ok: true };
+  };
+  const result = await partitionResolvable([ociRef("plugin-a")], flaky, {
+    attempts: 3,
+    retryDelayMs: 0,
+  });
+  assert.equal(calls, 3);
+  assert.deepEqual(result.resolvable, [ociRef("plugin-a")]);
+  assert.deepEqual(result.unresolved, []);
+});
+
+test("partitionResolvable reports the last error once the retries run out", async () => {
+  let calls = 0;
+  const failing = async (): Promise<ProbeResult> => {
+    calls += 1;
+    return { ok: false, error: `attempt ${calls}` };
+  };
+  const result = await partitionResolvable([MISSING], failing, {
+    attempts: 2,
+    retryDelayMs: 0,
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(result.unresolved, [{ ref: MISSING, error: "attempt 2" }]);
+});
+
+test("partitionResolvable keeps the input order under concurrency", async () => {
+  // Refs arrive sorted so a run is byte-identical; finishing out of order must not
+  // undo that.
+  const refs = ["a", "b", "c", "d", "e"].map((name) =>
+    ociRef(`plugin-${name}`),
+  );
+  const delays = [40, 0, 20, 10, 30];
+  const probe = async (ref: string): Promise<ProbeResult> => {
+    await new Promise((resolve) =>
+      setTimeout(resolve, delays[refs.indexOf(ref)]),
+    );
+    return { ok: true };
+  };
+  const result = await partitionResolvable(refs, probe, { concurrency: 3 });
+  assert.deepEqual(result.resolvable, refs);
+});
+
+test("partitionResolvable never runs more probes at once than asked", async () => {
+  let running = 0;
+  let peak = 0;
+  const probe = async (): Promise<ProbeResult> => {
+    running += 1;
+    peak = Math.max(peak, running);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    running -= 1;
+    return { ok: true };
+  };
+  const refs = Array.from({ length: 10 }, (_, i) => ociRef(`plugin-${i}`));
+  await partitionResolvable(refs, probe, { concurrency: 4 });
+  assert.equal(peak, 4);
+});
+
+test("partitionResolvable on an empty list probes nothing", async () => {
+  const result = await partitionResolvable([], async () => {
+    throw new Error("must not be called");
+  });
+  assert.deepEqual(result, { resolvable: [], unresolved: [] });
+});
+
+test("partitionResolvable does not retry an answer that cannot change", async () => {
+  let calls = 0;
+  const wrong = async (): Promise<ProbeResult> => {
+    calls += 1;
+    return { ok: false, error: "no plugins declared", retry: false };
+  };
+  const result = await partitionResolvable([ociRef("plugin-a")], wrong, {
+    attempts: 3,
+    retryDelayMs: 0,
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.unresolved.length, 1);
 });

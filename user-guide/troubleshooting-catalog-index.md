@@ -2,9 +2,49 @@
 
 Common issues reported on the status page and how to resolve them.
 
+### Build failed — catalog index validation
+
+**What it means:** Step 5 (`validateCatalogIndex.py`) found a blocking issue. The `catalog-index-{branch}` git branch may still be updated for debugging, but **OCI publish is skipped** when generation fails (`--validate-mode gate` in the generate workflow).
+
+**Always fails (every branch):**
+
+- [Image not found in registry](#image-not-found-in-registry) — no exact tag and no fallback.
+- Missing, empty, or unreadable `io.backstage.dynamic-packages` on any plugin image.
+- `dynamic-plugins.default.yaml` does not list every package from `default.packages.yaml`.
+- [DPDY `package:` is a tag, not a digest](#validation-not-digest-pinned) — the tag points at the manifest list.
+- [A ref's plugin path does not match its image](#validation-plugin-path-mismatch) — install extracts nothing, or fails with "Multiple plugins found".
+
+**Fails only on `release-*` (`--strict`):**
+
+- [Plugin marked as outdated](#plugin-marked-as-outdated) (version fallback).
+- [Backstage version mismatch](#backstage-version-mismatch).
+- Plugin version regressed vs the previous published catalog index (see below). `strict: false` on a release line opts only this check out.
+
+**What to do:** Fix the underlying issue (publish the plugin, restore the annotation, bump the workspace). On `main`, fallback, mismatch, and version-regression issues are warnings and the catalog still publishes. Those warnings appear on the generated status page.
+
+<a id="validation-version-regression"></a>
+
+### Plugin version regressed vs previous release
+
+**What it means:** The supported catalog resolved a plugin to an **older npm/plugin version** than the last published catalog index for this RHDH version — even though the OCI image exists and installed cleanly. On `main` the status page lists these under Version regression; on `release-*` the build fails unless `strict: false` was used for an emergency rollback.
+
+**Common cause:** Metadata was bumped before the new plugin image was published; the pipeline fell back to an older tag and nobody rebuilt the index after publish.
+
+**What to do:**
+
+1. Publish the correct plugin version for the requested tag.
+2. Re-run catalog index generation (on `release-*`, `--strict` enforces this automatically).
+3. On `main`, this is a warning only until the next `release-*` build.
+
+### Missing io.backstage.dynamic-packages annotation
+
+**What it means:** The OCI image exists but lacks the `io.backstage.dynamic-packages` manifest annotation required for dynamic plugin installation. This **always fails** the build on every branch and tier.
+
+**What to do:** Re-export and publish the plugin with `@red-hat-developer-hub/cli plugin package` so the annotation is set. Verify with `skopeo inspect --raw` on the image manifest.
+
 ### Backstage version mismatch
 
-**What it means:** The plugin's workspace targets an older Backstage minor version than the one expected by the current branch. The plugin is still included in the catalog index: community (ghcr.io) builds use the workspace's actual Backstage version in the image tag so the image can resolve. The status page flags this as a warning so you can update the workspace when a compatible upstream version is available.
+**What it means:** The plugin's workspace targets an older Backstage minor version than the one expected by the current branch. The plugin is still included in the catalog index: community (ghcr.io) builds use the workspace's actual Backstage version in the image tag so the image can resolve. The status page flags this as a warning so you can update the workspace when a compatible upstream version is available. On `release-*` branches with `--strict`, this **fails** the build instead.
 
 **Common cause:** The upstream plugin repository has not yet released a version compatible with the latest Backstage version, or the workspace's `source.json` `repo-ref` points to an older tag.
 
@@ -16,7 +56,7 @@ Common issues reported on the status page and how to resolve them.
 
 ### Plugin marked as outdated
 
-**What it means:** The exact requested image tag couldn't be found. Instead the latest published tag for the same Backstage/RHDH version line is being used as a fallback. The plugin is still included in the catalog index rather than being removed entirely.
+**What it means:** The exact requested image tag couldn't be found. Instead the latest published tag for the same Backstage/RHDH version line is being used as a fallback. The plugin is still included in the catalog index rather than being removed entirely. On `main` this is a warning; on `release-*` with `--strict` this **fails** the build and blocks OCI publish.
 
 **When this happens:**
 
@@ -34,7 +74,7 @@ If this fallback also fails (no older tag exists), the plugin will instead appea
 
 ### Image not found in registry
 
-**What it means:** No OCI image exists in the container registry for *any* tag matching the plugin's Backstage or RHDH version. The pipeline has no image to use — not even an older one to fall back to (see [Outdated](#plugin-marked-as-outdated)) — so the plugin is excluded from the catalog index entirely.
+**What it means:** No OCI image exists in the container registry for *any* tag matching the plugin's Backstage or RHDH version. The pipeline has no image to use — not even an older one to fall back to (see [Outdated](#plugin-marked-as-outdated)) — so the plugin is excluded from the catalog index entirely. This **always fails** the build on every branch.
 
 **When this happens:**
 
@@ -96,11 +136,16 @@ files describe different builds of the same plugin.
 
 #### registry-not-allowed
 
-A reference points at a registry this index is not built against — most often a
-`ghcr.io` (community) reference leaking into a `quay.io/rhdh` (productized) index.
+A selected plugin's OCI reference uses the wrong registry for its support tier.
+`support: community` must use the exact `--community-registry` base; every other
+support tier must use the exact `--registry` base. The policy checks the DPDY,
+`plugin_builds/`, `index.json`, and selected Package entities, and always fails
+`update-index.sh` even when `--validate-mode` is `report` or `off`.
 
-**Fix:** correct the package's support tier so it resolves against the right registry.
-Pass `--community-registry` when the index is meant to carry community-tier packages.
+**Fix:** correct the Package entity's support tier or republish the image to its
+expected registry, then regenerate the index. Pass `--community-registry` for
+community-tier packages when they use a different base; if omitted, community uses
+`--registry`. This finding cannot be allowlisted.
 
 <a id="validation-duplicate-ref"></a>
 
@@ -116,9 +161,23 @@ expected may not be the one that applies.
 
 #### ref-form
 
-A `plugins[].package` value is neither an `oci://` reference nor a
-`./dynamic-plugins/dist/` path. Generated indexes should never produce this; it means the
-file was hand-edited or a generator step wrote a malformed value.
+A package reference does not parse as an `oci://` image reference: a `plugins[].package`
+value with another scheme or a local path, a truncated digest, or a bare trailing `!` with
+no `!plugin-path` after it. The registry policy reports an unparseable `registryReference`
+or `dynamicArtifact` from `plugin_builds/`, `index.json`, or a Package entity under this
+rule too, because its registry cannot be read; an empty value is reported as "the
+reference is empty". A malformed `oci://` ref also fails the registry policy gate, and
+no allowlist entry can suppress it.
+
+A malformed value usually means a file was hand-edited or a generator step wrote it. An
+empty `registryReference` in `plugin_builds/` means no OCI reference was recorded for
+that plugin (`bootstrapPluginBuilds.py` writes `""` rather than omit the key), and
+`generateCatalogIndex.py` already fails its `catalog-index` stage with "No
+registryReference field" for the same entry.
+
+**Fix:** correct the reference, or drop the trailing `!` when no plugin path is meant. For
+an empty `registryReference`, regenerate that plugin's `plugin_builds/` entry rather than
+editing the index.
 
 <a id="validation-index-ref-mismatch"></a>
 
@@ -130,11 +189,81 @@ current.
 
 **Fix:** re-run the generation.
 
+<a id="validation-missing-annotation"></a>
+
+#### missing-annotation
+
+The OCI image exists but lacks a usable `io.backstage.dynamic-packages` annotation:
+missing, empty, or present but not readable Base64/JSON (RHIDP-16251 / RHDHBUGS-2530).
+This always **fails** the build.
+
+**Fix:** re-export and publish the plugin with `@red-hat-developer-hub/cli plugin package`
+so the annotation is set. Verify with `skopeo inspect` on the image manifest.
+
+<a id="validation-dpdy-missing-package"></a>
+
+#### dpdy-missing-package
+
+A package listed in `default.packages.yaml` is not in `dynamic-plugins.default.yaml`.
+Matching is by npm name / derived image name, so swapping one package for another of the
+same count still fails.
+
+**Fix:** restore the missing package in metadata so DPDY generation includes it, or
+remove it from `default.packages.yaml` if it should not ship.
+
+<a id="validation-not-digest-pinned"></a>
+
+#### not-digest-pinned
+
+A `plugins[].package` value is an `oci://` tag (`:2.1.0--4.2.5`) rather than a
+child-manifest digest (`@sha256:…`). Tags resolve to the OCI index / manifest list,
+which does not carry `io.backstage.dynamic-packages`, so `install-dynamic-plugins`
+fails with `InstallException: No plugins found` (RHDHBUGS-3815). This **always
+fails** the build on every branch.
+
+Typical cause: the plugin image was not in the registry yet when the catalog index
+was generated, so Step 4 never rewrote the tag copied from metadata.
+
+**Fix:** publish the plugin image, then re-run catalog index generation. Do not
+allowlist a missing digest — a tag-only DPDY entry is not installable.
+
+<a id="validation-plugin-path-mismatch"></a>
+
+#### plugin-path-mismatch
+
+A ref's `!plugin-path` selector does not match the plugins its image declares in
+`io.backstage.dynamic-packages`. Two cases, both checked on the DPDY refs and on the
+selected Package entities' `dynamicArtifact`:
+
+- The path is not one the image declares. `install-dynamic-plugins` exits 0 and
+  creates a directory holding only its hash files, so RHDH loads nothing and logs no
+  error (RHDHBUGS-3837).
+- The ref has no path and the image declares several plugins. Install fails with
+  `InstallException: Multiple plugins found in OCI image` (RHDHBUGS-3836).
+
+A ref to an image with no `plugin_builds/` entry, such as an external bundle, is not
+checked: nothing in the index records that image's plugins. Neither is a ref whose
+digest, or repository when it has no digest, differs from the build of the same name.
+
+Both the DPDY ref and the Package entity are generated from the workspace metadata's
+`spec.dynamicArtifact`, and generation keeps its `!plugin-path` when it pins the digest.
+So the selector in the finding is the one in `workspaces/<workspace>/metadata/*.yaml`.
+
+**Fix:** edit `spec.dynamicArtifact` in that workspace metadata file, then re-run
+catalog index generation. For a wrong selector, change it to one of the paths the
+message lists. For a ref with no path to an image holding several plugins, add
+`!<plugin-path>` for the plugin that file describes. Editing the generated file does
+not survive the next run.
+
 ### Warnings that do not fail the stage
 
 `fallback-tag` means the requested build was missing and an older tag was substituted —
-the index ships a stale build. `not-digest-pinned` means a reference carries a tag rather
-than a digest, so what it resolves to can change under the index.
-`index-missing-entry` means a resolved package is missing from `index.json`, so the
-Extensions UI will not list it. None of these fail the plugin, but each is worth chasing
-before a release.
+the index ships a stale build. `backstage-version-mismatch` means the workspace targets
+an older Backstage minor than this branch. `version-regression` means the plugin version
+is lower than the previous published catalog index (RHIDP-16252); the status page
+renders these from `stages.validate.warnings`.
+`index-missing-entry` means a resolved package
+is missing from `index.json`, so the Extensions UI will not list it.
+
+None of these fail the plugin's `validate` stage, but `--strict` (release branches)
+fails the **build** on them.

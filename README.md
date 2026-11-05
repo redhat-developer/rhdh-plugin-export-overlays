@@ -38,6 +38,8 @@ Each plugin set is organized in a dedicated folder that represents a workspaceâ€
   - They are created from `main` when a new RHDH release is released (or about to be released).
   - After creation, they only receive pull requests for updates to existing plugins. No new workspace will be automatically added to a release branch.
 
+Repo admins create a new release branch with the [Create Release Branch](https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/create-release-branch.yaml) workflow (`create-release-branch.yaml`). Before running it, review the pre-flight wiki reports described in [08 - Creating Release Branches](./user-guide/08-creating-release-branches.md).
+
 ## Backstage Compatibility
 
 Ensuring plugin compatibility with the version of Backstage bundled in RHDH is crucial. This repository has automated checks and processes for this.
@@ -110,13 +112,9 @@ Add an entry for your new workspace in [`.github/CODEOWNERS`](./.github/CODEOWNE
 
 Sometimes, additional configuration is required in the PR:
 
-- **Frontend plugins** may need:
-   - `app-config.dynamic.yaml` (Eg: [techdocs plugin](./workspaces/backstage/plugins/techdocs/app-config.dynamic.yaml))
-   - `scalprum-config.json` (Eg: [api-docs-module-protoc-gen-doc plugin](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/scalprum-config.json))
-
 - **Any plugin** may need:
    - Overlay source files in an `overlay` directory
-  (e.g., [`api-docs-module-protoc-gen-doc`](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/overlay))
+  (e.g., [`gitlab-backend`](./workspaces/gitlab/packages/gitlab-backend/overlay))
   - Patches (`*.patch`) in the `patches` directory of the workspace folder, to modify the workspace source code before the whole build and packaging process. (Example: [roadie backstage plugins](./workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch))
 
 > **Overlay vs. Patch**
@@ -182,6 +180,30 @@ This creates `backstage.json` with the target version and updates all metadata O
 #### Once Testing Is Complete:
 - If the plugin works with RHDH (either via automatic or manual testing), **change the label** to `tested`
 - Once the PR is merged, the final OCI artifact will be published with the tag: `bs_<backstage_version>__<plugin_version>`
+
+## Local E2E runs
+
+The runner defaults to Helm with `RHDH_VERSION=next`. Set `INSTALLATION_METHOD`
+or `RHDH_VERSION` explicitly to override these defaults.
+
+After cluster login and [secret setup](./user-guide/09-managing-e2e-secrets.md#running-tests-with-secrets), run an operator workspace and retain its deployment with:
+
+```bash
+CI=false INSTALLATION_METHOD=operator E2E_NIGHTLY_MODE=true \
+  ./run-e2e.sh --secrets -w quickstart
+```
+
+`run-e2e.sh` defaults `RELEASE_BRANCH_NAME` to `main` for local runs, including
+nightly runs with `CI=false`. Set it explicitly to test another release branch,
+together with the matching `RHDH_VERSION` (for example
+`RELEASE_BRANCH_NAME=release-2.1 RHDH_VERSION=2.1`).
+OpenShift CI runs identified by `JOB_NAME` or `PROW_JOB_ID` use the branch supplied
+by the job; the existing nightly branch check still applies there. When cutting a
+release branch, update the local default in `run-e2e.sh` to that release branch.
+
+## E2E secrets
+
+For local secret loading and this repository's naming conventions, see [09 - Managing E2E Secrets](./user-guide/09-managing-e2e-secrets.md). Authentication and secret lifecycle operations are documented in the [upstream Secrets API](https://redhat-developer.github.io/rhdh-e2e-test-utils/api/secrets.html).
 
 ## E2E coverage anchors
 

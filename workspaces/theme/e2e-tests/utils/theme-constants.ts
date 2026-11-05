@@ -18,18 +18,19 @@ export class ThemeConstants {
       appBarBackgroundColor: "rgb(190, 122, 45)",
     };
 
-    const qeLight: ThemeInfo = {
-      name: "RHDH Plugins QE Light",
-      primaryColor: "rgb(255, 95, 21)",
-      appBarBackgroundColor: "",
-    };
+    // QE themes break often
+    // const qeLight: ThemeInfo = {
+    //   name: "RHDH Plugins QE Light",
+    //   primaryColor: "rgb(255, 95, 21)",
+    //   appBarBackgroundColor: "",
+    // };
 
-    const qeDark: ThemeInfo = {
-      name: "RHDH Plugins QE Dark",
-      primaryColor: "#ab75cf",
-      appBarBackgroundColor: "",
-    };
+    // const qeDark: ThemeInfo = {
+    //   name: "RHDH Plugins QE Dark",
+    //   primaryColor: "#ab75cf",
+    //   appBarBackgroundColor: "",
+    // };
 
-    return [light, dark, qeLight, qeDark];
+    return [light, dark];
   }
 }

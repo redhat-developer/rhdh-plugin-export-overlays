@@ -10,10 +10,9 @@ import {
 import {
   DEPENDABOT_METRICS,
   FILECHECK_METRICS,
-  OPENSSF_LICENSE_SCORECARD,
-  OPENSSF_MAINTAINED_SCORECARD,
+  OPENSSF_METRICS,
   SCORECARD_METRICS,
-} from "../utils/scorecard";
+} from "../utils/constants";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
   let context: BrowserContext | undefined;
@@ -42,15 +41,26 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    await scorecard.addWidget("Scorecard: GitHub open PRs", { exact: true });
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "github.openPRs",
+    });
     await scorecard.expectNoProgressBar();
-    await scorecard.addWidget("Jira open blocking tickets");
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "jira.openIssues",
+    });
+    await scorecard.expectNoProgressBar();
+    await scorecard.addWidget("Scorecard", {
+      aggregationId: "openPrsWeightedKpi",
+    });
     await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
+    await scorecard.expectAggregatedScorecardVisible(
+      "GitHub open PRs (weighted health)",
+    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -58,6 +68,18 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     initialJiraCount = await scorecard.getAggregatedScorecardEntityCount(
       jiraMetric.title,
     );
+  });
+
+  test("Weighted status score card shows a percentage for GitHub open PRs", async () => {
+    await scorecard.navigateToHome();
+    await scorecard.expectNoProgressBar();
+
+    // The setup test adds the generic Scorecard widget with `openPrsWeightedKpi` KPI ID.
+    const card = page.getByTestId("scorecard-homepage-card-openPrsWeightedKpi");
+    await expect(card).toBeVisible({ timeout: 90_000 });
+    await expect(
+      card.getByTestId("weighted-status-score-card-center-percent"),
+    ).toHaveText(/^\d+(\.\d+)?%$/);
   });
 
   test.describe("Aggregated scorecard drill-down", () => {
@@ -69,13 +91,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
         () => scorecard.navigateToHome(),
         githubMetric,
         "github.openPRs",
-        {
-          thresholdRules: [
-            { key: "ideal", color: "rgb(180, 211, 178)" },
-            { key: "warning", color: "rgb(250, 213, 165)" },
-            { key: "critical", color: "rgb(250, 160, 160)" },
-          ],
-        },
       );
     });
 
@@ -152,15 +167,16 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.openTab();
 
       const [githubMetric, jiraMetric] = SCORECARD_METRICS;
-      const [maintainedMetric] = OPENSSF_MAINTAINED_SCORECARD;
 
       await scorecard.expectScorecardHidden(githubMetric.title);
       await scorecard.expectScorecardHidden(jiraMetric.title);
-      await scorecard.expectScorecardHidden(maintainedMetric.title);
+      await scorecard.expectScorecardHidden(OPENSSF_METRICS.maintained.title);
       await scorecard.expectScorecardHidden(FILECHECK_METRICS.readme.title);
       await scorecard.expectScorecardHidden(FILECHECK_METRICS.license.title);
 
-      for (const metric of OPENSSF_LICENSE_SCORECARD) {
+      for (const [, metric] of Object.entries(OPENSSF_METRICS).filter(
+        ([key]) => key !== "maintained",
+      )) {
         await scorecard.validateScorecardAriaFor(metric);
       }
     });
@@ -208,11 +224,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.openTab();
 
       const [githubMetric] = SCORECARD_METRICS;
-      await scorecard.validateThresholdLegend(githubMetric, [
-        { key: "ideal", expression: "<30", color: "rgb(180, 211, 178)" },
-        { key: "warning", expression: "30-70", color: "rgb(250, 213, 165)" },
-        { key: "critical", expression: ">70", color: "rgb(250, 160, 160)" },
-      ]);
+      await scorecard.validateThresholdLegend(githubMetric);
       // TODO: StarIcon data-testid not present in NFS, verify SVG icon renders instead
       // await scorecard.expectScorecardValue(githubMetric.title, "StarIcon");
       const card = scorecard.getScorecardCard(githubMetric);

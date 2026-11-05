@@ -48,3 +48,7 @@ export const RBAC_ROLES: Record<string, RbacRef> = {
     ref: "role:default/default-role",
   },
 };
+
+/** Description shown on the config-sourced rbac_admin role overview. */
+export const RBAC_ADMIN_ROLE_DESCRIPTION =
+  "The default permission policy for the admin role allows for the creation, deletion, updating, and reading of roles and permission policies.";

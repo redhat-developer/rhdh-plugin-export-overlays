@@ -36,24 +36,6 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     return card;
   }
 
-  /** Open the "Data sources" dialog from a group card's overflow menu. */
-  async function openDataSourcesDialog(card: Locator): Promise<Locator> {
-    await card.getByRole("button", { name: /menu|more/i }).click();
-    await page.getByText(/data sources/i).click();
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible({ timeout: 5000 });
-    return dialog;
-  }
-
-  /** Close a dialog and optionally assert it disappears. */
-  async function closeDialog(
-    dialog: Locator,
-    { expectHidden = false } = {},
-  ): Promise<void> {
-    await dialog.getByLabel("Close").click();
-    if (expectHidden) await expect(dialog).toBeHidden();
-  }
-
   test.beforeAll(async ({ browser, rhdh }) => {
     await deployRhdh(rhdh, {
       appConfig: "tests/config/grouped/app-config-rhdh.yaml",
@@ -90,26 +72,12 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
   });
 
   test("Verify data sources dialog opens from group card menu", async () => {
-    const card = await getGroupCard(GROUP_CARDS[0].title);
-    const dialog = await openDataSourcesDialog(card);
-
-    const expectedColumns = [
-      "PLUGIN",
-      "CHECK",
-      "VALUE",
-      "STATUS",
-      "LAST SYNCED",
-    ];
-    for (const col of expectedColumns) {
-      await expect(dialog.getByText(col, { exact: true })).toBeVisible();
-    }
-
-    await closeDialog(dialog, { expectHidden: true });
+    await scorecard.expectDataSourcesDialog(GROUP_CARDS[0]);
   });
 
   test("Verify filter pills filter data sources by threshold", async () => {
     const card = await getGroupCard(GROUP_CARDS[0].title);
-    const dialog = await openDataSourcesDialog(card);
+    const dialog = await scorecard.openDataSourcesDialog(card);
 
     const tableRows = dialog.locator("tbody [role='row']");
     await expect(tableRows.first()).toBeVisible({ timeout: 30_000 });
@@ -131,7 +99,7 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     await firstPill.click();
     await expect(firstPill).toHaveAttribute("aria-pressed", "false");
 
-    await closeDialog(dialog);
+    await scorecard.closeDataSourcesDialog(dialog);
   });
 
   test("Verify clicking bucket tile opens dialog with filter pre-applied", async () => {
@@ -144,7 +112,7 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     const activePill = dialog.locator('[role="button"][aria-pressed="true"]');
     await expect(activePill).toBeVisible();
 
-    await closeDialog(dialog, { expectHidden: true });
+    await scorecard.closeDataSourcesDialog(dialog);
   });
 
   test("Verify ungrouped metrics still render as individual cards", async () => {

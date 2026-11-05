@@ -8,6 +8,7 @@ from generateCatalogIndex import (
     get_image_name_from_package_yaml,
     get_query_registry_reference,
     is_tag_comment_line,
+    oci_value_matches_plugin,
     parse_image_reference,
     peek_digest_after,
     pop_trailing_tag_comments,
@@ -53,6 +54,37 @@ class TestParseImageReference:
     )
     def test_parse(self, ref, expected):
         assert parse_image_reference(ref) == expected
+
+
+# ---------------------------------------------------------------------------
+# oci_value_matches_plugin
+# ---------------------------------------------------------------------------
+class TestOciValueMatchesPlugin:
+    PLUGIN_NAME = "red-hat-developer-hub-backstage-plugin-foo"
+    ALTERNATIVE = "rhdh-backstage-plugin-foo"
+
+    @pytest.mark.parametrize(
+        "oci_value",
+        [
+            pytest.param(
+                f"quay.io/rhdh/{PLUGIN_NAME}-dynamic:1.0.0",
+                id="dynamic-suffix-on-image-name",
+            ),
+            pytest.param(
+                f"quay.io/rhdh/plugin-image!{ALTERNATIVE}-dynamic",
+                id="dynamic-suffix-on-selector",
+            ),
+        ],
+    )
+    def test_matches_dynamic_suffix_aliases(self, oci_value):
+        assert oci_value_matches_plugin(
+            oci_value,
+            "quay.io/rhdh/current-image@sha256:abc123",
+            self.PLUGIN_NAME,
+            self.ALTERNATIVE,
+            f"{self.PLUGIN_NAME}-dynamic",
+            f"{self.ALTERNATIVE}-dynamic",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +261,11 @@ class TestDigestFromOciPackageLine:
                 "  - package: ./dynamic-plugins/dist/foo",
                 None,
                 id="non_oci_line",
+            ),
+            pytest.param(
+                "  - package: oci://quay.io/rhdh/plugin@sha256:abc123!plugin-backend",
+                "sha256:abc123",
+                id="plugin_path_selector",
             ),
         ],
     )
@@ -427,7 +464,7 @@ class TestUpdatePackageFilesPackagesDirMatching:
             f'  dynamicArtifact: "{ghcr}"\n'
         )
         result = self._run_on_package_file(tmp_path, "rhdh-bsp-lightspeed.yaml", body)
-        assert f'"oci://{self.RESOLVED_DIGEST_REF}"' in result
+        assert f'"oci://{self.RESOLVED_DIGEST_REF}!{self.PLUGIN_NAME}"' in result
         assert "ghcr.io" not in result
 
     def test_mismatched_filename_still_resolved(self, tmp_path):
@@ -441,3 +478,62 @@ class TestUpdatePackageFilesPackagesDirMatching:
         )
         result = self._run_on_package_file(tmp_path, "rhdh-bsp-lightspeed.yaml", body)
         assert f"oci://{self.RESOLVED_DIGEST_REF}" in result
+
+
+# ---------------------------------------------------------------------------
+# update_package_files: the !plugin-path selector survives the digest rewrite
+# ---------------------------------------------------------------------------
+class TestUpdatePackageFilesKeepsPluginPath:
+    PLUGIN_NAME = "backstage-plugin-scaffolder-backend-module-azure"
+    DIGEST_REF = (
+        f"ghcr.io/redhat-developer/rhdh-plugin-export-overlays/{PLUGIN_NAME}@sha256:"
+        + "c" * 64
+    )
+    TAG_REF = (
+        f"oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/{PLUGIN_NAME}"
+        ":bs_1.54.9__0.2.25"
+    )
+    INDEX_ENTRY = {
+        "registryReference": DIGEST_REF,
+        "imageTag": "bs_1.54.9__0.2.25",
+        "build-date": "2026-10-01",
+    }
+
+    def _run(self, tmp_path, dpdy_body, package_body):
+        packages_dir = tmp_path / "catalog-entities" / "extensions" / "packages"
+        packages_dir.mkdir(parents=True)
+        dpdy = tmp_path / "dynamic-plugins.default.yaml"
+        dpdy.write_text(dpdy_body)
+        package_yaml = packages_dir / f"{self.PLUGIN_NAME}.yaml"
+        package_yaml.write_text(package_body)
+        index_data = {self.PLUGIN_NAME: dict(self.INDEX_ENTRY)}
+        update_package_files(tmp_path, index_data, [self.PLUGIN_NAME], tmp_path)
+        return dpdy.read_text(), package_yaml.read_text()
+
+    def test_selector_is_kept(self, tmp_path):
+        dpdy, package = self._run(
+            tmp_path,
+            f"plugins:\n  - package: {self.TAG_REF}!{self.PLUGIN_NAME}-dynamic\n    disabled: true\n",
+            f'spec:\n  dynamicArtifact: "{self.TAG_REF}!{self.PLUGIN_NAME}"\n',
+        )
+        assert f"  - package: oci://{self.DIGEST_REF}!{self.PLUGIN_NAME}-dynamic\n" in dpdy
+        assert f'  dynamicArtifact: "oci://{self.DIGEST_REF}!{self.PLUGIN_NAME}"\n' in package
+
+    def test_pathless_ref_stays_pathless(self, tmp_path):
+        dpdy, package = self._run(
+            tmp_path,
+            f"plugins:\n  - package: {self.TAG_REF}\n    disabled: true\n",
+            f"spec:\n  dynamicArtifact: {self.TAG_REF}\n",
+        )
+        assert f"  - package: oci://{self.DIGEST_REF}\n" in dpdy
+        assert f"  dynamicArtifact: oci://{self.DIGEST_REF}\n" in package
+        assert "!" not in dpdy + package
+
+    def test_rerun_on_generated_files_changes_nothing(self, tmp_path):
+        comment = tag_comment_for_plugin(self.INDEX_ENTRY)
+        ref = f"oci://{self.DIGEST_REF}!{self.PLUGIN_NAME}"
+        dpdy_body = f"plugins:\n  {comment}\n  - package: {ref}\n    disabled: true\n"
+        package_body = f"spec:\n  {comment}\n  dynamicArtifact: {ref}\n"
+        dpdy, package = self._run(tmp_path, dpdy_body, package_body)
+        assert dpdy == dpdy_body
+        assert package == package_body

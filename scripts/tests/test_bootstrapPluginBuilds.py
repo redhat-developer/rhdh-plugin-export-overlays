@@ -1,11 +1,14 @@
 """Tests for bootstrapPluginBuilds module."""
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from bootstrapPluginBuilds import (
+    clear_fallback_markers,
     construct_registry_reference,
     get_outdated_workspaces,
     remove_stale_plugin_builds,
@@ -195,3 +198,70 @@ class TestConstructRegistryReference:
             "",
         )
         assert ref.endswith(":1.11--1.5.4")
+        assert "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-bar" in ref
+
+
+class TestCommunityRegistryDefault:
+    def test_omitting_community_registry_uses_ghcr_default(self, tmp_path):
+        overlays = tmp_path / "overlays"
+        metadata_dir = overlays / "workspaces" / "community-plugin" / "metadata"
+        metadata_dir.mkdir(parents=True)
+        (overlays / "versions.json").write_text(
+            json.dumps({"backstage": "1.54.6"}), encoding="utf-8"
+        )
+        (metadata_dir / "plugin-foo.yaml").write_text(
+            "kind: Package\n"
+            "metadata:\n"
+            "  name: plugin-foo\n"
+            "spec:\n"
+            "  packageName: '@backstage-community/plugin-foo'\n"
+            "  version: 1.2.3\n"
+            "  support: community\n",
+            encoding="utf-8",
+        )
+        builds = tmp_path / "plugin_builds"
+        registry = "registry.access.redhat.com/rhdh"
+        script = Path(__file__).resolve().parents[1] / "bootstrapPluginBuilds.py"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--overlays-dir", str(overlays),
+                "--plugin-builds-dir", str(builds),
+                "--registry", registry,
+                "--rhdh-version", "1.10",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stderr
+        build = json.loads(
+            (builds / "community-plugin" / "backstage-community-plugin-foo.json").read_text()
+        )["backstage-community-plugin-foo"]
+        assert build["registryReference"].startswith(
+            "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/"
+            "backstage-community-plugin-foo:"
+        )
+
+
+class TestClearFallbackMarkers:
+    def test_drops_fallback_and_requested_tag(self):
+        entry = {
+            "registryReference": "quay.io/rhdh/plugin:2.1.0--2.0.0",
+            "fallback": True,
+            "requestedTag": "2.0.0--1.31.1",
+            "digest": "sha256:abc",
+        }
+        clear_fallback_markers(entry)
+        assert "fallback" not in entry
+        assert "requestedTag" not in entry
+        assert entry["digest"] == "sha256:abc"
+        assert entry["registryReference"].endswith(":2.1.0--2.0.0")
+
+    def test_noop_when_markers_absent(self):
+        entry = {"registryReference": "quay.io/rhdh/plugin:2.2.0--1.0.0"}
+        clear_fallback_markers(entry)
+        assert entry == {"registryReference": "quay.io/rhdh/plugin:2.2.0--1.0.0"}

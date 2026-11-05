@@ -1,49 +1,69 @@
 # validate-app-config-examples
 
 Validates the `appConfigExamples` carried by Package metadata under
-`workspaces/*/metadata/*.yaml`.
+`workspaces/*/metadata/*.yaml`, and the plugin path of each `dynamicArtifact`.
 
-Three independent layers:
+Four independent layers:
 
 | Layer           | What it checks                                                                                                       | Jira        |
 | --------------- | -------------------------------------------------------------------------------------------------------------------- | ----------- |
 | Structural      | every Package has a non-empty first `appConfigExamples[].content`, or opts out via `spec.appConfigNotRequired: true` | RHIDP-12590 |
 | Semantic        | each example's content satisfies the plugin's own config schema                                                      | RHIDP-13509 |
 | Undeclared keys | within the subtrees a plugin's schema owns, every key is one it declares                                             | RHIDP-15902 |
+| Plugin paths    | each `dynamicArtifact` installs a plugin its image declares                                                          | RHIDP-17312 |
 
 The structural layer runs always and fails the run. The semantic layer is opt-in
 via `--check-schemas` and fails unless `--warn-only`. The undeclared-key layer is
-opt-in via `--check-undeclared-keys` and only ever reports.
+opt-in via `--check-undeclared-keys` and only ever reports. The plugin-path layer
+is opt-in via `--check-plugin-paths` and fails the run; see
+[Plugin paths](#plugin-paths).
 
 ## Usage
 
 ```bash
-yarn build
-
 # structural only — the whole tree
-yarn node dist/validate.mjs
+vp exec validate-app-config-examples
 
 # structural only — just what a PR touched
-yarn node dist/validate.mjs --since "$BASE_SHA"
+vp exec validate-app-config-examples --since "$BASE_SHA"
 
 # add schema validation, failing on mismatch
-yarn node dist/validate.mjs --since "$BASE_SHA" --check-schemas
+vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas
 
 # add schema validation, reporting without failing
-yarn node dist/validate.mjs --check-schemas --warn-only
+vp exec validate-app-config-examples --check-schemas --warn-only
+
+# check every dynamicArtifact's plugin path against its image (needs skopeo)
+vp exec validate-app-config-examples --check-plugin-paths
 
 # the full-tree sweep CI runs weekly and on workflow_dispatch
-yarn node dist/validate.mjs --check-schemas --check-undeclared-keys
+vp exec validate-app-config-examples --check-plugin-paths --check-schemas --check-undeclared-keys
+
+# one workspace, against the images a PR's /publish pushed (what /publish runs)
+vp exec validate-app-config-examples --workspace adoption-insights \
+  --check-plugin-paths --allow-unpublished --published-images published-exports.txt
 ```
 
-The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
-mismatch rather than warning — the weekly schedule is what gives that verdict
-somewhere to land, since a PR only ever sees the metadata it touched.
+The full-tree sweep's schema layer reports `mismatched: 0` as of RHIDP-15903,
+so it fails on a schema mismatch rather than warning — the weekly schedule is
+what gives that verdict somewhere to land, since a PR only ever sees the
+metadata it touched.
 `--warn-only` remains for surveying a tree you have not cleaned up yet — a
 release branch, say.
 
-Exit codes match the Python script this replaced: `0` clean, `1` validation
-failed, `2` the tool itself failed.
+Exit codes (`EXIT` in `src/validate.ts`):
+
+| Code | Meaning                                                           |
+| ---- | ----------------------------------------------------------------- |
+| `0`  | clean                                                             |
+| `1`  | a row failed a check other than its plugin path                   |
+| `2`  | the tool could not run as asked, or `--workspace` matched no file |
+| `3`  | `--published-images` matched no well-formed own ref (see below)   |
+| `4`  | a row failed its plugin-path check                                |
+
+A failed row wins over `3`, and `4` wins over `1`, so a verdict never hides
+a failure. `auto-publish-pr.yaml` words the `plugin-paths` status from these
+codes, so a new verdict needs a new code.
 
 ## Why this is TypeScript and not Python
 
@@ -234,17 +254,89 @@ a subtree in which nothing can be found. And a schema declaring its top-level
 keys through `allOf`/`$ref` rather than a literal `properties` map yields no
 declared keys at all, so its files are skipped silently.
 
+## Plugin paths
+
+The installer extracts each OCI ref into the directory its `!plugin-path`
+selector names. A selector the image does not declare in its
+`io.backstage.dynamic-packages` annotation installs nothing, and the install
+still exits 0. A ref without a selector needs an image that declares exactly one
+plugin, or the install fails with "Multiple plugins found".
+
+With `--check-plugin-paths`, each `spec.dynamicArtifact` is checked against its
+image's manifest, read with `skopeo inspect --raw` the way the installer reads it,
+including its fallback from `registry.access.redhat.com/rhdh/` to `quay.io/rhdh/`.
+Pulls are anonymous, as the installer's are. The rule itself
+(`selectedPluginPathProblem`) lives in `smoke-tests-native/src/plugin-path.ts`
+and is shared with the native smoke harness.
+
+What a ref and its registry answer mean for the run:
+
+| Answer                                       | Verdict                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| ref not in the form the install CLI accepts  | fail, without reading the registry                                |
+| manifest read, path declared                 | pass                                                              |
+| manifest read, path not declared             | fail                                                              |
+| image or tag missing (or not public)         | fail, except with `--allow-unpublished` for this repo's ghcr tags |
+| no answer after 3 tries, or after the budget | fail: a ref that was not checked must not read as a clean one     |
+
+The run gives the registry 10 minutes from its first fetch. Fetches and retries
+not started by then count as unreachable, so a hanging registry still ends in a
+tally inside the job's timeout.
+
+`--allow-unpublished` is for PRs: their `bs_*` tags are only published on merge,
+so those refs are noted and counted as `not published yet`. The weekly sweep runs
+without it, so a tag that is still missing then fails.
+
+### After `/publish`
+
+A noted ref is not a checked one: on an update PR that renames a plugin path,
+the PR check above passes. `/publish` closes that gap. Once it has pushed the
+PR's `pr_<number>__<version>` images, the `check-plugin-paths` job in
+`auto-publish-pr.yaml` runs this tool on the PR's workspace with
+`--published-images`. Each ref to this repository's ghcr images is checked
+against the published image of the same repository name, with its
+`!plugin-path` kept. The list is the run's `published-exports` output, one
+`registry/path/name:tag` per line. The file must resolve, symlinks followed,
+under the working directory or the system temp directory (`TMPDIR`).
+`--workspace` takes a workspace name, with or without the `workspaces/`
+prefix, and cannot be combined with `--since`.
+
+`--allow-unpublished` still notes an own ref that the run did not push, which
+keeps its `bs_*` tag. A ref pointed at a listed image is not noted: the run just
+pushed that image, so a registry without it fails the row.
+
+On a metadata-only PR, `/publish` builds nothing and the job runs without
+`--published-images` or `--allow-unpublished`: the refs are checked as
+written, against the `bs_*` images the merge keeps, and a missing tag fails.
+An earlier `/publish` of the same PR built other sources, so its images are
+not used.
+
+The result lands on the PR as a `plugin-paths` commit status and a comment of
+its own. It does not change or delay the `publish` status and comment, and it
+does not stop the smoke tests. The job runs this tool from the workflow's own
+ref; the PR supplies only its metadata YAML.
+
+A malformed ref (no tag, an empty tag, a bare `!`) is not retargeted: it is
+checked as written, so it fails on its form instead of passing as a `pr_*` ref.
+
+If well-formed own refs exist and none matches a published image, the run exits
+3: the mapping is broken, and each ref would otherwise fall back to its
+unpublished `bs_*` tag and pass as a note.
+
 ## Layout
 
-| Path              | Role                                                 |
-| ----------------- | ---------------------------------------------------- |
-| `src/json.ts`     | the shared mapping guard and error-property reader   |
-| `src/metadata.ts` | YAML reading and the structural verdicts             |
-| `src/schema.ts`   | package download, schema loading, example validation |
-| `src/validate.ts` | CLI, reporting, exit codes                           |
-| `src/*.test.ts`   | the unit tests                                       |
+| Path                      | Role                                                 |
+| ------------------------- | ---------------------------------------------------- |
+| `src/json.ts`             | the shared mapping guard and error-property reader   |
+| `src/metadata.ts`         | YAML reading and the structural verdicts             |
+| `src/schema.ts`           | package download, schema loading, example validation |
+| `src/plugin-path.ts`      | manifest fetch, retries, plugin-path outcomes        |
+| `src/published-images.ts` | metadata refs mapped onto a PR's `/publish` images   |
+| `src/validate.ts`         | CLI, reporting, exit codes                           |
+| `src/test-support.ts`     | the manifest builder and temp dirs the tests share   |
+| `src/*.test.ts`           | the unit tests                                       |
 
-`yarn check` runs the type check and the unit tests. The tests never touch the
-network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,
-which builds a real Backstage schema in memory, so the suite stays fast and
-deterministic while still testing the actual validator.
+The tests never touch the network: the semantic layer is exercised through
+`loadConfigSchema({ serialized })`, which builds a real Backstage schema in
+memory, so the suite stays fast and deterministic while still testing the
+actual validator. The plugin-path tests hand the checker a fake registry.

@@ -178,12 +178,14 @@ Workflow: [`update-plugins-repo-refs.yaml`](https://github.com/redhat-developer/
 **Example structure:**
 
 ```
-workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/
+workspaces/<workspace>/plugins/<plugin>/
 └── overlay/
     ├── package.json
     └── src/
-        └── api.ts
+        └── index.ts
 ```
+
+For a real-world example of bundling backend features via an overlay, see [`gitlab-backend`](../workspaces/gitlab/packages/gitlab-backend/overlay).
 
 ### When to Use Patches
 

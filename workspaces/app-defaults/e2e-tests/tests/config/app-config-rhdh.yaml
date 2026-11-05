@@ -1,6 +1,11 @@
+app:
+  extensions:
+    - nav-content:app: false
+
 auth:
   providers:
     github:
       production:
         clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
         clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame

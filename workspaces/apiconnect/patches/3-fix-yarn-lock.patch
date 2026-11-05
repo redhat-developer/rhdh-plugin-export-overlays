@@ -1,0 +1,55 @@
+--- yarn.lock
++++ yarn.lock
+@@ -7492,26 +7492,6 @@
+   linkType: hard
+ 
+-"apic-backstage1@workspace:plugins/apic-backstage":
+-  version: 0.0.0-use.local
+-  resolution: "apic-backstage1@workspace:plugins/apic-backstage"
+-  dependencies:
+-    "@backstage/backend-common": "npm:^0.25.0"
+-    "@backstage/backend-plugin-api": "npm:^1.10.1"
+-    "@backstage/backend-tasks": "npm:^0.6.1"
+-    "@backstage/backend-test-utils": "npm:^1.11.7"
+-    "@backstage/catalog-model": "npm:^1.10.1"
+-    "@backstage/cli": "npm:^0.36.6"
+-    "@backstage/config": "npm:^1.3.9"
+-    "@backstage/plugin-catalog-node": "npm:^2.2.5"
+-    "@backstage/types": "npm:^1.2.2"
+-    "@types/node-fetch": "npm:^2.6.13"
+-    luxon: "npm:^3.7.2"
+-    node-fetch: "npm:^2.7.0"
+-    winston: "npm:^3.19.0"
+-  languageName: unknown
+-  linkType: soft
+-
+-"apic-backstage@workspace:.":
++"apic-backstage-root@workspace:.":
+   version: 0.0.0-use.local
+-  resolution: "apic-backstage@workspace:."
++  resolution: "apic-backstage-root@workspace:."
+   dependencies:
+@@ -7552,3 +7532,23 @@
+   linkType: soft
+ 
++"apic-backstage@workspace:plugins/apic-backstage":
++  version: 0.0.0-use.local
++  resolution: "apic-backstage@workspace:plugins/apic-backstage"
++  dependencies:
++    "@backstage/backend-common": "npm:^0.25.0"
++    "@backstage/backend-plugin-api": "npm:^1.10.1"
++    "@backstage/backend-tasks": "npm:^0.6.1"
++    "@backstage/backend-test-utils": "npm:^1.11.7"
++    "@backstage/catalog-model": "npm:^1.10.1"
++    "@backstage/cli": "npm:^0.36.6"
++    "@backstage/config": "npm:^1.3.9"
++    "@backstage/plugin-catalog-node": "npm:^2.2.5"
++    "@backstage/types": "npm:^1.2.2"
++    "@types/node-fetch": "npm:^2.6.13"
++    luxon: "npm:^3.7.2"
++    node-fetch: "npm:^2.7.0"
++    winston: "npm:^3.19.0"
++  languageName: unknown
++  linkType: soft
++
+ "archiver-utils@npm:^4.0.1":

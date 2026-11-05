@@ -4,7 +4,7 @@
 # Guest auth is loaded by the e2e-test-utils `auth: "guest"` profile.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:

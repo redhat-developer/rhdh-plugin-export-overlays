@@ -16,7 +16,6 @@ test.describe("Test github-issues", () => {
       auth: "github",
       appConfig: `${WorkspacePaths.configDir}/github-issues/app-config-rhdh.yaml`,
       dynamicPlugins: `${WorkspacePaths.configDir}/github-issues/dynamic-plugins.yaml`,
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });
@@ -33,9 +32,9 @@ test.describe("Test github-issues", () => {
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink(component);
 
-    await uiHelper.clickTab("Issues");
     await page.getByRole("button", { name: "Log in" }).click();
     await loginHelper.checkAndReauthorizeGithubApp();
+    await uiHelper.clickLink("GitHub Issues");
 
     const response = (await APIHelper.getGithubPaginatedRequest(
       GITHUB_API_ENDPOINTS.issues("open"),

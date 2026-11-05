@@ -4,24 +4,13 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { after, test } from "node:test";
+import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadAppConfig, loadEnvFile } from "./test-config";
-
-// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
-// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
-const TEMP_DIRS: string[] = [];
-function tempDir(prefix: string): string {
-  const dir = mkdtempSync(prefix);
-  TEMP_DIRS.push(dir);
-  return dir;
-}
-after(() => {
-  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
-});
+import { tempDir } from "./test-support";
 
 const dir = tempDir(join(tmpdir(), "test-config-"));
 

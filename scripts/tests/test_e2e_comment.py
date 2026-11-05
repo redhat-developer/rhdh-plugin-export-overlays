@@ -30,7 +30,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 ARTIFACTS = (
-    "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results"
+    "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public"
     "/pr-logs/pull/redhat-developer_rhdh-plugin-export-overlays/3241"
     "/pull-ci-redhat-developer-rhdh-plugin-export-overlays-main-e2e-ocp-helm"
     "/2087320237446795264/artifacts/e2e-ocp-helm"

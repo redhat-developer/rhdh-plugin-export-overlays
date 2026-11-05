@@ -48,7 +48,7 @@ spec:
     - ./gitlab-org-catalog-integration.yaml
     - ./gitlab-scaffolder-actions.yaml
     - ./global-header.yaml
-    - ./home-page.yaml
+    - ./homepage.yaml
     - ./http-request-scaffolder-action.yaml
     - ./ibm-apiconnect-backstage.yaml
     - ./intelligent-assistant.yaml
@@ -68,10 +68,10 @@ spec:
     - ./nexus-repository-manager.yaml
     - ./notifications-email.yaml
     - ./notifications.yaml
+    - ./ogx-entity-provider.yaml
     - ./orchestrator-scaffolder-actions.yaml
     - ./orchestrator.yaml
     - ./pagerduty.yaml
-    - ./pingidentity.yaml
     - ./quay-scaffolder-actions.yaml
     - ./quickstart.yaml
     - ./rbac.yaml

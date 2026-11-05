@@ -22,13 +22,26 @@ on:
         type: string
         default: ''
       target-branch:
-        description: 'Target branch to push catalog-index to (default: catalog-index-{source-branch})'
+        description: 'Target catalog-index-* branch to push the generated catalog-index to (default: catalog-index-{source-branch})'
         required: false
         type: string
         default: ''
+      strict:
+        description: 'Policy strictness: auto (release-* only), true, or false (on release-* still strict except version-regression)'
+        required: false
+        type: choice
+        options:
+          - auto
+          - 'true'
+          - 'false'
+        default: auto
 
+# Group by workflow ref AND source/target branch: a workflow_dispatch from main for source
+# release-2.1 must not cancel a dispatch from main for source main. Two runs touching the same
+# source/target branch still cancel each other. Empty inputs fall back to the push ref / derived
+# target, matching the defaults in the "Determine branches and floating tag" step.
 concurrency:
-  group: catalog-index-${{ github.ref }}
+  group: catalog-index-${{ github.ref }}-${{ inputs.source-branch || github.ref_name }}-${{ inputs.target-branch || '' }}
   cancel-in-progress: true
 
 env:
@@ -43,32 +56,51 @@ jobs:
     permissions:
       contents: write
     outputs:
-      supported-ok: ${{ steps.gen-supported.outputs.ok }}
-      community-ok: ${{ steps.gen-community.outputs.ok }}
+      supported-ok: ${{ steps.gen-supported.outputs.ok == 'true' && steps.docs-supported.outcome == 'success' }}
+      community-ok: ${{ steps.gen-community.outputs.ok == 'true' && steps.docs-community.outcome == 'success' }}
       supported-clean: ${{ steps.gen-supported.outputs.clean }}
       community-clean: ${{ steps.gen-community.outputs.clean }}
       backstage-version: ${{ steps.versions.outputs.backstage-version }}
       rhdh-version: ${{ steps.versions.outputs.rhdh-version }}
       source-branch: ${{ steps.branches.outputs.source-branch }}
       target-branch: ${{ steps.branches.outputs.target-branch }}
+      floating-tag: ${{ steps.branches.outputs.floating-tag }}
 
     steps:
-      - name: Determine branches
+      - name: Determine branches and floating tag
         id: branches
         env:
-          SOURCE_BRANCH: ${{ inputs.source-branch }}
+          SOURCE_BRANCH_INPUT: ${{ inputs.source-branch }}
           TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
-          if [[ -z "${SOURCE_BRANCH}" ]]; then
-            SOURCE_BRANCH="${GITHUB_REF_NAME}"
+          SOURCE_BRANCH="${SOURCE_BRANCH_INPUT:-${GITHUB_REF#refs/heads/}}"
+          TARGET_BRANCH="${TARGET_BRANCH:-catalog-index-$SOURCE_BRANCH}"
+          if [[ "$SOURCE_BRANCH" == refs/* ]] || \
+             ! git check-ref-format --branch "$SOURCE_BRANCH" >/dev/null; then
+            echo "::error::Invalid source branch"
+            exit 1
           fi
-          if [[ -z "${TARGET_BRANCH}" ]]; then
-            TARGET_BRANCH="catalog-index-${SOURCE_BRANCH}"
+          if [[ "$TARGET_BRANCH" != catalog-index-* ]] || \
+             ! git check-ref-format --branch "$TARGET_BRANCH" >/dev/null; then
+            echo "::error::Invalid catalog-index-* target branch"
+            exit 1
           fi
-          echo "source-branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "Source branch: $SOURCE_BRANCH"
-          echo "Target branch: $TARGET_BRANCH"
+          LATEST_STABLE_BRANCH=$(git ls-remote --heads "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" \
+            'refs/heads/release-*' \
+            | awk '$2 ~ /^refs\/heads\/release-[0-9]+\.[0-9]+$/ { sub(/^refs\/heads\//, "", $2); print $2 }' \
+            | sort -V | tail -n 1)
+          FLOATING_TAG=""
+          if [[ "$SOURCE_BRANCH" == "main" ]]; then
+            FLOATING_TAG=next
+          elif [[ "$SOURCE_BRANCH" == "$LATEST_STABLE_BRANCH" ]]; then
+            FLOATING_TAG=latest
+          fi
+          {
+            echo "source-branch=$SOURCE_BRANCH"
+            echo "target-branch=$TARGET_BRANCH"
+            echo "floating-tag=$FLOATING_TAG"
+          } >> "$GITHUB_OUTPUT"
+          echo "Source: $SOURCE_BRANCH; target: $TARGET_BRANCH; floating tag: ${FLOATING_TAG:-<none>}"
 
       - name: Checkout source branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,18 +119,40 @@ jobs:
           if git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
             git fetch origin "$TARGET_BRANCH"
             git checkout "$TARGET_BRANCH"
-            git merge "origin/$SOURCE_BRANCH" --no-edit -X theirs || true
+            PREV_TARGET=$(git rev-parse HEAD)
+            # squash, not merge: the generated branch keeps a linear history and the
+            # synced tree lands in the single "Generate catalog-index" commit below
+            git merge --squash -X theirs "origin/$SOURCE_BRANCH" || true
           else
+            PREV_TARGET=""
             git checkout -b "$TARGET_BRANCH"
+          fi
+
+          # GITHUB_TOKEN cannot create or update files under .github/workflows, so a push
+          # that carries source workflow edits into this generated branch is rejected
+          # ("refusing to allow a GitHub App to create or update workflow ... without
+          # `workflows` permission") and the run dies before publishing anything. Keep the
+          # workflow files the target branch already has; a brand new target gets none.
+          # git push sends commits, not paths, so the rollback lands in the single
+          # generated-data commit below rather than a commit of its own.
+          if [[ -n "$PREV_TARGET" ]] && \
+             git cat-file -e "$PREV_TARGET:.github/workflows" 2>/dev/null; then
+            git checkout "$PREV_TARGET" -- .github/workflows
+          else
+            git rm -r -q --ignore-unmatch .github/workflows
           fi
 
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
+          # skopeo: extractCatalogIndex.sh pulls the previous catalog-index image
+          # for version-regression. Without it the extractor exits 2 and the
+          # gate cannot run.
+          sudo apt-get update && sudo apt-get install -y skopeo
           pip install -r scripts/requirements.txt
 
           # Install mikefarah yq (required by generateDynamicPluginsDefaultYaml.sh)
@@ -109,35 +163,93 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/yq_mf" --version
 
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: scripts/package.json
+
+      - name: Install table generator dependencies
+        working-directory: scripts
+        run: corepack yarn workspaces focus generate-dynamic-plugin-tables --production
+
       - name: Read versions
         id: versions
+        env:
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
         run: |
           BS_VERSION=$(jq -r '.backstage' versions.json)
 
-          # Fetch RHDH version from upstream package.json (matches downstream approach)
+          # Fetch RHDH version from the selected source branch: a
+          # workflow_dispatch of this file from main with source-branch=release-*
+          # must tag the previous index with the release line.
           RHDH_FULL_VERSION=$(curl -sSLf \
-            "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads/${GITHUB_REF_NAME}/package.json" \
+            "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads/${SOURCE_BRANCH}/package.json" \
             | jq -r '.version') || true
           if [[ -n "$RHDH_FULL_VERSION" && "$RHDH_FULL_VERSION" != "null" ]]; then
             RHDH_VERSION="${RHDH_FULL_VERSION%.*}"
           else
-            echo "::warning::Failed to fetch RHDH version from upstream for branch ${GITHUB_REF_NAME}"
+            echo "::warning::Failed to fetch RHDH version from upstream for branch ${SOURCE_BRANCH}"
             RHDH_VERSION=""
           fi
 
           echo "backstage-version=$BS_VERSION" >> "$GITHUB_OUTPUT"
           echo "rhdh-version=$RHDH_VERSION" >> "$GITHUB_OUTPUT"
           echo "Backstage version: $BS_VERSION"
-          echo "RHDH version: $RHDH_VERSION (from upstream RHDH $RHDH_BRANCH package.json: $RHDH_FULL_VERSION)"
+          echo "RHDH version: $RHDH_VERSION (from upstream RHDH ${SOURCE_BRANCH} package.json: $RHDH_FULL_VERSION)"
+
+      - name: Resolve policy strictness
+        id: policy
+        env:
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+          STRICT_INPUT: ${{ inputs.strict || 'auto' }}
+        run: |
+          USE_STRICT=false
+          ALLOW_WARNINGS=""
+          case "${STRICT_INPUT}" in
+            true) USE_STRICT=true ;;
+            false)
+              if [[ "${SOURCE_BRANCH}" == release-* ]]; then
+                # Keep fallback-tag and backstage-version-mismatch fatal (RHIDP-15725).
+                # Only version-regression is the emergency-rollback exception.
+                USE_STRICT=true
+                ALLOW_WARNINGS=version-regression
+              else
+                USE_STRICT=false
+              fi
+              ;;
+            auto|*)
+              if [[ "${SOURCE_BRANCH}" == release-* ]]; then
+                USE_STRICT=true
+              fi
+              ;;
+          esac
+          echo "use-strict=${USE_STRICT}" >> "$GITHUB_OUTPUT"
+          echo "allow-warnings=${ALLOW_WARNINGS}" >> "$GITHUB_OUTPUT"
+          echo "Policy strict mode: ${USE_STRICT} allow-warnings=${ALLOW_WARNINGS:-<none>} (input=${STRICT_INPUT}, branch=${SOURCE_BRANCH})"
 
       - name: Generate supported catalog
         id: gen-supported
         env:
           RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
+          BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
+          USE_STRICT: ${{ steps.policy.outputs.use-strict }}
+          ALLOW_WARNINGS: ${{ steps.policy.outputs.allow-warnings }}
         run: |
           RHDH_VERSION_ARG=""
           if [[ -n "$RHDH_VERSION" ]]; then
             RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
+          fi
+
+          STRICT_ARGS=()
+          if [[ "${USE_STRICT}" == "true" ]]; then
+            STRICT_ARGS+=(--strict)
+          fi
+          if [[ -n "${ALLOW_WARNINGS}" ]]; then
+            STRICT_ARGS+=(--allow-warnings "${ALLOW_WARNINGS}")
+          fi
+          PREV_ARGS=()
+          if [[ -n "$RHDH_VERSION" && -n "$BS_VERSION" ]]; then
+            PREV_ARGS+=(--previous-index-ref "${SUPPORTED_CATALOG_INDEX}:${RHDH_VERSION}-bs_${BS_VERSION}")
           fi
 
           # shellcheck disable=SC2086
@@ -149,6 +261,9 @@ jobs:
             --packages-file default.packages.yaml \
             --packages-file rhdh-supported-packages.txt \
             --report-file catalog-index/supported/build-report.json \
+            --validate-mode gate \
+            "${PREV_ARGS[@]}" \
+            "${STRICT_ARGS[@]}" \
             $RHDH_VERSION_ARG; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
@@ -171,14 +286,27 @@ jobs:
 
       - name: Generate community catalog
         id: gen-community
+        env:
+          USE_STRICT: ${{ steps.policy.outputs.use-strict }}
+          ALLOW_WARNINGS: ${{ steps.policy.outputs.allow-warnings }}
         run: |
+          STRICT_ARGS=()
+          if [[ "${USE_STRICT}" == "true" ]]; then
+            STRICT_ARGS+=(--strict)
+          fi
+          if [[ -n "${ALLOW_WARNINGS}" ]]; then
+            STRICT_ARGS+=(--allow-warnings "${ALLOW_WARNINGS}")
+          fi
+
           if scripts/update-index.sh \
             --overlays-dir . \
             --registry "$COMMUNITY_REGISTRY" \
             --output-dir catalog-index/community \
             --plugin-builds-dir plugin_builds/community \
             --packages-file rhdh-community-packages.txt \
-            --report-file catalog-index/community/build-report.json; then
+            --report-file catalog-index/community/build-report.json \
+            --validate-mode gate \
+            "${STRICT_ARGS[@]}"; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Community catalog generation failed"
@@ -198,13 +326,36 @@ jobs:
             fi
           fi
 
+      - name: Generate supported documentation tables
+        id: docs-supported
+        if: steps.gen-supported.outputs.ok == 'true'
+        # Let both tiers finish; check generation results fails the job if needed. 
+        # This doc is not consumed downstream; instead we use the product-built version with quay / r.a.r.c links
+        continue-on-error: true
+        run: |
+          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+            --tier supported \
+            --index-dir catalog-index/supported \
+            --debug
+
+      # consumed downstream in https://github.com/redhat-developer/red-hat-developers-documentation-rhdh/
+      - name: Generate community documentation tables
+        id: docs-community
+        if: steps.gen-community.outputs.ok == 'true'
+        continue-on-error: true
+        run: |
+          node scripts/generate-dynamic-plugin-tables/src/cli.ts \
+            --tier community \
+            --index-dir catalog-index/community \
+            --debug
+
       - name: Write build-info.json
         env:
           BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
           RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
           SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok == 'true' && steps.docs-supported.outcome == 'success' }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok == 'true' && steps.docs-community.outcome == 'success' }}
           SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
         run: |
           BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -247,7 +398,10 @@ jobs:
             fi
             if [[ $i -lt $MAX_RETRIES ]]; then
               echo "Push failed, retrying (attempt $((i+1))/$MAX_RETRIES)..."
-              git pull -X theirs origin "$TARGET_BRANCH"
+              git fetch origin "$TARGET_BRANCH"
+              # rebase, not pull: keep the branch linear; -X theirs keeps this run's
+              # freshly generated data over the stale remote copy
+              git rebase -X theirs "origin/$TARGET_BRANCH" || git rebase --abort
             else
               echo "Push failed after $MAX_RETRIES attempts"
               exit 1
@@ -263,17 +417,20 @@ jobs:
 
       - name: Check generation results
         env:
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_INDEX_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_INDEX_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_TABLE_OK: ${{ steps.docs-supported.outcome }}
+          COMMUNITY_TABLE_OK: ${{ steps.docs-community.outcome }}
           SUPPORTED_CLEAN: ${{ steps.gen-supported.outputs.clean }}
           COMMUNITY_CLEAN: ${{ steps.gen-community.outputs.clean }}
         run: |
-          if [[ "${SUPPORTED_OK}" != "true" || "${COMMUNITY_OK}" != "true" ]]; then
-            echo "::error::Catalog generation failed (supported=$SUPPORTED_OK, community=$COMMUNITY_OK)"
+          if [[ "${SUPPORTED_INDEX_OK}" != "true" || "${COMMUNITY_INDEX_OK}" != "true" || \
+                "${SUPPORTED_TABLE_OK}" != "success" || "${COMMUNITY_TABLE_OK}" != "success" ]]; then
+            echo "::error::Catalog or documentation generation failed (supported index=${SUPPORTED_INDEX_OK:-skipped}, table=${SUPPORTED_TABLE_OK:-skipped}; community index=${COMMUNITY_INDEX_OK:-skipped}, table=${COMMUNITY_TABLE_OK:-skipped})"
             exit 1
           fi
 
-          # Surface fallbacks and missing plugins as warnings
+          # Surface fallbacks and outdated Backstage/RHDH as warnings on non-strict builds
           HAS_ISSUES=false
           for TIER in supported community; do
             REPORT="catalog-index/$TIER/build-report.json"
@@ -281,15 +438,21 @@ jobs:
 
             FAILED_COUNT=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
             FALLBACK_COUNT=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+            BS_MISMATCH_COUNT=$(jq '[.plugins[] | select(.stages.bootstrap.bs_version_mismatch == true)] | length' "$REPORT" 2>/dev/null || echo 0)
 
             if [[ "$FAILED_COUNT" -gt 0 ]]; then
               FAILED_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.overall == "fail") | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
-              echo "::warning::$TIER catalog: $FAILED_COUNT plugin(s) missing from registry: $FAILED_PLUGINS"
+              echo "::error::$TIER catalog: $FAILED_COUNT plugin(s) missing from registry: $FAILED_PLUGINS"
               HAS_ISSUES=true
             fi
             if [[ "$FALLBACK_COUNT" -gt 0 ]]; then
               FALLBACK_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.stages["image-metadata-fetch"].fallback == true) | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
               echo "::warning::$TIER catalog: $FALLBACK_COUNT plugin(s) using fallback tags: $FALLBACK_PLUGINS"
+              HAS_ISSUES=true
+            fi
+            if [[ "$BS_MISMATCH_COUNT" -gt 0 ]]; then
+              BS_MISMATCH_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.stages.bootstrap.bs_version_mismatch == true) | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
+              echo "::warning::$TIER catalog: $BS_MISMATCH_COUNT plugin(s) with Backstage version mismatch: $BS_MISMATCH_PLUGINS"
               HAS_ISSUES=true
             fi
           done
@@ -330,23 +493,25 @@ jobs:
             -f Dockerfile.catalog-index \
             --build-arg TIER=supported \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
-            -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to quay.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
+          FLOATING_TAG: ${{ needs.generate.outputs.floating-tag }}
           QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
+          TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
+          if [[ -n "$FLOATING_TAG" ]]; then TAGS+=("$FLOATING_TAG"); fi
 
           echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
-            podman tag "plugin-catalog-index:${tag}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
+          for tag in "${TAGS[@]}"; do
+            podman tag "plugin-catalog-index:${SOURCE_TAG}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
             podman push "${SUPPORTED_CATALOG_INDEX}:${tag}"
             echo "Pushed ${SUPPORTED_CATALOG_INDEX}:${tag}"
           done
@@ -383,23 +548,25 @@ jobs:
             -f Dockerfile.catalog-index \
             --build-arg TIER=community \
             -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
-            -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to ghcr.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
+          FLOATING_TAG: ${{ needs.generate.outputs.floating-tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_ACTOR: ${{ github.actor }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          SOURCE_TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
+          TAGS=("$SOURCE_TAG" "${RHDH_VERSION}-bs_${BS_VERSION}" "$RHDH_VERSION")
+          if [[ -n "$FLOATING_TAG" ]]; then TAGS+=("$FLOATING_TAG"); fi
 
           echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
-          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
-            podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
+          for tag in "${TAGS[@]}"; do
+            podman tag "plugin-catalog-index:${SOURCE_TAG}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
             podman push "${COMMUNITY_CATALOG_INDEX}:${tag}"
             echo "Pushed ${COMMUNITY_CATALOG_INDEX}:${tag}"
           done
@@ -422,7 +589,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
@@ -472,6 +639,35 @@ jobs:
             fi
           done
 
+      - name: Fetch latest release branch reports
+        id: peer
+        if: needs.generate.outputs.source-branch == 'main'
+        run: |
+          # Only main is compared: release branches are the reference, not the subject.
+          git fetch --depth 1 --no-tags origin \
+            '+refs/heads/catalog-index-release-*:refs/remotes/origin/catalog-index-release-*' \
+            || { echo "No release catalog-index branches to compare against"; exit 0; }
+
+          PEER_BRANCH=$(git branch -r --format='%(refname:short)' \
+            | sed -n 's|^origin/catalog-index-\(release-[0-9]*\.[0-9]*\)$|\1|p' \
+            | sort -V | tail -1)
+          if [[ -z "$PEER_BRANCH" ]]; then
+            echo "No release branch found to compare against"
+            exit 0
+          fi
+          echo "Comparing main against ${PEER_BRANCH}"
+          echo "branch=${PEER_BRANCH}" >> "$GITHUB_OUTPUT"
+
+          for TIER in supported community; do
+            if git show "origin/catalog-index-${PEER_BRANCH}:catalog-index/${TIER}/build-report.json" \
+              > "/tmp/peer-${TIER}.json" 2>/dev/null; then
+              echo "Fetched peer ${TIER} report from ${PEER_BRANCH}"
+            else
+              rm -f "/tmp/peer-${TIER}.json"
+              echo "Peer ${TIER} report missing on ${PEER_BRANCH}"
+            fi
+          done
+
       - name: Render catalog status page
         env:
           SOURCE_BRANCH: ${{ needs.generate.outputs.source-branch }}
@@ -481,6 +677,7 @@ jobs:
           SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GITHUB_TOKEN: ${{ github.token }}
+          PEER_BRANCH: ${{ steps.peer.outputs.branch }}
         run: |
           ARGS=""
           if [[ -f catalog-index/supported/build-report.json ]]; then
@@ -488,6 +685,15 @@ jobs:
           fi
           if [[ -f catalog-index/community/build-report.json ]]; then
             ARGS="$ARGS --community catalog-index/community/build-report.json"
+          fi
+          if [[ -n "${PEER_BRANCH}" ]]; then
+            ARGS="$ARGS --compare-branch ${PEER_BRANCH}"
+            if [[ -f /tmp/peer-supported.json ]]; then
+              ARGS="$ARGS --compare-supported /tmp/peer-supported.json"
+            fi
+            if [[ -f /tmp/peer-community.json ]]; then
+              ARGS="$ARGS --compare-community /tmp/peer-community.json"
+            fi
           fi
 
           if [[ -z "$ARGS" ]]; then

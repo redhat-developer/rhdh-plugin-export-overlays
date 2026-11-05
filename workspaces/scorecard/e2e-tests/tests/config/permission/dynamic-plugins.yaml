@@ -1,0 +1,7 @@
+# Scorecard permission e2e. Frontend and backend only, so the project
+# does not need GitHub, Jira, or other datasource tokens.
+plugins:
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard
+    enabled: true
+  - package: ref://red-hat-developer-hub-backstage-plugin-scorecard-backend
+    enabled: true

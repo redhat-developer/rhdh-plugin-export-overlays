@@ -15,7 +15,7 @@
  */
 
 /**
- * Federated entry for dynamic plugins (see scalprum-config.json `PluginRoot`).
+ * Federated entry for dynamic plugins.
  * Matches the public API of `./index` but swaps reader/entity/search exports for
  * wrapped variants that inject TechDocsAddons — same pattern as the RHDH wrapper
  * package re-exporting from `@backstage/plugin-techdocs` plus `./wrapped`.
