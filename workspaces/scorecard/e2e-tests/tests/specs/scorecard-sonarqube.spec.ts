@@ -2,7 +2,11 @@ import { type BrowserContext } from "@playwright/test";
 import { type CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { SONARQUBE_METRICS } from "../utils/constants";
-import { deploySonarQube, readSonarQubeToken } from "../utils/sonarqube-deploy";
+import {
+  deploySonarQube,
+  readSonarQubeToken,
+  waitForCeCompletion,
+} from "../utils/sonarqube-deploy";
 import {
   createScorecardContext,
   deployRhdh,
@@ -30,7 +34,11 @@ test.describe.serial("Scorecard SonarQube Tests", () => {
     } finally {
       delete process.env.SONARQUBE_TOKEN;
     }
-    await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
+    await waitForCeCompletion(
+      rhdh.k8sClient,
+      namespace,
+      readSonarQubeToken(namespace),
+    );
     ({ context, catalog, scorecard } = await createScorecardContext(
       browser,
       rhdh.rhdhUrl,
