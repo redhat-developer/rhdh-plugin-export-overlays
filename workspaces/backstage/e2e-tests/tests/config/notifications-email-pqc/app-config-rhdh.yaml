@@ -1,0 +1,13 @@
+app:
+  title: RHDH Notifications Email PQC
+
+backend:
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: test-token
+          subject: test-subject
+
+permission:
+  enabled: false
