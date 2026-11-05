@@ -3,6 +3,20 @@ kind: Backstage
 metadata:
   name: developer-hub
 spec:
+  deployment:
+    patch:
+      spec:
+        template:
+          spec:
+            initContainers:
+              - name: seed-extensions-installation-storage
+                image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+                command: ["/bin/sh", "-c"]
+                args:
+                  - "test -f /dynamic-plugins-root/extensions-install-state.yaml || echo 'plugins: []' > /dynamic-plugins-root/extensions-install-state.yaml"
+                volumeMounts:
+                  - mountPath: /dynamic-plugins-root
+                    name: dynamic-plugins-root
   application:
     extraEnvs:
       envs:
