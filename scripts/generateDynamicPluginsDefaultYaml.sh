@@ -30,7 +30,7 @@ The script will:
 2. Find corresponding metadata files in the overlay-repo directory
 3. Extract the appConfigExamples content from each metadata file
 4. Generate dynamic-plugins.default.yaml
-5. Inject Tag/Build date comments from plugin_builds/*.json (via injectDpdyTagComments.py)
+5. Inject Tag/Build date comments from plugin_builds/*.json (via inject-dpdy-tag-comments)
 
 Once complete, run generateCatalogIndex.py to refresh the catalog index and OCI refs.
 
@@ -249,10 +249,14 @@ build_plugin_entry() {
 
 inject_tag_comments_in_dpdy() {
   local out_file=$1
-  local script_dir
+  local script_dir dpdy_path builds_path
   script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   [[ -f "$out_file" ]] || return 0
-  python3 "${script_dir}/injectDpdyTagComments.py" "$out_file" "$PLUGIN_BUILDS_DIR"
+  dpdy_path=$out_file
+  builds_path=$PLUGIN_BUILDS_DIR
+  [[ "$dpdy_path" = /* ]] || dpdy_path="$PWD/$dpdy_path"
+  [[ "$builds_path" = /* ]] || builds_path="$PWD/$builds_path"
+  (cd "$script_dir" && vp exec inject-dpdy-tag-comments "$dpdy_path" "$builds_path")
 }
 
 # -----------------------------------------------------------------------------
@@ -349,7 +353,10 @@ cat "$OUTPUT_FILE".head "$OUTPUT_FILE" > "$OUTPUT_FILE"_
 mv "$OUTPUT_FILE"_ "$OUTPUT_FILE"
 rm -f "$OUTPUT_FILE".head
 
-inject_tag_comments_in_dpdy "$OUTPUT_FILE"
+if ! inject_tag_comments_in_dpdy "$OUTPUT_FILE"; then
+  echo "Error: Could not inject Tag/Build date comments into $OUTPUT_FILE" >&2
+  exit 1
+fi
 
 # -----------------------------------------------------------------------------
 # Stats (from final YAML)

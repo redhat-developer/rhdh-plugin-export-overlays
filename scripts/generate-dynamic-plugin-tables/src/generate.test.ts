@@ -1,8 +1,3 @@
-/*
- * Copyright (c) Red Hat, Inc.
- * SPDX-License-Identifier: EPL-2.0
- */
-
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -279,5 +274,19 @@ describe("generate dynamic plugin tables", () => {
       '"Ga","@org/ga","Frontend","1.2.3","Production"',
     );
     expect(outputs["con-preinstalled-dynamic-plugins.adoc"]).toContain("* `@org/ga`");
+  });
+});
+
+describe("import.meta.main entry", () => {
+  it("executes main when loaded as the program entry", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const script = join(import.meta.dirname, "cli.ts");
+
+    const result = spawnSync(process.execPath, [script, "--help"], {
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Usage: generate-dynamic-plugin-tables");
   });
 });
