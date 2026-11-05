@@ -1,5 +1,8 @@
 """Tests for pure-logic functions in generateCatalogIndex.py."""
 
+import json
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from generateCatalogIndex import (
@@ -537,3 +540,77 @@ class TestUpdatePackageFilesKeepsPluginPath:
         dpdy, package = self._run(tmp_path, dpdy_body, package_body)
         assert dpdy == dpdy_body
         assert package == package_body
+
+
+# ---------------------------------------------------------------------------
+# check_image_exists / generate_index_json — transient registry failures
+# (RHIDP-18206)
+#
+# An image that cannot be checked (DNS, TLS, 429/5xx) is not known to be
+# missing: after retries it raises RegistryUnreachable, and the index keeps
+# the last-known entry instead of dropping a plugin that exists.
+# ---------------------------------------------------------------------------
+
+from generateCatalogIndex import check_image_exists, generate_index_json
+from plugin_utils import RegistryUnreachable
+
+
+def _head_response(status_code):
+    response = MagicMock()
+    response.status_code = status_code
+    return response
+
+
+class TestCheckImageExistsTransientFailures:
+    REF = "quay.io/rhdh/backstage-plugin-signals-backend:2.1.0--0.3.18"
+
+    @patch("generateCatalogIndex.requests.head")
+    def test_missing_image_returns_false_without_retry(self, mock_head):
+        mock_head.return_value = _head_response(404)
+        assert check_image_exists(self.REF) is False
+        assert mock_head.call_count == 1
+
+    @patch("generateCatalogIndex.time.sleep")
+    @patch("generateCatalogIndex.requests.head")
+    def test_connection_error_retries_then_raises(self, mock_head, mock_sleep):
+        import requests
+
+        mock_head.side_effect = requests.exceptions.ConnectionError("Name or service not known")
+        with pytest.raises(RegistryUnreachable):
+            check_image_exists(self.REF)
+        assert mock_head.call_count == 3
+
+    @patch("generateCatalogIndex.time.sleep")
+    @patch("generateCatalogIndex.requests.head")
+    def test_server_error_retries_then_raises(self, mock_head, mock_sleep):
+        mock_head.return_value = _head_response(503)
+        with pytest.raises(RegistryUnreachable):
+            check_image_exists(self.REF)
+        assert mock_head.call_count == 3
+
+
+class TestGenerateIndexJsonKeepsUnreachableEntries:
+    def test_unreachable_registry_keeps_the_last_known_entry(self, tmp_path):
+        plugin_builds = tmp_path / "plugin_builds"
+        (plugin_builds / "backstage").mkdir(parents=True)
+        (plugin_builds / "backstage" / "signals-backend.json").write_text(
+            json.dumps(
+                {
+                    "backstage-plugin-signals-backend": {
+                        "registryReference": "quay.io/rhdh/backstage-plugin-signals-backend:2.1.0--0.3.18",
+                        "digest": "sha256:" + "b" * 64,
+                        "workspacePath": "backstage/plugins/signals-backend",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch("generateCatalogIndex.check_image_exists") as mock_check:
+            mock_check.side_effect = RegistryUnreachable("dns")
+            combined, found, missing, workspace_paths, _all = generate_index_json(
+                plugin_builds, tmp_path / "out", None
+            )
+        assert "backstage-plugin-signals-backend" in combined
+        assert "backstage-plugin-signals-backend" in found
+        assert missing == []
+        assert workspace_paths["backstage-plugin-signals-backend"] == "workspaces/backstage/plugins/signals-backend"

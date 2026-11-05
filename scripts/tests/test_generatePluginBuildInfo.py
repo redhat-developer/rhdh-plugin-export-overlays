@@ -6,6 +6,7 @@ import re
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 SHA256_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -1262,3 +1263,90 @@ class TestDynamicPackagesInBuildReport:
         stage = self._stage(None, tmp_path)
         assert "dynamicPackages" not in stage
         assert "dynamicPackagesUnreadable" not in stage
+
+
+# ---------------------------------------------------------------------------
+# _fetch_image_metadata — transient registry failures (RHIDP-18206)
+#
+# A quay manifest GET can follow a redirect to S3 and fail on DNS in the
+# runner. That is a network failure, not a missing image: it must be retried
+# and, once retries are exhausted, raise RegistryUnreachable so callers keep
+# the last-known digest instead of recording "Image not found in registry".
+# ---------------------------------------------------------------------------
+
+
+def _manifest_response(status_code, digest="sha256:" + "a" * 64):
+    response = MagicMock()
+    response.status_code = status_code
+    response.headers = {"Docker-Content-Digest": digest}
+    response.json.return_value = {}
+    response.content = b"{}"
+    return response
+
+
+@patch("generatePluginBuildInfo.time.sleep")
+@patch("generatePluginBuildInfo.requests.get")
+def test_transient_connection_error_retries_then_succeeds(mock_get, mock_sleep):
+    mock_get.side_effect = [
+        requests.exceptions.ConnectionError("Name or service not known"),
+        requests.exceptions.ConnectionError("Name or service not known"),
+        _manifest_response(200),
+    ]
+    metadata = generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
+    assert metadata is not None
+    assert SHA256_DIGEST_RE.match(metadata["digest"])
+    assert mock_get.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+@patch("generatePluginBuildInfo.time.sleep")
+@patch("generatePluginBuildInfo.requests.get")
+def test_transient_connection_error_exhausted_raises(mock_get, mock_sleep):
+    mock_get.side_effect = requests.exceptions.ConnectionError("Name or service not known")
+    with pytest.raises(generatePluginBuildInfo.RegistryUnreachable):
+        generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
+    assert mock_get.call_count == generatePluginBuildInfo.REGISTRY_RETRY_ATTEMPTS
+
+
+@patch("generatePluginBuildInfo.requests.get")
+def test_missing_tag_returns_none_without_retry(mock_get):
+    mock_get.return_value = _manifest_response(404)
+    assert generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF) is None
+    assert mock_get.call_count == 1
+
+
+@patch("generatePluginBuildInfo.time.sleep")
+@patch("generatePluginBuildInfo.requests.get")
+def test_server_error_retries_then_raises(mock_get, mock_sleep):
+    mock_get.return_value = _manifest_response(503)
+    with pytest.raises(generatePluginBuildInfo.RegistryUnreachable):
+        generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
+    assert mock_get.call_count == generatePluginBuildInfo.REGISTRY_RETRY_ATTEMPTS
+
+
+def test_enrich_keeps_last_known_fields_when_registry_unreachable(tmp_path):
+    """The digest must survive an unreachable registry (no cascade into
+    not-digest-pinned / unresolved-image findings and a needless rebuild)."""
+    report = BuildReport(tmp_path / "report.json")
+    digest = "sha256:" + "b" * 64
+    data = {
+        "backstage-plugin-signals-backend": {
+            "registryReference": "quay.io/rhdh/backstage-plugin-signals-backend:2.1.0--0.3.18",
+            "digest": digest,
+            "build-date": "2026-11-03",
+        }
+    }
+    missing_refs: list[str] = []
+    with patch("generatePluginBuildInfo.get_image_metadata") as mock_metadata:
+        mock_metadata.side_effect = generatePluginBuildInfo.RegistryUnreachable("dns")
+        modified, fallback_count, _ = generatePluginBuildInfo._enrich_plugins_in_build_file(
+            data, "backstage", report, missing_refs, []
+        )
+    assert modified is False
+    assert fallback_count == 0
+    assert missing_refs == []
+    assert data["backstage-plugin-signals-backend"]["digest"] == digest
+    assert data["backstage-plugin-signals-backend"]["build-date"] == "2026-11-03"
+    stage = report._data["plugins"]["backstage-plugin-signals-backend"]["stages"]["image-metadata-fetch"]
+    assert stage["status"] == "fail"
+    assert stage["reason"].startswith("Registry unreachable: ")

@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 import requests
 import yaml
@@ -28,7 +29,11 @@ import yaml
 from plugin_utils import (
     BuildReport,
     Colors,
+    REGISTRY_RETRY_ATTEMPTS,
+    REGISTRY_RETRY_DELAY_SECONDS,
+    RegistryUnreachable,
     decode_dynamic_packages,
+    is_retryable_status,
     log_debug,
     log_info,
     log_warn,
@@ -209,17 +214,31 @@ def _skopeo_version_tags(registry: str, repository: str) -> list[str]:
     if authfile:
         command = ["skopeo", "list-tags", "--authfile", authfile, f"docker://{registry}/{repository}"]
 
-    try:
-        proc = subprocess.run(command, check=False, capture_output=True, text=True, timeout=120)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        log_warn(f"skopeo list-tags failed for {registry}/{repository}: {exc}")
-        _SKOPEO_TAG_CACHE[key] = []
-        return []
-
-    if proc.returncode != 0:
-        detail = (proc.stderr or "").strip().splitlines()
-        summary = detail[0][:200] if detail else f"exit {proc.returncode}"
-        log_warn(f"skopeo list-tags failed for {registry}/{repository}: {summary}")
+    proc = None
+    failure = "no attempt made"
+    for attempt in range(1, REGISTRY_RETRY_ATTEMPTS + 1):
+        try:
+            proc = subprocess.run(command, check=False, capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            failure = str(exc)
+            proc = None
+        else:
+            if proc.returncode == 0:
+                break
+            detail = (proc.stderr or "").strip().splitlines()
+            failure = detail[0][:200] if detail else f"exit {proc.returncode}"
+        if attempt < REGISTRY_RETRY_ATTEMPTS:
+            log_warn(
+                f"skopeo list-tags failed for {registry}/{repository} "
+                f"(attempt {attempt}/{REGISTRY_RETRY_ATTEMPTS}): {failure}; "
+                f"retrying in {REGISTRY_RETRY_DELAY_SECONDS:g}s"
+            )
+            time.sleep(REGISTRY_RETRY_DELAY_SECONDS)
+    if proc is None or proc.returncode != 0:
+        # A failed list-tags must not read as "no tags": it caches empty so
+        # the fallback lookup reports no fallback, but the transient cause
+        # is logged above (retry shape matches kfuxRelease.sh, RHIDP-13856).
+        log_warn(f"skopeo list-tags failed for {registry}/{repository}: {failure}")
         _SKOPEO_TAG_CACHE[key] = []
         return []
 
@@ -453,12 +472,40 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
         }
         headers.update(extra_headers)
 
-        # Get manifest to obtain digest
+        # Get manifest to obtain digest. A 404 means the tag is missing; a
+        # network failure or 429/5xx is transient and retried — after the
+        # retries it raises RegistryUnreachable so callers keep last-known
+        # state instead of recording a false "Image not found in registry"
+        # (RHIDP-18206: quay redirected the manifest GET to S3 and the runner
+        # could not resolve the S3 hostname for a minute).
         manifest_url = f"https://{registry}/v2/{repository}/manifests/{tag}"
-        manifest_response = requests.get(manifest_url, headers=headers, auth=auth, timeout=30)
-
-        if manifest_response.status_code != 200:
-            return None
+        manifest_response = None
+        last_error = "no attempt made"
+        for attempt in range(1, REGISTRY_RETRY_ATTEMPTS + 1):
+            try:
+                manifest_response = requests.get(manifest_url, headers=headers, auth=auth, timeout=30)
+            except requests.exceptions.RequestException as exc:
+                last_error = str(exc)
+                manifest_response = None
+            else:
+                if manifest_response.status_code == 200:
+                    break
+                if not is_retryable_status(manifest_response.status_code):
+                    # 404 (and other 4xx): the tag is not in the registry.
+                    return None
+                last_error = f"HTTP {manifest_response.status_code}"
+            if attempt < REGISTRY_RETRY_ATTEMPTS:
+                log_warn(
+                    f"Transient error fetching {registry_reference} "
+                    f"(attempt {attempt}/{REGISTRY_RETRY_ATTEMPTS}): {last_error}; "
+                    f"retrying in {REGISTRY_RETRY_DELAY_SECONDS:g}s"
+                )
+                time.sleep(REGISTRY_RETRY_DELAY_SECONDS)
+        else:
+            # No attempt returned 200: every retry failed transitively.
+            raise RegistryUnreachable(
+                f"could not fetch {registry_reference} after {REGISTRY_RETRY_ATTEMPTS} attempts ({last_error})"
+            )
 
         # Get digest from Docker-Content-Digest header
         digest = manifest_response.headers.get('Docker-Content-Digest')
@@ -521,6 +568,8 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
 
         return metadata
 
+    except RegistryUnreachable:
+        raise
     except requests.exceptions.Timeout:
         log_warn(f"Timeout getting metadata for {registry_reference}")
         return None
@@ -545,8 +594,9 @@ def get_image_metadata(registry_reference: str) -> dict | None:
             ``"quay.io/rhdh/plugin:1.11--1.6.0"``.
 
     Returns:
-        A metadata dict on success, or ``None`` if metadata could not be
-        fetched even after fallback.
+        A metadata dict on success, or ``None`` if the tag does not exist even
+        after fallback. Raises ``RegistryUnreachable`` when the registry could
+        not be reached, so callers can keep last-known state.
 
         On a **direct hit** (exact tag exists), the dict contains only the
         fields from ``_fetch_image_metadata``::
@@ -1178,7 +1228,22 @@ def _enrich_plugins_in_build_file(
             continue
 
         log_debug(f"\nFetching metadata for {registry_reference}")
-        metadata = get_image_metadata(registry_reference)
+        try:
+            metadata = get_image_metadata(registry_reference)
+        except RegistryUnreachable as exc:
+            # The registry could not be reached; the reference is not known to
+            # be missing. Keep the last-known fields (digest included) so the
+            # index does not cascade into not-digest-pinned / unresolved-image
+            # findings and an unnecessary plugin rebuild (RHIDP-18206).
+            log_warn(f"{registry_reference}: {exc}; keeping the last known metadata")
+            if report:
+                report.set_stage(
+                    plugin_name,
+                    "image-metadata-fetch",
+                    "fail",
+                    reason=f"Registry unreachable: {registry_reference}",
+                )
+            continue
         if not metadata:
             print(" ")
             missing_refs.append(registry_reference)

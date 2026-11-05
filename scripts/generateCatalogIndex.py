@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from collections import OrderedDict
 from pathlib import Path
 import requests
@@ -26,6 +27,10 @@ import yaml
 from plugin_utils import (
     BuildReport,
     Colors,
+    REGISTRY_RETRY_ATTEMPTS,
+    REGISTRY_RETRY_DELAY_SECONDS,
+    RegistryUnreachable,
+    is_retryable_status,
     log_debug,
     log_info,
     log_warn,
@@ -430,15 +435,39 @@ def check_image_exists(registry_reference: str) -> bool:
             if username and password:
                 auth = (username, password)
 
-        response = requests.head(url, headers=headers, auth=auth, timeout=10, allow_redirects=True)
+        # A 404 means the image is missing; a network failure or 429/5xx is
+        # transient and retried, then reported as RegistryUnreachable so the
+        # caller can keep the last-known entry instead of dropping a plugin
+        # that exists (RHIDP-18206).
+        last_error = "no attempt made"
+        for attempt in range(1, REGISTRY_RETRY_ATTEMPTS + 1):
+            try:
+                response = requests.head(url, headers=headers, auth=auth, timeout=10, allow_redirects=True)
+            except requests.exceptions.RequestException as exc:
+                last_error = str(exc)
+                response = None
+            else:
+                if response.status_code == 200:
+                    return True
+                if response.status_code == 401:
+                    log_warn(f"Image {registry_reference} requires authentication")
+                    return False
+                if not is_retryable_status(response.status_code):
+                    return False
+                last_error = f"HTTP {response.status_code}"
+            if attempt < REGISTRY_RETRY_ATTEMPTS:
+                log_warn(
+                    f"Transient error checking image {registry_reference} "
+                    f"(attempt {attempt}/{REGISTRY_RETRY_ATTEMPTS}): {last_error}; "
+                    f"retrying in {REGISTRY_RETRY_DELAY_SECONDS:g}s"
+                )
+                time.sleep(REGISTRY_RETRY_DELAY_SECONDS)
+        raise RegistryUnreachable(
+            f"could not check {registry_reference} after {REGISTRY_RETRY_ATTEMPTS} attempts ({last_error})"
+        )
 
-        if response.status_code == 200:
-            return True
-        elif response.status_code == 401:
-            log_warn(f"Image {registry_reference} requires authentication")
-            return False
-        else:
-            return False
+    except RegistryUnreachable:
+        raise
 
     except requests.exceptions.Timeout:
         log_warn(f"Timeout checking image {registry_reference}")
@@ -540,7 +569,26 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path, report: Build
                     continue
 
                 query_ref = get_query_registry_reference(registry_reference)
-                if check_image_exists(query_ref):
+                image_exists = True
+                unreachable_reason = ""
+                try:
+                    image_exists = check_image_exists(query_ref)
+                except RegistryUnreachable as exc:
+                    # Keep the last-known entry: the image is not known to be
+                    # missing, and dropping it here cascades into
+                    # unresolved-image findings and unnecessary rebuilds
+                    # (RHIDP-18206).
+                    unreachable_reason = str(exc)
+                if unreachable_reason:
+                    print(f"{Colors.YELLOW}[{i}/{len(json_files)}] {registry_reference} could not be checked ({unreachable_reason}); kept the last known entry{Colors.NORM}")
+                    combined_index[plugin_name] = plugin_data
+                    found_plugins.append(plugin_name)
+                    if report:
+                        report.set_stage(
+                            plugin_name, "catalog-index", "fail",
+                            reason=f"Registry unreachable: {registry_reference}",
+                        )
+                elif image_exists:
                     found_count += 1
                     print(f"[{i}/{len(json_files)}] {registry_reference} ({found_count})")
                     combined_index[plugin_name] = plugin_data

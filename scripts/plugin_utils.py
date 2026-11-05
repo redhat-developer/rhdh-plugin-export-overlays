@@ -113,6 +113,28 @@ class PathNotContainedError(ValueError):
     """A CLI-supplied path resolved outside the directory it is confined to."""
 
 
+class RegistryUnreachable(Exception):
+    """A registry check failed for network reasons after retries.
+
+    DNS, TLS, timeouts, HTTP 429/5xx — as opposed to a definitive 404. The image
+    may exist, so callers must keep last-known state instead of treating the
+    reference as missing (RHIDP-18206: a transient DNS failure recorded
+    "Image not found in registry" for an image built two days earlier).
+    """
+
+
+# Same retry shape as the kfuxRelease.sh skopeo retry (RHIDP-13856): three
+# tries, three seconds apart. Module constants so tests can shrink the delay.
+REGISTRY_RETRY_ATTEMPTS = 3
+REGISTRY_RETRY_DELAY_SECONDS = 3.0
+
+
+def is_retryable_status(status_code: int) -> bool:
+    """True for HTTP statuses worth retrying: 429 and 5xx are transient."""
+    return status_code == 429 or status_code >= 500
+
+
+
 def require_contained(flag: str, arg: str, root: Path | None = None) -> Path:
     """Resolve a CLI-supplied path, refusing one that escapes ``root``.
 
