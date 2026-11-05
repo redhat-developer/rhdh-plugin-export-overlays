@@ -17,6 +17,11 @@ async function openQuayEntityTab(
 }
 
 test.describe("Test Quay.io plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "Guest auth frontend shows 'Sign-in is not available' with quay plugin set",
+  );
+
   const quayRepository = "rhdh-community/rhdh";
 
   test.beforeAll(async ({ rhdh }) => {
