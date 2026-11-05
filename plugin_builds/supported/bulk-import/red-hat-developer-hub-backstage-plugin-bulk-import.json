@@ -2,6 +2,8 @@
   "red-hat-developer-hub-backstage-plugin-bulk-import": {
     "workspacePath": "bulk-import/plugins/bulk-import",
     "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import:bs_1.54.9__9.1.1",
+    "fallback": true,
+    "requestedTag": "bs_1.54.9__9.2.2",
     "digest": "sha256:4e5340814a72a1c9af9241b71942df7d9a6fa56765fd2f93188f0d420deab0c3",
     "build-date": "2026-06-03T21:22:55Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",

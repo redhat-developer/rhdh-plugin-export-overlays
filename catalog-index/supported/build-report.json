@@ -1,8 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.2-bs_1.54.9-27536db",
-    "last-successful-publish": "27536db77108b4f992ac3898a8b5ae603e9cc306"
-  },
+  "metadata": {},
   "plugins": {
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
       "stages": {
@@ -738,13 +735,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:32bfe79c46e43bc53eeceb8fda37284aa1ed9a559f42ac9d5aa574115970961a"
+          "digest": "sha256:32bfe79c46e43bc53eeceb8fda37284aa1ed9a559f42ac9d5aa574115970961a",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__9.2.2",
+          "resolvedTag": "bs_1.54.9__9.1.1"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import-backend' resolved to bs_1.54.9__9.1.1 after bs_1.54.9__9.2.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-bulk-import-backend",
@@ -760,13 +766,22 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4e5340814a72a1c9af9241b71942df7d9a6fa56765fd2f93188f0d420deab0c3"
+          "digest": "sha256:4e5340814a72a1c9af9241b71942df7d9a6fa56765fd2f93188f0d420deab0c3",
+          "fallback": true,
+          "requestedTag": "bs_1.54.9__9.2.2",
+          "resolvedTag": "bs_1.54.9__9.1.1"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import' resolved to bs_1.54.9__9.1.1 after bs_1.54.9__9.2.2 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-bulk-import",
