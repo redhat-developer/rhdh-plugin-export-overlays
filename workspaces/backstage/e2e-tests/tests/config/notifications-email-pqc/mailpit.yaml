@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+  labels:
+    app.kubernetes.io/instance: mailpit
+    app.kubernetes.io/name: mailpit
+    backstage.io/kubernetes-id: developer-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailpit
+  template:
+    metadata:
+      labels:
+        app: mailpit
+        backstage.io/kubernetes-id: developer-hub
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.30
+          env:
+            - name: MP_SMTP_TLS_CERT
+              value: /etc/mailpit/tls/tls.crt
+            - name: MP_SMTP_TLS_KEY
+              value: /etc/mailpit/tls/tls.key
+            - name: MP_SMTP_REQUIRE_STARTTLS
+              value: "true"
+          resources:
+            requests:
+              cpu: 50m
+              ephemeral-storage: 32Mi
+              memory: 64Mi
+            limits:
+              ephemeral-storage: 64Mi
+              memory: 128Mi
+          ports:
+            - containerPort: 1025
+            - containerPort: 8025
+          volumeMounts:
+            - name: mailpit-tls
+              mountPath: /etc/mailpit/tls
+              readOnly: true
+      volumes:
+        - name: mailpit-tls
+          secret:
+            secretName: mailpit-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit
+  labels:
+    app: mailpit
+    backstage.io/kubernetes-id: developer-hub
+spec:
+  selector:
+    app: mailpit
+  ports:
+    - name: smtp
+      protocol: TCP
+      port: 1025
+      targetPort: 1025
+    - name: http
+      protocol: TCP
+      port: 8025
+      targetPort: 8025

@@ -1,0 +1,17 @@
+# Force TLS 1.3 key exchange to hybrid ML-KEM for this project only.
+# ca.crt is added to the openssl-pq ConfigMap at runtime.
+extraEnv:
+  - name: OPENSSL_CONF
+    value: /opt/app-root/src/openssl-pq/openssl-pq.cnf
+  - name: NODE_EXTRA_CA_CERTS
+    value: /opt/app-root/src/openssl-pq/ca.crt
+
+extraVolumeMounts:
+  - name: openssl-pq
+    mountPath: /opt/app-root/src/openssl-pq
+
+extraVolumes:
+  - name: openssl-pq
+    configMap:
+      defaultMode: 420
+      name: openssl-pq
