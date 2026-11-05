@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-/*
- * Copyright (c) Red Hat, Inc.
- * SPDX-License-Identifier: EPL-2.0
- */
 
 /** Render one tier's docs files from its resolved catalog index. */
 
@@ -19,7 +15,7 @@ Supported mode also reads INDEX_DIR/default.packages.yaml unless overridden.
 All paths must resolve inside the current working directory.
 --debug prints each row added to the generated tables and CSVs.`;
 
-function main(args: string[]): number {
+export function main(args: string[]): number {
   try {
     const { values } = parseArgs({
       args,
@@ -82,4 +78,7 @@ function main(args: string[]): number {
   }
 }
 
-process.exitCode = main(process.argv.slice(2));
+/* v8 ignore if */
+if (import.meta.main) {
+  process.exitCode = main(process.argv.slice(2));
+}

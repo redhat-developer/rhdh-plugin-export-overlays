@@ -8,9 +8,11 @@ const rootIgnore = [
   "!/*/",
   "!/package.json",
   "!/README.md",
+  "!/tsconfig.json",
   "!/vite.config.ts",
   "!/AGENTS.md",
   "tests/**",
+  "inject-dpdy-tag-comments/fixtures/**",
 ];
 
 export default defineConfig({
@@ -26,6 +28,19 @@ export default defineConfig({
     options: {
       typeAware: true,
       typeCheck: true,
+    },
+  },
+  test: {
+    coverage: {
+      // Gate coverage on inject only until other workspace packages enforce it; then
+      // delete this `include` so `vp test --coverage` measures the whole tree.
+      include: ["inject-dpdy-tag-comments/src"],
+      thresholds: {
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100,
+      },
     },
   },
 });

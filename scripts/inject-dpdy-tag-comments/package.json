@@ -1,0 +1,13 @@
+{
+  "name": "inject-dpdy-tag-comments",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Inserts Tag/Build date comments into dynamic-plugins.default.yaml from plugin_builds metadata for active oci:// package references.",
+  "bin": "src/inject.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
