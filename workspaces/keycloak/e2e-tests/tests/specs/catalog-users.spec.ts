@@ -118,7 +118,7 @@ async function checkUserDetails(
     ).toBeVisible();
   }
 
-  await CatalogUsersPO.visitBaseURL(page);
+  await page.goBack();
 }
 
 test.describe("Test Keycloak plugin metrics", () => {
