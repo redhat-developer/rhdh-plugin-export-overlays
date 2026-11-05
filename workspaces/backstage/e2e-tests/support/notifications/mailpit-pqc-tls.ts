@@ -99,6 +99,8 @@ export async function generateMailpitTls(
     "-subj",
     "/CN=mailpit-e2e-ca",
   ]);
+  // CN is limited to 64 characters. The namespace DNS name is longer than
+  // that. Node matches the SMTP host against the SAN, not the CN.
   await runCommand("openssl", [
     "req",
     "-newkey",
@@ -109,7 +111,7 @@ export async function generateMailpitTls(
     "-out",
     csrPath,
     "-subj",
-    `/CN=${hostname}`,
+    "/CN=mailpit",
     "-addext",
     `subjectAltName=DNS:${hostname}`,
   ]);
