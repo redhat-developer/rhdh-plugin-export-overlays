@@ -1,6 +1,11 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("app-defaults plugins (OIDC + GitHub integration)", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy();

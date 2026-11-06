@@ -22,6 +22,11 @@ async function getResourceType(page: Page): Promise<"ingress" | "route"> {
 }
 
 test.describe("Test Topology plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   const deploymentLocator = `[data-test-id="topology-test"]`;
 
   test.beforeAll(async ({ rhdh }) => {

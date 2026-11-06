@@ -81,6 +81,11 @@ async function pollForReportIssueLink(page: Page): Promise<boolean> {
 }
 
 test.describe("TechDocs", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     // Allow time for deployment + browser setup
     test.setTimeout(10 * 60 * 1000);

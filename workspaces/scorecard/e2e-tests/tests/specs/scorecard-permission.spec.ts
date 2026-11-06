@@ -10,6 +10,11 @@ import { deployRhdh } from "../utils/setup";
 import { scorecardHelpers } from "../utils/scorecard";
 
 test.describe.serial("Scorecard permission", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
 

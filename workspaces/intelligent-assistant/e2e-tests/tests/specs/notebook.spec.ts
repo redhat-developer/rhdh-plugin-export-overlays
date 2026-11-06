@@ -33,6 +33,11 @@ function notebookFileNameParts(fileName: string): {
 }
 
 test.describe("Lightspeed notebooks", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
 
   let context: BrowserContext;

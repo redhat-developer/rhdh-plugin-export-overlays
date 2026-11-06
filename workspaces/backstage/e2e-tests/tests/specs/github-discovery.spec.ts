@@ -7,6 +7,11 @@ const ENTITY_POLL_TIMEOUT_MS = 120_000;
 const ENTITY_POLL_INTERVAL_MS = 3_000;
 
 test.describe("Github Discovery Catalog", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {
