@@ -257,7 +257,7 @@ During the export build, the process verifies that the source `package.json` fie
 
 - ✅ Update metadata immediately when releasing new plugin versions
 - ✅ Use exact tags (e.g., `@backstage-community/plugin-x@1.2.3`) not branches
-- ✅ Test with `/publish` and `/smoketest` before merging
+- ✅ Test with `/publish` (smoke tests run automatically; use `/smoketest` only to re-run)
 - ✅ Keep descriptions and links current
 
 ### Don't
