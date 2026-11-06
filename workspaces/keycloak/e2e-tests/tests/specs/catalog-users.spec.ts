@@ -15,6 +15,11 @@ import {
 import { CatalogUsersPO } from "../support/page-objects/catalog-users-obj";
 
 test.describe("Test Keycloak plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let keycloakHelper: KeycloakHelper;
   let keycloakRealm: string;
 

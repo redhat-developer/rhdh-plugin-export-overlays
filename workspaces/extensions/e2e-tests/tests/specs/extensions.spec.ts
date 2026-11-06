@@ -3,6 +3,11 @@ import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ExtensionsPage } from "../support/extensions";
 
 test.describe("Admin > Extensions", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let extensions: ExtensionsPage;
   let uiHelper: UIhelper;
   const isMac = process.platform === "darwin";

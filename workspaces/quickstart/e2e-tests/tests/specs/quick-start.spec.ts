@@ -2,6 +2,11 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { verifyLinkURL } from "../utils/quickstart";
 
 test.describe("Test Quick Start plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",

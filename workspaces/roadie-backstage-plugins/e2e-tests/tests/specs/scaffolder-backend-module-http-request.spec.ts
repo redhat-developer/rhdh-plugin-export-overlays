@@ -3,6 +3,11 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 // https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-http-request
 // Pre-req: Enable roadiehq-scaffolder-backend-module-http-request-dynamic plugin
 test.describe("Testing scaffolder-backend-module-http-request to invoke an external request", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     test.info().annotations.push({
       type: "component",
