@@ -308,11 +308,9 @@ test.describe("Admin > Extensions", () => {
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
-      await expect(page.getByTestId("enable-plugin")).toBeVisible();
-      // Following step is commented out due to the bug in nfs https://redhat.atlassian.net/browse/RHDHBUGS-3701
-      // await expect(page.getByRole("alert")).toContainText(
-      //   `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
-      // );
+      await expect(page.getByRole("alert")).toContainText(
+        `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
+      );
     });
   });
 
