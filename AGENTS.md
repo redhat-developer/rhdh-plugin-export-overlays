@@ -68,7 +68,7 @@ On a PR, comment:
 - `/override-backstage` — Override workspace Backstage compatibility version (creates `backstage.json` and rewrites metadata OCI tags)
 - `/update-versions` — Copy `versions.json` from the PR base branch onto the PR branch (release-line alignment)
 - `/update-commit` — Re-run automatic plugin repo ref discovery for the single touched workspace and update the PR
-- `/test` or `/test e2e-tests` — Run e2e tests. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
+- `/test <prow-job>` — Run one of the OpenShift CI e2e presubmits, named exactly: `e2e-ocp-helm`, `e2e-ocp-helm-nightly-pr-scoped`, `e2e-ocp-helm-nightly`, or the `e2e-ocp-operator*` equivalents. A bare `/test` does nothing here — no e2e job is queued on a PR until it is named. The `*-nightly-pr-scoped` variants set `E2E_NIGHTLY_MODE=true` and still derive the changed workspaces from the diff, which is what you want when the PR touches metadata rather than plugin code. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
 
 ### Important Workflows (`.github/workflows/`)
 
@@ -330,19 +330,21 @@ Plugin metadata at `workspaces/*/metadata/*.yaml` is actively consumed during de
 | Mode | Detection | Plugin Packages | Config Injection |
 |------|-----------|----------------|-----------------|
 | **PR check** | `GIT_PR_NUMBER` set | PR-built OCI images (`pr_{number}__{version}`) | Yes — metadata `appConfigExamples` injected |
-| **Nightly** | `E2E_NIGHTLY_MODE=true` | Released OCI refs from `spec.dynamicArtifact` | No — uses whatever config is in the file |
-| **Local dev** | Neither set | Local paths as-is (bundled in container) | Yes — metadata `appConfigExamples` injected |
+| **Nightly** | `E2E_NIGHTLY_MODE=true` | `{{inherit}}` for `default.packages.yaml` packages, else `spec.dynamicArtifact` | Only for plugins outside `default.packages.yaml` |
+| **Local dev** | Neither set | Metadata `spec.dynamicArtifact` (wrapper → its local `dist` path) | Yes — metadata `appConfigExamples` injected |
 
 Priority: `GIT_PR_NUMBER` (forces PR mode) > `E2E_NIGHTLY_MODE` > `JOB_NAME` containing `periodic-`
+
+**The `package` field in a hand-written `dynamic-plugins.yaml` is a hint, not a pin.** Every entry is matched by image name against `metadata/*.yaml` in the same workspace, and a match replaces the entry with the metadata's `spec.dynamicArtifact` (or the PR image, or `{{inherit}}`). The tag you write is honoured only when no metadata file matches the image name, so in `tests/config/*.yaml` a stale tag and a fresh one deploy the same artifact. That is normal — many workspace E2E configs carry a tag that differs from metadata — so **do not open a PR to bump them**; nothing changes. The same rewrite is why `ref://` is not an option for a plugin outside `default.packages.yaml`: there is no `includes` entry for the installer to resolve.
 
 **PR mode** requires:
 - `GIT_PR_NUMBER` set (CI exports it automatically; locally: `export GIT_PR_NUMBER=1845`)
 - OCI images published via `/publish` PR comment before running tests
 - `source.json` and `plugins-list.yaml` in the workspace root (used to fetch plugin versions from the source repo and build OCI URLs like `oci://ghcr.io/.../plugin-name:pr_1845__1.2.3`)
 
-**Without `GIT_PR_NUMBER` (local dev):** Plugins use local paths (`./dynamic-plugins/dist/...`) bundled inside the RHDH container image. Metadata configs are still injected from `spec.appConfigExamples`. This is the default mode for `yarn test` from a workspace.
+**Without `GIT_PR_NUMBER` (local dev):** packaging falls through to metadata — wrapper plugins resolve to their `./dynamic-plugins/dist/...` path bundled inside the RHDH container image, and OCI plugins resolve to their published `spec.dynamicArtifact`. Metadata configs are still injected from `spec.appConfigExamples`. This is the default mode for `yarn test` from a workspace.
 
-**Nightly mode** uses released OCI refs directly from each plugin's `spec.dynamicArtifact` in metadata (e.g., `oci://ghcr.io/.../plugin:bs_1.45.3__1.13.0`). No config injection — plugins use their baked-in defaults. Enabled via `E2E_NIGHTLY_MODE=true` or when `JOB_NAME` contains `periodic-`.
+**Nightly mode** resolves entries through metadata as well: packages in `default.packages.yaml` become `oci://{registry}/{plugin}:{{inherit}}`, so RHDH takes both the tag and the configuration from its built-in defaults, while everything else uses `spec.dynamicArtifact` as-is and still gets `appConfigExamples` injected. Enabled via `E2E_NIGHTLY_MODE=true` or when `JOB_NAME` contains `periodic-`.
 
 When no `dynamic-plugins.yaml` exists, ALL metadata files are read to auto-generate the complete plugin configuration. This is the recommended approach — most workspaces don't need a `dynamic-plugins.yaml`.
 
