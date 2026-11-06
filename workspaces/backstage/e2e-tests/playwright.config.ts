@@ -55,6 +55,11 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
     },
     {
+      name: "backstage-notifications-email-pqc-forced-ml-kem",
+      testMatch:
+        /tests\/specs\/notifications-email-pqc-forced-ml-kem\.spec\.ts/,
+    },
+    {
       name: "backstage-signals",
       testMatch: /tests\/specs\/signals\.spec\.ts/,
     },
