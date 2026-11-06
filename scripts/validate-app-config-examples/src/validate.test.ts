@@ -82,7 +82,7 @@ describe("runExitCode", () => {
   const pluginPathFailure = { row: failing, ref: "oci://quay.io/x/a:1", failed: true };
   const unmatched = { matched: 0, checked: 0, own: 2 };
 
-  it("keeps the codes auto-publish-pr.yaml reads", () => {
+  it("keeps the codes check-plugin-paths.yaml reads", () => {
     expect(EXIT).toEqual({
       clean: 0,
       failed: 1,
