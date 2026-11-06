@@ -354,7 +354,7 @@ yarn aggregate --in results --summary summary.md \
 ```
 
 The selection reads `spec.support` from the workspace metadata rather than the
-repo-root `rhdh-community-packages.txt` that AGENTS.md describes: the metadata is what
+repo-root `rhdh-community-packages.txt` that CONTEXT.md describes: the metadata is what
 the build actually publishes from, and the two disagree today (41 workspaces carry a
 community package; the txt file names 20).
 
@@ -382,7 +382,7 @@ image).
 | --------------------------------- | -------------------------------------------------------------------------------- |
 | All community packages            | OCI install + dynamic-plugin layout validation                                   |
 | Community backend packages        | real boot via `startTestBackend`                                                 |
-| Catalog-extending backend modules | install + bundle layout, no boot — see `plugin-sweep-excludes.txt` (RHIDP-16017) |
+| Catalog-extending backend modules | real boot via `startTestBackend` — `catalogPlugin` is in `coreFeatures` (RHIDP-16017) |
 | Community frontend packages       | bundle-layout validation only                                                    |
 
 **This is breadth, not depth.** Frontend plugins get no UI render — that is RHIDP-16009,
