@@ -14,6 +14,36 @@ packages:
     support: "generally-available"
   - package: '@backstage-community/plugin-scaffolder-backend-module-regex'
     support: "generally-available"
+  - package: '@backstage/plugin-api-docs'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog-backend'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog-backend-module-openapi'
+    support: "generally-available"
+  - package: '@backstage/plugin-scaffolder'
+    support: "generally-available"
+  - package: '@backstage/plugin-scaffolder-backend'
+    support: "generally-available"
+  - package: '@backstage/plugin-search'
+    support: "generally-available"
+  - package: '@backstage/plugin-search-backend'
+    support: "generally-available"
+  - package: '@backstage/plugin-search-backend-module-catalog'
+    support: "generally-available"
+  - package: '@backstage/plugin-search-backend-module-pg'
+    support: "generally-available"
+  - package: '@backstage/plugin-signals'
+    support: "generally-available"
+  - package: '@backstage/plugin-signals-backend'
+    support: "generally-available"
+  - package: '@backstage/plugin-user-settings'
+    support: "generally-available"
+  - package: '@backstage/plugin-user-settings-backend'
+    support: "generally-available"
+  - package: '@backstage/plugin-app-module-user-settings'
+    support: "generally-available"
   - package: '@backstage/plugin-techdocs'
     support: "generally-available"
   - package: '@backstage/plugin-techdocs-backend'

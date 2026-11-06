@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-catalog-backend-module-openapi
+  namespace: rhdh
+  title: 'Catalog Backend Module OpenAPI'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-openapi
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-openapi
+  tags: []
+spec:
+  packageName: '@backstage/plugin-catalog-backend-module-openapi'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-openapi:bs_1.54.9__0.2.25!backstage-plugin-catalog-backend-module-openapi
+  version: 0.2.25
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.9
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - catalog
+  appConfigNotRequired: true
+  appConfigExamples: []
