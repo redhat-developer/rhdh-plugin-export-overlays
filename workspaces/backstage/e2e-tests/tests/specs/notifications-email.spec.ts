@@ -88,6 +88,11 @@ async function createNotificationWhenCatalogReady(
 }
 
 test.describe("Notifications email processor", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let mailpitApi: MailpitApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {

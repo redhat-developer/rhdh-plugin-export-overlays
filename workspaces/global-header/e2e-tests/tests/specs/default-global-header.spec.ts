@@ -3,6 +3,11 @@ import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { RhdhNotificationsApi } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("Default Global Header", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     // Do not set disablePlugins for global-header: it marks the OCI entry from
     // dynamic-plugins.yaml as disabled: true, so NFS extensions never mount a plugin.

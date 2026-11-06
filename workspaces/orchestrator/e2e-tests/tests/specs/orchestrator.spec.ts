@@ -16,6 +16,11 @@ function skipOrchestratorDeploy(): boolean {
 
 // Layer 4b: SonataFlow / OSL + published OCI artifact.
 test.describe("Orchestrator", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }, testInfo) => {
     // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.
     test.setTimeout(60 * 60 * 1000);

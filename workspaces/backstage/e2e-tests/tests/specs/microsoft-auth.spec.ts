@@ -122,6 +122,11 @@ test.describe(
   "Microsoft auth and MS Graph ingestion",
   { tag: "@auth-tests" },
   () => {
+    test.skip(
+      process.env.INSTALLATION_METHOD !== "operator",
+      "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+    );
+
     let rhdhDeployment: RHDHDeployment;
     let baseUrl: string;
     let redirectUrl: string;

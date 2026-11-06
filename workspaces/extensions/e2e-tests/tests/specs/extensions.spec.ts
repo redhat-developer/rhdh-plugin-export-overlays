@@ -3,6 +3,11 @@ import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ExtensionsPage } from "../support/extensions";
 
 test.describe("Admin > Extensions", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let extensions: ExtensionsPage;
   let uiHelper: UIhelper;
   const isMac = process.platform === "darwin";
