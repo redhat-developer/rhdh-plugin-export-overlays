@@ -1,0 +1,14 @@
+# Prefer hybrid ML-KEM with classical X25519 fallback for this project only.
+extraEnv:
+  - name: OPENSSL_CONF
+    value: /opt/app-root/src/openssl-pq/openssl-pq.cnf
+
+extraVolumeMounts:
+  - name: openssl-pq
+    mountPath: /opt/app-root/src/openssl-pq
+
+extraVolumes:
+  - name: openssl-pq
+    configMap:
+      defaultMode: 420
+      name: openssl-pq

@@ -29,6 +29,10 @@ export default playwrightDefineConfig({
       name: "backstage-gitlab-pqc-forced-ml-kem",
       testMatch: /tests\/specs\/gitlab-pqc-forced-ml-kem\.spec\.ts/,
     },
+    {
+      name: "backstage-gitlab-pqc-hybrid-fallback",
+      testMatch: /tests\/specs\/gitlab-pqc-hybrid-fallback\.spec\.ts/,
+    },
 
     {
       name: "backstage-gitlab-events-discovery",
