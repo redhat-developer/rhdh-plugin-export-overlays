@@ -19,6 +19,48 @@ export function readSonarQubeToken(namespace: string): string {
   return readSecretKey(namespace, TOKEN_SECRET, "token");
 }
 
+/**
+ * Polls the SonarQube Compute Engine API until all pending and in-progress
+ * tasks have completed. This ensures metrics are available before tests run,
+ * even when a pod restart interrupts CE processing.
+ */
+export async function waitForCeCompletion(
+  k8s: KubernetesClientHelper,
+  namespace: string,
+  token: string,
+): Promise<void> {
+  const baseUrl = await k8s.getRouteLocation(namespace, "sonarqube");
+  await pollForValue(
+    Date.now() + 300_000,
+    10_000,
+    async () => {
+      try {
+        const response = await requestSonar(
+          new URL("/api/ce/activity?status=PENDING,IN_PROGRESS", baseUrl),
+          "GET",
+          { Authorization: `Bearer ${token}` },
+        );
+        if (response.statusCode === 200) {
+          const parsed: unknown = JSON.parse(response.body);
+          if (
+            typeof parsed === "object" &&
+            parsed !== null &&
+            "tasks" in parsed &&
+            Array.isArray(parsed.tasks) &&
+            parsed.tasks.length === 0
+          ) {
+            return true;
+          }
+        }
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    "Timed out waiting for SonarQube CE tasks to complete",
+  );
+}
+
 export async function deploySonarQube(
   k8s: KubernetesClientHelper,
   namespace: string,
