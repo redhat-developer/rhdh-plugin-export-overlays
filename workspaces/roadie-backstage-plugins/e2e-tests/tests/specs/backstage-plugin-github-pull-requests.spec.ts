@@ -5,6 +5,11 @@ import { searchGitHubPRs } from "../../support/api/github-pull-requests";
 import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.describe.configure({ timeout: 600_000 });
 
   test.beforeAll(async ({ rhdh }) => {

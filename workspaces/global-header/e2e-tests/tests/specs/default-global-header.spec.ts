@@ -3,6 +3,11 @@ import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { RhdhNotificationsApi } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("Default Global Header", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     // Do not set disablePlugins for global-header: it marks the OCI entry from
     // dynamic-plugins.yaml as disabled: true, so NFS extensions never mount a plugin.

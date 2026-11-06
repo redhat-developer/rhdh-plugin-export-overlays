@@ -15,6 +15,11 @@ import {
 } from "../utils/constants";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;

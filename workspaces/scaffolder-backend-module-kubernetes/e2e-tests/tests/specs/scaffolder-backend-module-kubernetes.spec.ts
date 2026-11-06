@@ -2,6 +2,11 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { KubeClient } from "../../support/utils/kube-client";
 
 test.describe("Test Kubernetes Actions plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let kubeClient: KubeClient;
   let namespace: string | undefined;
 

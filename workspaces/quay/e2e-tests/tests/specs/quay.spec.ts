@@ -17,6 +17,11 @@ async function openQuayEntityTab(
 }
 
 test.describe("Test Quay.io plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   const quayRepository = "rhdh-community/rhdh";
 
   test.beforeAll(async ({ rhdh }) => {
