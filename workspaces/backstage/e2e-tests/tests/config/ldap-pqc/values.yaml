@@ -1,0 +1,14 @@
+# Force TLS 1.3 key exchange to hybrid ML-KEM for this project only.
+extraEnv:
+  - name: OPENSSL_CONF
+    value: /opt/app-root/src/openssl-pq/openssl-pq.cnf
+
+extraVolumeMounts:
+  - name: openssl-pq
+    mountPath: /opt/app-root/src/openssl-pq
+
+extraVolumes:
+  - name: openssl-pq
+    configMap:
+      defaultMode: 420
+      name: openssl-pq

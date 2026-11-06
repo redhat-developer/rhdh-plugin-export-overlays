@@ -1,0 +1,7 @@
+# LDAP catalog module only (ingest sanity). No Keycloak auth for this suite.
+# app-auth comes from the catalog index — suppress the stale NFS default.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.54.9__1.2.0
+    disabled: true
+  - package: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap:bs_1.54.9__0.12.8
+    disabled: false

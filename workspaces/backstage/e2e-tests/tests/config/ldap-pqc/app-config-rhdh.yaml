@@ -1,0 +1,41 @@
+app:
+  title: RHDH LDAP PQC E2E
+  baseUrl: ${RHDH_BASE_URL}
+
+backend:
+  baseUrl: ${RHDH_BASE_URL}
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: ldap-pqc-e2e-token
+          subject: ldap-pqc-e2e
+  cors:
+    origin: ${RHDH_BASE_URL}
+
+permission:
+  enabled: false
+
+catalog:
+  rules:
+    - allow: [User, Group]
+  providers:
+    ldapOrg:
+      default:
+        target: ${LDAP_TARGET_URL}
+        bind:
+          dn: ${LDAP_BIND_DN}
+          secret: ${LDAP_BIND_SECRET}
+        users:
+          - dn: ${LDAP_USERS_DN}
+            options:
+              filter: "(uid=*)"
+              scope: sub
+        groups:
+          - dn: ${LDAP_GROUPS_DN}
+            options:
+              filter: "(objectClass=groupOfNames)"
+              scope: sub
+        schedule:
+          frequency: PT1M
+          timeout: PT1M
