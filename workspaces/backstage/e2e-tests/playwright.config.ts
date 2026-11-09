@@ -55,7 +55,9 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
     },
     {
-      name: "backstage-notifications-email-pqc-forced-ml-kem",
+      // Namespace is the project name. The Helm route label is
+      // redhat-developer-hub-<namespace> and must stay within 63 characters.
+      name: "backstage-notif-email-pqc-ml-kem",
       testMatch:
         /tests\/specs\/notifications-email-pqc-forced-ml-kem\.spec\.ts/,
     },
