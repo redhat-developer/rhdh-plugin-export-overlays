@@ -268,7 +268,12 @@ export type ConfigSchemaState =
    * means it collected something unusable. The wrapped form
    * (`backstageConfigSchemaVersion: 1`) is merged first, as the gatherer does.
    */
-  | "invalid";
+  | "invalid"
+  /**
+   * A wrapped schema that is malformed or that `mergeConfigSchemas` rejects. The gatherer
+   * does not catch this, so RHDH fails schema loading for every dynamic plugin.
+   */
+  | "unmergeable";
 
 /** RHDH and the upstream service both read the supported schema path. */
 export type ConfigSchemaConsumer = "rhdh";
@@ -738,6 +743,9 @@ const CONFIG_SCHEMA_FAULTS: Record<Exclude<ConfigSchemaState, "ok">, string> = {
   invalid:
     'is missing `$schema` or is not `type: "object"`, so the backend\'s schema ' +
     "gatherer rejects it",
+  unmergeable:
+    "is a wrapped schema that is malformed or that `mergeConfigSchemas` rejects, so " +
+    "the backend's schema gatherer throws and RHDH fails to load any plugin schema",
 };
 
 /** Read one schema file the export wrote, classifying why it cannot be used. */
@@ -791,8 +799,7 @@ function readConfigSchemaFile(
         (parsed.schemas as { value: object }[]).map((entry) => entry.value),
       ) as SchemaShape;
     } catch {
-      // The gatherer would throw here and abort schema loading; nothing usable either way.
-      return file("invalid", null);
+      return file("unmergeable", null);
     }
   }
   const properties = parsed?.properties;
@@ -878,12 +885,15 @@ function inspectConfigSchema(pluginPath: string): {
       ? []
       : [`${file.path} ${CONFIG_SCHEMA_FAULTS[file.state]}`],
   );
+  // A merge failure is not silent: the gatherer throws instead of skipping the plugin.
+  const consequence = files.some((file) => file.state === "unmergeable")
+    ? "RHDH does not start with this plugin installed"
+    : "Backstage has no schema to match this plugin's app-config keys against, so " +
+      "they are dropped silently and the plugin runs on its defaults";
   return {
     configSchema,
     error: problems.length
-      ? `package.json declares \`configSchema\` but ${problems.join("; ")} — ` +
-        `Backstage has no schema to match this plugin's app-config keys against, so ` +
-        `they are dropped silently and the plugin runs on its defaults`
+      ? `package.json declares \`configSchema\` but ${problems.join("; ")} — ${consequence}`
       : null,
   };
 }

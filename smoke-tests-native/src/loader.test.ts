@@ -1073,7 +1073,7 @@ test("a backend bundle with the supported schema passes and reports its property
   assert.equal(configSchema.files[0].propertyCount, 1);
 });
 
-// The shape `backstage-cli package bundle` writes for backends (rhdh-cli >= 2.2), as
+// The shape `backstage-cli package bundle` writes for backends, as
 // shipped by the orchestrator-backend ghcr artifact: one entry per contributing package.
 const wrappedSchema = (...values: object[]) =>
   JSON.stringify({
@@ -1119,11 +1119,29 @@ test("a wrapped backend schema whose merge has no $schema is still invalid", () 
   assert.equal(configSchema.files[0].propertyCount, 1);
 });
 
-test("a wrapped backend schema the merge rejects is invalid, not a crash", () => {
-  const { configSchema } = backendWithSchema(
+test("a malformed wrapped backend schema is unmergeable, not a crash", () => {
+  const { configSchema, error } = backendWithSchema(
     JSON.stringify({ backstageConfigSchemaVersion: 1, schemas: "nope" }),
   );
-  assert.equal(configSchema.files[0].state, "invalid");
+  assert.match(error ?? "", /wrapped schema that is malformed/);
+  assert.equal(configSchema.files[0].state, "unmergeable");
+  assert.equal(configSchema.files[0].propertyCount, null);
+});
+
+test("a wrapped backend schema mergeConfigSchemas rejects is unmergeable", () => {
+  // Conflicting visibilities make the real merge throw, as it would in the gatherer.
+  const tokenSchema = (visibility: string) => ({
+    $schema: "https://backstage.io/schema/config-v1",
+    type: "object",
+    properties: { token: { type: "string", visibility } },
+  });
+  const { configSchema, error } = backendWithSchema(
+    wrappedSchema(tokenSchema("frontend"), tokenSchema("secret")),
+  );
+  // Not "dropped silently": the gatherer throws, so the message must not claim that.
+  assert.match(error ?? "", /RHDH does not start/);
+  assert.doesNotMatch(error ?? "", /dropped silently/);
+  assert.equal(configSchema.files[0].state, "unmergeable");
   assert.equal(configSchema.files[0].propertyCount, null);
 });
 

@@ -173,7 +173,8 @@ look must not be published as `declared: false`, the same reason `mf.nfsFeatures
 exists. `files` carries one entry per path `export-dynamic-plugin` writes for this package —
 RHDH's own, per the table above, plus the upstream default when a `dist/` exists to hold
 it — each tagged with its `consumer` and carrying a state of `ok`, `missing`, `unreadable`,
-`empty` or `invalid`, plus its `propertyCount`.
+`empty`, `invalid` or `unmergeable`, plus its `propertyCount`. `unmergeable` is a wrapped
+schema the merge throws on; the gatherer does not catch that, so it is not a silent drop.
 
 Note what `ok` does and does not establish. The export writes the schema MERGED across the
 package and its filtered dependency tree, so `ok` means some schema survived, not that this
@@ -192,7 +193,7 @@ messages keep "declares no configuration" and "declares configuration and shippe
 schema" apart.
 
 The backend half follows the same declaration rule. Only packages that declare
-`configSchema` fail for a missing, empty, unreadable, or invalid
+`configSchema` fail for a missing, empty, unreadable, invalid, or unmergeable
 `dist/.config-schema.json`; a package that declares no configuration is reported but does
 not fail the check.
 
