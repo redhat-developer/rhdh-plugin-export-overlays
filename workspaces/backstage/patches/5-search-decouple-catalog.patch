@@ -1,0 +1,99 @@
+# Patch: Decouple catalog dependency from search frontend plugin
+# Reason: Allows the search page to render without throwing NotImplementedError when catalog is disabled
+--- plugins/search/src/alpha.tsx
++++ plugins/search/src/alpha.tsx
+@@ -27,6 +27,7 @@
+ } from '@backstage/core-components';
+ import {
+   useApi,
++  useApiHolder,
+   discoveryApiRef,
+   fetchApiRef,
+ } from '@backstage/core-plugin-api';
+@@ -137,7 +138,8 @@
+           const classes = useSearchPageStyles();
+           const { isMobile } = useSidebarPinState();
+           const { types } = useSearch();
+-          const catalogApi = useApi(catalogApiRef);
++          const apiHolder = useApiHolder();
++          const catalogApi = apiHolder.get(catalogApiRef);
+           const configApi = useApi(configApiRef);
+ 
+           return (
+@@ -154,16 +156,19 @@
+                         'search.defaultType',
+                       )}
+                       showCounts
+-                      types={[
+-                        {
+-                          value: 'software-catalog',
+-                          name: 'Software Catalog',
+-                          icon: <CatalogIcon />,
+-                        },
+-                      ].concat(resultTypes)}
++                      types={(catalogApi
++                        ? [
++                            {
++                              value: 'software-catalog',
++                              name: 'Software Catalog',
++                              icon: <CatalogIcon />,
++                            },
++                          ]
++                        : []
++                      ).concat(resultTypes)}
+                     />
+                     <Paper className={classes.filters}>
+-                      {types.includes('techdocs') && (
++                      {catalogApi && types.includes('techdocs') && (
+                         <SearchFilter.Select
+                           className={classes.filter}
+                           label="Entity"
+@@ -186,25 +191,29 @@
+                           }}
+                         />
+                       )}
+-                      <SearchFilter.Select
+-                        className={classes.filter}
+-                        label="Kind"
+-                        name="kind"
+-                        values={async () => {
+-                          const { facets } = await catalogApi.getEntityFacets({
+-                            facets: ['kind'],
+-                          });
+-                          return (facets.kind ?? [])
+-                            .map(facet => facet.value)
+-                            .sort((a, b) => a.localeCompare(b));
+-                        }}
+-                      />
+-                      <SearchFilter.Checkbox
+-                        className={classes.filter}
+-                        label="Lifecycle"
+-                        name="lifecycle"
+-                        values={['experimental', 'production']}
+-                      />
++                      {catalogApi && (
++                        <SearchFilter.Select
++                          className={classes.filter}
++                          label="Kind"
++                          name="kind"
++                          values={async () => {
++                            const { facets } = await catalogApi.getEntityFacets({
++                              facets: ['kind'],
++                            });
++                            return (facets.kind ?? [])
++                              .map(facet => facet.value)
++                              .sort((a, b) => a.localeCompare(b));
++                          }}
++                        />
++                      )}
++                      {catalogApi && (
++                        <SearchFilter.Checkbox
++                          className={classes.filter}
++                          label="Lifecycle"
++                          name="lifecycle"
++                          values={['experimental', 'production']}
++                        />
++                      )}
+                       {additionalSearchFilters.map(SearchFilterComponent => (
+                         <SearchFilterComponent className={classes.filter} />
+                       ))}

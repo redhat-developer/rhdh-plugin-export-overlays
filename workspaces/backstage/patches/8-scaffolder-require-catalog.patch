@@ -1,0 +1,36 @@
+# Patch: Check for catalogApiRef in TemplatesSubPage and throw explicit error
+# Reason: Software templates require catalog plugin; fail explicitly with actionable error if catalog is missing
+--- plugins/scaffolder/src/alpha/components/TemplatesSubPage.tsx
++++ plugins/scaffolder/src/alpha/components/TemplatesSubPage.tsx
+@@ -22,7 +22,7 @@
+   DocsIcon,
+   SupportButton,
+ } from '@backstage/core-components';
+-import { useApp, useRouteRef } from '@backstage/core-plugin-api';
++import { useApiHolder, useApp, useRouteRef } from '@backstage/core-plugin-api';
+ import { useTranslationRef } from '@backstage/core-plugin-api/alpha';
+ import {
+   EntityKindPicker,
+@@ -32,6 +32,7 @@
+   CatalogFilterLayout,
+   UserListPicker,
+   EntityOwnerPicker,
++  catalogApiRef,
+ } from '@backstage/plugin-catalog-react';
+ import {
+   TemplateCategoryPicker,
+@@ -222,6 +223,14 @@
+   templateFilter?: (entity: TemplateEntityV1beta3) => boolean;
+   useTemplateFilter?: ScaffolderTemplateFilterHook;
+ }) {
++  const apiHolder = useApiHolder();
++  const catalogApi = apiHolder.get(catalogApiRef);
++  if (!catalogApi) {
++    throw new Error(
++      'Scaffolder cannot start: Catalog plugin is required to browse and execute software templates, but catalog API is not available.',
++    );
++  }
++
+   const customFieldExtensions = useCustomFieldExtensions(undefined);
+   const customLayouts = useCustomLayouts(undefined);
+ 

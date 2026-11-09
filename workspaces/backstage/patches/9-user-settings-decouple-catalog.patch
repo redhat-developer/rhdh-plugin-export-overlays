@@ -1,0 +1,100 @@
+# Patch: Decouple catalog dependency from user-settings plugin
+# Reason: Allows user-settings (profile, identity, settings page) to function properly when catalog is disabled
+--- plugins/user-settings/src/components/useUserProfileInfo.ts
++++ plugins/user-settings/src/components/useUserProfileInfo.ts
+@@ -19,6 +19,7 @@
+   identityApiRef,
+   ProfileInfo,
+   useApi,
++  useApiHolder,
+ } from '@backstage/core-plugin-api';
+ import { useEffect } from 'react';
+ import useAsync from 'react-use/esm/useAsync';
+@@ -29,14 +30,22 @@
+ export const useUserProfile = () => {
+   const identityApi = useApi(identityApiRef);
+   const alertApi = useApi(alertApiRef);
+-  const catalogApi = useApi(catalogApiRef);
++  const apiHolder = useApiHolder();
++  const catalogApi = apiHolder.get(catalogApiRef);
+ 
+   const { value, loading, error } = useAsync(async () => {
+     let identityProfile = await identityApi.getProfileInfo();
+     const backStageIdentity = await identityApi.getBackstageIdentity();
+-    const catalogProfile = (await catalogApi.getEntityByRef(
+-      backStageIdentity.userEntityRef,
+-    )) as unknown as UserEntity;
++    let catalogProfile: UserEntity | undefined;
++    if (catalogApi && backStageIdentity?.userEntityRef) {
++      try {
++        catalogProfile = (await catalogApi.getEntityByRef(
++          backStageIdentity.userEntityRef,
++        )) as unknown as UserEntity;
++      } catch {
++        catalogProfile = undefined;
++      }
++    }
+     if (
+       identityProfile.picture === undefined &&
+       catalogProfile?.spec?.profile?.picture
+@@ -50,7 +59,7 @@
+       profile: identityProfile,
+       identity: backStageIdentity,
+     };
+-  }, []);
++  }, [catalogApi]);
+ 
+   useEffect(() => {
+     if (error) {
+--- plugins/user-settings/src/components/General/UserSettingsIdentityCard.tsx
++++ plugins/user-settings/src/components/General/UserSettingsIdentityCard.tsx
+@@ -15,7 +15,8 @@
+  */
+ 
+ import { InfoCard } from '@backstage/core-components';
+-import { EntityRefLinks } from '@backstage/plugin-catalog-react';
++import { EntityRefLinks, catalogApiRef } from '@backstage/plugin-catalog-react';
++import { useApiHolder } from '@backstage/core-plugin-api';
+ import Grid from '@material-ui/core/Grid';
+ import Typography from '@material-ui/core/Typography';
+ import { useUserProfile } from '../useUserProfileInfo';
+@@ -25,23 +26,35 @@
+ const Contents = () => {
+   const { backstageIdentity } = useUserProfile();
+   const { t } = useTranslationRef(userSettingsTranslationRef);
++  const apiHolder = useApiHolder();
++  const catalogApi = apiHolder.get(catalogApiRef);
+ 
+   if (!backstageIdentity) {
+     return <Typography>{t('identityCard.noIdentityTitle')}</Typography>;
+   }
+ 
++  const userEntityContent = catalogApi ? (
++    <EntityRefLinks entityRefs={[backstageIdentity.userEntityRef]} />
++  ) : (
++    backstageIdentity.userEntityRef
++  );
++
++  const ownershipContent = catalogApi ? (
++    <EntityRefLinks entityRefs={backstageIdentity.ownershipEntityRefs} />
++  ) : (
++    backstageIdentity.ownershipEntityRefs?.join(', ') || ''
++  );
++
+   return (
+     <Grid container spacing={1}>
+       <Grid item xs={12}>
+         <Typography variant="subtitle1" gutterBottom>
+-          {t('identityCard.userEntity')}:{' '}
+-          <EntityRefLinks entityRefs={[backstageIdentity.userEntityRef]} />
++          {t('identityCard.userEntity')}: {userEntityContent}
+         </Typography>
+       </Grid>
+       <Grid item xs={12}>
+         <Typography variant="subtitle1">
+-          {t('identityCard.ownershipEntities')}:{' '}
+-          <EntityRefLinks entityRefs={backstageIdentity.ownershipEntityRefs} />
++          {t('identityCard.ownershipEntities')}: {ownershipContent}
+         </Typography>
+       </Grid>
+     </Grid>
