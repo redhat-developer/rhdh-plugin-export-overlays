@@ -293,7 +293,7 @@ test.describe("Admin > Extensions", () => {
       await uiHelper.verifyHeading(plugin);
     });
 
-    test("Enable plugin from catalog extension page", async ({
+    test("Disable plugin from catalog extension page requires backend restart", async ({
       page,
       uiHelper,
     }) => {
@@ -309,34 +309,13 @@ test.describe("Admin > Extensions", () => {
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
 
-      // Disable action navigates back to the catalog listing page;
-      // wait for it to load, then re-open the plugin detail page.
-      await uiHelper.verifyHeading("Extensions");
-      await extensions.clickReadMoreByPluginTitle(
-        plugin,
-        "Generally available (GA)primary",
+      const restartAlert = page
+        .getByRole("alert")
+        .filter({ hasText: "Backend restart required" });
+      await expect(restartAlert).toBeVisible();
+      await expect(restartAlert).toContainText(
+        `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
       );
-
-      // Open the Actions dropdown — enable/disable MenuItems are only
-      // present in the DOM while the menu is open.
-      await page.getByTestId("plugin-actions").click();
-      await expect(page.getByTestId("enable-plugin")).toBeVisible();
-      await page.getByTestId("enable-plugin").click();
-
-      // Re-enable navigates back to the catalog listing; wait, then
-      // re-open the detail page and verify disable is available again.
-      await uiHelper.verifyHeading("Extensions");
-      await extensions.clickReadMoreByPluginTitle(
-        plugin,
-        "Generally available (GA)primary",
-      );
-
-      await page.getByTestId("plugin-actions").click();
-      await expect(page.getByTestId("disable-plugin")).toBeVisible();
-      // Following step is commented out due to the bug in nfs https://redhat.atlassian.net/browse/RHDHBUGS-3701
-      // await expect(page.getByRole("alert")).toContainText(
-      //   `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
-      // );
     });
   });
 
