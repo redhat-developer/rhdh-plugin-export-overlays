@@ -601,6 +601,11 @@ The harness also reproduces the parts of RHDH's backend loader that plugins depe
   which RHDH's backend does not ship. An exported plugin that imports them without
   embedding them now resolves them here and would fail in RHDH, so this harness no longer
   catches that case.
+- **Packages RHDH's backend ships as dependencies.** `@backstage-community/plugin-rbac-common`
+  is a dependency of the harness because orchestrator-backend declares it only as a peer,
+  and RHDH satisfies it through `packages/backend`'s static rbac-backend. The version
+  follows RHDH's `yarn.lock` (RHIDP-15961); orchestrator-backend's `^1.28.0` peer range
+  is older than what RHDH ships.
 - **`core.dynamicplugins`.** The extensions plugins depend on it; the harness provides an
   empty implementation, since it loads plugins itself and has no manager to expose.
 - **Feature loaders are expanded before boot.** `startTestBackend` adds a placeholder

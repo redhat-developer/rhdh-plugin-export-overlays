@@ -810,6 +810,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage-community/plugin-rbac-common@npm:2.1.1":
+  version: 2.1.1
+  resolution: "@backstage-community/plugin-rbac-common@npm:2.1.1"
+  peerDependencies:
+    "@backstage/errors": ^1.3.1
+    "@backstage/plugin-permission-common": ^0.9.10
+  checksum: 10c0/531263896c0e428bd0d73c8aec9d9099deb500ae2e3b641ca515d1c5bc5b31c2db809931f431fc5dcb09b056a6476a0488cd14309a5ea19aa0a04b78fe6c3b4c
+  languageName: node
+  linkType: hard
+
 "@backstage/backend-app-api@npm:^1.7.1":
   version: 1.7.1
   resolution: "@backstage/backend-app-api@npm:1.7.1"
@@ -8433,6 +8443,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "native-smoke-tests@workspace:."
   dependencies:
+    "@backstage-community/plugin-rbac-common": "npm:2.1.1"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.3"
     "@backstage/backend-plugin-api": "npm:1.9.2"
     "@backstage/backend-test-utils": "npm:1.11.4"

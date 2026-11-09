@@ -24,6 +24,7 @@
     "prettier:fix": "prettier --write ."
   },
   "dependencies": {
+    "@backstage-community/plugin-rbac-common": "2.1.1",
     "@backstage/backend-dynamic-feature-service": "0.8.3",
     "@backstage/backend-plugin-api": "1.9.2",
     "@backstage/backend-test-utils": "1.11.4",
