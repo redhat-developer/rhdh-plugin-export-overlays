@@ -1073,6 +1073,60 @@ test("a backend bundle with the supported schema passes and reports its property
   assert.equal(configSchema.files[0].propertyCount, 1);
 });
 
+// The shape `backstage-cli package bundle` writes for backends (rhdh-cli >= 2.2), as
+// shipped by the orchestrator-backend ghcr artifact: one entry per contributing package.
+const wrappedSchema = (...values: object[]) =>
+  JSON.stringify({
+    backstageConfigSchemaVersion: 1,
+    schemas: values.map((value, i) => ({ path: `config-${i}.d.ts`, value })),
+  });
+const backendWithSchema = (body: string) =>
+  validateBackendBundle(
+    makePlugin(
+      ["package.json", SUPPORTED_SCHEMA],
+      { "package.json": BACKEND_CONFIG_PKG, [SUPPORTED_SCHEMA]: body },
+      "backend",
+    ),
+  );
+
+test("a wrapped backend schema is merged as the gatherer does, then passes", () => {
+  const { configSchema, error } = backendWithSchema(
+    wrappedSchema(
+      {
+        $schema: "http://json-schema.org/draft-07/schema#",
+        type: "object",
+        properties: { orchestrator: { type: "object" } },
+      },
+      {
+        $schema: "http://json-schema.org/draft-07/schema#",
+        type: "object",
+        properties: { kafka: { type: "object" } },
+      },
+    ),
+  );
+  assert.equal(error, null);
+  assert.equal(configSchema.files[0].state, "ok");
+  // Counted on the merged schema, not on the wrapper's own (absent) properties.
+  assert.equal(configSchema.files[0].propertyCount, 2);
+});
+
+test("a wrapped backend schema whose merge has no $schema is still invalid", () => {
+  const { configSchema, error } = backendWithSchema(
+    wrappedSchema({ type: "object", properties: { a: { type: "object" } } }),
+  );
+  assert.match(error ?? "", /missing `\$schema`/);
+  assert.equal(configSchema.files[0].state, "invalid");
+  assert.equal(configSchema.files[0].propertyCount, 1);
+});
+
+test("a wrapped backend schema the merge rejects is invalid, not a crash", () => {
+  const { configSchema } = backendWithSchema(
+    JSON.stringify({ backstageConfigSchemaVersion: 1, schemas: "nope" }),
+  );
+  assert.equal(configSchema.files[0].state, "invalid");
+  assert.equal(configSchema.files[0].propertyCount, null);
+});
+
 test("declaredScalprumName reads a non-empty scalprum.name, else undefined", () => {
   const withName = (pkg: string) => {
     const dir = tempDir(join(tmpdir(), "scalprum-name-"));

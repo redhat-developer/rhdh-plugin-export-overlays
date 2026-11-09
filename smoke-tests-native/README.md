@@ -152,8 +152,8 @@ The gatherer drops a schema in four ways, which is what the states below mirror:
 if (!await fs.pathExists(schemaLocation)) continue;   // missing -> silent
 if (!serialized) continue;                            // null    -> silent
 if (isEmpty(serialized)) continue;                    // {}      -> silent
-if (serialized?.backstageConfigSchemaVersion === 1) { // wrapped form: merged first,
-  serialized = mergeConfigSchemas(serialized.schemas.map(_ => _.value)); //  not modelled here
+if (serialized?.backstageConfigSchemaVersion === 1) { // wrapped form: merged first
+  serialized = mergeConfigSchemas(serialized.schemas.map(_ => _.value));
 }
 if (!serialized?.$schema || serialized?.type !== "object") {
   logger.error("Serialized configuration schema is invalid for plugin ...");
@@ -162,9 +162,10 @@ if (!serialized?.$schema || serialized?.type !== "object") {
 ```
 
 Only the last is not silent, and a line in a backend log is not much louder than nothing for
-an artifact published weeks earlier — the config is dropped either way. The wrapped form is
-not modelled here: `export-dynamic-plugin` never writes it, and judging it would mean
-reimplementing the merge.
+an artifact published weeks earlier — the config is dropped either way. The wrapped form is what
+`backstage-cli package bundle` writes, and `export-dynamic-plugin` uses that command for
+backend plugins since `@red-hat-developer-hub/cli` 2.2.1; the harness merges it with the same
+`mergeConfigSchemas` from `@backstage/config-loader` before applying the guard.
 
 `declared` is `configSchema` on the shipped `package.json`, Backstage's own signal, with
 `declaredError` beside it for when `package.json` could not be read at all — a failure to
