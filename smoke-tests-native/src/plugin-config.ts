@@ -151,7 +151,8 @@ const configOverrides: Record<string, JsonObject> = {
       providerAuth: { realm: "test", clientID: "test", secret: "test" },
     },
   },
-  // RHIDP-15961: both keys are required at startup; no service needs to be reachable.
+  // RHIDP-15961: each plugin requires its own key under `orchestrator` at startup;
+  // no service needs to be reachable.
   "red-hat-developer-hub-backstage-plugin-orchestrator-backend": {
     orchestrator: { dataIndexService: { url: "http://localhost:8099" } },
   },
