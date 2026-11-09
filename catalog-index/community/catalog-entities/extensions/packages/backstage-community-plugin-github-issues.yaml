@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-github-issues"
   # Tag: bs_1.54.9__1.4.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues@sha256:f3ef5b9314d654d4b6217954f30ba378aad07bff4861bc113fa840cfd7d0fefa"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues@sha256:972b206bf17ff9e62d20135c7597dabe3099213ab8cb1d3cc283642a37c9cf44"
   version: 1.4.0
   backstage:
     role: frontend-plugin

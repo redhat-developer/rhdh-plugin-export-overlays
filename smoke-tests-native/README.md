@@ -152,8 +152,8 @@ The gatherer drops a schema in four ways, which is what the states below mirror:
 if (!await fs.pathExists(schemaLocation)) continue;   // missing -> silent
 if (!serialized) continue;                            // null    -> silent
 if (isEmpty(serialized)) continue;                    // {}      -> silent
-if (serialized?.backstageConfigSchemaVersion === 1) { // wrapped form: merged first,
-  serialized = mergeConfigSchemas(serialized.schemas.map(_ => _.value)); //  not modelled here
+if (serialized?.backstageConfigSchemaVersion === 1) { // wrapped form: merged first
+  serialized = mergeConfigSchemas(serialized.schemas.map(_ => _.value));
 }
 if (!serialized?.$schema || serialized?.type !== "object") {
   logger.error("Serialized configuration schema is invalid for plugin ...");
@@ -162,9 +162,10 @@ if (!serialized?.$schema || serialized?.type !== "object") {
 ```
 
 Only the last is not silent, and a line in a backend log is not much louder than nothing for
-an artifact published weeks earlier — the config is dropped either way. The wrapped form is
-not modelled here: `export-dynamic-plugin` never writes it, and judging it would mean
-reimplementing the merge.
+an artifact published weeks earlier — the config is dropped either way. The wrapped form is what
+`backstage-cli package bundle` writes, and `export-dynamic-plugin` uses that command for
+backend plugins since `@red-hat-developer-hub/cli` 2.2.1; the harness merges it with the same
+`mergeConfigSchemas` from `@backstage/config-loader` before applying the guard.
 
 `declared` is `configSchema` on the shipped `package.json`, Backstage's own signal, with
 `declaredError` beside it for when `package.json` could not be read at all — a failure to
@@ -172,7 +173,8 @@ look must not be published as `declared: false`, the same reason `mf.nfsFeatures
 exists. `files` carries one entry per path `export-dynamic-plugin` writes for this package —
 RHDH's own, per the table above, plus the upstream default when a `dist/` exists to hold
 it — each tagged with its `consumer` and carrying a state of `ok`, `missing`, `unreadable`,
-`empty` or `invalid`, plus its `propertyCount`.
+`empty`, `invalid` or `unmergeable`, plus its `propertyCount`. `unmergeable` is a wrapped
+schema the merge throws on; the gatherer does not catch that, so it is not a silent drop.
 
 Note what `ok` does and does not establish. The export writes the schema MERGED across the
 package and its filtered dependency tree, so `ok` means some schema survived, not that this
@@ -191,7 +193,7 @@ messages keep "declares no configuration" and "declares configuration and shippe
 schema" apart.
 
 The backend half follows the same declaration rule. Only packages that declare
-`configSchema` fail for a missing, empty, unreadable, or invalid
+`configSchema` fail for a missing, empty, unreadable, invalid, or unmergeable
 `dist/.config-schema.json`; a package that declares no configuration is reported but does
 not fail the check.
 
