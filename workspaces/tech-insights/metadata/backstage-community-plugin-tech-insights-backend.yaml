@@ -1,0 +1,44 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-tech-insights-backend
+  namespace: rhdh
+  title: Tech Insights Backend
+  links:
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-insights
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tech-insights
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-tech-insights-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights-backend:bs_1.54.9__3.1.0
+  version: 3.1.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.54.9
+  author: Backstage Community
+  support: community
+  lifecycle: active
+  appConfigExamples:
+    - title: Built-in fact retrievers
+      content:
+        techInsights:
+          factRetrievers:
+            entityMetadataFactRetriever:
+              cadence: "*/15 * * * *"
+              lifecycle:
+                timeToLive:
+                  weeks: 2
+            entityOwnershipFactRetriever:
+              cadence: "*/15 * * * *"
+              lifecycle:
+                timeToLive:
+                  weeks: 2
+            techdocsFactRetriever:
+              cadence: "*/15 * * * *"
+              lifecycle:
+                timeToLive:
+                  weeks: 2
