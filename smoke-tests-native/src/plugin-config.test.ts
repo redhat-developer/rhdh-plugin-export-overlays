@@ -100,3 +100,20 @@ test("dynatrace frontend and dql backend dummies merge into one section", () => 
   assert.equal(dynatrace.baseUrl, "http://localhost:8081");
   assert.ok(Array.isArray(dynatrace.environments), "dql environments missing");
 });
+
+test("orchestrator backend and loki module dummies merge into one section", () => {
+  // Each requires its own key under `orchestrator` at startup (RHIDP-15961); loaded
+  // together, neither may drop the other's.
+  const merged = buildMergedConfig([
+    loaded("red-hat-developer-hub-backstage-plugin-orchestrator-backend"),
+    loaded(
+      "red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki",
+    ),
+  ]);
+  assert.deepEqual(merged.orchestrator, {
+    dataIndexService: { url: "http://localhost:8099" },
+    workflowLogProvider: {
+      loki: { baseUrl: "http://localhost:3100", token: "test" },
+    },
+  });
+});
