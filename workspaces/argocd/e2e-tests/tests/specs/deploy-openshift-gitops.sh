@@ -49,8 +49,16 @@ install_gitops_operator() {
       "oc get crd applications.argoproj.io" 300 10
   fi
 
+  # Require availableReplicas >= 1. Comparing available==replicas is a false ready
+  # when the deployment does not exist yet (both jsonpaths are empty).
   wait_for "ArgoCD server deployment" \
-    "[[ \$(oc get deployment openshift-gitops-server -n ${GITOPS_NAMESPACE} -o jsonpath='{.status.availableReplicas}' 2>/dev/null) == \$(oc get deployment openshift-gitops-server -n ${GITOPS_NAMESPACE} -o jsonpath='{.spec.replicas}' 2>/dev/null) ]]" \
+    "[[ \$(oc get deployment openshift-gitops-server -n ${GITOPS_NAMESPACE} -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo 0) -ge 1 ]]" \
+    300 10
+
+  # Route is created asynchronously after the server Deployment; wait for it
+  # before get_argocd_credentials reads the host.
+  wait_for "ArgoCD server route" \
+    "[[ -n \$(oc get route openshift-gitops-server -n ${GITOPS_NAMESPACE} -o jsonpath='{.spec.host}' 2>/dev/null) ]]" \
     300 10
 }
 
