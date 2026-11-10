@@ -59,6 +59,10 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("upload modal: drop zone, disabled add, and duplicate file prompt", async () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "lightspeed-core missing libthrift-0.15.0.so breaks vector store file indexing",
+    );
     const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickOpenUploadDocumentModal();
