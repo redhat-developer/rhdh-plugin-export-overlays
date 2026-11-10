@@ -52,33 +52,63 @@ const HOMEPAGE_TEST3 = {
   password: "test3@123", // gitleaks:allow
 };
 
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delayMs = 1500,
+): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === retries) throw error;
+      const msg = error instanceof Error ? error.message : String(error);
+      if (!msg.includes("fetch failed") && !msg.includes("SocketError")) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error("unreachable");
+}
+
 export async function setupKeycloakGroups(): Promise<void> {
   const keycloak = new KeycloakHelper();
-  await keycloak.connect({
-    baseUrl: process.env.KEYCLOAK_BASE_URL!,
-    username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
-    password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
-  });
+  await withRetry(() =>
+    keycloak.connect({
+      baseUrl: process.env.KEYCLOAK_BASE_URL!,
+      username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+      password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+    }),
+  );
 
-  await keycloak.deleteUser("rhdh", HOMEPAGE_ADMIN.username).catch(() => {});
-  await keycloak.createUser("rhdh", {
-    username: HOMEPAGE_ADMIN.username,
-    password: HOMEPAGE_ADMIN.password,
-    firstName: "Homepage",
-    lastName: "Admin",
-    email: "homepage-admin@rhdh.test",
-    groups: ["admins", "developers"],
-  });
+  await withRetry(() =>
+    keycloak.deleteUser("rhdh", HOMEPAGE_ADMIN.username).catch(() => {}),
+  );
+  await withRetry(() =>
+    keycloak.createUser("rhdh", {
+      username: HOMEPAGE_ADMIN.username,
+      password: HOMEPAGE_ADMIN.password,
+      firstName: "Homepage",
+      lastName: "Admin",
+      email: "homepage-admin@rhdh.test",
+      groups: ["admins", "developers"],
+    }),
+  );
 
-  await keycloak.deleteUser("rhdh", HOMEPAGE_TEST3.username).catch(() => {});
-  await keycloak.createUser("rhdh", {
-    username: HOMEPAGE_TEST3.username,
-    password: HOMEPAGE_TEST3.password,
-    firstName: "Test",
-    lastName: "User3",
-    email: "test3@rhdh.test",
-    groups: ["viewers"],
-  });
+  await withRetry(() =>
+    keycloak.deleteUser("rhdh", HOMEPAGE_TEST3.username).catch(() => {}),
+  );
+  await withRetry(() =>
+    keycloak.createUser("rhdh", {
+      username: HOMEPAGE_TEST3.username,
+      password: HOMEPAGE_TEST3.password,
+      firstName: "Test",
+      lastName: "User3",
+      email: "test3@rhdh.test",
+      groups: ["viewers"],
+    }),
+  );
 }
 
 /**
