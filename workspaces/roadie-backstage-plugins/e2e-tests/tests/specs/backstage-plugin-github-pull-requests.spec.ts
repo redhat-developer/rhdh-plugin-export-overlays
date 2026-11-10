@@ -5,6 +5,10 @@ import { searchGitHubPRs } from "../../support/api/github-pull-requests";
 import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "OCI image bs_1.49.4__3.7.0 missing dist-scalprum/plugin-manifest.json",
+  );
   test.describe.configure({ timeout: 600_000 });
 
   test.beforeAll(async ({ rhdh }) => {
