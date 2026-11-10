@@ -11,7 +11,7 @@ export class ImageRegistry {
 
     const manifest = /^sha256/;
     const securityScan =
-      /^(?:Critical:\s\d+)?(?:,\s)?(?:High:\s\d+)?(?:,\s)?(?:Medium:\s\d+)?(?:,\s)?(?:Low:\s\d+)?(?:,\s)?(?:Unknown:\s\d+)?$|^Queued$/i;
+      /^(?:Critical:\s\d+)?(?:,\s)?(?:High:\s\d+)?(?:,\s)?(?:Medium:\s\d+)?(?:,\s)?(?:Low:\s\d+)?(?:,\s)?(?:Unknown:\s\d+)?$|^Queued$|^Unsupported$|^Passed$/i;
     return [tagText, lastModifiedDate, securityScan, size, expires, manifest];
   }
 
