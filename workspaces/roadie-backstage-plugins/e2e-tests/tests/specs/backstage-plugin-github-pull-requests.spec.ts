@@ -20,6 +20,10 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "OCI image bs_1.49.4__3.7.0 missing dist-scalprum/plugin-manifest.json",
+    );
     await page.context().clearCookies();
     await page.goto("/");
 
