@@ -22,9 +22,6 @@ import type { LoadedPlugin } from "./loader";
 export const KNOWN_FAILURES = new Set<string>([
   "pagerduty-backstage-plugin-backend",
   "roadiehq-backstage-plugin-argo-cd-backend",
-  "red-hat-developer-hub-backstage-plugin-orchestrator-backend",
-  "red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki",
-  "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
 ]);
 
 // Config every run starts from. These are core Backstage keys rather than any one
@@ -152,6 +149,18 @@ const configOverrides: Record<string, JsonObject> = {
     mta: {
       url: "http://localhost:8080",
       providerAuth: { realm: "test", clientID: "test", secret: "test" },
+    },
+  },
+  // RHIDP-15961: each plugin requires its own key under `orchestrator` at startup;
+  // no service needs to be reachable.
+  "red-hat-developer-hub-backstage-plugin-orchestrator-backend": {
+    orchestrator: { dataIndexService: { url: "http://localhost:8099" } },
+  },
+  "red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki": {
+    orchestrator: {
+      workflowLogProvider: {
+        loki: { baseUrl: "http://localhost:3100", token: "test" },
+      },
     },
   },
 };
