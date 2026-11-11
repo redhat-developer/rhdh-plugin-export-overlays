@@ -15,12 +15,12 @@ plugins:
               port: 1025
               secure: false
               requireTls: true
-            # SENDER_EMAIL / RECIPIENT_EMAIL in fixture.ts
-            sender: backstage-e2e@example.com
+            # Injected from rhdh-secrets. The spec sets both from fixture.ts.
+            sender: ${SENDER_EMAIL}
             broadcastConfig:
               receiver: config
               receiverEmails:
-                - pqc-recipient@example.com
+                - ${RECIPIENT_EMAIL}
             concurrencyLimit: 5
             throttleInterval:
               milliseconds: 10

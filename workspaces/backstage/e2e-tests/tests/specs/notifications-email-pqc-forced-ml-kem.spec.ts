@@ -9,6 +9,7 @@ import { createNotification } from "../../support/api/notifications-helper";
 import {
   applyMailpitTlsSecret,
   applyOpensslConfigMap,
+  assertForcedMlKemWiring,
   deleteMailpitTls,
   generateMailpitTls,
 } from "../../support/notifications/mailpit-pqc-tls";
@@ -22,8 +23,9 @@ import {
 /**
  * Force OpenSSL Groups=X25519MLKEM768 on the hub and require SMTP STARTTLS to
  * Mailpit. Mailpit v1.30 uses Go 1.25 TLS, which can offer that hybrid group.
- * The assertion is behavioral: the broadcast message arrives. It does not
- * parse a handshake log.
+ * Delivery shows the handshake completed. A separate check reads the backend
+ * pod, because OpenSSL 3.5 offers this group by default and a delivered
+ * message alone would not show that OPENSSL_CONF was applied.
  */
 test.describe("Notifications email PQC (forced ML-KEM)", () => {
   let mailpitApi: MailpitApiHelper;
@@ -49,6 +51,8 @@ test.describe("Notifications email PQC (forced ML-KEM)", () => {
         }
 
         process.env.MAILPIT_SMTP_HOST = hostname;
+        process.env.SENDER_EMAIL = SENDER_EMAIL;
+        process.env.RECIPIENT_EMAIL = RECIPIENT_EMAIL;
 
         await $`kubectl apply -f ${configBase}/mailpit.yaml -n ${namespace}`;
         await $`kubectl apply -f ${configBase}/mailpit-route.yaml -n ${namespace}`;
@@ -64,6 +68,8 @@ test.describe("Notifications email PQC (forced ML-KEM)", () => {
         await rhdh.deploy();
       },
     );
+
+    await assertForcedMlKemWiring(namespace, rhdh.deploymentConfig.method);
 
     const mailpitApiUrl = await rhdh.k8sClient.getRouteLocation(
       namespace,
