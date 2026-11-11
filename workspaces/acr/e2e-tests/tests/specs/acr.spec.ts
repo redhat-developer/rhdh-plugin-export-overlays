@@ -1,4 +1,4 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test ACR plugin", () => {
   const dateRegex =
@@ -30,6 +30,14 @@ test.describe("Test ACR plugin", () => {
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
     );
+    // ACR API at rhdhqetest.azurecr.io can take ~11s to respond,
+    // exceeding the default 10s Playwright timeout. Wait for the first
+    // row with an explicit 30s timeout; once data arrives, the rest
+    // resolve immediately.
+    await expect(page.locator("tr").filter({ hasText: "latest" })).toBeVisible({
+      timeout: 30_000,
+    });
+
     await uiHelper.verifyRowInTableByUniqueText("latest", [dateRegex]);
     await uiHelper.verifyRowInTableByUniqueText("v1", [dateRegex]);
     await uiHelper.verifyRowsInTable(["v2", "v3"]);
