@@ -77,6 +77,14 @@ test.describe("Lightspeed notebooks", () => {
     await expect(uploadModal.dialog()).toBeHidden();
     await notebooks.expectDocumentUploadCompletes(fileName);
 
+    // Wait for the sidebar document count to reflect the uploaded file
+    // before attempting a duplicate upload. The backend processes documents
+    // asynchronously (~8s observed), and the overwrite dialog only appears
+    // when the frontend's document list is current.
+    await expect(
+      notebooks.chatbotRegion().getByText(/1\s+Document/),
+    ).toBeVisible({ timeout: 30_000 });
+
     await notebooks.clickOpenUploadDocumentModal();
     uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
