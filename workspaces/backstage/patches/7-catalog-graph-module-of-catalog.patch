@@ -16,7 +16,7 @@ index 6c129e1042f62..8ae218ca80751 100644
        "@backstage/plugin-catalog-graph"
      ]
 diff --git a/plugins/catalog-graph/src/alpha.tsx b/plugins/catalog-graph/src/alpha.tsx
-index 282798829c11b..4ec56e9d5f09c 100644
+index 282798829c11b..e0d747c785143 100644
 --- a/plugins/catalog-graph/src/alpha.tsx
 +++ b/plugins/catalog-graph/src/alpha.tsx
 @@ -16,17 +16,18 @@
@@ -49,7 +49,12 @@ index 282798829c11b..4ec56e9d5f09c 100644
    configSchema: {
      selectedKinds: z.array(z.string()).optional(),
      selectedRelations: z.array(z.string()).optional(),
-@@ -91,24 +93,38 @@ const CatalogGraphApi = ApiBlueprint.make({
+@@ -87,28 +89,44 @@ const CatalogGraphPage = PageBlueprint.makeWithOverrides({
+ });
+ 
+ const CatalogGraphApi = ApiBlueprint.make({
++  name: 'catalog-graph',
+   params: defineParams =>
      defineParams({
        api: catalogGraphApiRef,
        deps: {},
@@ -90,6 +95,7 @@ index 282798829c11b..4ec56e9d5f09c 100644
 +  getExtension(id: string) {
 +    const extensionsById: Record<string, any> = {
 +      'entity-card:catalog-graph/relations': CatalogGraphEntityCard,
++      'api:catalog/catalog-graph': CatalogGraphApi,
 +      'api:catalog-graph': CatalogGraphApi,
 +      'page:catalog-graph': CatalogGraphPage,
 +    };
