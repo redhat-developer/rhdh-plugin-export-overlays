@@ -14,9 +14,21 @@ export async function createUsersAndGroups(): Promise<void> {
   // evicts the user entities mid-run.
   const realm = process.env.KEYCLOAK_REALM ?? "";
 
-  await keycloak.configureForRHDH({
-    realm: realm,
-    groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
-    users: Object.values(RBAC_DESCRIPTIVE_USERS),
-  });
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await keycloak.configureForRHDH({
+        realm: realm,
+        groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
+        users: Object.values(RBAC_DESCRIPTIVE_USERS),
+      });
+      break;
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+      console.log(
+        `[Keycloak] configureForRHDH attempt ${attempt} failed: ${(error as Error).message}. Retrying in 5s...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
 }
