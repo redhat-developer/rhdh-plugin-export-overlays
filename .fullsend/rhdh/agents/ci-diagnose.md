@@ -457,7 +457,8 @@ reported with any `related_prs` instead (Phase 3b); it is never auto-fixed.
 - **All green:** `### ✅ CI Diagnosis — all curated checks passing · \`<short-sha>\``
 
 **When pending checks exist** (verdict `pending`), list each pending check
-with ⏳ and note the commit where it last failed:
+with ⏳ and note the commit where it last failed. Do not add a footer — the
+post-script appends it when posting:
 
 ```markdown
 <!-- ci-diagnose -->
@@ -468,7 +469,6 @@ with ⏳ and note the commit where it last failed:
 ⏳ **`ci/prow/e2e-ocp-helm`** — not yet triggered on `<short-sha>`, last failed on `<prior-short-sha>`
 
 ---
-<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. For bot-authored PRs, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR when one already exists. A maintainer can take over any time with `/fs-fix <instruction>`, or stop auto-fix with `/fs-fix-stop` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":[],"pending":["ci/prow/e2e-ocp-helm"]} -->
 ```
 
@@ -529,13 +529,15 @@ three classifications point at something actionable, so `suggestion` is
   matched, name the file:line a human (or a new PR) would change, and say
   no open PR or issue was found. Never tell the author to wait on auto-fix
   for `pre_existing`.
-- **`flake` — give the author something beyond "re-run it".** State what was
-  actually flaky (the mechanism, from Phase 2's evidence) and, if a concrete
-  change would reduce the recurrence (a longer timeout, a more specific wait
-  condition), suggest it. If no code change would help, say so explicitly and
-  recommend re-running the check — that's still a concrete suggestion, not a
-  placeholder. (`flake` is **not** handed to the fix agent — the suggestion is
-  for the human reader.)
+- **`flake` — re-run, no code change needed.** State what was actually
+  flaky (the mechanism, from Phase 2's evidence). If a concrete change would
+  reduce the recurrence (a longer timeout, a more specific wait condition),
+  mention it as optional hardening; if no code change would help, say so
+  explicitly. The comment must contain `**Next step:** Re-run, no code
+  change needed.` and the check's re-run command (`/test <prow-job>` for
+  Prow checks, `gh run rerun <run-id> --repo <REPO> --failed` for GitHub
+  Actions checks). Do not include a diff. (`flake` is **not** handed to the
+  fix agent — the suggestion is for the human reader.)
 - For `product_bug` / `config_env` / `needs_human`, `suggestion` remains
   optional — omit rather than pad.
 
@@ -601,6 +603,11 @@ If validation fails, read the error, fix the JSON, re-run.
   marker; the post-script posts this body and decides hand-off from this JSON.
 - `checks`: one entry per red curated check, max 30. Do NOT include
   skipped/ignored checks (SonarCloud, dispatch/*).
+- `suggestion`: the post-script sends only this field to the fix agent, so
+  make it self-contained — the exact file:line change plus the verification
+  command, never "see above" (the fix agent cannot see `comment_body`). For
+  `flake`, include the explicit `Re-run, no code change needed.` text and the
+  re-run command.
 - `related_prs`: only on `pre_existing` checks, and only when Phase 3b found
   a matching PR. Omit the key otherwise (do not emit `[]`). Never include this PR.
 - `related_issues`: only on `pre_existing` checks, and only when Phase 3b
