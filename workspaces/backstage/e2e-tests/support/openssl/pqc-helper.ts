@@ -103,7 +103,7 @@ export class PQCHelper {
   }
 
   /** openssl s_client from the RHDH hub pod against this helper's edge Route host. */
-  async runSClientFromRhdhPod(group: TlsGroup): Promise<OpensslSClientResult> {
+  runSClientFromRhdhPod(group: TlsGroup): OpensslSClientResult {
     return runOpensslSClientFromRhdhPod({
       namespace: this.deploymentConfig.namespace,
       host: this.getRouteHost(),

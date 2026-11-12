@@ -1,4 +1,4 @@
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { execFileSync } from "node:child_process";
 
 import { type TlsGroup } from "../../tests/config/openssl-pqc/fixture.js";
 
@@ -11,17 +11,30 @@ export type OpensslSClientResult = {
   hasHandshakeError: boolean;
 };
 
+/** Hub only — not postgresql, which also carries instance=redhat-developer-hub. */
 function rhdhPodLabelSelector(): string {
   return process.env.INSTALLATION_METHOD === "operator"
     ? "rhdh.redhat.com/app=backstage-developer-hub"
-    : "app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)";
+    : "app.kubernetes.io/name=developer-hub";
 }
 
-export async function getRhdhPodName(namespace: string): Promise<string> {
+export function getRhdhPodName(namespace: string): string {
   const labelSelector = rhdhPodLabelSelector();
-  const result =
-    await $`oc get pod -n ${namespace} -l ${labelSelector} -o jsonpath={.items[0].metadata.name}`;
-  const podName = result.stdout.trim();
+  // Use execFileSync (FIPS-style): zx $ does not reliably capture oc jsonpath stdout.
+  const podName = execFileSync(
+    "oc",
+    [
+      "get",
+      "pod",
+      "-n",
+      namespace,
+      "-l",
+      labelSelector,
+      "-o",
+      "jsonpath={.items[0].metadata.name}",
+    ],
+    { encoding: "utf-8" },
+  ).trim();
   if (!podName) {
     throw new Error(
       `No RHDH pod found in ${namespace} with selector ${labelSelector}`,
@@ -80,15 +93,15 @@ export function resolvedKeyExchangeGroup(
  * Run openssl s_client inside the RHDH hub container against the httpd edge
  * Route hostname (north-south via the OpenShift router), not Service DNS.
  */
-export async function runOpensslSClientFromRhdhPod(options: {
+export function runOpensslSClientFromRhdhPod(options: {
   namespace: string;
   host: string;
   group: TlsGroup;
-}): Promise<OpensslSClientResult> {
+}): OpensslSClientResult {
   const { namespace, host, group } = options;
-  const podName = await getRhdhPodName(namespace);
+  const podName = getRhdhPodName(namespace);
 
-  // Self-signed httpd cert: tolerate non-zero openssl exit (verify code).
+  // Self-signed edge/router cert: tolerate non-zero openssl exit (verify code).
   // Assertions use Protocol / Negotiated group / handshake errors.
   const remoteCmd = [
     "echo | openssl s_client",
@@ -97,11 +110,21 @@ export async function runOpensslSClientFromRhdhPod(options: {
     `-groups ${group}`,
   ].join(" ");
 
-  const result =
-    await $`oc exec -n ${namespace} ${podName} -- sh -c ${remoteCmd}`
-      .nothrow()
-      .quiet();
-
-  const raw = `${result.stdout}\n${result.stderr}`;
-  return parseOpensslSClientOutput(raw);
+  try {
+    const raw = execFileSync(
+      "oc",
+      ["exec", "-n", namespace, podName, "--", "sh", "-c", remoteCmd],
+      {
+        encoding: "utf-8",
+        // openssl s_client often exits non-zero on self-signed verify.
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    return parseOpensslSClientOutput(raw);
+  } catch (error) {
+    const err = error as { stdout?: string; stderr?: string };
+    return parseOpensslSClientOutput(
+      `${err.stdout ?? ""}\n${err.stderr ?? ""}`,
+    );
+  }
 }

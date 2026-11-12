@@ -43,7 +43,7 @@ test.describe("OpenSSL PQC HTTPS", () => {
 
     const group = TLS_GROUPS.hybrid;
     const routeHost = pqc.getRouteHost();
-    const tlsInfo = await pqc.runSClientFromRhdhPod(group);
+    const tlsInfo = pqc.runSClientFromRhdhPod(group);
     const negotiated = resolvedKeyExchangeGroup(tlsInfo);
 
     console.info(`[PQC] target=https://${routeHost} group=${group}`);
@@ -62,11 +62,15 @@ test.describe("OpenSSL PQC HTTPS", () => {
   });
 
   test("RHDH container can establish PQ-only HTTPS", async () => {
+    test.skip(
+      true,
+      "OpenShift 4.22 edge router does not offer pure MLKEM768 (hybrid only). Enable it when test cluster is v5 or higher.",
+    );
     test.setTimeout(120_000);
 
     const group = TLS_GROUPS.pqOnly;
     const routeHost = pqc.getRouteHost();
-    const tlsInfo = await pqc.runSClientFromRhdhPod(group);
+    const tlsInfo = pqc.runSClientFromRhdhPod(group);
     const negotiated = resolvedKeyExchangeGroup(tlsInfo);
 
     console.info(`[PQC] target=https://${routeHost} group=${group}`);
@@ -89,7 +93,7 @@ test.describe("OpenSSL PQC HTTPS", () => {
 
     const group = TLS_GROUPS.classical;
     const routeHost = pqc.getRouteHost();
-    const tlsInfo = await pqc.runSClientFromRhdhPod(group);
+    const tlsInfo = pqc.runSClientFromRhdhPod(group);
     const negotiated = resolvedKeyExchangeGroup(tlsInfo);
 
     console.info(
