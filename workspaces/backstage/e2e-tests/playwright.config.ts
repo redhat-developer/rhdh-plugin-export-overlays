@@ -32,6 +32,9 @@ export default playwrightDefineConfig({
     {
       name: "backstage-gitlab-events-org",
       testMatch: /tests\/specs\/gitlab-events-org\.spec\.ts/,
+      // GitLab events org uses sustained polling for entity lifecycle;
+      // allow one retry for transient network errors.
+      retries: process.env.CI ? 1 : 0,
     },
     {
       name: "backstage-github-events",
