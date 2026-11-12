@@ -41,7 +41,6 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
       appConfig: "tests/config/grouped/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins.yaml",
     });
-    await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
     ({ context, page, catalog, scorecard } = await createScorecardContext(
       browser,
       rhdh.rhdhUrl,
