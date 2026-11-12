@@ -22,7 +22,7 @@ index 0000000..c7d9943
 + * limitations under the License.
 + */
 +
-+import React, { KeyboardEvent, MouseEvent, useState } from 'react';
++import { KeyboardEvent, MouseEvent, useState } from 'react';
 +import { InfoCard, CopyTextButton } from '@backstage/core-components';
 +import { configApiRef, useApi } from '@backstage/core-plugin-api';
 +import UnfoldLessIcon from '@material-ui/icons/UnfoldLess';
