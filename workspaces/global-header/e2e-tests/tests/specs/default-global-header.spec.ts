@@ -95,9 +95,8 @@ test.describe("Default Global Header", () => {
     ]);
 
     expect(newTab).not.toBeNull();
-    await newTab.waitForLoadState();
-    expect(newTab.url()).toContain(
-      "https://github.com/redhat-developer/rhdh/issues",
+    await expect(newTab).toHaveURL(
+      /github\.com\/redhat-developer\/rhdh\/issues/,
     );
     await newTab.close();
   });
