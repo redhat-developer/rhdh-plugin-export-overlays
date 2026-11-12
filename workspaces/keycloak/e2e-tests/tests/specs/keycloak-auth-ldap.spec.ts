@@ -17,6 +17,11 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
  * LDAP auth via ldapUuidMatchingAnnotation — isolated project for parallel runs.
  */
 test.describe("Keycloak LDAP auth provider", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.setTimeout(600_000);
 
   let openldap: OpenLDAPHelper;

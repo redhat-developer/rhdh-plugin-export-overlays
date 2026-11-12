@@ -126,6 +126,11 @@ async function selectAvailableChatModel(page: Page): Promise<void> {
 }
 
 test.describe("Lightspeed UI", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
 
   let context: BrowserContext;

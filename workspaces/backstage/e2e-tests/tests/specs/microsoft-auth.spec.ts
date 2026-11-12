@@ -122,6 +122,11 @@ test.describe(
   "Microsoft auth and MS Graph ingestion",
   { tag: "@auth-tests" },
   () => {
+    test.skip(
+      process.env.INSTALLATION_METHOD === "operator",
+      "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+    );
+
     let rhdhDeployment: RHDHDeployment;
     let baseUrl: string;
     let redirectUrl: string;

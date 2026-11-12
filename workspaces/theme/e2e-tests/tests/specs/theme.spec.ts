@@ -3,6 +3,11 @@ import { ThemeConstants } from "../../utils/theme-constants";
 import { ThemeVerifier } from "../../utils/theme-verifier";
 
 test.describe("Theme Plugin tests", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",
