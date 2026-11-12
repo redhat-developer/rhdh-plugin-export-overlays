@@ -119,6 +119,11 @@ async function applyAppConfigAndRestart(
 test.describe.configure({ mode: "serial" });
 
 test.describe("GitHub auth and org ingestion", { tag: "@auth-tests" }, () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let rhdhDeployment: RHDHDeployment;
   let baseUrl: string;
 

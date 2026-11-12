@@ -23,6 +23,11 @@ const SIGNALS_WRAPPER_DIST_NAMES: string[] = [
  * is covered by the notifications suite (useSignal('notifications')).
  */
 test.describe("Backstage Signals Plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

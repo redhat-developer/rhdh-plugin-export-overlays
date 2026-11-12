@@ -2,6 +2,11 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { verifyLinkURL } from "../utils/quickstart";
 
 test.describe("Test Quick Start plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
