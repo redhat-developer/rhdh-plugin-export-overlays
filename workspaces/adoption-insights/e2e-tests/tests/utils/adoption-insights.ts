@@ -221,6 +221,37 @@ export async function goToAdoptionInsights(page: Page): Promise<void> {
   await waitForPanelApiCalls(page);
 }
 
+/**
+ * Wait for a Recharts chart to appear in the named panel, retrying with
+ * a page reload and "Today" date-range reselection when the analytics
+ * backend has not committed visit data yet (race condition).
+ */
+export async function waitForPanelChart(
+  page: Page,
+  panelTitle: string | RegExp,
+  { timeout = 60_000 }: { timeout?: number } = {},
+): Promise<void> {
+  await expect(async () => {
+    const panel = getPanel(page, panelTitle);
+    const chart = panel.locator(".recharts-surface");
+
+    // Fast path: chart already rendered from a prior API call.
+    if (await chart.isVisible().catch(() => false)) return;
+
+    // Reload and wait for default ("Last 28 days") panel API responses.
+    await Promise.all([waitForPanelApiCalls(page), page.reload()]);
+
+    // Re-select "Today" to trigger fresh panel API calls.
+    const helper = new TestHelper(page);
+    await helper.clickByText("Last 28 days");
+    await Promise.all([
+      waitForPanelApiCalls(page),
+      helper.selectOption("Today"),
+    ]);
+    await expect(chart).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout, intervals: [3_000, 5_000, 10_000] });
+}
+
 /** Navigate to Adoption Insights and select "Today" date range. */
 export async function goToAdoptionInsightsWithToday(page: Page): Promise<void> {
   await goToAdoptionInsights(page);
