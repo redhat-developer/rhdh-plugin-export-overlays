@@ -29,6 +29,10 @@ export default playwrightDefineConfig({
       name: "backstage-gitlab-pqc-forced-ml-kem",
       testMatch: /tests\/specs\/gitlab-pqc-forced-ml-kem\.spec\.ts/,
     },
+    {
+      name: "backstage-openssl-pqc-https",
+      testMatch: /tests\/specs\/openssl-pqc-https\.spec\.ts/,
+    },
 
     {
       name: "backstage-gitlab-events-discovery",

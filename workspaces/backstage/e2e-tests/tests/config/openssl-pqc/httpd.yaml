@@ -1,0 +1,51 @@
+# Plain HTTP backend — edge Route terminates TLS on the OpenShift router.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pq-httpd
+  labels:
+    app: pq-httpd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pq-httpd
+  template:
+    metadata:
+      labels:
+        app: pq-httpd
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: httpd
+          image: registry.access.redhat.com/ubi10/httpd-24:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pq-httpd
+  labels:
+    app: pq-httpd
+spec:
+  selector:
+    app: pq-httpd
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

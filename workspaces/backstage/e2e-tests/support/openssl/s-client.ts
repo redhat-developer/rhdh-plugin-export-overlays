@@ -1,0 +1,107 @@
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+
+import { type TlsGroup } from "../../tests/config/openssl-pqc/fixture.js";
+
+export type OpensslSClientResult = {
+  raw: string;
+  protocol: string | undefined;
+  negotiatedGroup: string | undefined;
+  peerTempKey: string | undefined;
+  verifyReturnCode: string | undefined;
+  hasHandshakeError: boolean;
+};
+
+function rhdhPodLabelSelector(): string {
+  return process.env.INSTALLATION_METHOD === "operator"
+    ? "rhdh.redhat.com/app=backstage-developer-hub"
+    : "app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)";
+}
+
+export async function getRhdhPodName(namespace: string): Promise<string> {
+  const labelSelector = rhdhPodLabelSelector();
+  const result =
+    await $`oc get pod -n ${namespace} -l ${labelSelector} -o jsonpath={.items[0].metadata.name}`;
+  const podName = result.stdout.trim();
+  if (!podName) {
+    throw new Error(
+      `No RHDH pod found in ${namespace} with selector ${labelSelector}`,
+    );
+  }
+  return podName;
+}
+
+function firstMatch(raw: string, pattern: RegExp): string | undefined {
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    const match = pattern.exec(trimmed);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return undefined;
+}
+
+export function parseOpensslSClientOutput(raw: string): OpensslSClientResult {
+  // Hybrid / PQ-only print "Negotiated TLS1.3 group". Classical often only
+  // prints "Peer Temp Key: X25519, …" (OpenSSL 3.5+).
+  const protocol = firstMatch(raw, /^Protocol\s*:\s*(.+)$/iu);
+  const negotiatedGroup = firstMatch(
+    raw,
+    /^Negotiated TLS1\.3 group:\s*(.+)$/iu,
+  );
+  const peerTempKey = firstMatch(raw, /^Peer Temp Key:\s*([^,]+)/iu);
+  const verifyReturnCode = firstMatch(raw, /^Verify return code:\s*(.+)$/iu);
+
+  // Ignore "verify error" / "Verification error" from the self-signed peer cert.
+  const hasHandshakeError =
+    /ssl(v3)?\s+alert/iu.test(raw) ||
+    /handshake failure/iu.test(raw) ||
+    /no suitable (key share|signature algorithm|shared cipher)/iu.test(raw) ||
+    /:error:[0-9A-Fa-f]+:SSL routines:/iu.test(raw);
+
+  return {
+    raw,
+    protocol,
+    negotiatedGroup,
+    peerTempKey,
+    verifyReturnCode,
+    hasHandshakeError,
+  };
+}
+
+/** Resolve the negotiated key-exchange name across classical and PQ output forms. */
+export function resolvedKeyExchangeGroup(
+  result: OpensslSClientResult,
+): string | undefined {
+  return result.negotiatedGroup ?? result.peerTempKey;
+}
+
+/**
+ * Run openssl s_client inside the RHDH hub container against the httpd edge
+ * Route hostname (north-south via the OpenShift router), not Service DNS.
+ */
+export async function runOpensslSClientFromRhdhPod(options: {
+  namespace: string;
+  host: string;
+  group: TlsGroup;
+}): Promise<OpensslSClientResult> {
+  const { namespace, host, group } = options;
+  const podName = await getRhdhPodName(namespace);
+
+  // Self-signed httpd cert: tolerate non-zero openssl exit (verify code).
+  // Assertions use Protocol / Negotiated group / handshake errors.
+  const remoteCmd = [
+    "echo | openssl s_client",
+    `-connect ${host}:443`,
+    `-servername ${host}`,
+    `-groups ${group}`,
+  ].join(" ");
+
+  const result =
+    await $`oc exec -n ${namespace} ${podName} -- sh -c ${remoteCmd}`
+      .nothrow()
+      .quiet();
+
+  const raw = `${result.stdout}\n${result.stderr}`;
+  return parseOpensslSClientOutput(raw);
+}
