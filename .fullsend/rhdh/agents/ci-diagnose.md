@@ -456,6 +456,12 @@ reported with any `related_prs` instead (Phase 3b); it is never auto-fixed.
 - **No red, but pending checks:** `### ⏳ CI Diagnosis — 0 failing, <N> pending · \`<short-sha>\``
 - **All green:** `### ✅ CI Diagnosis — all curated checks passing · \`<short-sha>\``
 
+**The default view must stay scannable.** For red checks, put a one-line
+summary table directly under the verdict, then one collapsed `<details>`
+section per failing check. A reader who does not expand anything should see
+the headline, verdict, the table, and the `<summary>` lines — no long prose,
+logs, or command blocks outside the collapsed sections. Use ❌ for failures.
+
 **When pending checks exist** (verdict `pending`), list each pending check
 with ⏳ and note the commit where it last failed. Do not add a footer — the
 post-script appends it when posting:
@@ -466,7 +472,9 @@ post-script appends it when posting:
 
 **Verdict:** 1 curated check has not been triggered on this commit but failed on a prior commit in this PR. CI status is incomplete — do not merge until all checks have reported.
 
-⏳ **`ci/prow/e2e-ocp-helm`** — not yet triggered on `<short-sha>`, last failed on `<prior-short-sha>`
+| Check | Status |
+|-------|--------|
+| `ci/prow/e2e-ocp-helm` | ⏳ not yet triggered on `<short-sha>`; last failed on `<prior-short-sha>` |
 
 ---
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":[],"pending":["ci/prow/e2e-ocp-helm"]} -->
@@ -480,20 +488,25 @@ post-script appends it when posting:
 
 **Verdict:** <one-line bottom line — is this the PR's fault, a flake, or pre-existing?>
 
+| Check | Classification | What it means for this PR |
+|-------|----------------|---------------------------|
+| `ci/prow/e2e-ocp-helm` | `pr_regression` | Fix `test-helper.ts:58`, then re-run |
+| `appConfigExamples coverage` | `pre_existing` | Already being fixed in #3480 — no change needed here |
+
 <details>
-<summary>❌ <code>ci/prow/e2e-ocp-helm</code> — pr_regression</summary>
+<summary>❌ <code>ci/prow/e2e-ocp-helm</code> — pr_regression — fix <code>test-helper.ts:58</code></summary>
 
 **Root cause:** <mechanism, not symptom>
-**Evidence:** <key log/trace lines>
+**Evidence:** <2–10 decisive log/trace lines, in a fenced block if multi-line>
 **Suggested fix:** <specific file:line or action>
 [logs](<url>)
 </details>
 
 <details>
-<summary>❌ <code>appConfigExamples coverage</code> — pre_existing</summary>
+<summary>❌ <code>appConfigExamples coverage</code> — pre_existing — already being fixed in #3480</summary>
 
 **Root cause:** <mechanism, not symptom>
-**Evidence:** <key log/trace lines>
+**Evidence:** <2–10 decisive log/trace lines, in a fenced block if multi-line>
 **Suggested fix:** <file:line, or "already being fixed">
 **Open PR:** <#3480 — title> (omit this line when `related_prs` is absent; append `(targets <branch>)` when the related PR's base branch differs from this PR's base branch)
 **Tracked in:** <#4100 — [fullsend] E2E: login-nav-hidden> (omit this line when `related_issues` is absent)
@@ -503,8 +516,6 @@ post-script appends it when posting:
 ---
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":["appConfigExamples coverage","ci/prow/e2e-ocp-helm"]} -->
 ```
-
-Use ❌ for failures. Keep each section tight; put detail behind `<details>`.
 
 **Remediation guidelines (`pr_regression`, `pre_existing`, and `flake`).** These
 three classifications point at something actionable, so `suggestion` is
