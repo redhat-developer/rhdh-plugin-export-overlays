@@ -111,8 +111,12 @@ async function applyAppConfigAndRestart(
     ns,
   );
   await rhdh.scaleDownAndRestart();
+  const deployment =
+    rhdh.deploymentConfig.method === "operator"
+      ? "backstage-developer-hub"
+      : "redhat-developer-hub";
   // waitUntilReady() is true while the old pod still serves; gate on rollout completion.
-  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
+  await $`oc rollout status deployment/${deployment} -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
