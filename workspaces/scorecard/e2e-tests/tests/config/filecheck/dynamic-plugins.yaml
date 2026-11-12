@@ -48,7 +48,7 @@ plugins:
                 timeout:
                   minutes: 10
                 initialDelay:
-                  seconds: 120
+                  seconds: 15
   # Homepage 3.1.0 provides the NFS page:homepage extension for Scorecard widgets.
   # We can use {{inherit}} once RHDH's catalog resolves it for 3.1.0 or newer.
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.9__3.1.0
