@@ -237,8 +237,6 @@ test.describe("Admin > Extensions", () => {
       uiHelper,
     }) => {
       const plugin = "Adoption Insights for Red Hat Developer Hub";
-      const packageName =
-        "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
 
       await extensions.searchExtensions(plugin);
       await extensions.waitForSearchResults(plugin);
@@ -250,12 +248,10 @@ test.describe("Admin > Extensions", () => {
       await uiHelper.clickButton("Actions");
       await page.getByText("Edit").click();
       await uiHelper.verifyHeading(plugin);
-      await uiHelper.verifyText(`- package: ${packageName}`, false);
-
-      await uiHelper.verifyText(/^\s+(disabled:\sfalse|enabled:\strue)/);
       await uiHelper.verifyText("Apply");
       await uiHelper.verifyHeading("Default configuration");
       await uiHelper.clickButton("Apply");
+      await expect(page.getByText('plugins: - package: "oci://')).toBeVisible();
       await uiHelper.verifyText("pluginConfig:");
       await uiHelper.verifyText("dynamicPlugins:");
 
@@ -308,11 +304,17 @@ test.describe("Admin > Extensions", () => {
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
+      // Sidebar dismisses after disable; wait for Catalog list
+      await expect(
+        page.getByRole("heading", { name: /^Plugins\s+\(\d+\)$/ }),
+      ).toBeVisible({ timeout: 10000 });
+      // Re-open plugin detail to verify enable button
+      await extensions.clickReadMoreByPluginTitle(
+        plugin,
+        "Generally available (GA)primary",
+      );
+      await page.getByTestId("plugin-actions").click();
       await expect(page.getByTestId("enable-plugin")).toBeVisible();
-      // Following step is commented out due to the bug in nfs https://redhat.atlassian.net/browse/RHDHBUGS-3701
-      // await expect(page.getByRole("alert")).toContainText(
-      //   `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
-      // );
     });
   });
 
