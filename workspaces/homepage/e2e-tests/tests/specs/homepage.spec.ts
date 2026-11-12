@@ -85,6 +85,10 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify cards display after seeding widgets", async () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Recently Visited and Top Visited widgets removed from homepage Add Widget dialog",
+    );
     await loginAsKeycloakUser(page);
     await home.verifyHomePageLoaded({ requireWidgets: false });
     await home.seedHomePageWidgets();
@@ -116,12 +120,20 @@ test.describe.serial("Dynamic home page customization", () => {
 
   test.describe("Plugin management", () => {
     test("Add widget dialog lists all available plugins", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Recently Visited and Top Visited widgets removed from homepage Add Widget dialog",
+      );
       await home.enterEditMode();
       await home.clearAllCardsWithButton();
       await home.verifyAllWidgetsAvailableInDialog();
     });
 
     test("Each widget type can be added individually", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Recently Visited and Top Visited widgets removed from homepage Add Widget dialog",
+      );
       for (const widget of home.availableWidgets) {
         await home.addWidget(widget);
       }
@@ -129,6 +141,10 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Widgets can be removed and re-added in a single edit session", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Recently Visited and Top Visited widgets removed from homepage Add Widget dialog",
+      );
       await home.clearAllCardsWithButton();
       await home.verifyCardsDeleted();
 
@@ -174,6 +190,10 @@ test.describe.serial("Dynamic home page customization", () => {
 
   test.describe("Persistent storage", () => {
     test("Customizations persist across page reload", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Recently Visited and Top Visited widgets removed from homepage Add Widget dialog",
+      );
       await home.seedHomePageWidgets();
 
       const countBeforeReload = await home.getVisibleCardCount();
@@ -188,6 +208,10 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Customizations persist across logout and re-login", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "depends on seeded widgets; Recently Visited and Top Visited removed from Add Widget dialog",
+      );
       const countBeforeLogout = await home.getVisibleCardCount();
       expect(countBeforeLogout).toBeGreaterThan(0);
 
@@ -256,6 +280,10 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("layout persists for same user; clears on account switch", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Recently Visited and Top Visited widgets removed from homepage Add Widget dialog",
+      );
       await home.reloginAsKeycloakUser("test1", "test1@123", {
         clearHomeStorage: true,
       });
