@@ -238,7 +238,7 @@ test.describe("Admin > Extensions", () => {
     }) => {
       const plugin = "Adoption Insights for Red Hat Developer Hub";
       const packageName =
-        "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
+        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights@sha25";
 
       await extensions.searchExtensions(plugin);
       await extensions.waitForSearchResults(plugin);
