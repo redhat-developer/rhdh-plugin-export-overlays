@@ -60,16 +60,6 @@ backend:
 mcpActions:
   namespacedToolNames: false
 
-# Clears the default lightspeed frontend routes/mountPoints so they don't conflict
-# with the renamed intelligent-assistant plugin (same import names, different routes).
-# TODO: Remove after https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/2806
-# removes lightspeed from the default catalog index.
-dynamicPlugins:
-  frontend:
-    red-hat-developer-hub.backstage-plugin-lightspeed:
-      dynamicRoutes: []
-      mountPoints: []
-
 intelligent-assistant:
   # Required for the Options menu item and the context chip. Sharing stays off
   # until a test enables it. The chip is only meaningful in overlay and dock.
