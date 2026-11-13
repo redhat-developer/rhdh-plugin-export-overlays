@@ -10,6 +10,14 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "network: makes real HTTP calls to container registries (ghcr.io, quay.io); "
+        "deselect with -m 'not network'",
+    )
+
+
 def _load_fixture_json(filename: str) -> dict:
     """Load a JSON fixture file from scripts/tests/fixtures/."""
     with open(FIXTURES_DIR / filename, "r", encoding="utf-8") as f:
