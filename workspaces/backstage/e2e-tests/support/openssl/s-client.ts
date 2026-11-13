@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 import {
   PQ_HTTPD_HTTPS_PORT,
@@ -14,6 +15,22 @@ export type OpensslSClientResult = {
   hasHandshakeError: boolean;
 };
 
+/** Prefer OC_PATH, then fixed absolute paths — avoid PATH-based resolution. */
+function ocBin(): string {
+  const candidates = [
+    process.env.OC_PATH,
+    "/usr/bin/oc",
+    "/usr/local/bin/oc",
+  ].filter((p): p is string => Boolean(p));
+  const found = candidates.find((p) => existsSync(p));
+  if (!found) {
+    throw new Error(
+      "oc not found at /usr/bin/oc or /usr/local/bin/oc; set OC_PATH",
+    );
+  }
+  return found;
+}
+
 /** Hub only — not postgresql, which also carries instance=redhat-developer-hub. */
 function rhdhPodLabelSelector(): string {
   return process.env.INSTALLATION_METHOD === "operator"
@@ -25,7 +42,7 @@ export function getRhdhPodName(namespace: string): string {
   const labelSelector = rhdhPodLabelSelector();
   // Use execFileSync (FIPS-style): zx $ does not reliably capture oc jsonpath stdout.
   const podName = execFileSync(
-    "oc",
+    ocBin(),
     [
       "get",
       "pod",
@@ -60,20 +77,25 @@ function firstMatch(raw: string, pattern: RegExp): string | undefined {
 export function parseOpensslSClientOutput(raw: string): OpensslSClientResult {
   // Hybrid prints "Negotiated TLS1.3 group". Classical often only prints
   // "Peer Temp Key: X25519, …" (OpenSSL 3.5+).
-  const protocol = firstMatch(raw, /^Protocol\s*:\s*(.+)$/iu);
+  // Use [^\r\n]+ instead of .+ to avoid Sonar super-linear backtracking flags.
+  const protocol = firstMatch(raw, /^Protocol\s*:\s*([^\r\n]+)$/iu);
   const negotiatedGroup = firstMatch(
     raw,
-    /^Negotiated TLS1\.3 group:\s*(.+)$/iu,
+    /^Negotiated TLS1\.3 group:\s*([^\r\n]+)$/iu,
   );
-  const peerTempKey = firstMatch(raw, /^Peer Temp Key:\s*([^,]+)/iu);
-  const verifyReturnCode = firstMatch(raw, /^Verify return code:\s*(.+)$/iu);
+  const peerTempKey = firstMatch(raw, /^Peer Temp Key:\s*([^,\r\n]+)/iu);
+  const verifyReturnCode = firstMatch(
+    raw,
+    /^Verify return code:\s*([^\r\n]+)$/iu,
+  );
 
   // Ignore "verify error" / "Verification error" from the self-signed peer cert.
   const hasHandshakeError =
     /ssl(v3)?\s+alert/iu.test(raw) ||
     /handshake failure/iu.test(raw) ||
     /no suitable (key share|signature algorithm|shared cipher)/iu.test(raw) ||
-    /:error:[0-9A-Fa-f]+:SSL routines:/iu.test(raw);
+    // `i` already folds a-f; keep a single hex range.
+    /:error:[0-9A-F]+:SSL routines:/iu.test(raw);
 
   return {
     raw,
@@ -116,7 +138,7 @@ export function runOpensslSClientFromRhdhPod(options: {
 
   try {
     const raw = execFileSync(
-      "oc",
+      ocBin(),
       ["exec", "-n", namespace, podName, "--", "sh", "-c", remoteCmd],
       {
         encoding: "utf-8",
