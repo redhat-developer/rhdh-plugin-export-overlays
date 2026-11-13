@@ -125,18 +125,21 @@ export function runOpensslSClientFromRhdhPod(options: {
   port?: number;
 }): OpensslSClientResult {
   const { namespace, host, group, port = PQ_HTTPD_HTTPS_PORT } = options;
-  const podName = getRhdhPodName(namespace);
 
   // Self-signed httpd cert: tolerate non-zero openssl exit (verify code).
   // Assertions use Protocol / Negotiated group / handshake errors.
+  // Quote host/port so the sh -c trust boundary is explicit (host is
+  // namespace-derived Service DNS today; Kubernetes name rules keep it safe).
   const remoteCmd = [
     "echo | openssl s_client",
-    `-connect ${host}:${port}`,
-    `-servername ${host}`,
+    `-connect "${host}:${port}"`,
+    `-servername "${host}"`,
     `-groups ${group}`,
   ].join(" ");
 
   try {
+    // Include pod lookup so oc stderr surfaces in tlsInfo.raw on failure.
+    const podName = getRhdhPodName(namespace);
     const raw = execFileSync(
       ocBin(),
       ["exec", "-n", namespace, podName, "--", "sh", "-c", remoteCmd],
@@ -148,9 +151,9 @@ export function runOpensslSClientFromRhdhPod(options: {
     );
     return parseOpensslSClientOutput(raw);
   } catch (error) {
-    const err = error as { stdout?: string; stderr?: string };
-    return parseOpensslSClientOutput(
-      `${err.stdout ?? ""}\n${err.stderr ?? ""}`,
-    );
+    const err = error as { stdout?: string; stderr?: string; message?: string };
+    const fromOc = `${err.stdout ?? ""}\n${err.stderr ?? ""}`.trim();
+    // Plain Error from getRhdhPodName (empty pod list) has no stdout/stderr.
+    return parseOpensslSClientOutput(fromOc || (err.message ?? String(error)));
   }
 }

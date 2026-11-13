@@ -95,11 +95,8 @@ export class PQCHelper {
     );
   }
 
-  async teardown(): Promise<void> {
-    const { namespace, releaseName } = this.deploymentConfig;
-    this._log(`Tearing down PQC httpd ${releaseName} in ${namespace}...`);
-    await $`kubectl delete deployment,svc -l app=${releaseName} -n ${namespace} --ignore-not-found=true`.nothrow();
-  }
+  // No per-helper teardown: namespace deletion is owned by the Playwright
+  // reporter when CI=true (and retained for local CI=false debugging).
 
   /** openssl s_client from the RHDH hub pod against this helper's Service host. */
   runSClientFromRhdhPod(group: TlsGroup): OpensslSClientResult {

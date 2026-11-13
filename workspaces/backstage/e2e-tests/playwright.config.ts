@@ -26,10 +26,6 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
     },
     {
-      name: "backstage-openssl-pqc-https",
-      testMatch: /tests\/specs\/openssl-pqc-https\.spec\.ts/,
-    },
-    {
       name: "backstage-gitlab-events-discovery",
       testMatch: /tests\/specs\/gitlab-events-discovery\.spec\.ts/,
     },
@@ -52,6 +48,10 @@ export default playwrightDefineConfig({
     {
       name: "backstage-notifications-email",
       testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
+    },
+    {
+      name: "backstage-openssl-pqc-https",
+      testMatch: /tests\/specs\/openssl-pqc-https\.spec\.ts/,
     },
     {
       name: "backstage-signals",
