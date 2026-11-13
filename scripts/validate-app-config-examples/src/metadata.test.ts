@@ -88,6 +88,45 @@ describe("evaluateDocument", () => {
     expect(result.detail).toBe("appConfigExamples[0] must be a mapping");
   });
 
+  it("fails an example that still wires legacy Scalprum dynamicRoutes", () => {
+    const result = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: Default\n      content:\n        dynamicPlugins:\n          frontend:\n            backstage.plugin-auth:\n              dynamicRoutes:\n                - path: /oauth2/*\n                  importName: Router\n`,
+    );
+    expect(result.status).toBe("FAIL");
+    expect(result.detail).toContain(
+      "still wires legacy Scalprum backstage.plugin-auth.dynamicRoutes",
+    );
+    expect(result.detail).toContain("spec.appConfigNotRequired: true");
+  });
+
+  it("fails an example that still wires legacy Scalprum mountPoints, not just dynamicRoutes", () => {
+    const result = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: Default\n      content:\n        dynamicPlugins:\n          frontend:\n            backstage-community.plugin-announcements:\n              mountPoints:\n                - mountPoint: home.page/cards\n                  importName: AnnouncementsCard\n`,
+    );
+    expect(result.status).toBe("FAIL");
+    expect(result.detail).toContain("still wires legacy Scalprum");
+    expect(result.detail).toContain("mountPoints");
+  });
+
+  it("checks every example, not only the first one", () => {
+    const result = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: First\n      content:\n        app:\n          x: 1\n    - title: Second\n      content:\n        dynamicPlugins:\n          frontend:\n            backstage.plugin-thing:\n              dynamicRoutes:\n                - path: /thing\n`,
+    );
+    expect(result.status).toBe("FAIL");
+    expect(result.detail).toContain("appConfigExamples[1]");
+  });
+
+  it("still passes the dynamicPlugins.frontend keys that carry working config", () => {
+    // themes, entityTabs, translationResources and analyticsApiExtensions are
+    // not legacy route wiring, so the Scalprum rule must not reject them.
+    for (const key of ["themes", "entityTabs", "translationResources", "analyticsApiExtensions"]) {
+      const result = evaluateDocument(
+        `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: Default\n      content:\n        dynamicPlugins:\n          frontend:\n            backstage.plugin-thing:\n              ${key}:\n                - importName: Thing\n`,
+      );
+      expect(result.status, `expected ${key} to pass`).toBe("PASS");
+    }
+  });
+
   it("fails a missing spec", () => {
     const result = evaluateDocument(PACKAGE_HEAD);
     expect(result.status).toBe("FAIL");
