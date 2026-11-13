@@ -1,0 +1,92 @@
+# Patch: Convert api-docs from standalone plugin to FrontendModule of catalog
+# Reason: Ties api-docs extensions lifecycle directly to catalog so they are naturally dropped when catalog is disabled
+diff --git a/plugins/api-docs/package.json b/plugins/api-docs/package.json
+index 652c1d5d725e9..a538433d69a5a 100644
+--- a/plugins/api-docs/package.json
++++ b/plugins/api-docs/package.json
+@@ -3,8 +3,8 @@
+   "version": "0.14.4",
+   "description": "A Backstage plugin that helps represent API entities in the frontend",
+   "backstage": {
+-    "role": "frontend-plugin",
+-    "pluginId": "api-docs",
++    "role": "frontend-plugin-module",
++    "pluginId": "catalog",
+     "pluginPackages": [
+       "@backstage/plugin-api-docs"
+     ]
+diff --git a/plugins/api-docs/src/alpha.tsx b/plugins/api-docs/src/alpha.tsx
+index d7dedeff52931..9e6f6c0f41a4d 100644
+--- a/plugins/api-docs/src/alpha.tsx
++++ b/plugins/api-docs/src/alpha.tsx
+@@ -19,7 +19,7 @@ import Grid from '@material-ui/core/Grid';
+ import {
+   ApiBlueprint,
+   PageBlueprint,
+-  createFrontendPlugin,
++  createFrontendModule,
+ } from '@backstage/frontend-plugin-api';
+ 
+ import {
+@@ -29,7 +29,7 @@ import {
+ } from '@backstage/catalog-model';
+ 
+ import { defaultDefinitionWidgets } from './components/ApiDefinitionCard';
+-import { rootRoute, registerComponentRouteRef } from './routes';
++import { rootRoute } from './routes';
+ import { apiDocsConfigRef } from './config';
+ import { AppIcon } from '@backstage/core-components';
+ import { z } from 'zod';
+@@ -57,6 +57,7 @@ const apiDocsConfigApi = ApiBlueprint.make({
+ });
+ 
+ const apiDocsExplorerPage = PageBlueprint.makeWithOverrides({
++  name: 'api-docs',
+   configSchema: {
+     // Omitting columns and actions for now as their types are too complex to map to zod
+     initiallySelectedFilter: z.enum(['owned', 'starred', 'all']).optional(),
+@@ -201,17 +202,8 @@ const apiDocsApisEntityContent = EntityContentBlueprint.make({
+   },
+ });
+ 
+-export default createFrontendPlugin({
+-  pluginId: 'api-docs',
+-  title: 'APIs',
+-  icon: <AppIcon fontSize="inherit" id="kind:api" />,
+-  info: { packageJson: () => import('../package.json') },
+-  routes: {
+-    root: rootRoute,
+-  },
+-  externalRoutes: {
+-    registerApi: registerComponentRouteRef,
+-  },
++const apiDocsModule = createFrontendModule({
++  pluginId: 'catalog',
+   extensions: [
+     apiDocsConfigApi,
+     apiDocsExplorerPage,
+@@ -226,6 +218,24 @@ export default createFrontendPlugin({
+   ],
+ });
+ 
++export default Object.assign(apiDocsModule, {
++  getExtension(id: string) {
++    const extensionsById: Record<string, any> = {
++      'entity-card:api-docs/definition': apiDocsDefinitionEntityCard,
++      'entity-content:api-docs/definition': apiDocsDefinitionEntityContent,
++      'api:api-docs/config': apiDocsConfigApi,
++      'page:api-docs': apiDocsExplorerPage,
++      'entity-card:api-docs/has-apis': apiDocsHasApisEntityCard,
++      'entity-card:api-docs/provided-apis': apiDocsProvidedApisEntityCard,
++      'entity-card:api-docs/consumed-apis': apiDocsConsumedApisEntityCard,
++      'entity-card:api-docs/consuming-components': apiDocsConsumingComponentsEntityCard,
++      'entity-card:api-docs/providing-components': apiDocsProvidingComponentsEntityCard,
++      'entity-content:api-docs/apis': apiDocsApisEntityContent,
++    };
++    return extensionsById[id];
++  },
++});
++
+ import { apiDocsTranslationRef as _apiDocsTranslationRef } from './translation';
+ 
+ /**

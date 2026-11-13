@@ -21,6 +21,11 @@ backstage/plugins/auth-backend-module-oidc-provider
 keycloak/plugins/auth-backend-module-keycloak
 pingidentity/plugins/auth-backend-module-pingfederate-provider
 
+backstage/plugins/api-docs
+backstage/plugins/catalog
+backstage/plugins/catalog-backend
+backstage/plugins/catalog-backend-module-openapi
+backstage/plugins/catalog-graph
 backstage/plugins/catalog-backend-module-github
 backstage/plugins/catalog-backend-module-github-org
 backstage/plugins/catalog-backend-module-ldap
@@ -29,11 +34,20 @@ backstage/plugins/kubernetes-backend
 backstage/plugins/notifications
 backstage/plugins/notifications-backend
 backstage/plugins/org
+backstage/plugins/scaffolder
+backstage/plugins/scaffolder-backend
+backstage/plugins/search
+backstage/plugins/search-backend
+backstage/plugins/search-backend-module-catalog
+backstage/plugins/search-backend-module-pg
 backstage/plugins/signals
 backstage/plugins/signals-backend
 backstage/plugins/techdocs
 backstage/plugins/techdocs-backend
 backstage/plugins/techdocs-module-addons-contrib
+backstage/plugins/user-settings
+backstage/plugins/user-settings-backend
+backstage/plugins/app-module-user-settings
 
 global-header/plugins/global-header
 

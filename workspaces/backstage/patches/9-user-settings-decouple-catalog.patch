@@ -1,0 +1,278 @@
+# Patch: Decouple catalog dependency from user-settings plugin and add RHDH build info card
+# Reason: Allows user-settings (profile, identity, settings page) to function properly when catalog is disabled
+diff --git a/plugins/user-settings/src/components/General/UserSettingsBuildInfoCard.tsx b/plugins/user-settings/src/components/General/UserSettingsBuildInfoCard.tsx
+new file mode 100644
+index 0000000..c7d9943
+--- /dev/null
++++ b/plugins/user-settings/src/components/General/UserSettingsBuildInfoCard.tsx
+@@ -0,0 +1,164 @@
++/*
++ * Copyright 2026 The Backstage Authors
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++import { KeyboardEvent, MouseEvent, useState } from 'react';
++import { InfoCard, CopyTextButton } from '@backstage/core-components';
++import { configApiRef, useApi } from '@backstage/core-plugin-api';
++import UnfoldLessIcon from '@material-ui/icons/UnfoldLess';
++import UnfoldMoreIcon from '@material-ui/icons/UnfoldMore';
++import IconButton from '@material-ui/core/IconButton';
++import Typography from '@material-ui/core/Typography';
++
++export interface BuildInfo {
++  title?: string;
++  titleKey?: string;
++  card?: Record<string, string>;
++  full?: boolean;
++  overrideBuildInfo?: boolean;
++}
++
++const defaultMetadata = {
++  title: 'RHDH Metadata',
++  card: {
++    'RHDH Version': '2.2.0',
++    'Backstage Version': '1.54.9',
++    'Last Commit': 'repo @ 2026-09-30T19:56:08Z',
++  },
++};
++
++export const UserSettingsBuildInfoCard = () => {
++  const config = useApi(configApiRef);
++  const buildInfo = config.getOptional<BuildInfo>('buildInfo');
++
++  const [showBuildInformation, setShowBuildInformation] = useState<boolean>(
++    () => {
++      try {
++        return (
++          localStorage.getItem('rhdh-infocard-show-build-information') ===
++          'true'
++        );
++      } catch {
++        return false;
++      }
++    },
++  );
++
++  const toggleBuildInformation = () => {
++    setShowBuildInformation(!showBuildInformation);
++    try {
++      if (showBuildInformation) {
++        localStorage.removeItem('rhdh-infocard-show-build-information');
++      } else {
++        localStorage.setItem('rhdh-infocard-show-build-information', 'true');
++      }
++    } catch {
++      // ignore
++    }
++  };
++
++  const title = buildInfo?.title ?? defaultMetadata.title;
++
++  const buildDetails = Object.entries(
++    buildInfo?.full === false || buildInfo?.overrideBuildInfo === false
++      ? { ...buildInfo?.card, ...defaultMetadata.card }
++      : (buildInfo?.card ?? defaultMetadata.card),
++  ).map(([key, value]) => `${key}: ${value}`);
++
++  let clipboardText = title;
++  if (buildDetails.length) {
++    clipboardText += `\n\n${buildDetails.join('\n')}`;
++  }
++
++  const filteredContent = () => {
++    if (buildInfo?.card) {
++      return buildDetails.slice(0, 2);
++    }
++    return buildDetails.filter(
++      text =>
++        text.startsWith('RHDH Version') || text.startsWith('Backstage Version'),
++    );
++  };
++
++  const filteredCards = showBuildInformation ? buildDetails : filteredContent();
++  const versionInfo =
++    filteredCards.length > 0 ? filteredCards.join('\n') : buildDetails[0] ?? '';
++
++  const onMouseUp = (event: MouseEvent<HTMLSpanElement>) => {
++    if (!showBuildInformation) {
++      setShowBuildInformation(true);
++      window.getSelection()?.selectAllChildren(event.target as Node);
++    }
++  };
++
++  const onKeyDown = (event: KeyboardEvent<HTMLSpanElement>) => {
++    if (
++      event.key === ' ' ||
++      (event.key === 'c' && event.ctrlKey) ||
++      (event.key === 'C' && event.ctrlKey)
++    ) {
++      setShowBuildInformation(true);
++      window.getSelection()?.selectAllChildren(event.target as Node);
++    }
++  };
++
++  return (
++    <div data-testid="rhdh-build-info-card">
++      <InfoCard
++        title={title}
++        action={
++          <div style={{ position: 'relative' }}>
++            <div
++              style={{
++                position: 'absolute',
++                top: -2,
++                right: 0,
++                display: 'flex',
++              }}
++            >
++              <CopyTextButton
++                text={clipboardText}
++                tooltipText="Copy metadata to clipboard"
++                aria-label="Copy metadata"
++              />
++              <IconButton
++                title={showBuildInformation ? 'Show less' : 'Show more'}
++                aria-label={showBuildInformation ? 'Show less' : 'Show more'}
++                onClick={toggleBuildInformation}
++                style={{ width: 48 }}
++              >
++                {showBuildInformation ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
++              </IconButton>
++            </div>
++          </div>
++        }
++      >
++        <Typography
++          variant="subtitle1"
++          tabIndex={0}
++          onMouseUp={onMouseUp}
++          onKeyDown={onKeyDown}
++          style={{
++            whiteSpace: 'pre-line',
++            wordWrap: 'break-word',
++            lineHeight: '2.1rem',
++          }}
++        >
++          {versionInfo}
++        </Typography>
++      </InfoCard>
++    </div>
++  );
++};
+diff --git a/plugins/user-settings/src/components/General/UserSettingsGeneral.tsx b/plugins/user-settings/src/components/General/UserSettingsGeneral.tsx
+index 537a0d4..e6166bc 100644
+--- a/plugins/user-settings/src/components/General/UserSettingsGeneral.tsx
++++ b/plugins/user-settings/src/components/General/UserSettingsGeneral.tsx
+@@ -18,6 +18,7 @@ import Grid from '@material-ui/core/Grid';
+ import { UserSettingsProfileCard } from './UserSettingsProfileCard';
+ import { UserSettingsAppearanceCard } from './UserSettingsAppearanceCard';
+ import { UserSettingsIdentityCard } from './UserSettingsIdentityCard';
++import { UserSettingsBuildInfoCard } from './UserSettingsBuildInfoCard';
+ 
+ /** @public */
+ export const UserSettingsGeneral = () => {
+@@ -32,6 +33,9 @@ export const UserSettingsGeneral = () => {
+       <Grid item xs={12} md={6}>
+         <UserSettingsIdentityCard />
+       </Grid>
++      <Grid item xs={12} md={6}>
++        <UserSettingsBuildInfoCard />
++      </Grid>
+     </Grid>
+   );
+ };
+diff --git a/plugins/user-settings/src/components/General/UserSettingsIdentityCard.tsx b/plugins/user-settings/src/components/General/UserSettingsIdentityCard.tsx
+index 1f538c6..1f9b45d 100644
+--- a/plugins/user-settings/src/components/General/UserSettingsIdentityCard.tsx
++++ b/plugins/user-settings/src/components/General/UserSettingsIdentityCard.tsx
+@@ -15,7 +15,8 @@
+  */
+ 
+ import { InfoCard } from '@backstage/core-components';
+-import { EntityRefLinks } from '@backstage/plugin-catalog-react';
++import { EntityRefLinks, catalogApiRef } from '@backstage/plugin-catalog-react';
++import { useApiHolder } from '@backstage/core-plugin-api';
+ import Grid from '@material-ui/core/Grid';
+ import Typography from '@material-ui/core/Typography';
+ import { useUserProfile } from '../useUserProfileInfo';
+@@ -51,6 +52,12 @@ const Contents = () => {
+ /** @public */
+ export const UserSettingsIdentityCard = () => {
+   const { t } = useTranslationRef(userSettingsTranslationRef);
++  const apiHolder = useApiHolder();
++  const catalogApi = apiHolder.get(catalogApiRef);
++
++  if (!catalogApi) {
++    return null;
++  }
+ 
+   return (
+     <InfoCard title={t('identityCard.title')}>
+diff --git a/plugins/user-settings/src/components/General/index.ts b/plugins/user-settings/src/components/General/index.ts
+index d21355a..904094c 100644
+--- a/plugins/user-settings/src/components/General/index.ts
++++ b/plugins/user-settings/src/components/General/index.ts
+@@ -23,3 +23,4 @@ export { UserSettingsThemeToggle } from './UserSettingsThemeToggle';
+ export { UserSettingsPinToggle } from './UserSettingsPinToggle';
+ export { UserSettingsIdentityCard } from './UserSettingsIdentityCard';
+ export { UserSettingsLanguageToggle } from './UserSettingsLanguageToggle';
++export { UserSettingsBuildInfoCard } from './UserSettingsBuildInfoCard';
+diff --git a/plugins/user-settings/src/components/useUserProfileInfo.ts b/plugins/user-settings/src/components/useUserProfileInfo.ts
+index e368b9e..fbb8c87 100644
+--- a/plugins/user-settings/src/components/useUserProfileInfo.ts
++++ b/plugins/user-settings/src/components/useUserProfileInfo.ts
+@@ -19,6 +19,7 @@ import {
+   identityApiRef,
+   ProfileInfo,
+   useApi,
++  useApiHolder,
+ } from '@backstage/core-plugin-api';
+ import { useEffect } from 'react';
+ import useAsync from 'react-use/esm/useAsync';
+@@ -29,14 +30,22 @@ import { UserEntity } from '@backstage/catalog-model';
+ export const useUserProfile = () => {
+   const identityApi = useApi(identityApiRef);
+   const alertApi = useApi(alertApiRef);
+-  const catalogApi = useApi(catalogApiRef);
++  const apiHolder = useApiHolder();
++  const catalogApi = apiHolder.get(catalogApiRef);
+ 
+   const { value, loading, error } = useAsync(async () => {
+     let identityProfile = await identityApi.getProfileInfo();
+     const backStageIdentity = await identityApi.getBackstageIdentity();
+-    const catalogProfile = (await catalogApi.getEntityByRef(
+-      backStageIdentity.userEntityRef,
+-    )) as unknown as UserEntity;
++    let catalogProfile: UserEntity | undefined;
++    if (catalogApi && backStageIdentity?.userEntityRef) {
++      try {
++        catalogProfile = (await catalogApi.getEntityByRef(
++          backStageIdentity.userEntityRef,
++        )) as unknown as UserEntity;
++      } catch {
++        catalogProfile = undefined;
++      }
++    }
+     if (
+       identityProfile.picture === undefined &&
+       catalogProfile?.spec?.profile?.picture
+@@ -50,7 +59,7 @@ export const useUserProfile = () => {
+       profile: identityProfile,
+       identity: backStageIdentity,
+     };
+-  }, []);
++  }, [catalogApi]);
+ 
+   useEffect(() => {
+     if (error) {
