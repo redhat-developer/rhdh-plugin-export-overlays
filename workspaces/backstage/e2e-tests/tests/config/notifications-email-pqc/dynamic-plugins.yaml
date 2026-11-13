@@ -1,0 +1,30 @@
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications
+    enabled: true
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
+    enabled: true
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-module-email-dynamic
+    enabled: true
+    pluginConfig:
+      notifications:
+        processors:
+          email:
+            transportConfig:
+              transport: smtp
+              hostname: ${MAILPIT_SMTP_HOST}
+              port: 1025
+              secure: false
+              requireTls: true
+            # Injected from rhdh-secrets. The spec sets both from fixture.ts.
+            sender: ${SENDER_EMAIL}
+            broadcastConfig:
+              receiver: config
+              receiverEmails:
+                - ${RECIPIENT_EMAIL}
+            concurrencyLimit: 5
+            throttleInterval:
+              milliseconds: 10
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
+    enabled: true
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals
+    enabled: true
