@@ -1,3 +1,5 @@
+# Standalone manual dispatch workflow for workspace smoke tests.
+# PR Actions (pr-actions.yaml) executes smoke tests synchronously as a downstream job.
 name: Workspace Smoke Tests
 
 on:
@@ -104,7 +106,7 @@ jobs:
               console.log('Missing PR or commit; skipping pending status');
               return;
             }
-            
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -157,6 +159,8 @@ jobs:
           WORKSPACE_PATH: ${{ needs.resolve.outputs.workspace }}
           PUBLISHED_EXPORTS: ${{ needs.resolve.outputs.published-exports }}
         run: |
+          # Inlined to maintain trust boundary: executing an external script from
+          # the PR checkout would allow fork PRs to execute arbitrary code.
           PLUGINS_FOUND=0
           PLUGINS_SKIPPED_MISSING_METADATA=0
           PLUGINS_SKIPPED_MISSING_ENV=0
@@ -166,16 +170,25 @@ jobs:
           SKIP_TESTS_MISSING_ENV="false"
           MISSING_METADATA_PLUGINS=()
 
-          if [ -z "$PUBLISHED_EXPORTS" ]; then
-            echo "No published exports provided."
+          emit_outputs() {
             echo "has-runnable-plugins=$HAS_RUNNABLE_PLUGINS" >> "$GITHUB_OUTPUT"
             echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
-            echo "missing-metadata-plugins<<EOF" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            local delim="EOF_METADATA_$(date +%s%N 2>/dev/null || date +%s)"
+            echo "missing-metadata-plugins<<$delim" >> "$GITHUB_OUTPUT"
+            if [[ ${#MISSING_METADATA_PLUGINS[@]} -gt 0 ]]; then
+              printf "%s\n" "${MISSING_METADATA_PLUGINS[@]}" >> "$GITHUB_OUTPUT"
+            fi
+            echo "$delim" >> "$GITHUB_OUTPUT"
+          }
+
+          PUBLISHED_EXPORTS="${PUBLISHED_EXPORTS:-}"
+          if [[ -z "$PUBLISHED_EXPORTS" ]]; then
+            echo "No published exports provided."
+            emit_outputs
             exit 0
           fi
 
-          TOTAL_PLUGINS=$(echo $PUBLISHED_EXPORTS | wc -w)
+          TOTAL_PLUGINS=$(echo "$PUBLISHED_EXPORTS" | wc -w)
 
           OUT_DIR="$WORKSPACE_PATH/smoke-tests"
           OUT_FILE="$OUT_DIR/dynamic-plugins.test.yaml"
@@ -184,9 +197,9 @@ jobs:
           # Build map of <stripped packageName> -> metadata file path
           declare -A META_MAP
           for file in "$WORKSPACE_PATH"/metadata/*.yaml; do
-            [ -e "$file" ] || continue
+            [[ -e "$file" ]] || continue
             pkg=$(yq -r '.spec.packageName // ""' "$file")
-            if [ -n "$pkg" ] && [ "$pkg" != "null" ]; then
+            if [[ -n "$pkg" && "$pkg" != "null" ]]; then
               stripped=$(echo "$pkg" | sed 's|^@||; s|/|-|')
               META_MAP["$stripped"]="$file"
             fi
@@ -194,12 +207,12 @@ jobs:
 
           # Always include the root-level default config
           ROOT_CONFIG="$GITHUB_WORKSPACE/smoke-tests/app-config.yaml"
-          [ -f "$ROOT_CONFIG" ] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
-          
+          [[ -f "$ROOT_CONFIG" ]] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
+
           # Read workspace-wide test.env if it exists
           WORKSPACE_ENV_FILE="$WORKSPACE_PATH/smoke-tests/test.env"
           WORKSPACE_ENV_CONTENT=""
-          if [ -f "$WORKSPACE_ENV_FILE" ]; then
+          if [[ -f "$WORKSPACE_ENV_FILE" ]]; then
             echo "Found workspace test.env file: $WORKSPACE_ENV_FILE"
             WORKSPACE_ENV_CONTENT=$(cat "$WORKSPACE_ENV_FILE")
           else
@@ -216,8 +229,8 @@ jobs:
               IMAGE_PATH_AND_PLUGIN="${BASH_REMATCH[1]}"   # <repo_path>/<plugin_name>
               NEW_TAG="${BASH_REMATCH[2]}"                 # <tag>
               PLUGIN_NAME="${IMAGE_PATH_AND_PLUGIN##*/}"
-              METADATA_FILE="${META_MAP[$PLUGIN_NAME]}"
-              if [ -z "$METADATA_FILE" ]; then
+              METADATA_FILE="${META_MAP[$PLUGIN_NAME]:-}"
+              if [[ -z "$METADATA_FILE" ]]; then
                 # if the name of the plugin ends with -test, it is a test plugin without metadata:
                 # skip it without cancelling the test workflow
                 if [[ "$PLUGIN_NAME" =~ -test$ ]]; then
@@ -232,7 +245,7 @@ jobs:
               fi
 
               PACKAGE_NAME=$(yq -r '.spec.packageName' "$METADATA_FILE")
-              if [ -z "$PACKAGE_NAME" ] || [ "$PACKAGE_NAME" = "null" ]; then
+              if [[ -z "$PACKAGE_NAME" || "$PACKAGE_NAME" == "null" ]]; then
                 echo "spec.packageName not found in $METADATA_FILE, skipping"
                 PLUGINS_SKIPPED_MISSING_METADATA=$((PLUGINS_SKIPPED_MISSING_METADATA + 1))
                 MISSING_METADATA_PLUGINS+=("$PLUGIN_NAME")
@@ -246,17 +259,18 @@ jobs:
 
               # First appConfigExamples item is used for testing
               CONFIG_CONTENT=$(yq -o=yaml '.spec.appConfigExamples[0].content' "$METADATA_FILE" 2>/dev/null || echo "")
-              if [ -z "$CONFIG_CONTENT" ] || [ "$CONFIG_CONTENT" = "null" ]; then
+              if [[ -z "$CONFIG_CONTENT" || "$CONFIG_CONTENT" == "null" ]]; then
                 echo "spec.appConfigExamples[0].content not found in $METADATA_FILE: assuming empty config"
                 CONFIG_CONTENT=""
               fi
 
               ENV_VARS=$(echo "$CONFIG_CONTENT" | yq -o=yaml '.dynamicPlugins' 2>/dev/null | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' | sed 's/\${//; s/}//; s/^\$//' | sort -u || true)
-              
-              if [ -n "$ENV_VARS" ]; then
+
+              if [[ -n "$ENV_VARS" ]]; then
+                SAFE_PLUGIN_NAME="$(printf '%s' "$PLUGIN_NAME" | tr -cd 'a-zA-Z0-9._-')"
                 # Config contains environment variables
-                if [ -z "$WORKSPACE_ENV_CONTENT" ]; then
-                  echo "  ::warning::Config for $PLUGIN_NAME contains environment variables but workspace test.env is missing. Tests will be skipped."
+                if [[ -z "$WORKSPACE_ENV_CONTENT" ]]; then
+                  echo "::warning::Config for $SAFE_PLUGIN_NAME contains environment variables but workspace test.env is missing. Tests will be skipped."
                   SKIP_TESTS_MISSING_ENV="true"
                   PLUGINS_SKIPPED_MISSING_ENV=$((PLUGINS_SKIPPED_MISSING_ENV + 1))
                   continue
@@ -264,15 +278,16 @@ jobs:
                   # Validate all ENVs are present in workspace test.env
                   MISSING_ENVS=()
                   while IFS= read -r env_var; do
-                    [ -z "$env_var" ] && continue
+                    [[ -z "$env_var" ]] && continue
                     if ! echo "$WORKSPACE_ENV_CONTENT" | grep -qE "^[[:space:]]*${env_var}[[:space:]]*="; then
                       MISSING_ENVS+=("$env_var")
                     fi
                   done <<< "$ENV_VARS"
-                  
-                  if [ ${#MISSING_ENVS[@]} -gt 0 ]; then
-                    echo "  ::error::Environment variables missing from test.env: ${MISSING_ENVS[*]}"
-                    echo "  Config for $PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE."
+
+                  if [[ ${#MISSING_ENVS[@]} -gt 0 ]]; then
+                    echo "::error::Environment variables missing from test.env: ${MISSING_ENVS[*]}" >&2
+                    echo "Config for $SAFE_PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE." >&2
+                    emit_outputs
                     exit 1
                   fi
                 fi
@@ -281,7 +296,7 @@ jobs:
 
               echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${OCI_TAG}\"" >> "$OUT_FILE"
               echo "  enabled: true" >> "$OUT_FILE"
-              if [ -n "$CONFIG_CONTENT" ]; then
+              if [[ -n "$CONFIG_CONTENT" ]]; then
                 echo "  pluginConfig:" >> "$OUT_FILE"
                 echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
               fi
@@ -291,25 +306,21 @@ jobs:
             fi
           done
 
-          if [ "$PLUGINS_FOUND" -eq 0 ]; then
-            echo "[]" >> "$OUT_FILE"
+          if [[ "$PLUGINS_FOUND" -eq 0 ]]; then
+            echo "plugins: []" > "$OUT_FILE"
           else
             HAS_RUNNABLE_PLUGINS="true"
           fi
 
           echo "Plugins: $PLUGINS_FOUND/$TOTAL_PLUGINS processed successfully"
-          [ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_METADATA (missing runnable metadata)"
-          [ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_ENV (missing test.env)"
-          [ "${TEST_PLUGINS_SKIPPED:-0}" -gt 0 ] && echo "Skipped $TEST_PLUGINS_SKIPPED test plugin(s) without metadata"
-          if [ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ]; then
+          [[ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ]] && echo "Skipped $PLUGINS_SKIPPED_MISSING_METADATA (missing runnable metadata)"
+          [[ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ]] && echo "Skipped $PLUGINS_SKIPPED_MISSING_ENV (missing test.env)"
+          [[ "${TEST_PLUGINS_SKIPPED:-0}" -gt 0 ]] && echo "Skipped $TEST_PLUGINS_SKIPPED test plugin(s) without metadata"
+          if [[ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ]]; then
             echo "Some published plugins were skipped because they do not have runnable metadata."
           fi
 
-          echo "has-runnable-plugins=$HAS_RUNNABLE_PLUGINS" >> "$GITHUB_OUTPUT"
-          echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
-          echo "missing-metadata-plugins<<EOF" >> "$GITHUB_OUTPUT"
-          printf "%s\n" "${MISSING_METADATA_PLUGINS[@]}" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          emit_outputs
 
       - name: Upload smoke test artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -358,11 +369,11 @@ jobs:
             const hasRunnablePlugins = core.getInput('has_runnable_plugins') === 'true';
             const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
             const missingMetadataPlugins = (core.getInput('missing_metadata_plugins') || '').trim();
-            
+
             let statusDescription = 'Skipped';
             let commentDetail = ' skipped for an unknown reason. Check workflow run for details.\n';
             let summaryDetail = 'Unknown reason. Check workflow run for details.';
-            
+
             if (!workspace || workspace === '') {
               statusDescription = 'Skipped: PR doesn\'t touch one workspace';
               commentDetail = ' skipped: PR doesn\'t touch exactly one workspace.\n';
@@ -381,7 +392,7 @@ jobs:
               commentDetail += `\nPublished plugins skipped due to missing runnable metadata:\n\`\`\`\n${missingMetadataPlugins}\n\`\`\`\n`;
               summaryDetail += `\n\nPublished plugins skipped due to missing runnable metadata:\n${missingMetadataPlugins}`;
             }
-            
+
             if (overlayCommit) {
               await github.rest.repos.createCommitStatus({
                 owner: context.repo.owner,
@@ -394,7 +405,7 @@ jobs:
               });
               console.log(`Set success status on ${overlayCommit} (skipped for valid reason)`);
             }
-            
+
             if (pr) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -403,7 +414,7 @@ jobs:
                 body: `:warning: \n[Smoke test workflow](${runUrl})${commentDetail}`,
               });
             }
-            
+
             await core.summary
               .addRaw('\n### Tests Skipped\n\n' + summaryDetail)
               .write();
@@ -445,7 +456,7 @@ jobs:
             const missingMetadataPlugins = (process.env.MISSING_METADATA_PLUGINS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
-            
+
             const nativeResult = process.env.NATIVE_RESULT || '';
             const success = smokeTestsResult === 'success' && successOutput === 'true';
             let failureReason = '';
@@ -476,7 +487,7 @@ jobs:
                   failureReason = `Smoke tests ended in an unexpected state: ${smokeTestsResult}. Check the workflow logs for details.`;
               }
             }
-            
+
             // Write step summary (always, even if PR is unavailable)
             let summary;
             if (success) {
@@ -494,23 +505,23 @@ jobs:
               summary += `\n\n**Published plugins skipped due to missing runnable metadata:**\n\`\`\`\n${missingMetadataPlugins}\n\`\`\``;
             }
             await core.summary.addRaw(summary).write();
-            
+
             if (!pr) {
               console.log('No PR associated; skipping status and comment');
               return;
             }
-            
+
             // Get current PR head SHA
             const { data: prData } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pr,
             });
-            
+
             // Use PR head if different from overlayCommit (/smoketest command), else use overlayCommit (immediate publish)
             const sha = prData.head.sha !== overlayCommit ? prData.head.sha : overlayCommit;
             console.log(`Status SHA: ${sha} (PR head: ${prData.head.sha}, overlay: ${overlayCommit})`);
-            
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -520,7 +531,7 @@ jobs:
               target_url: runUrl,
               context: 'smoketest',
             });
-            
+
             let body;
             if (success) {
               body = `:white_check_mark: [Smoke tests workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
@@ -536,7 +547,7 @@ jobs:
             if (missingMetadataPlugins) {
               body += `\n\n:warning: Published plugins skipped due to missing runnable metadata:\n\`\`\`\n${missingMetadataPlugins}\n\`\`\``;
             }
-            
+
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,
