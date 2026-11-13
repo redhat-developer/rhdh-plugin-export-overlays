@@ -1,0 +1,75 @@
+name: Close obsolete plugin update PRs
+
+on:
+  schedule:
+    # Run weekly on Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+    inputs:
+      base:
+        description: 'Target base branch to evaluate (default: main)'
+        type: string
+        required: false
+        default: 'main'
+      dry-run:
+        description: 'Preview candidate closures without making changes (default: false)'
+        type: boolean
+        required: false
+        default: false
+      pr:
+        description: 'Specific PR number to evaluate (leave empty for all open update PRs)'
+        type: string
+        required: false
+        default: ''
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.pr || 'all' }}
+  cancel-in-progress: true
+
+jobs:
+  close-obsolete-prs:
+    name: Detect and close obsolete PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    defaults:
+      run:
+        working-directory: scripts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
+        with:
+          working-directory: scripts
+          cache: true
+
+      - name: Detect and close obsolete update PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ inputs.base || 'main' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+          PR_NUMBER: ${{ inputs.pr }}
+        run: |
+          args=(
+            --repo "${{ github.repository }}"
+            --base "$BASE_BRANCH"
+          )
+
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+
+          if [[ -n "$PR_NUMBER" ]]; then
+            args+=(--pr "$PR_NUMBER")
+          fi
+
+          vp exec close-obsolete-update-prs "${args[@]}"

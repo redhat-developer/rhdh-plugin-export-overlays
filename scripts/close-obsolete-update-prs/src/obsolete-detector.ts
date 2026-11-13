@@ -1,0 +1,182 @@
+/*
+ * Copyright (c) Red Hat, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ */
+
+import type { NpmClient } from "./npm-client.ts";
+import { resolveCurrentPackageName } from "./renames.ts";
+import { cleanVersion, isNewerVersion, isSemverTag } from "./semver-compare.ts";
+import type {
+  PackageComparison,
+  PackageVersion,
+  PRVerdict,
+  PullRequestSummary,
+  WorkspaceAnalysisResult,
+  WorkspaceSourceInfo,
+} from "./types.ts";
+
+export class ObsoleteDetector {
+  private readonly npmClient: NpmClient;
+
+  constructor(npmClient: NpmClient) {
+    this.npmClient = npmClient;
+  }
+
+  async evaluatePR(pr: PullRequestSummary, analysis: WorkspaceAnalysisResult): Promise<PRVerdict> {
+    if (!analysis.isCandidate) {
+      return {
+        pr,
+        workspaceName: analysis.workspaceName,
+        isCandidate: false,
+        skipReason: analysis.skipReason,
+        isObsolete: false,
+        comparisons: [],
+      };
+    }
+
+    const comparisons = await this.buildComparisons(analysis);
+    const hasOlder = comparisons.some((c) => isNewerVersion(c.latestVersion, c.prVersion));
+    const hasNewer = comparisons.some((c) => isNewerVersion(c.prVersion, c.latestVersion));
+    const isObsolete = hasOlder && !hasNewer;
+
+    const reason = isObsolete ? this.buildObsoleteReason(comparisons) : undefined;
+
+    return {
+      pr,
+      workspaceName: analysis.workspaceName,
+      isCandidate: true,
+      isObsolete,
+      reason,
+      comparisons,
+    };
+  }
+
+  private async buildComparisons(analysis: WorkspaceAnalysisResult): Promise<PackageComparison[]> {
+    if (analysis.prPackages.length > 0) {
+      const canonicalNames = analysis.prPackages.map((p) =>
+        resolveCurrentPackageName(p.packageName),
+      );
+      const npmVersions = await Promise.all(
+        canonicalNames.map((name) => this.npmClient.getLatestVersion(name)),
+      );
+
+      return analysis.prPackages.map((prPkg, idx) =>
+        this.comparePackage(prPkg, analysis.mainPackages, npmVersions[idx] ?? null),
+      );
+    }
+
+    return this.compareRepoRefs(analysis);
+  }
+
+  private comparePackage(
+    prPkg: PackageVersion,
+    mainPackages: PackageVersion[],
+    npmVersion: string | null,
+  ): PackageComparison {
+    const canonicalName = resolveCurrentPackageName(prPkg.packageName);
+    let upstreamVersion: string | undefined;
+    let source: PackageComparison["source"] = "overlays-main";
+    let details: string | undefined;
+
+    const mainPkg = mainPackages.find(
+      (p) => p.packageName === prPkg.packageName || p.packageName === canonicalName,
+    );
+
+    if (mainPkg) {
+      upstreamVersion = mainPkg.version;
+      details = `Target branch 'main' has version ${mainPkg.version}`;
+    }
+
+    if (npmVersion && (!upstreamVersion || isNewerVersion(npmVersion, upstreamVersion))) {
+      upstreamVersion = npmVersion;
+      source = "npm";
+      details = `NPM registry has released version ${npmVersion}`;
+    }
+
+    const latestVersion = upstreamVersion ?? prPkg.version;
+    const isPackageObsolete = isNewerVersion(latestVersion, prPkg.version);
+    const isRenamed = canonicalName !== prPkg.packageName;
+
+    if (isRenamed) {
+      details = details
+        ? `${details} (renamed to ${canonicalName})`
+        : `Renamed to ${canonicalName}`;
+    }
+
+    return {
+      packageName: prPkg.packageName,
+      prVersion: prPkg.version,
+      latestVersion,
+      source,
+      isRenamed,
+      renamedTo: isRenamed ? canonicalName : undefined,
+      isObsolete: isPackageObsolete,
+      details,
+    };
+  }
+
+  private compareRepoRefs(analysis: WorkspaceAnalysisResult): PackageComparison[] {
+    const comparisons: PackageComparison[] = [];
+    const workspacesToCheck = this.resolveWorkspacesToCheck(analysis);
+
+    for (const ws of workspacesToCheck) {
+      if (!ws.prSourceJson || !ws.mainSourceJson) {
+        continue;
+      }
+
+      const prRef = ws.prSourceJson["repo-ref"];
+      const mainRef = ws.mainSourceJson["repo-ref"];
+
+      // Only compare repo-ref when both are valid semver tags (skip commit SHAs)
+      if (!isSemverTag(prRef) || !isSemverTag(mainRef)) {
+        continue;
+      }
+
+      const prClean = cleanVersion(prRef);
+      const mainClean = cleanVersion(mainRef);
+
+      if (prClean && mainClean && isNewerVersion(mainClean, prClean)) {
+        comparisons.push({
+          packageName: `${ws.workspaceName} (repo-ref)`,
+          prVersion: prRef,
+          latestVersion: mainRef,
+          source: "overlays-main",
+          isObsolete: true,
+          details: `source.json repo-ref on 'main' (${mainRef}) is newer than PR (${prRef})`,
+        });
+      }
+    }
+
+    return comparisons;
+  }
+
+  private resolveWorkspacesToCheck(analysis: WorkspaceAnalysisResult): WorkspaceSourceInfo[] {
+    if (analysis.workspaces && analysis.workspaces.length > 0) {
+      return analysis.workspaces;
+    }
+    if (analysis.prSourceJson && analysis.mainSourceJson) {
+      return [
+        {
+          workspaceName: analysis.workspaceName ?? "unknown",
+          canonicalWorkspaceName: analysis.canonicalWorkspaceName ?? "unknown",
+          prSourceJson: analysis.prSourceJson,
+          mainSourceJson: analysis.mainSourceJson,
+        },
+      ];
+    }
+    return [];
+  }
+
+  private buildObsoleteReason(comparisons: PackageComparison[]): string {
+    const obsoletePkgs = comparisons
+      .filter((c) => isNewerVersion(c.latestVersion, c.prVersion))
+      .map(
+        (c) =>
+          `${c.packageName} (requested: ${c.prVersion}, latest: ${c.latestVersion} [${c.source}])`,
+      )
+      .join(", ");
+    return `Superseded by newer upstream release(s): ${obsoletePkgs}`;
+  }
+}
