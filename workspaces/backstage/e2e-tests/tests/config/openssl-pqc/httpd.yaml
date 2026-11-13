@@ -1,4 +1,5 @@
-# Plain HTTP backend — edge Route terminates TLS on the OpenShift router.
+# HTTPS peer — TLS terminates in the httpd pod (UBI OpenSSL / mod_ssl on 8443),
+# not on an OpenShift Route. Clients use in-cluster Service DNS (east-west).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,11 +22,11 @@ spec:
           image: registry.access.redhat.com/ubi10/httpd-24:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - name: http
-              containerPort: 8080
+            - name: https
+              containerPort: 8443
           readinessProbe:
             tcpSocket:
-              port: 8080
+              port: 8443
             initialDelaySeconds: 3
             periodSeconds: 3
           resources:
@@ -45,7 +46,7 @@ spec:
   selector:
     app: pq-httpd
   ports:
-    - name: http
+    - name: https
       protocol: TCP
-      port: 8080
-      targetPort: 8080
+      port: 8443
+      targetPort: 8443

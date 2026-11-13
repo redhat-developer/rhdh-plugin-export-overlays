@@ -1,6 +1,9 @@
 import { execFileSync } from "node:child_process";
 
-import { type TlsGroup } from "../../tests/config/openssl-pqc/fixture.js";
+import {
+  PQ_HTTPD_HTTPS_PORT,
+  type TlsGroup,
+} from "../../tests/config/openssl-pqc/fixture.js";
 
 export type OpensslSClientResult = {
   raw: string;
@@ -55,8 +58,8 @@ function firstMatch(raw: string, pattern: RegExp): string | undefined {
 }
 
 export function parseOpensslSClientOutput(raw: string): OpensslSClientResult {
-  // Hybrid / PQ-only print "Negotiated TLS1.3 group". Classical often only
-  // prints "Peer Temp Key: X25519, …" (OpenSSL 3.5+).
+  // Hybrid prints "Negotiated TLS1.3 group". Classical often only prints
+  // "Peer Temp Key: X25519, …" (OpenSSL 3.5+).
   const protocol = firstMatch(raw, /^Protocol\s*:\s*(.+)$/iu);
   const negotiatedGroup = firstMatch(
     raw,
@@ -90,22 +93,23 @@ export function resolvedKeyExchangeGroup(
 }
 
 /**
- * Run openssl s_client inside the RHDH hub container against the httpd edge
- * Route hostname (north-south via the OpenShift router), not Service DNS.
+ * Run openssl s_client inside the RHDH hub container against the httpd Service
+ * (east-west TLS terminated by the pod's OpenSSL / mod_ssl).
  */
 export function runOpensslSClientFromRhdhPod(options: {
   namespace: string;
   host: string;
   group: TlsGroup;
+  port?: number;
 }): OpensslSClientResult {
-  const { namespace, host, group } = options;
+  const { namespace, host, group, port = PQ_HTTPD_HTTPS_PORT } = options;
   const podName = getRhdhPodName(namespace);
 
-  // Self-signed edge/router cert: tolerate non-zero openssl exit (verify code).
+  // Self-signed httpd cert: tolerate non-zero openssl exit (verify code).
   // Assertions use Protocol / Negotiated group / handshake errors.
   const remoteCmd = [
     "echo | openssl s_client",
-    `-connect ${host}:443`,
+    `-connect ${host}:${port}`,
     `-servername ${host}`,
     `-groups ${group}`,
   ].join(" ");

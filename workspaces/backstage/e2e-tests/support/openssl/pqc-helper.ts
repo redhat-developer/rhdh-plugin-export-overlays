@@ -8,6 +8,7 @@ import {
 
 import {
   CONFIG_DIR,
+  PQ_HTTPD_HTTPS_PORT,
   PQ_HTTPD_NAME,
   type TlsGroup,
 } from "../../tests/config/openssl-pqc/fixture.js";
@@ -23,14 +24,14 @@ export type PQCDeploymentConfig = {
 };
 
 /**
- * Deploys the PQC HTTPS peer (ubi10/httpd-24 + edge Route), OpenLDAP-style.
+ * Deploys the PQC HTTPS peer (ubi10/httpd-24 with in-pod TLS on 8443).
  * Call from test.runOnce — not globalSetup. Deploys into the Playwright project namespace.
  */
 export class PQCHelper {
   k8sClient = new KubernetesClientHelper();
   deploymentConfig: PQCDeploymentConfig;
-  routeUrl = "";
-  routeHost = "";
+  serviceHost = "";
+  servicePort = PQ_HTTPD_HTTPS_PORT;
 
   constructor(options: { releaseName?: string; configDir?: string } = {}) {
     this.deploymentConfig = {
@@ -41,7 +42,7 @@ export class PQCHelper {
   }
 
   /**
-   * Deploy httpd + edge Route into the given namespace and resolve the Route host.
+   * Deploy httpd + Service into the given namespace and resolve the Service host.
    */
   async deploy(namespace: string): Promise<void> {
     this.deploymentConfig.namespace = namespace;
@@ -49,41 +50,39 @@ export class PQCHelper {
     await this.k8sClient.createNamespaceIfNotExists(namespace);
     await this._applyManifests();
     await this.waitUntilReady();
-    await this.resolveRoute();
-    this._log(`PQC httpd ready at ${this.routeUrl}`);
+    this.resolveService();
+    this._log(
+      `PQC httpd ready at https://${this.serviceHost}:${this.servicePort}`,
+    );
   }
 
-  /** Re-read the edge Route URL/host (safe after worker restart when deploy was skipped). */
-  async resolveRoute(): Promise<void> {
+  /**
+   * Set the in-cluster Service DNS host (safe after worker restart when deploy
+   * was skipped). Deterministic — no API lookup required.
+   */
+  resolveService(): void {
     const { namespace, releaseName } = this.deploymentConfig;
     if (!namespace) {
       throw new Error(
         "PQC namespace is not set — call deploy(namespace) first",
       );
     }
-    this.routeUrl = await this.k8sClient.getRouteLocation(
-      namespace,
-      releaseName,
-    );
-    this.routeHost = new URL(this.routeUrl).hostname;
+    // Same-namespace short FQDN is enough for the RHDH hub pod.
+    this.serviceHost = `${releaseName}.${namespace}.svc`;
+    this.servicePort = PQ_HTTPD_HTTPS_PORT;
   }
 
-  getRouteHost(): string {
-    if (!this.routeHost) {
+  getServiceHost(): string {
+    if (!this.serviceHost) {
       throw new Error(
-        "PQC route host is not set — call deploy(namespace) or resolveRoute() first",
+        "PQC service host is not set — call deploy(namespace) or resolveService() first",
       );
     }
-    return this.routeHost;
+    return this.serviceHost;
   }
 
-  getRouteUrl(): string {
-    if (!this.routeUrl) {
-      throw new Error(
-        "PQC route URL is not set — call deploy(namespace) or resolveRoute() first",
-      );
-    }
-    return this.routeUrl;
+  getServicePort(): number {
+    return this.servicePort;
   }
 
   async waitUntilReady(timeoutSeconds = 180): Promise<void> {
@@ -99,14 +98,15 @@ export class PQCHelper {
   async teardown(): Promise<void> {
     const { namespace, releaseName } = this.deploymentConfig;
     this._log(`Tearing down PQC httpd ${releaseName} in ${namespace}...`);
-    await $`kubectl delete deployment,svc,route -l app=${releaseName} -n ${namespace} --ignore-not-found=true`.nothrow();
+    await $`kubectl delete deployment,svc -l app=${releaseName} -n ${namespace} --ignore-not-found=true`.nothrow();
   }
 
-  /** openssl s_client from the RHDH hub pod against this helper's edge Route host. */
+  /** openssl s_client from the RHDH hub pod against this helper's Service host. */
   runSClientFromRhdhPod(group: TlsGroup): OpensslSClientResult {
     return runOpensslSClientFromRhdhPod({
       namespace: this.deploymentConfig.namespace,
-      host: this.getRouteHost(),
+      host: this.getServiceHost(),
+      port: this.getServicePort(),
       group,
     });
   }
@@ -115,7 +115,6 @@ export class PQCHelper {
     const { namespace, configDir } = this.deploymentConfig;
     const configBase = WorkspacePaths.resolve(configDir);
     await $`kubectl apply -f ${path.join(configBase, "httpd.yaml")} -n ${namespace}`;
-    await $`kubectl apply -f ${path.join(configBase, "route.yaml")} -n ${namespace}`;
   }
 
   private _log(message: string): void {
