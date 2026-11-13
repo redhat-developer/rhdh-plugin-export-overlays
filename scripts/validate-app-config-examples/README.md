@@ -62,7 +62,7 @@ Exit codes (`EXIT` in `src/validate.ts`):
 | `4`  | a row failed its plugin-path check                                |
 
 A failed row wins over `3`, and `4` wins over `1`, so a verdict never hides
-a failure. `auto-publish-pr.yaml` words the `plugin-paths` status from these
+a failure. `check-plugin-paths.yaml` words the `plugin-paths` status from these
 codes, so a new verdict needs a new code.
 
 ## Why this is TypeScript and not Python
@@ -291,8 +291,8 @@ without it, so a tag that is still missing then fails.
 
 A noted ref is not a checked one: on an update PR that renames a plugin path,
 the PR check above passes. `/publish` closes that gap. Once it has pushed the
-PR's `pr_<number>__<version>` images, the `check-plugin-paths` job in
-`auto-publish-pr.yaml` runs this tool on the PR's workspace with
+PR's `pr_<number>__<version>` images, `pr-actions.yaml` calls
+`check-plugin-paths.yaml`, which runs this tool on the PR's workspace with
 `--published-images`. Each ref to this repository's ghcr images is checked
 against the published image of the same repository name, with its
 `!plugin-path` kept. The list is the run's `published-exports` output, one
@@ -313,7 +313,8 @@ not used.
 
 The result lands on the PR as a `plugin-paths` commit status and a comment of
 its own. It does not change or delay the `publish` status and comment, and it
-does not stop the smoke tests. The job runs this tool from the workflow's own
+runs beside the smoke-test dispatch, so it neither delays nor stops the smoke
+tests. The job runs this tool from the workflow's own
 ref; the PR supplies only its metadata YAML.
 
 A malformed ref (no tag, an empty tag, a bare `!`) is not retargeted: it is

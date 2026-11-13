@@ -5,6 +5,20 @@ on:
       pr-number:
         type: string
         required: true
+    # For the plugin-path check pr-actions.yaml runs after this workflow.
+    outputs:
+      workspace:
+        value: ${{ jobs.prepare.outputs.workspace }}
+      overlay-repo:
+        value: ${{ jobs.prepare.outputs.overlay-repo }}
+      overlay-commit:
+        value: ${{ jobs.prepare.outputs.overlay-commit }}
+      pr-number:
+        value: ${{ jobs.prepare.outputs.pr-number }}
+      published-exports:
+        value: ${{ jobs.export.outputs.published-exports }}
+      only-metadata-changed:
+        value: ${{ jobs.detect-changes.outputs.only-metadata-changed }}
 
 jobs:
   prepare:
@@ -396,234 +410,6 @@ jobs:
           echo "$PUBLISHED_EXPORTS"
           echo ""
           echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$WORKSPACE"
-
-  # The PR check can only note refs to bs_* tags, which exist after merge.
-  # This checks the workspace metadata against the pr_* images just pushed,
-  # or, on a metadata-only PR, against the bs_* images its refs name.
-  # The validator comes from this workflow's own (trusted) ref; the PR
-  # supplies only metadata YAML, and the job holds no secrets.
-  check-plugin-paths:
-    name: Check plugin paths
-    needs:
-      - prepare
-      - detect-changes
-      - export
-    # !cancelled(), not always(): a cancelled run reads no registry.
-    if: |
-      !cancelled() &&
-      needs.prepare.outputs.workspace != '' &&
-      (needs.export.outputs.published-exports != '' ||
-       needs.detect-changes.outputs.only-metadata-changed == 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # A failing check does not fail the job: the result goes out as its own
-    # commit status. This covers a job that breaks (checkout, setup), which
-    # must not fail the publish run and stop the smoke-test dispatch.
-    continue-on-error: true
-    permissions:
-      contents: read
-    outputs:
-      exit-code: ${{ steps.check.outputs.exit-code }}
-      against: ${{ steps.check.outputs.against }}
-      report: ${{ steps.check.outputs.report }}
-    steps:
-      # Before any use: the workspace name can come from a fork's branch name
-      # or a PR file path, so it is logged with workflow commands stopped.
-      - name: Check the workspace path
-        env:
-          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
-        run: |
-          if [[ ! "$WORKSPACE" =~ ^workspaces/[A-Za-z0-9_.-]+$ || "$WORKSPACE" =~ /\.\.?$ ]]; then
-            echo "::error::unexpected workspace path; it is printed below"
-            token="$(openssl rand -hex 16)"
-            echo "::stop-commands::$token"
-            printf '%s\n' "$WORKSPACE"
-            echo "::$token::"
-            exit 1
-          fi
-
-      - name: Checkout validator
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Checkout PR metadata
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ${{ needs.prepare.outputs.overlay-repo }}
-          ref: ${{ needs.prepare.outputs.overlay-commit }}
-          path: pr-head
-          persist-credentials: false
-          sparse-checkout: |
-            ${{ needs.prepare.outputs.workspace }}/metadata
-          sparse-checkout-cone-mode: false
-
-      - name: Use the PR metadata
-        env:
-          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
-        run: |
-          rm -rf "${WORKSPACE}/metadata"
-          mkdir -p "${WORKSPACE}/metadata"
-          # Regular YAML files only: a symlink could point outside the tree.
-          if [[ -d "pr-head/${WORKSPACE}/metadata" ]]; then
-            find "pr-head/${WORKSPACE}/metadata" -maxdepth 1 -type f -name '*.yaml' \
-              -exec cp {} "${WORKSPACE}/metadata/" \;
-          fi
-          rm -rf pr-head
-
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
-        with:
-          working-directory: scripts
-          cache: true
-
-      - name: Check plugin paths
-        id: check
-        working-directory: scripts
-        env:
-          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
-          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
-          # --published-images only reads under the cwd or the temp dir.
-          TMPDIR: ${{ runner.temp }}
-        # --allow-unpublished: an own ref /publish did not push (a failed
-        # export) keeps its bs_* tag, which does not exist yet. A metadata-only
-        # PR builds nothing, so its bs_* tags must already exist.
-        run: |
-          images="$RUNNER_TEMP/published-exports.txt"
-          report="$RUNNER_TEMP/plugin-paths.txt"
-          args=(--workspace "$WORKSPACE" --check-plugin-paths)
-          # Empty on a metadata-only PR: the refs are checked as written.
-          if [[ -n "$PUBLISHED_EXPORTS" ]]; then
-            printf '%s\n' "$PUBLISHED_EXPORTS" > "$images"
-            args+=(--allow-unpublished --published-images "$images")
-            against=pr-images
-          else
-            against=as-written
-          fi
-          set +e
-          vp exec validate-app-config-examples "${args[@]}" > "$report" 2>&1
-          code=$?
-          set -e
-          # The report quotes refs from the PR: no line of it may run as a
-          # workflow command.
-          token="$(openssl rand -hex 16)"
-          echo "::stop-commands::$token"
-          cat "$report"
-          echo "::$token::"
-          # Random delimiter, for the same reason.
-          delimiter="EOF_$(openssl rand -hex 16)"
-          {
-            echo "exit-code=$code"
-            echo "against=$against"
-            echo "report<<$delimiter"
-            # Capped: the report job gets it as an env var (128 KiB max on Linux).
-            # Ends with a newline, so the delimiter is a line of its own.
-            printf '%s\n' "$(head -c 60000 "$report")"
-            if [[ "$(wc -c < "$report")" -gt 60000 ]]; then
-              echo "[truncated; the full report is in the workflow run]"
-            fi
-            echo "$delimiter"
-          } >> "$GITHUB_OUTPUT"
-          if [[ "$code" != 0 ]]; then
-            echo "::error::plugin-path check exited $code; see the report above"
-          fi
-
-  # Separate from add-completion-comment so the publish status, its comment
-  # and the published-exports artifact do not wait for the registry reads.
-  report-plugin-paths:
-    name: Report plugin paths
-    needs:
-      - prepare
-      - check-plugin-paths
-    if: "!cancelled() && needs.check-plugin-paths.result != 'skipped'"
-    runs-on: ubuntu-latest
-    # Like the check: a broken report must not fail the publish run.
-    continue-on-error: true
-    permissions:
-      statuses: write
-      pull-requests: write
-    steps:
-      - name: Post the plugin-path status and comment
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        env:
-          INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
-          INPUT_EXIT_CODE: ${{ needs.check-plugin-paths.outputs.exit-code }}
-          INPUT_AGAINST: ${{ needs.check-plugin-paths.outputs.against }}
-          INPUT_REPORT: ${{ needs.check-plugin-paths.outputs.report }}
-        with:
-          script: |
-            const workflowRun = await github.rest.actions.getWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: '${{ github.run_id }}'
-            });
-            const asWritten = core.getInput('against') === 'as-written';
-            const images = asWritten
-              ? 'the images its refs name (metadata-only PR)'
-              : 'the images this PR published';
-            // Exit codes are EXIT in scripts/validate-app-config-examples/src/validate.ts.
-            // Empty when the job broke before the check ran.
-            let state = 'failure';
-            let description;
-            let text;
-            switch (core.getInput('exit_code')) {
-              case '0':
-                state = 'success';
-                description = asWritten
-                  ? 'No plugin-path problem found in the refs as written'
-                  : 'No plugin-path problem found against the PR images';
-                text = `✅ No plugin-path problem found against ${images}. The report shows how many refs were checked.`;
-                break;
-              case '4':
-                description = asWritten
-                  ? 'Plugin-path check failed for the refs as written'
-                  : 'Plugin-path check failed against the PR images';
-                text = `❌ The plugin-path check failed against ${images}. The report names each failing file and why: a \`!plugin-path\` the image does not declare installs nothing, a ref without one needs an image with exactly one plugin, and an image the registry did not answer for is not a pass.`;
-                break;
-              case '3':
-                description = 'No metadata ref matched an image this PR published';
-                text = '❌ None of the workspace\'s refs matched an image this PR published, so no ref was checked against them. The image names and the `dynamicArtifact` refs disagree; the report has both counts.';
-                break;
-              case '1':
-                description = 'Metadata failed a check other than plugin paths';
-                text = '❌ A metadata file failed a check other than its plugin path, such as a missing `appConfigExamples`. The report names the file.';
-                break;
-              default:
-                description = 'Plugin-path check did not run to completion';
-                text = '⚠️ The plugin-path check did not run to completion; see the workflow run.';
-            }
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: core.getInput('overlay_commit'),
-              description,
-              state,
-              target_url: workflowRun.data.html_url,
-              context: 'plugin-paths',
-            });
-            let body = `[Publish workflow](${workflowRun.data.html_url}) — plugin-path check\n\n#### Plugin Paths\n${text}`;
-            const fullReport = core.getInput('report');
-            // The report quotes refs from the PR: no backtick may close the
-            // fence, and every line is indented so a newline in a ref cannot
-            // start a bot command such as /test at column 0.
-            const safeReport = fullReport
-              .replaceAll('`', "'")
-              .replace(/\r\n?/g, '\n')
-              .replace(/^/gm, '  ');
-            const reportLimit = 20000;
-            const report = safeReport.length > reportLimit
-              ? `${safeReport.slice(0, reportLimit)}\n  [truncated; the full report is in the workflow run]`
-              : safeReport;
-            if (fullReport !== '') {
-              body += '\n\n<details><summary>Report</summary>\n\n```\n' + report + '\n```\n\n</details>';
-            }
-            await github.rest.issues.createComment({
-              issue_number: Number(core.getInput('pr_number')),
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body,
-            });
 
   check-backstage-compatibility:
     name: Check workspace backstage compatibility
