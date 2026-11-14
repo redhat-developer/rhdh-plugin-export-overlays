@@ -315,6 +315,41 @@ gh pr diff "${PR_NUMBER}" --repo "${REPO}" --name-only
 | `config_env` | The *run itself* was misconfigured or missing a resource: missing secret, expired cred, quota, `/publish` never run before `/smoketest`. Fixing it means re-running with the right setup, not editing repo files. |
 | `needs_human` | Genuinely ambiguous after full investigation. Say what's missing. |
 
+### Before proposing a PR-regression fix
+
+Check the current base branch for a fix to the same failing lines, even when
+the initial classification is `pr_regression` (Phase 3b's open-work lookup
+alone does not find merged fixes). Read the PR's base branch and compare its
+history with the diagnosed head, not an unrelated local checkout:
+
+```bash
+BASE=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json baseRefName --jq .baseRefName)
+# BASE_SHA is the current tip of BASE in REPO; HEAD_SHA is from Phase 1.
+BASE_SHA=$(gh api "repos/${REPO}/commits/${BASE}" --jq .sha)
+MERGE_BASE=$(gh api "repos/${REPO}/compare/${HEAD_SHA}...${BASE_SHA}" --jq .merge_base_commit.sha)
+# With those commits available locally, inspect the failing file:
+git log "${BASE_SHA}" -- "${FAILING_FILE}"
+git diff "${MERGE_BASE}..${BASE_SHA}" -- "${FAILING_FILE}"
+```
+
+If the sandbox lacks these git objects, use the GitHub compare/commits/contents
+APIs to read the same history and file versions; do not silently skip this
+check. Verify the change fixes
+the observed mechanism, not just that the filename matches. Cite the merged
+PR/commit and base SHA. When the fix is already on the base, recommend
+rebasing (or closing if the PR is superseded), not recreating that patch.
+Use `needs_human` for a rebase/close decision so it is not sent as a code edit
+to the fix agent; explain the original PR regression in `root_cause`.
+
+**Executable-remediation gate.** A `pr_regression` with a non-empty
+`suggestion` is executed on eligible bot PRs. If choosing the fix requires
+cluster inspection, an unknown value, or a human decision, classify the
+check as `needs_human`, name the missing information, and omit `suggestion`.
+Do not leave an "Either ... or ..." suggestion under `pr_regression`.
+For mixed causes within one check, withhold the whole check's handoff as
+`needs_human` if any proposed edit needs such a decision; retain the proven
+causes in `root_cause` and evidence.
+
 **`product_bug` vs `pre_existing`:** these overlap whenever a failure would
 reproduce on `main` too. Tie-break on *where the fix belongs*, not on
 whether it would also fail on `main`: `product_bug` if the root cause is in
@@ -456,66 +491,188 @@ reported with any `related_prs` instead (Phase 3b); it is never auto-fixed.
 - **No red, but pending checks:** `### ⏳ CI Diagnosis — 0 failing, <N> pending · \`<short-sha>\``
 - **All green:** `### ✅ CI Diagnosis — all curated checks passing · \`<short-sha>\``
 
+**The default view must stay scannable.** Use a one-sentence verdict stating
+the decision, not repeating the failure mechanism. Show the summary table
+only when **two or more** checks are failing; omit it for a single failure.
+Then render one collapsed `<details>` per failing check. Keep its `<summary>`
+to check name, classification, short action, and an HTML `<a href="...">logs</a>`
+link (Markdown links inside `<summary>` are not reliably rendered). Explain
+the mechanism once, under **Root cause**; Evidence supports it, Suggested fix
+contains the change, and Next step gives the execution order. No long prose,
+logs, or command blocks outside the collapsed sections. Use ❌ for failures.
+
 **When pending checks exist** (verdict `pending`), list each pending check
-with ⏳ and note the commit where it last failed:
+with ⏳ and note the commit where it last failed. Do not add a footer — the
+post-script appends it when posting:
 
 ```markdown
 <!-- ci-diagnose -->
 ### ⏳ CI Diagnosis — 0 failing, 1 pending · `<short-sha>`
 
-**Verdict:** 1 curated check has not been triggered on this commit but failed on a prior commit in this PR. CI status is incomplete — do not merge until all checks have reported.
+**Verdict:** Wait for the missing curated check before merging.
 
-⏳ **`ci/prow/e2e-ocp-helm`** — not yet triggered on `<short-sha>`, last failed on `<prior-short-sha>`
+| Check | Status |
+|-------|--------|
+| `ci/prow/e2e-ocp-helm` | ⏳ not yet triggered on `<short-sha>`; last failed on `<prior-short-sha>` |
+
+**Next step:** Wait for the check to report, or trigger it now.
+
+**Re-run:** comment `/test e2e-ocp-helm`.
 
 ---
-<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. For bot-authored PRs, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR when one already exists. A maintainer can take over any time with `/fs-fix <instruction>`, or stop auto-fix with `/fs-fix-stop` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":[],"pending":["ci/prow/e2e-ocp-helm"]} -->
 ```
 
 **When red checks exist** (normal diagnostic flow):
 
-```markdown
+````markdown
 <!-- ci-diagnose -->
 ### 🔍 CI Diagnosis — <N> of <M> curated checks failing · `<short-sha>`
 
 **Verdict:** <one-line bottom line — is this the PR's fault, a flake, or pre-existing?>
 
+| Check | Classification | What it means for this PR |
+|-------|----------------|---------------------------|
+| `ci/prow/e2e-ocp-helm` | `pr_regression` | Fix `test-helper.ts:58`, then re-run |
+| `appConfigExamples coverage` | `pre_existing` | Already being fixed in #3480 — no change needed here |
+
 <details>
-<summary>❌ <code>ci/prow/e2e-ocp-helm</code> — pr_regression</summary>
+<summary>❌ <code>ci/prow/e2e-ocp-helm</code> — pr_regression — fix <code>test-helper.ts:58</code> · <a href="<log-url>">logs</a></summary>
 
 **Root cause:** <mechanism, not symptom>
-**Evidence:** <key log/trace lines>
-**Suggested fix:** <specific file:line or action>
-[logs](<url>)
+**Evidence:** <2–10 decisive log/trace lines, in a fenced block if multi-line>
+
+**Suggested fix** — `workspaces/<workspace>/e2e-tests/tests/support/test-helper.ts`:
+
+```diff
+--- a/workspaces/<workspace>/e2e-tests/tests/support/test-helper.ts
++++ b/workspaces/<workspace>/e2e-tests/tests/support/test-helper.ts
+@@ -55,3 +55,3 @@
+   const allowedModels = readAllowedModels(config);
+-  const providers = config.providers?.inference;
++  const providers = config.inference?.providers;
+   const provider = providers?.find((p) => p.type === "remote::openai");
+```
+
+**Next step:** Apply the diff, verify locally, push, then re-run the check.
+
+<details>
+<summary>Local reproduction</summary>
+
+```bash
+export GIT_PR_NUMBER=<PR_NUMBER>
+CI=false ./run-e2e.sh --secrets -w <workspace>
+```
+</details>
+
+**Re-run:** comment `/test e2e-ocp-helm` (or `/retest` to rerun all failed Prow jobs).
+
 </details>
 
 <details>
-<summary>❌ <code>appConfigExamples coverage</code> — pre_existing</summary>
+<summary>❌ <code>appConfigExamples coverage</code> — pre_existing — already being fixed in #3480 · <a href="<log-url>">logs</a></summary>
 
 **Root cause:** <mechanism, not symptom>
-**Evidence:** <key log/trace lines>
+**Evidence:** <2–10 decisive log/trace lines, in a fenced block if multi-line>
 **Suggested fix:** <file:line, or "already being fixed">
 **Open PR:** <#3480 — title> (omit this line when `related_prs` is absent; append `(targets <branch>)` when the related PR's base branch differs from this PR's base branch)
 **Tracked in:** <#4100 — [fullsend] E2E: login-nav-hidden> (omit this line when `related_issues` is absent)
-[logs](<url>)
+
+**Next step:** Not this PR's fault — do not change code here. Re-run after the linked fix lands.
+
+**Re-run:** re-run the failed job in the [Actions run](<run-url>) (or `gh run rerun <run-id> --repo <REPO> --failed`).
+
 </details>
 
 ---
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":["appConfigExamples coverage","ci/prow/e2e-ocp-helm"]} -->
-```
+````
 
-Use ❌ for failures. Keep each section tight; put detail behind `<details>`.
+### Reproduction and re-run commands
+
+Choose the row for the failing check. Substitute the real workspace, PR
+number, run id, and base branch — never emit `<...>` placeholders. Put the
+local-reproduction block in a nested `<details>` so it stays collapsed by
+default. Omit that block when it does not apply (see the rule below).
+
+| Check (`type`) | Local reproduction | CI re-run |
+|----------------|--------------------|-----------|
+| PR-mode `ci/prow/*` (`prow`, excluding nightly jobs) | `GIT_PR_NUMBER=<PR> CI=false ./run-e2e.sh --secrets -w <workspace>` — requires this PR's OCI images; run `/publish` first if absent. | `/test <job>` — the context after `ci/prow/` (e.g. `/test e2e-ocp-helm`); `/retest` reruns all failed Prow jobs. |
+| Nightly `ci/prow/*` (`prow`, `*-nightly` and `*-nightly-pr-scoped`) | `env -u GIT_PR_NUMBER E2E_NIGHTLY_MODE=true RELEASE_BRANCH_NAME=<base> RHDH_VERSION=<version> CI=false ./run-e2e.sh --secrets -w <workspace>` — use `next` on `main`, `x.y` on `release-x.y`. Uses released images; `/publish` is not a prerequisite. Never inherit or export `GIT_PR_NUMBER`: PR mode takes precedence over nightly mode. | `/test <job>` using the exact nightly context after `ci/prow/`. |
+| `E2E Code Quality` (`gha_check`) | `bash scripts/e2e-code-quality.sh <workspace>` (add `--fix` to autofix lint/prettier). From the workspace: `cd workspaces/<workspace>/e2e-tests && yarn install --immutable --mode=skip-build && yarn lint:check && yarn prettier:check && yarn tsc:check`. | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run; pushing the fix re-triggers it. |
+| `appConfigExamples coverage` (`gha_check`) | `cd scripts && vp exec validate-app-config-examples --workspace <workspace> --check-plugin-paths --allow-unpublished` (use `--since "$(git merge-base HEAD origin/<base>)" --check-schemas` for the PR-scoped check). | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run. |
+| `Python unit tests` (`gha_check`) | `pip install -r scripts/requirements-dev.txt && cd scripts && python -m pytest tests/ -v` (append `-k <test>` to focus). | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run. |
+| `smoke` — Native Smoke Harness (`gha_check`) | Match the failing step: `cd smoke-tests-native && yarn install --immutable && yarn test` for the unit-test step; `yarn smoke --workspace <workspace>` for the harness step (needs `skopeo`). | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run. |
+| `publish` (`status`) | — no local equivalent (it builds and pushes this PR's OCI images). | `/publish` |
+| `smoketest` (`status`) | — no local equivalent (it runs against published PR images). | `/publish` first when the images were never published, then `/smoketest` (or `/smoketest <tag>`). Never `/smoketest` alone without published images. |
+
+For either Prow mode, match `INSTALLATION_METHOD=operator` to an operator
+lane, or `INSTALLATION_METHOD=helm` to a Helm lane, using the build log to
+confirm it. Append `--grep "<test title>"` to focus a spec, preserving the
+literal test title with straight shell quotes, never typographic quotes.
+
+**When to include local reproduction:** for `pr_regression`, whenever the
+table above lists a local reproduction command for the failing check; when
+the row says there is no local equivalent (e.g. `publish` builds and pushes
+this PR's OCI images), say so in one line instead of inventing a command. For
+`pre_existing` only when running the failing workspace on the base branch
+would confirm the failure; for `product_bug` only when the upstream repo has
+a real local repro. Omit it for `flake`, `config_env`, and `needs_human`
+unless the diagnosis names a command that actually reproduces the failure.
+
+**Suggested fixes and diffs.** For `pr_regression`, the suggested fix is the
+change itself, not a description of it:
+
+- When the evidence makes the fix unambiguous, render a fenced code block
+  tagged `diff` with a real unified diff: `--- a/<path>`, `+++ b/<path>`, a
+  `@@` hunk header, and leading **and trailing** context (normally 2–3 lines;
+  file boundaries are the exception). Hunk old/new line counts must be exact.
+  Generate it from scratch copies of the file at `HEAD_SHA` using `diff -u
+  --label a/<path> --label b/<path> <old-copy> <edited-copy>` (exit 1 means
+  differences), rather than guessing headers. Check it with `git apply
+  --check` in a scratch tree containing those PR-head files before emitting
+  it. This validates patch structure/applicability, not runtime correctness.
+  Never edit the working checkout. If validation fails, fix the patch; if it
+  cannot be validated, use `needs_human` and do not emit an executable patch.
+- Diff only the files and lines the evidence supports. Do not invent line
+  numbers, imports, or unrelated cleanup. Keep it to the smallest hunk that
+  fixes the failure. Every non-obvious value must trace to quoted primary
+  evidence or a named source with path and commit SHA (configuration/schema,
+  sibling metadata, or the base branch); a plausible value is not evidence.
+- For mechanical fixes (Prettier/ESLint `--fix`, formatting-only changes),
+  show the fix command instead of hand-writing a diff — the tool owns the
+  diff.
+- For multi-file fixes, use one hunk per file in the same diff block.
+- When the fix creates new files, still render a diff: `diff --git a/<path>
+  b/<path>`, `new file mode 100644`, `--- /dev/null`, `+++ b/<path>`, then
+  the file content. Derive known fields from `plugins-list.yaml`, `source.json`,
+  and a sibling workspace's metadata (for `kind: Package` files that is
+  `apiVersion`, `kind`, `metadata.name`, `spec.packageName`,
+  `spec.dynamicArtifact`, `spec.version`, `spec.backstage.role`,
+  `spec.support`). If any required value cannot be determined, classify as
+  `needs_human`, name the value and who must supply it, and omit the patch and
+  `suggestion`. Never put placeholders, TODO markers, or guessed metadata in
+  an executable fix. A partial patch is not a safe new-file fix.
+- If the fix is ambiguous or needs a human decision, use `needs_human` and
+  omit both the diff and `suggestion`; say which decision or value is missing.
+  Omitting a diff alone does not stop auto-fix: a non-empty `pr_regression`
+  suggestion still triggers the post-script. Never present a guess as certain.
+- Put the plain-language rationale in **Root cause** / **Evidence**; the
+  diff is the actionable change.
 
 **Remediation guidelines (`pr_regression`, `pre_existing`, and `flake`).** These
 three classifications point at something actionable, so `suggestion` is
 *required* for them (the schema rejects a missing or empty `suggestion` when
 `classification` is `pr_regression`, `pre_existing`, or `flake`):
 
-- **`pr_regression` — be prescriptive.** Name the specific file:line and the
-  concrete change, the way you'd write review feedback. Instead of "fix the
-  timeout", write "In `workspaces/argocd/e2e-tests/tests/specs/argocd.spec.ts`
-  line 42, increase the route wait timeout from 30s to 60s." `pr_regression`
-  is the **only** classification the post-script hands to the fix agent.
+- **`pr_regression` — be prescriptive, and show the diff when clear.** Name
+  the specific file:line and the concrete change, the way you'd write review
+  feedback. Instead of "fix the timeout", write "In
+  `workspaces/argocd/e2e-tests/tests/specs/argocd.spec.ts` line 42, increase
+  the route wait timeout from 30s to 60s." When the change is unambiguous,
+  the comment's Suggested fix must be a unified diff (see the rules above).
+  `pr_regression` is the **only** classification the post-script hands to the
+  fix agent.
 - **`pre_existing` — point at existing work, then the file.** The failure
   isn't this PR's fault and is **not** auto-fixed on this PR. After Phase 3b:
   if `related_prs` is set, `suggestion` must name those PRs first
@@ -529,13 +686,15 @@ three classifications point at something actionable, so `suggestion` is
   matched, name the file:line a human (or a new PR) would change, and say
   no open PR or issue was found. Never tell the author to wait on auto-fix
   for `pre_existing`.
-- **`flake` — give the author something beyond "re-run it".** State what was
-  actually flaky (the mechanism, from Phase 2's evidence) and, if a concrete
-  change would reduce the recurrence (a longer timeout, a more specific wait
-  condition), suggest it. If no code change would help, say so explicitly and
-  recommend re-running the check — that's still a concrete suggestion, not a
-  placeholder. (`flake` is **not** handed to the fix agent — the suggestion is
-  for the human reader.)
+- **`flake` — re-run, no code change needed.** State what was actually
+  flaky (the mechanism, from Phase 2's evidence). If a concrete change would
+  reduce the recurrence (a longer timeout, a more specific wait condition),
+  mention it as optional hardening; if no code change would help, say so
+  explicitly. The comment must contain `**Next step:** Re-run, no code
+  change needed.` and the check's re-run command (`/test <prow-job>` for
+  Prow checks, `gh run rerun <run-id> --repo <REPO> --failed` for GitHub
+  Actions checks). Do not include a diff. (`flake` is **not** handed to the
+  fix agent — the suggestion is for the human reader.)
 - For `product_bug` / `config_env` / `needs_human`, `suggestion` remains
   optional — omit rather than pad.
 
@@ -601,6 +760,18 @@ If validation fails, read the error, fix the JSON, re-run.
   marker; the post-script posts this body and decides hand-off from this JSON.
 - `checks`: one entry per red curated check, max 30. Do NOT include
   skipped/ignored checks (SonarCloud, dispatch/*).
+- `suggestion`: the post-script sends this field plus `root_cause`, but not
+  `comment_body` or `evidence`, to the fix agent, so
+  make it self-contained — the same minimal diff as the comment (or the exact
+  file:line change) plus the verification command, never "see above" (the fix
+  agent cannot see `comment_body`). Include the complete minimal multi-file
+  diff when it fits the 4096-character limit; otherwise give exact edits and
+  source references for every affected path, not a truncated patch or a list
+  of filenames with no instructions.
+  For `flake`, include the explicit `Re-run, no code change needed.` text and
+  the re-run command. For an ambiguous fix, unknown required value, or a
+  rebase/close decision, use `needs_human` and omit this field; never encode a
+  partial patch or "Either ... or ..." as an executable `pr_regression`.
 - `related_prs`: only on `pre_existing` checks, and only when Phase 3b found
   a matching PR. Omit the key otherwise (do not emit `[]`). Never include this PR.
 - `related_issues`: only on `pre_existing` checks, and only when Phase 3b
@@ -624,8 +795,10 @@ classification).
 
 ## Constraints
 
-- **Read-only.** Do not modify files, branch, commit, push, comment, or label.
-  Emit `comment_body`; the post-script posts it as a new diagnosis comment.
+- **Read-only checkout and GitHub.** Do not modify tracked files, branch,
+  commit, push, comment, or label. Scratch files under `/tmp` for generating
+  and validating proposed diffs, downloaded artifacts, and the structured
+  output are allowed. Emit `comment_body`; the post-script posts it.
 - **Diagnosis-only — you do not hand off, and the human-visible body stays
   diagnostic.** You never post, comment, review, or dispatch anything yourself.
   The post-script (outside the sandbox) may submit a `CHANGES_REQUESTED`

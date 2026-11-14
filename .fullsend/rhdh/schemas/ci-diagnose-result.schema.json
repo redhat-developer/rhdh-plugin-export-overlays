@@ -80,7 +80,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 4096,
-          "description": "Concrete next step (specific file/line to change, or 're-run — transient', or 'not this PR')."
+          "description": "Self-contained remediation plus verification command. For pr_regression, a validated minimal diff or exact file/line edit with sourced values; the fix agent receives this field plus root_cause, not comment_body or evidence. For flake, 'Re-run, no code change needed.' plus the CI re-run command. Use needs_human and omit suggestion for ambiguous fixes, unknown required values, or rebase/close decisions; never pass placeholders or partial patches to auto-fix."
         },
         "log_url": {
           "type": "string",
