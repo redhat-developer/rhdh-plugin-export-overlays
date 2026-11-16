@@ -318,6 +318,38 @@ jobs:
               },
             });
 
+  # Runs beside triggerSmokeTests, never before it: the check reads the
+  # registry for up to 15 minutes, and its result is a status of its own.
+  checkPluginPaths:
+    name: Check plugin paths
+    needs:
+      - parse
+      - publish
+
+    concurrency:
+      group: check-plugin-paths-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
+      cancel-in-progress: true
+
+    # A failed publish can still have pushed some images, so only a skipped
+    # or cancelled one stops the check.
+    if: |
+      !cancelled() &&
+      (needs.publish.result == 'success' || needs.publish.result == 'failure') &&
+      needs.publish.outputs.workspace != '' &&
+      (needs.publish.outputs.published-exports != '' ||
+       needs.publish.outputs.only-metadata-changed == 'true')
+    uses: ./.github/workflows/check-plugin-paths.yaml
+    with:
+      workspace: ${{ needs.publish.outputs.workspace }}
+      overlay-repo: ${{ needs.publish.outputs.overlay-repo }}
+      overlay-commit: ${{ needs.publish.outputs.overlay-commit }}
+      pr-number: ${{ needs.publish.outputs.pr-number }}
+      published-exports: ${{ needs.publish.outputs.published-exports }}
+    permissions:
+      contents: read
+      statuses: write
+      pull-requests: write
+
   add_no_workspace_comment:
     needs:
       - parse

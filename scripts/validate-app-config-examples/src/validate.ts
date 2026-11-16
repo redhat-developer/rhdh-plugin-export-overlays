@@ -125,7 +125,7 @@ export type PluginPathJob = {
 };
 
 /**
- * The run's exit codes. auto-publish-pr.yaml reads them to word the
+ * The run's exit codes. check-plugin-paths.yaml reads them to word the
  * plugin-paths status, so a new verdict needs its own code here.
  */
 export const EXIT = {

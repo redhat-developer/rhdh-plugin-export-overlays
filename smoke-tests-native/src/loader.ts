@@ -17,6 +17,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import type { BackendFeature } from "@backstage/backend-plugin-api";
+import { mergeConfigSchemas } from "@backstage/config-loader";
 import { resolveContained } from "./paths";
 import { errorMessage } from "./util";
 
@@ -264,15 +265,15 @@ export type ConfigSchemaState =
    * Present and non-empty, but shaped so the gatherer will not load it — missing
    * `$schema`, or a `type` other than `"object"`. Separate from `empty` because the
    * remedy differs: an empty schema means the export collected nothing, a malformed one
-   * means it collected something unusable.
-   *
-   * Known limit: the gatherer also accepts a wrapped form, `backstageConfigSchemaVersion:
-   * 1`, which it merges through `mergeConfigSchemas` BEFORE applying the guards above.
-   * That form is not modelled here — `export-dynamic-plugin` never writes it, and judging
-   * it would mean reimplementing the merge. A bundle shipping one would be reported
-   * `invalid`; that is this function declining to guess, not a verdict on the artifact.
+   * means it collected something unusable. The wrapped form
+   * (`backstageConfigSchemaVersion: 1`) is merged first, as the gatherer does.
    */
-  | "invalid";
+  | "invalid"
+  /**
+   * A wrapped schema that is malformed or that `mergeConfigSchemas` rejects. The gatherer
+   * does not catch this, so RHDH fails schema loading for every dynamic plugin.
+   */
+  | "unmergeable";
 
 /** RHDH and the upstream service both read the supported schema path. */
 export type ConfigSchemaConsumer = "rhdh";
@@ -742,6 +743,9 @@ const CONFIG_SCHEMA_FAULTS: Record<Exclude<ConfigSchemaState, "ok">, string> = {
   invalid:
     'is missing `$schema` or is not `type: "object"`, so the backend\'s schema ' +
     "gatherer rejects it",
+  unmergeable:
+    "is a wrapped schema that is malformed or that `mergeConfigSchemas` rejects, so " +
+    "the backend's schema gatherer throws and RHDH fails to load any plugin schema",
 };
 
 /** Read one schema file the export wrote, classifying why it cannot be used. */
@@ -766,21 +770,14 @@ function readConfigSchemaFile(
     return file("unreadable", null);
   }
 
-  const parsed = schema as {
+  type SchemaShape = {
     properties?: unknown;
     $schema?: unknown;
     type?: unknown;
+    backstageConfigSchemaVersion?: unknown;
+    schemas?: unknown;
   };
-  const properties = parsed?.properties;
-  // Array.isArray is not redundant with the typeof: `typeof [] === "object"`, so
-  // `{"properties": ["a"]}` would otherwise count 1. A JSON Schema's `properties` must be
-  // an object; an array declares nothing.
-  const count =
-    typeof properties === "object" &&
-    properties !== null &&
-    !Array.isArray(properties)
-      ? Object.keys(properties).length
-      : 0;
+  let parsed = schema as SchemaShape;
 
   // `empty` mirrors the gatherer's own `isEmpty(serialized)` over the WHOLE document, not
   // a count of top-level `properties`. Counting was stricter than the consumer: a schema
@@ -793,13 +790,33 @@ function readConfigSchemaFile(
   ) {
     return file("empty", 0);
   }
+  // `backstage-cli package bundle` (used by `export-dynamic-plugin` for backends since
+  // @red-hat-developer-hub/cli 2.2.1) writes the wrapped form. The gatherer merges it with
+  // `mergeConfigSchemas` before its guard, so the same function is called here.
+  if (parsed?.backstageConfigSchemaVersion === 1) {
+    try {
+      parsed = mergeConfigSchemas(
+        (parsed.schemas as { value: object }[]).map((entry) => entry.value),
+      ) as SchemaShape;
+    } catch {
+      return file("unmergeable", null);
+    }
+  }
+  const properties = parsed?.properties;
+  // Array.isArray is not redundant with the typeof: `typeof [] === "object"`, so
+  // `{"properties": ["a"]}` would otherwise count 1. A JSON Schema's `properties` must be
+  // an object; an array declares nothing.
+  const count =
+    typeof properties === "object" &&
+    properties !== null &&
+    !Array.isArray(properties)
+      ? Object.keys(properties).length
+      : 0;
   // The gatherer's last guard, mirrored: `if (!serialized?.$schema || serialized?.type
   // !== "object")` it logs and skips. Unlike the conditions above this one is not silent —
   // it writes "Serialized configuration schema is invalid for plugin X" — but the outcome
   // is identical, the config is dropped, and a line in a backend log is not meaningfully
-  // louder than nothing for an artifact published weeks earlier. No published schema
-  // reaches this state today: the 64 that would fail it are literally `{}` and are
-  // classified `empty` first.
+  // louder than nothing for an artifact published weeks earlier.
   // One condition, because the gatherer's is one condition and nothing downstream
   // distinguishes which half failed — splitting it produced two identical returns and
   // drifted from the guard this claims to mirror.
@@ -868,12 +885,15 @@ function inspectConfigSchema(pluginPath: string): {
       ? []
       : [`${file.path} ${CONFIG_SCHEMA_FAULTS[file.state]}`],
   );
+  // A merge failure is not silent: the gatherer throws instead of skipping the plugin.
+  const consequence = files.some((file) => file.state === "unmergeable")
+    ? "RHDH does not start with this plugin installed"
+    : "Backstage has no schema to match this plugin's app-config keys against, so " +
+      "they are dropped silently and the plugin runs on its defaults";
   return {
     configSchema,
     error: problems.length
-      ? `package.json declares \`configSchema\` but ${problems.join("; ")} — ` +
-        `Backstage has no schema to match this plugin's app-config keys against, so ` +
-        `they are dropped silently and the plugin runs on its defaults`
+      ? `package.json declares \`configSchema\` but ${problems.join("; ")} — ${consequence}`
       : null,
   };
 }
