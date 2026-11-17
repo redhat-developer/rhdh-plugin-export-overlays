@@ -1056,7 +1056,7 @@ plugins:
           - id: rhdh-template-section
             props:
               title: Template section
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:25b77f97aca1e62677761a6d30932ad0faba735c0cd3b6a33c24a941a88a3e3f
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:241c184a4c4b1bd665d8de02a76387a15ccdf5a7e102748d3e95d507007135fd
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1088,7 +1088,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:2e3efa5c588e797a9aa286d221363d76906605d5deb87625f302aaadd210838c
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:d047063c694c0ae0b98c8e434531af718e387e4fb1aba9f3c86aa2877d137db0
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1098,7 +1098,7 @@ plugins:
         # mcpServers:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:647e566884613b2d5ac82cbbdc0f09ab182a3203395d827d9948b5ccc5aecc57
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:684ce1952c453cb3e4c17f68e62fd79ad7273e9d3d6de154309f7460ea73ab0b
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -1131,13 +1131,13 @@ plugins:
                     if:
                       anyOf:
                         - IsOrchestratorCatalogTabAvailable
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:e79e34fde8b5e4699dc215378d64621e3d05b34384d8bd83f2149faf9a349873
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:fd5ebd8cc2becd60948f98548fab14323966df50edcf37edf8276cb4d33f5dac
     disabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:565b629bd85b11bb79ff30546362c1dce667e66916ba57f31964444dc6af8be7
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:baea76f6f3d608f0983873f6af976797bbea6c11ba1077df2c90689095d49eb2
     disabled: true
     pluginConfig:
       orchestrator:
@@ -1145,13 +1145,13 @@ plugins:
           loki:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:b0341ea5e860d1645ff08ffe12dc815d0fafe46633f24366b6e651939f1f8455
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:cd7cd8bd2fae8741f792fb2c40cdd88831299e32f74e3dbd26e01003cbc629b0
     disabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:13fc9df9b2df45da02c7ce734d2a884ac5e5db1d311d31a7341e4a098fafc272
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:02dc0f0f9943413962548e8c42d4946acbffeda73ec5bbf3893384165ef6f7f2
     disabled: true
     pluginConfig:
       orchestrator:
