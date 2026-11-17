@@ -8,6 +8,7 @@ import {
   deployLockFlowWorkflow,
   globalWorkflowPolicies,
   setupAuthenticatedPage,
+  waitForWorkflowInDataIndex,
   type PolicySpec,
 } from "../support/utils/test-helpers.js";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
@@ -60,6 +61,14 @@ export function registerOrchestratorKafkaTests(): void {
             rhdh.deploymentConfig.method,
           );
           await deployLockFlowWorkflow(namespace, bootstrap);
+          // Wait for the workflow to register with the Data Index before
+          // the test attempts to interact with it in the UI. Without this,
+          // the orchestrator backend reports the workflow as "Unavailable"
+          // and the Run button stays disabled.
+          await waitForWorkflowInDataIndex(namespace, [
+            "callback-flow",
+            "lock-flow",
+          ]);
         },
       );
 

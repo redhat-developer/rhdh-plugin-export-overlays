@@ -174,6 +174,10 @@ export class OrchestratorPO {
   async runWorkflowInDetailsPage(): Promise<void> {
     const runButton = ORCHESTRATOR_COMPONENTS.runButton(this.page);
     await expect(runButton).toBeVisible();
+    // Newly deployed workflows may still be "Unavailable" (Run disabled)
+    // while the Data Index registers them. Wait for the button to become
+    // enabled before clicking to avoid a 10s actionability timeout.
+    await expect(runButton).toBeEnabled({ timeout: 60_000 });
     await runButton.click();
   }
 

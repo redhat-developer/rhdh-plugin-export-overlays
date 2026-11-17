@@ -674,6 +674,82 @@ export async function deployLockFlowWorkflow(
   }
 }
 
+/**
+ * Poll the SonataFlow Data Index until a workflow is registered with
+ * a non-null endpoint. The Data Index is the source of truth for
+ * workflow discovery; until a workflow appears there the RHDH
+ * orchestrator backend reports it as "Unavailable" and the UI
+ * Run button stays disabled.
+ *
+ * Does not throw on timeout — the Run button enabled-wait in the
+ * page object provides a secondary safety net.
+ */
+export async function waitForWorkflowInDataIndex(
+  namespace: string,
+  workflowIds: string[],
+  timeoutMs = 120_000,
+  pollIntervalMs = 5_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  const idsLabel = workflowIds.join("|");
+  const query = JSON.stringify({
+    query: "{ ProcessDefinitions { id endpoint } }",
+  });
+
+  while (Date.now() < deadline) {
+    attempt++;
+    try {
+      const result = runOc(
+        [
+          "exec",
+          "-n",
+          namespace,
+          "deploy/sonataflow-platform-data-index-service",
+          "--",
+          "curl",
+          "-s",
+          "--max-time",
+          "5",
+          "http://localhost:8080/graphql",
+          "-H",
+          "Content-Type: application/json",
+          "-d",
+          query,
+        ],
+        15_000,
+      );
+      const parsed = JSON.parse(result) as Record<string, unknown>;
+      const data = parsed?.data as Record<string, unknown> | undefined;
+      const definitions =
+        (data?.["ProcessDefinitions"] as
+          | Array<{ id: string; endpoint?: string | null }>
+          | undefined) ?? [];
+      const match = definitions.find(
+        (d) =>
+          workflowIds.includes(d.id) && d.endpoint != null && d.endpoint !== "",
+      );
+      if (match) {
+        console.warn(
+          `[deploy-lock-flow] Workflow "${match.id}" registered in Data Index (endpoint: ${match.endpoint})`,
+        );
+        return;
+      }
+    } catch {
+      // Data Index query not ready yet
+    }
+    if (attempt === 1 || attempt % 6 === 0) {
+      console.warn(
+        `[deploy-lock-flow] Waiting for workflow [${idsLabel}] in Data Index (attempt ${attempt})`,
+      );
+    }
+    await sleep(pollIntervalMs);
+  }
+  console.warn(
+    `[deploy-lock-flow] WARNING: workflow [${idsLabel}] not found in Data Index after ${timeoutMs}ms (${attempt} attempts); proceeding`,
+  );
+}
+
 function formatOcFailure(err: unknown): string {
   if (err instanceof Error) {
     const m = err.message.trim();
