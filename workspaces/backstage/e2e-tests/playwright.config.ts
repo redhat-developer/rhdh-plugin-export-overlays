@@ -50,6 +50,10 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
     },
     {
+      name: "backstage-openssl-pqc-https",
+      testMatch: /tests\/specs\/openssl-pqc-https\.spec\.ts/,
+    },
+    {
       name: "backstage-signals",
       testMatch: /tests\/specs\/signals\.spec\.ts/,
     },
