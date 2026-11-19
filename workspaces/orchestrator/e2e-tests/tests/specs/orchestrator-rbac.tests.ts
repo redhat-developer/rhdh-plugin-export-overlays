@@ -462,18 +462,62 @@ export function registerOrchestratorRbacTests(): void {
               .click();
             await page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
             await orchestratorPo.fillGreetingTemplateFormAndSubmit();
-            // eslint-disable-next-line playwright/no-conditional-expect
-            await expect(
-              page.getByText(/Beginning step Run greeting workflow/),
-            ).toBeVisible({
-              timeout: 120_000,
+            await page.waitForURL(/\/create\/tasks\/[a-f0-9-]+$/i, {
+              timeout: 30_000,
             });
+            const taskId = new URL(page.url()).pathname.split("/").at(-1);
+            const eventsUrl = new URL(
+              `/api/scaffolder/v2/tasks/${taskId}/events`,
+              process.env.RHDH_BASE_URL,
+            );
+            let events: unknown;
             // eslint-disable-next-line playwright/no-conditional-expect
-            await expect(
-              page.getByText(/NotAllowedError: Unauthorized/),
-            ).toBeVisible({
-              timeout: 120_000,
-            });
+            await expect
+              .poll(
+                async () => {
+                  const response = await page.request.get(eventsUrl.href, {
+                    headers: { Authorization: `Bearer ${apiToken}` },
+                  });
+                  try {
+                    if (!response.ok()) {
+                      throw new Error(
+                        `Scaffolder task events request failed: ${response.status()}`,
+                      );
+                    }
+                    events = await response.json();
+                    return events;
+                  } finally {
+                    await response.dispose();
+                  }
+                },
+                { timeout: 120_000 },
+              )
+              .toEqual(
+                expect.arrayContaining([
+                  expect.objectContaining({ type: "completion" }),
+                ]),
+              );
+            // eslint-disable-next-line playwright/no-conditional-expect
+            expect(events).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  type: "log",
+                  body: expect.objectContaining({
+                    stepId: "runWorkflow",
+                    status: "failed",
+                  }),
+                }),
+                expect.objectContaining({
+                  type: "completion",
+                  body: expect.objectContaining({
+                    error: {
+                      name: "NotAllowedError",
+                      message: "Unauthorized",
+                    },
+                  }),
+                }),
+              ]),
+            );
           } else {
             await orchestratorPo.openGreetingTemplateFromSelfService();
             await orchestratorPo.fillGreetingTemplateFormAndSubmit();
