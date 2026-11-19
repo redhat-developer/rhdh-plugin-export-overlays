@@ -622,8 +622,11 @@ change itself, not a description of it:
   non-empty first `content` or a sourced `spec.appConfigNotRequired: true`).
   Source the configuration example from the plugin's documentation/schema;
   use the opt-out only when a named source establishes none is required, never
-  to silence coverage or copy a sibling's choice. Optional display fields may
-  be omitted when the schema permits. Name the workspace coverage command as
+  to silence coverage or copy a sibling's choice. For a
+  `dynamicPlugins.frontend` example, use a mount point an existing sibling
+  card uses for the same surface (an entity overview card mounts at
+  `entity.page.overview/cards`); never invent `entity.page.<name>/cards`.
+  Optional display fields may be omitted when the schema permits. Name the workspace coverage command as
   the fix agent's verification step (`cd scripts && vp exec
   validate-app-config-examples --workspace <workspace> --check-plugin-paths
   --allow-unpublished`); the fix sandbox has registry access, this one does
