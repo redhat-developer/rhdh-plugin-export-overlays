@@ -170,16 +170,6 @@ export const TEMPLATE_PERMISSION_BASE_POLICIES: PolicySpec[] = [
   },
   { permission: "scaffolder.task.create", policy: "create", effect: "allow" },
   { permission: "scaffolder.task.read", policy: "read", effect: "allow" },
-];
-
-const BASELINE_POLICY_SPECS: PolicySpec[] = [
-  { permission: "orchestrator.workflow", policy: "read", effect: "allow" },
-  {
-    permission: "orchestrator.workflow.use",
-    policy: "update",
-    effect: "allow",
-  },
-  ...TEMPLATE_PERMISSION_BASE_POLICIES,
   {
     permission: "scaffolder.template.parameter.read",
     policy: "read",
@@ -190,6 +180,16 @@ const BASELINE_POLICY_SPECS: PolicySpec[] = [
     policy: "read",
     effect: "allow",
   },
+];
+
+const BASELINE_POLICY_SPECS: PolicySpec[] = [
+  { permission: "orchestrator.workflow", policy: "read", effect: "allow" },
+  {
+    permission: "orchestrator.workflow.use",
+    policy: "update",
+    effect: "allow",
+  },
+  ...TEMPLATE_PERMISSION_BASE_POLICIES,
 ];
 
 async function createBaselineRoleViaApi(browser: Browser): Promise<void> {
@@ -243,17 +243,6 @@ export async function setupAuthenticatedPage(
   await loginHelper.loginAsKeycloakUser();
   const apiToken = await new AuthApiHelper(page).getToken();
   return { page, uiHelper, loginHelper, apiToken };
-}
-
-export async function launchGreetingTemplateFromSelfService(
-  page: Page,
-  uiHelper: UIhelper,
-): Promise<void> {
-  await uiHelper.clickLink({ ariaLabel: "Self-service" });
-  await uiHelper.verifyHeading("Self-service");
-  await page.waitForLoadState("domcontentloaded");
-  await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
-  await uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
 }
 
 export async function waitForScaffolderTerminalState(

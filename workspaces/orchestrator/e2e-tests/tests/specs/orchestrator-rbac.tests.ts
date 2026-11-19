@@ -5,6 +5,7 @@ import {
   AuthApiHelper,
   RbacApiHelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { ORCHESTRATOR_COMPONENTS } from "../support/pages/orchestrator-obj.js";
 import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   TEMPLATE_PERMISSION_BASE_POLICIES,
@@ -20,8 +21,6 @@ import {
   PRIMARY_USER,
   SECONDARY_USER,
   cleanupGreetingComponentEntity,
-  launchGreetingTemplateFromSelfService,
-  clickCreateAndWaitForScaffolderTerminalState,
 } from "../support/utils/test-helpers.js";
 
 type RbacScenario = {
@@ -179,7 +178,6 @@ type TemplatePermissionScenario = {
   orchestratorWorkflowUseEffect: "allow" | "deny";
   expectWorkflowVisible: boolean;
   expectRunState: "enabled" | "absent";
-  terminalTimeoutsMs: number[];
   testTimeoutMs: number;
 };
 
@@ -192,7 +190,6 @@ const TEMPLATE_PERMISSION_SCENARIOS: TemplatePermissionScenario[] = [
     orchestratorWorkflowUseEffect: "deny",
     expectWorkflowVisible: false,
     expectRunState: "absent",
-    terminalTimeoutsMs: [120_000],
     testTimeoutMs: 180_000,
   },
   {
@@ -203,7 +200,6 @@ const TEMPLATE_PERMISSION_SCENARIOS: TemplatePermissionScenario[] = [
     orchestratorWorkflowUseEffect: "allow",
     expectWorkflowVisible: true,
     expectRunState: "enabled",
-    terminalTimeoutsMs: [90_000, 120_000],
     testTimeoutMs: 240_000,
   },
 ];
@@ -224,32 +220,6 @@ function buildTemplatePermissionPolicies(
       effect: scenario.orchestratorWorkflowUseEffect,
     },
   ];
-}
-
-async function runGreetingTemplateAndWaitForScaffolderTerminal(
-  page: Page,
-  uiHelper: UIhelper,
-  terminalTimeoutsMs: number[],
-): Promise<void> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < terminalTimeoutsMs.length; attempt++) {
-    await launchGreetingTemplateFromSelfService(page, uiHelper);
-    try {
-      await clickCreateAndWaitForScaffolderTerminalState(
-        page,
-        terminalTimeoutsMs[attempt],
-      );
-      return;
-    } catch (error) {
-      lastError = error;
-      if (attempt === terminalTimeoutsMs.length - 1) {
-        throw error;
-      }
-      await page.goto("/");
-      await page.waitForLoadState("domcontentloaded");
-    }
-  }
-  throw lastError;
 }
 
 async function assertTemplatePermissionScenarioOutcome(
@@ -490,10 +460,11 @@ export function registerOrchestratorRbacTests(): void {
               .getByRole("link", { name: "Launch Template" })
               .or(page.getByRole("button", { name: "Launch Template" }))
               .click();
+            await page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
             await orchestratorPo.fillGreetingTemplateFormAndSubmit();
             // eslint-disable-next-line playwright/no-conditional-expect
             await expect(
-              page.getByText(/Beginning step runWorkflow/),
+              page.getByText(/Beginning step Run greeting workflow/),
             ).toBeVisible({
               timeout: 120_000,
             });
@@ -504,11 +475,14 @@ export function registerOrchestratorRbacTests(): void {
               timeout: 120_000,
             });
           } else {
-            await runGreetingTemplateAndWaitForScaffolderTerminal(
-              page,
-              uiHelper,
-              scenario.terminalTimeoutsMs,
-            );
+            await orchestratorPo.openGreetingTemplateFromSelfService();
+            await orchestratorPo.fillGreetingTemplateFormAndSubmit();
+            // eslint-disable-next-line playwright/no-conditional-expect
+            await expect(
+              ORCHESTRATOR_COMPONENTS.openWorkflowRunLink(page),
+            ).toHaveAttribute("href", /\/greeting\/[a-f0-9-]+$/i, {
+              timeout: 120_000,
+            });
           }
 
           await orchestratorPo.openOrchestratorFromSidebar();
