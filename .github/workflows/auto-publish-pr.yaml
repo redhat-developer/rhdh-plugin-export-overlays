@@ -596,7 +596,7 @@ jobs:
                 testsExist = true;
               } catch (error) {
                 if (error.status === 404) {
-                  body += '\n\nNo E2E tests available.';
+                  body += '\n\nNo E2E tests available for this workspace.';
                 } else {
                   core.warning(`Could not check for E2E tests: ${error.message}`);
                   body += '\n\nCould not check E2E availability; no test requested.';
