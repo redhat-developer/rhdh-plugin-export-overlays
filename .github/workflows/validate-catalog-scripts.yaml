@@ -24,6 +24,7 @@ on:
       # The suite executes the inline auto-publish collector with mocked GitHub APIs.
       - '.github/workflows/update-plugins-repo-refs.yaml'
       - '.github/workflows/validate-catalog-scripts.yaml'
+      - '.github/workflows/auto-publish-pr.yaml'
   workflow_dispatch:
 
 concurrency:
@@ -52,3 +53,6 @@ jobs:
       - name: Run tests
         working-directory: scripts
         run: python -m pytest tests/ -v
+
+      - name: Test publish comment
+        run: node --test scripts/tests/test_auto_publish_comment.cjs
