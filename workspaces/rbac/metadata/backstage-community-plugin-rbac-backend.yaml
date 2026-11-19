@@ -1,0 +1,36 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-rbac-backend
+  namespace: rhdh
+  title: RBAC Backend
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-rbac-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac-backend:bs_1.54.9__8.1.6
+  version: 8.1.6
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.54.9
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - rbac
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        permission:
+          rbac:
+            admin:
+              users:
+                - name: user:default/admin
