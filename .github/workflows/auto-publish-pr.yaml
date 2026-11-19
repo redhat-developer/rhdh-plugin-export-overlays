@@ -583,7 +583,7 @@ jobs:
               });
             }
 
-            if (success && publishSuccess) {
+            if (publishSuccess) {
               const [repoOwner, repoName] = core.getInput('overlay_repo').split('/');
               let testsExist = false;
               try {
@@ -612,7 +612,7 @@ jobs:
                     pull_number: prNumber,
                   });
                   if (pr.data.labels.some(label => label.name === 'needs-ok-to-test')) {
-                    body += '\n\n#### E2E tests\nA trusted member can run `/test e2e-ocp-helm`; `/ok-to-test` enables automatic testing.';
+                    body += '\n\n#### E2E tests\nNeeds `/ok-to-test`. A trusted member can run `/test e2e-ocp-helm`.';
                   } else {
                     body += '\n\n#### E2E tests\nRequesting E2E tests from Prow.\n/test e2e-ocp-helm';
                   }
