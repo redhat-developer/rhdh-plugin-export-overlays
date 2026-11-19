@@ -80,7 +80,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 4096,
-          "description": "Self-contained remediation. For pr_regression, a validated minimal diff or exact file/line edit with sourced values and sandbox-runnable verification; put maintainer/CI-only follow-ups in comment_body. The fix agent receives this field plus root_cause, not comment_body or evidence. For flake, 'Re-run, no code change needed.' plus the CI re-run command. Use needs_human and omit suggestion for ambiguous fixes, unknown required values, protected-path edits, or rebase/close decisions; never pass placeholders or partial patches to auto-fix."
+          "description": "Remediation for this check. For `pr_regression`, this plus `root_cause` is the fix agent's whole input: give a unified diff or an exact file:line edit, plus the command that verifies it."
         },
         "log_url": {
           "type": "string",
