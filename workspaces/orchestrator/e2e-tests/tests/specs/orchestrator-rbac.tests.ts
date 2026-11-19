@@ -510,6 +510,15 @@ export function registerOrchestratorRbacTests(): void {
         });
 
         test(`Validate ${scenario.id} behavior`, async ({}) => {
+          // product_bug RHIDP-11839: with scaffolder.* allowed but
+          // orchestrator.workflow + orchestrator.workflow.use denied, Self-service
+          // still renders Choose disabled on Greeting Test Picker (and Greeting
+          // workflow). RHIDP-11840 covers the same template when workflow perms
+          // are allowed.
+          test.skip(
+            scenario.id === "RHIDP-11839",
+            "RHIDP-11839: Choose stays disabled when orchestrator.workflow permissions are denied despite scaffolder template allows",
+          );
           test.setTimeout(scenario.testTimeoutMs);
           const orchestratorPo = new OrchestratorPO(page, uiHelper);
 
