@@ -13,3 +13,20 @@ spec:
           containers:
             - backstage-backend
             - lightspeed-core
+  # 2Gi might not be enough to install all the plugins, increase to 3
+  deployment:
+    patch:
+      spec:
+        template:
+          spec:
+            volumes:
+              - name: dynamic-plugins-root
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      accessModes:
+                        - ReadWriteOnce
+                      resources:
+                        requests:
+                          storage: 3Gi
+                      volumeMode: Filesystem
