@@ -1,5 +1,9 @@
 app:
   title: RHDH Roadie Plugins Test Instance for HTTP Request plugin
+# Pin the app-auth sign-in page to the guest provider used by loginAsGuest().
+# Without it, app-auth derives providers from auth.providers and can render
+# "Sign-in is not available" instead of the "Select a sign-in method" page.
+signInPage: guest
 proxy:
   skipInvalidProxies: true
   endpoints:
