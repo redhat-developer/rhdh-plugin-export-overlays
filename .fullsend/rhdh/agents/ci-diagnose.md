@@ -570,7 +570,7 @@ Choose the row for the failing check. Substitute the real values — never emit
 | PR-mode `ci/prow/*` (`prow`, excluding nightly jobs) | `GIT_PR_NUMBER=<PR> INSTALLATION_METHOD=<installation-method> CI=false ./run-e2e.sh --secrets -w <workspace>` — requires this PR's OCI images; run `/publish` first if absent. | `/test <job>` — the context after `ci/prow/` (e.g. `/test e2e-ocp-helm`); `/retest` reruns all failed Prow jobs. |
 | Nightly `ci/prow/*` (`prow`, `*-nightly` and `*-nightly-pr-scoped`) | `env -u GIT_PR_NUMBER E2E_NIGHTLY_MODE=true INSTALLATION_METHOD=<installation-method> RELEASE_BRANCH_NAME=<base> RHDH_VERSION=<version> CI=false ./run-e2e.sh --secrets -w <workspace>` — use `next` on `main`, `x.y` on `release-x.y`. Uses released images; `/publish` is not a prerequisite. Never set `GIT_PR_NUMBER` for a nightly job: PR mode takes precedence over nightly mode. | `/test <job>` using the exact nightly context after `ci/prow/`. |
 | `E2E Code Quality` (`gha_check`) | `bash scripts/e2e-code-quality.sh <workspace>` (add `--fix` to autofix lint/prettier). From the workspace: `cd workspaces/<workspace>/e2e-tests && yarn install --immutable --mode=skip-build && yarn lint:check && yarn prettier:check && yarn tsc:check`. | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run; pushing the fix re-triggers it. |
-| `appConfigExamples coverage` (`gha_check`) | `cd scripts && vp exec validate-app-config-examples --workspace <workspace> --check-plugin-paths --allow-unpublished` (use `--since <base-sha> --check-schemas --check-plugin-paths --allow-unpublished` with the PR's base tip, as CI does, for the PR-scoped check). | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run. |
+| `appConfigExamples coverage` (`gha_check`) | `cd scripts && vp exec validate-app-config-examples --workspace <workspace> --check-plugin-paths --check-schemas --allow-unpublished` (use `--since <base-sha> --check-schemas --check-plugin-paths --allow-unpublished` with the PR's base tip, as CI does, for the PR-scoped check). | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run. |
 | `Python unit tests` (`gha_check`) | `pip install -r scripts/requirements-dev.txt && cd scripts && python -m pytest tests/ -v` (append `-k <test>` to focus). | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run. |
 | `smoke` — Native Smoke Harness (`gha_check`) | Match the failing step: `cd smoke-tests-native && yarn install --immutable && yarn test` for the unit-test step; `yarn smoke --workspace <workspace>` for the harness step (needs `skopeo`). | `gh run rerun <run-id> --repo <REPO> --failed`, or "Re-run failed jobs" in the Actions run. |
 | `publish` (`status`) | — no local equivalent (it builds and pushes this PR's OCI images). | `/publish` |
@@ -629,8 +629,8 @@ change itself, not a description of it:
   Optional display fields may be omitted when the schema permits. Name the workspace coverage command as
   the fix agent's verification step (`cd scripts && vp exec
   validate-app-config-examples --workspace <workspace> --check-plugin-paths
-  --allow-unpublished`); the fix sandbox has registry access, this one does
-  not. A field list, or telling the fix agent to look up a value, is not a
+  --check-schemas --allow-unpublished`); the fix sandbox has registry access,
+  this one does not. A field list, or telling the fix agent to look up a value, is not a
   diff: if a required field or the app-config example cannot be sourced, use
   `needs_human` instead. Never put placeholders, TODO markers, or guessed
   metadata in an executable fix.
