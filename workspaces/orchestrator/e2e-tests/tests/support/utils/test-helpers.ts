@@ -4,13 +4,13 @@ import {
   Browser,
   TestInfo,
   Page,
+  request,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   setupBrowser,
   LoginHelper,
   UIhelper,
   AuthApiHelper,
-  APIHelper,
   RbacApiHelper,
   Policy,
   Response,
@@ -165,8 +165,10 @@ const BASELINE_POLICY_SPECS: PolicySpec[] = [
   },
   { permission: "catalog-entity", policy: "read", effect: "allow" },
   { permission: "catalog.entity.create", policy: "create", effect: "allow" },
+  { permission: "catalog.entity.delete", policy: "delete", effect: "allow" },
   { permission: "catalog.location.read", policy: "read", effect: "allow" },
   { permission: "catalog.location.create", policy: "create", effect: "allow" },
+  { permission: "catalog.location.delete", policy: "delete", effect: "allow" },
   {
     permission: "scaffolder.action.execute",
     policy: "use",
@@ -347,15 +349,36 @@ export async function removeBaselineRole(
 // Catalog cleanup
 // ---------------------------------------------------------------------------
 
-export async function cleanupGreetingComponentEntity(): Promise<void> {
+export async function cleanupGreetingComponentEntity(
+  apiToken: string,
+): Promise<void> {
+  const context = await request.newContext({
+    extraHTTPHeaders: { Authorization: `Bearer ${apiToken}` },
+  });
   try {
-    const locationId = await APIHelper.getLocationIdByTarget(
-      GREETING_COMPONENT_LOCATION,
-    );
-    if (locationId) {
-      await APIHelper.deleteEntityLocationById(locationId);
+    const locationsUrl = `${process.env.RHDH_BASE_URL}/api/catalog/locations`;
+    const response = await context.get(locationsUrl);
+    if (!response.ok()) {
+      throw new Error(`Catalog location lookup failed: ${response.status()}`);
     }
-  } catch (e) {
-    console.warn("Cleanup of greeting-test-component location failed:", e);
+
+    const locations: unknown = await response.json();
+    if (!Array.isArray(locations)) {
+      throw new Error("Catalog location lookup returned an invalid response");
+    }
+    const locationId = (
+      locations as Array<{
+        data?: { id?: string; target?: string };
+      }>
+    ).find((location) => location.data?.target === GREETING_COMPONENT_LOCATION)
+      ?.data?.id;
+    if (!locationId) return;
+
+    const deletion = await context.delete(`${locationsUrl}/${locationId}`);
+    if (!deletion.ok()) {
+      throw new Error(`Catalog location deletion failed: ${deletion.status()}`);
+    }
+  } finally {
+    await context.dispose();
   }
 }

@@ -190,6 +190,11 @@ const TEMPLATE_PERMISSION_BASE_POLICIES = [
     effect: "allow" as const,
   },
   {
+    permission: "catalog.entity.delete",
+    policy: "delete",
+    effect: "allow" as const,
+  },
+  {
     permission: "catalog.location.read",
     policy: "read",
     effect: "allow" as const,
@@ -197,6 +202,11 @@ const TEMPLATE_PERMISSION_BASE_POLICIES = [
   {
     permission: "catalog.location.create",
     policy: "create",
+    effect: "allow" as const,
+  },
+  {
+    permission: "catalog.location.delete",
+    policy: "delete",
     effect: "allow" as const,
   },
   {
@@ -495,7 +505,7 @@ export function registerOrchestratorRbacTests(): void {
             browser,
             testInfo,
           ));
-          await cleanupGreetingComponentEntity();
+          await cleanupGreetingComponentEntity(apiToken);
           await createRoleWithPolicies(
             apiToken,
             scenario.roleName,
@@ -505,8 +515,11 @@ export function registerOrchestratorRbacTests(): void {
         });
 
         test.afterAll(async () => {
-          await cleanupGreetingComponentEntity();
-          await deleteRoleAndPolicies(apiToken, scenario.roleName);
+          try {
+            await cleanupGreetingComponentEntity(apiToken);
+          } finally {
+            await deleteRoleAndPolicies(apiToken, scenario.roleName);
+          }
         });
 
         test(`Validate ${scenario.id} behavior`, async ({}) => {
@@ -522,7 +535,15 @@ export function registerOrchestratorRbacTests(): void {
               .click();
             await orchestratorPo.fillGreetingTemplateFormAndSubmit();
             // eslint-disable-next-line playwright/no-conditional-expect
-            await expect(page.getByText(/unauthorized/i)).toBeVisible({
+            await expect(
+              page.getByText(/Beginning step runWorkflow/),
+            ).toBeVisible({
+              timeout: 120_000,
+            });
+            // eslint-disable-next-line playwright/no-conditional-expect
+            await expect(
+              page.getByText(/NotAllowedError: Unauthorized/),
+            ).toBeVisible({
               timeout: 120_000,
             });
           } else {
