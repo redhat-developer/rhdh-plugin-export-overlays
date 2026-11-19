@@ -484,14 +484,14 @@ export function registerOrchestratorRbacTests(): void {
             await expect(page.getByText(/unauthorized/i)).toBeVisible({
               timeout: 120_000,
             });
-            return;
+          } else {
+            await runGreetingTemplateAndWaitForScaffolderTerminal(
+              page,
+              uiHelper,
+              scenario.terminalTimeoutsMs,
+            );
           }
 
-          await runGreetingTemplateAndWaitForScaffolderTerminal(
-            page,
-            uiHelper,
-            scenario.terminalTimeoutsMs,
-          );
           await orchestratorPo.openOrchestratorFromSidebar();
           await assertTemplatePermissionScenarioOutcome(
             page,
