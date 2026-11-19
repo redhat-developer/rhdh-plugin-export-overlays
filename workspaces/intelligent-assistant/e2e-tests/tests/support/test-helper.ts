@@ -29,8 +29,13 @@ function isMcpNightlyDisabled(): boolean {
 }
 
 function dynamicPluginsFile(): string {
-  if (isNightlyMode() && isMcpNightlyDisabled()) {
-    return "tests/config/dynamic-plugins-nightly.yaml";
+  if (isNightlyMode()) {
+    if (process.env.INSTALLATION_METHOD === "operator") {
+      return "tests/config/dynamic-plugins-operator.yaml";
+    }
+    if (isMcpNightlyDisabled()) {
+      return "tests/config/dynamic-plugins-nightly.yaml";
+    }
   }
   return "tests/config/dynamic-plugins-mcp.yaml";
 }
