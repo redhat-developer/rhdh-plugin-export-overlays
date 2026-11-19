@@ -7,6 +7,7 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
+  TEMPLATE_PERMISSION_BASE_POLICIES,
   removeBaselineRole,
   setupAuthenticatedPage,
   deleteRoleAndPolicies,
@@ -181,50 +182,6 @@ type TemplatePermissionScenario = {
   terminalTimeoutsMs: number[];
   testTimeoutMs: number;
 };
-
-const TEMPLATE_PERMISSION_BASE_POLICIES = [
-  { permission: "catalog-entity", policy: "read", effect: "allow" as const },
-  {
-    permission: "catalog.entity.create",
-    policy: "create",
-    effect: "allow" as const,
-  },
-  {
-    permission: "catalog.entity.delete",
-    policy: "delete",
-    effect: "allow" as const,
-  },
-  {
-    permission: "catalog.location.read",
-    policy: "read",
-    effect: "allow" as const,
-  },
-  {
-    permission: "catalog.location.create",
-    policy: "create",
-    effect: "allow" as const,
-  },
-  {
-    permission: "catalog.location.delete",
-    policy: "delete",
-    effect: "allow" as const,
-  },
-  {
-    permission: "scaffolder.action.execute",
-    policy: "use",
-    effect: "allow" as const,
-  },
-  {
-    permission: "scaffolder.task.create",
-    policy: "create",
-    effect: "allow" as const,
-  },
-  {
-    permission: "scaffolder.task.read",
-    policy: "read",
-    effect: "allow" as const,
-  },
-];
 
 const TEMPLATE_PERMISSION_SCENARIOS: TemplatePermissionScenario[] = [
   {

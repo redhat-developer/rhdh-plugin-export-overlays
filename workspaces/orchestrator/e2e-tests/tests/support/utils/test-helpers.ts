@@ -51,7 +51,7 @@ const GREETING_COMPONENT_LOCATION =
 export type PolicySpec = {
   permission: string;
   policy: string;
-  effect: string;
+  effect: "allow" | "deny";
 };
 
 export function globalWorkflowPolicies(
@@ -156,13 +156,7 @@ export async function verifyRoleWithPolicies(
   }
 }
 
-const BASELINE_POLICY_SPECS: PolicySpec[] = [
-  { permission: "orchestrator.workflow", policy: "read", effect: "allow" },
-  {
-    permission: "orchestrator.workflow.use",
-    policy: "update",
-    effect: "allow",
-  },
+export const TEMPLATE_PERMISSION_BASE_POLICIES: PolicySpec[] = [
   { permission: "catalog-entity", policy: "read", effect: "allow" },
   { permission: "catalog.entity.create", policy: "create", effect: "allow" },
   { permission: "catalog.entity.delete", policy: "delete", effect: "allow" },
@@ -176,6 +170,16 @@ const BASELINE_POLICY_SPECS: PolicySpec[] = [
   },
   { permission: "scaffolder.task.create", policy: "create", effect: "allow" },
   { permission: "scaffolder.task.read", policy: "read", effect: "allow" },
+];
+
+const BASELINE_POLICY_SPECS: PolicySpec[] = [
+  { permission: "orchestrator.workflow", policy: "read", effect: "allow" },
+  {
+    permission: "orchestrator.workflow.use",
+    policy: "update",
+    effect: "allow",
+  },
+  ...TEMPLATE_PERMISSION_BASE_POLICIES,
   {
     permission: "scaffolder.template.parameter.read",
     policy: "read",
@@ -364,7 +368,9 @@ export async function cleanupGreetingComponentEntity(
 
     const locations: unknown = await response.json();
     if (!Array.isArray(locations)) {
-      throw new Error("Catalog location lookup returned an invalid response");
+      throw new TypeError(
+        "Catalog location lookup returned an invalid response",
+      );
     }
     const locationId = (
       locations as Array<{
