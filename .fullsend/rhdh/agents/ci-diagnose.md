@@ -606,6 +606,10 @@ change itself, not a description of it:
   fixes the failure. Every non-obvious value must trace to quoted primary
   evidence or a named source with path and commit SHA (configuration/schema,
   sibling metadata, or the base branch); a plausible value is not evidence.
+  Before working around an external failure (registry 404, upstream outage),
+  check that it is current by querying the registry or upstream API; an old
+  log line does not prove a package was removed, and moving a pinned ref
+  changes the shipped plugin version.
 - For mechanical fixes (Prettier/ESLint `--fix`), show the fix command
   instead of hand-writing a diff; for multi-file fixes, use one hunk per file
   in the same diff block.
@@ -623,8 +627,10 @@ change itself, not a description of it:
   the fix agent's verification step (`cd scripts && vp exec
   validate-app-config-examples --workspace <workspace> --check-plugin-paths
   --allow-unpublished`); the fix sandbox has registry access, this one does
-  not. Never put placeholders, TODO markers, or guessed metadata in an
-  executable fix.
+  not. A field list, or telling the fix agent to look up a value, is not a
+  diff: if a required field or the app-config example cannot be sourced, use
+  `needs_human` instead. Never put placeholders, TODO markers, or guessed
+  metadata in an executable fix.
 
 **Remediation guidelines (`pr_regression`, `pre_existing`, `flake`).** These
 three are actionable, and the schema rejects a missing or empty `suggestion`
