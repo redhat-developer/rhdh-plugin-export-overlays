@@ -80,7 +80,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 4096,
-          "description": "Concrete next step (specific file/line to change, or 're-run — transient', or 'not this PR')."
+          "description": "Remediation for this check. For `pr_regression`, this plus `root_cause` is the fix agent's whole input: give a unified diff or an exact file:line edit, plus the command that verifies it."
         },
         "log_url": {
           "type": "string",
