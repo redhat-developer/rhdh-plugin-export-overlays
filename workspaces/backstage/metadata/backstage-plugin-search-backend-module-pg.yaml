@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-search-backend-module-pg
+  namespace: rhdh
+  title: 'Search Backend Module PG'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/search-backend-module-pg
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/search-backend-module-pg
+  tags: []
+spec:
+  packageName: '@backstage/plugin-search-backend-module-pg'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-search-backend-module-pg:bs_1.54.9__0.5.58!backstage-plugin-search-backend-module-pg
+  version: 0.5.58
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.9
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - search
+  appConfigNotRequired: true
+  appConfigExamples: []

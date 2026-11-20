@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-user-settings-backend
+  namespace: rhdh
+  title: 'User Settings Backend'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/user-settings-backend
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/user-settings-backend
+  tags: []
+spec:
+  packageName: '@backstage/plugin-user-settings-backend'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-user-settings-backend:bs_1.54.9__0.4.6!backstage-plugin-user-settings-backend
+  version: 0.4.6
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.54.9
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - user-settings
+  appConfigNotRequired: true
+  appConfigExamples: []
