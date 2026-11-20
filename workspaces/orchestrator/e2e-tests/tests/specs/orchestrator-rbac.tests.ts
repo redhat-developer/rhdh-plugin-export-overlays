@@ -170,71 +170,103 @@ export async function loginAsKeycloakUserWithRetry(
   throw lastError;
 }
 
-type TemplatePermissionScenario = {
-  id: "RHIDP-11839" | "RHIDP-11840";
-  name: string;
-  roleName: string;
-  orchestratorWorkflowEffect: "allow" | "deny";
-  orchestratorWorkflowUseEffect: "allow" | "deny";
-  expectWorkflowVisible: boolean;
-  expectRunState: "enabled" | "absent";
-  testTimeoutMs: number;
-};
+function registerTemplatePermissionRole(
+  roleName: string,
+  effect: "allow" | "deny",
+) {
+  let page: Page;
+  let uiHelper: UIhelper;
+  let apiToken: string;
 
-const TEMPLATE_PERMISSION_SCENARIOS: TemplatePermissionScenario[] = [
-  {
-    id: "RHIDP-11839",
-    name: "Template run WITHOUT workflow permissions",
-    roleName: "role:default/catalogSuperuserNoWorkflowTest",
-    orchestratorWorkflowEffect: "deny",
-    orchestratorWorkflowUseEffect: "deny",
-    expectWorkflowVisible: false,
-    expectRunState: "absent",
-    testTimeoutMs: 180_000,
-  },
-  {
-    id: "RHIDP-11840",
-    name: "Template run WITH workflow permissions",
-    roleName: "role:default/catalogSuperuserWithWorkflowTest",
-    orchestratorWorkflowEffect: "allow",
-    orchestratorWorkflowUseEffect: "allow",
-    expectWorkflowVisible: true,
-    expectRunState: "enabled",
-    testTimeoutMs: 240_000,
-  },
-];
+  test.beforeAll(async ({ browser }, testInfo) => {
+    ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
+      browser,
+      testInfo,
+    ));
+    await cleanupGreetingComponentEntity(apiToken);
+    await createRoleWithPolicies(
+      apiToken,
+      roleName,
+      [PRIMARY_USER],
+      [
+        ...TEMPLATE_PERMISSION_BASE_POLICIES,
+        { permission: "orchestrator.workflow", policy: "read", effect },
+        { permission: "orchestrator.workflow.use", policy: "update", effect },
+      ],
+    );
+  });
 
-function buildTemplatePermissionPolicies(
-  scenario: TemplatePermissionScenario,
-): Array<{ permission: string; policy: string; effect: "allow" | "deny" }> {
-  return [
-    ...TEMPLATE_PERMISSION_BASE_POLICIES,
-    {
-      permission: "orchestrator.workflow",
-      policy: "read",
-      effect: scenario.orchestratorWorkflowEffect,
-    },
-    {
-      permission: "orchestrator.workflow.use",
-      policy: "update",
-      effect: scenario.orchestratorWorkflowUseEffect,
-    },
-  ];
+  test.afterAll(async () => {
+    try {
+      await cleanupGreetingComponentEntity(apiToken);
+    } finally {
+      await deleteRoleAndPolicies(apiToken, roleName);
+    }
+  });
+
+  return () => ({
+    page,
+    orchestratorPo: new OrchestratorPO(page, uiHelper),
+    apiToken,
+  });
 }
 
-async function assertTemplatePermissionScenarioOutcome(
+async function expectGreetingWorkflowDenied(
   page: Page,
-  orchestratorPo: OrchestratorPO,
-  scenario: TemplatePermissionScenario,
+  apiToken: string,
 ): Promise<void> {
-  if (!scenario.expectWorkflowVisible) {
-    await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
-    return;
-  }
-
-  await orchestratorPo.openWorkflow(/Greeting workflow/i);
-  await orchestratorPo.verifyRunButtonState(scenario.expectRunState);
-  await expect(page).toHaveURL(/\/orchestrator/);
+  await page.waitForURL(/\/create\/tasks\/[a-f0-9-]+$/i, {
+    timeout: 30_000,
+  });
+  const taskId = new URL(page.url()).pathname.split("/").at(-1);
+  const eventsUrl = new URL(
+    `/api/scaffolder/v2/tasks/${taskId}/events`,
+    process.env.RHDH_BASE_URL,
+  );
+  let events: unknown;
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(eventsUrl.href, {
+          headers: { Authorization: `Bearer ${apiToken}` },
+        });
+        try {
+          if (!response.ok()) {
+            throw new Error(
+              `Scaffolder task events request failed: ${response.status()}`,
+            );
+          }
+          events = await response.json();
+          return events;
+        } finally {
+          await response.dispose();
+        }
+      },
+      { timeout: 120_000 },
+    )
+    .toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: "completion" })]),
+    );
+  expect(events).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        type: "log",
+        body: expect.objectContaining({
+          stepId: "runWorkflow",
+          status: "failed",
+        }),
+      }),
+      expect.objectContaining({
+        type: "completion",
+        body: expect.objectContaining({
+          error: {
+            name: "NotAllowedError",
+            message: "Unauthorized",
+          },
+        }),
+      }),
+    ]),
+  );
 }
 
 export function registerOrchestratorRbacTests(): void {
@@ -421,123 +453,52 @@ export function registerOrchestratorRbacTests(): void {
       });
     });
 
-    for (const scenario of TEMPLATE_PERMISSION_SCENARIOS) {
-      test.describe(`${scenario.id}: ${scenario.name}`, () => {
-        let uiHelper: UIhelper;
-        let page: Page;
-        let apiToken: string;
+    test.describe("RHIDP-11839: Template run WITHOUT workflow permissions", () => {
+      const getSession = registerTemplatePermissionRole(
+        "role:default/catalogSuperuserNoWorkflowTest",
+        "deny",
+      );
 
-        test.beforeAll(async ({ browser }, testInfo) => {
-          ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-            browser,
-            testInfo,
-          ));
-          await cleanupGreetingComponentEntity(apiToken);
-          await createRoleWithPolicies(
-            apiToken,
-            scenario.roleName,
-            [PRIMARY_USER],
-            buildTemplatePermissionPolicies(scenario),
-          );
-        });
+      test("Validate RHIDP-11839 behavior", async ({}) => {
+        test.setTimeout(180_000);
+        const { page, orchestratorPo, apiToken } = getSession();
+        await orchestratorPo.openGreetingTemplateFromCatalog();
+        await page
+          .getByRole("link", { name: "Launch Template" })
+          .or(page.getByRole("button", { name: "Launch Template" }))
+          .click();
+        await page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
+        await orchestratorPo.fillGreetingTemplateFormAndSubmit();
+        await expectGreetingWorkflowDenied(page, apiToken);
 
-        test.afterAll(async () => {
-          try {
-            await cleanupGreetingComponentEntity(apiToken);
-          } finally {
-            await deleteRoleAndPolicies(apiToken, scenario.roleName);
-          }
-        });
-
-        test(`Validate ${scenario.id} behavior`, async ({}) => {
-          test.setTimeout(scenario.testTimeoutMs);
-          const orchestratorPo = new OrchestratorPO(page, uiHelper);
-
-          // eslint-disable-next-line playwright/no-conditional-in-test
-          if (scenario.id === "RHIDP-11839") {
-            await orchestratorPo.openGreetingTemplateFromCatalog();
-            await page
-              .getByRole("link", { name: "Launch Template" })
-              .or(page.getByRole("button", { name: "Launch Template" }))
-              .click();
-            await page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
-            await orchestratorPo.fillGreetingTemplateFormAndSubmit();
-            await page.waitForURL(/\/create\/tasks\/[a-f0-9-]+$/i, {
-              timeout: 30_000,
-            });
-            const taskId = new URL(page.url()).pathname.split("/").at(-1);
-            const eventsUrl = new URL(
-              `/api/scaffolder/v2/tasks/${taskId}/events`,
-              process.env.RHDH_BASE_URL,
-            );
-            let events: unknown;
-            // eslint-disable-next-line playwright/no-conditional-expect
-            await expect
-              .poll(
-                async () => {
-                  const response = await page.request.get(eventsUrl.href, {
-                    headers: { Authorization: `Bearer ${apiToken}` },
-                  });
-                  try {
-                    if (!response.ok()) {
-                      throw new Error(
-                        `Scaffolder task events request failed: ${response.status()}`,
-                      );
-                    }
-                    events = await response.json();
-                    return events;
-                  } finally {
-                    await response.dispose();
-                  }
-                },
-                { timeout: 120_000 },
-              )
-              .toEqual(
-                expect.arrayContaining([
-                  expect.objectContaining({ type: "completion" }),
-                ]),
-              );
-            // eslint-disable-next-line playwright/no-conditional-expect
-            expect(events).toEqual(
-              expect.arrayContaining([
-                expect.objectContaining({
-                  type: "log",
-                  body: expect.objectContaining({
-                    stepId: "runWorkflow",
-                    status: "failed",
-                  }),
-                }),
-                expect.objectContaining({
-                  type: "completion",
-                  body: expect.objectContaining({
-                    error: {
-                      name: "NotAllowedError",
-                      message: "Unauthorized",
-                    },
-                  }),
-                }),
-              ]),
-            );
-          } else {
-            await orchestratorPo.openGreetingTemplateFromSelfService();
-            await orchestratorPo.fillGreetingTemplateFormAndSubmit();
-            // eslint-disable-next-line playwright/no-conditional-expect
-            await expect(
-              ORCHESTRATOR_COMPONENTS.openWorkflowRunLink(page),
-            ).toHaveAttribute("href", /\/greeting\/[a-f0-9-]+$/i, {
-              timeout: 120_000,
-            });
-          }
-
-          await orchestratorPo.openOrchestratorFromSidebar();
-          await assertTemplatePermissionScenarioOutcome(
-            page,
-            orchestratorPo,
-            scenario,
-          );
-          await expect(page).toHaveURL(/\/orchestrator/);
-        });
+        await orchestratorPo.openOrchestratorFromSidebar();
+        await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
+        await expect(page).toHaveURL(/\/orchestrator/);
       });
-    }
+    });
+
+    test.describe("RHIDP-11840: Template run WITH workflow permissions", () => {
+      const getSession = registerTemplatePermissionRole(
+        "role:default/catalogSuperuserWithWorkflowTest",
+        "allow",
+      );
+
+      test("Validate RHIDP-11840 behavior", async ({}) => {
+        test.setTimeout(240_000);
+        const { page, orchestratorPo } = getSession();
+        await orchestratorPo.openGreetingTemplateFromSelfService();
+        await orchestratorPo.fillGreetingTemplateFormAndSubmit();
+        await expect(
+          ORCHESTRATOR_COMPONENTS.openWorkflowRunLink(page),
+        ).toHaveAttribute("href", /\/greeting\/[a-f0-9-]+$/i, {
+          timeout: 120_000,
+        });
+
+        await orchestratorPo.openOrchestratorFromSidebar();
+        await orchestratorPo.openWorkflow(/Greeting workflow/i);
+        await orchestratorPo.verifyRunButtonState("enabled");
+        await expect(page).toHaveURL(/\/orchestrator/);
+      });
+    });
   });
 }
