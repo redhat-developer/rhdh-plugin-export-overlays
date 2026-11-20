@@ -54,6 +54,12 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/openssl-pqc-https\.spec\.ts/,
     },
     {
+      // Namespace is the project name. The Helm route label is
+      // redhat-developer-hub-<namespace> and must stay within 63 characters.
+      name: "backstage-notif-email-pqc-ml-kem",
+      testMatch: /tests\/specs\/notifications-email-pqc\.spec\.ts/,
+    },
+    {
       name: "backstage-signals",
       testMatch: /tests\/specs\/signals\.spec\.ts/,
     },

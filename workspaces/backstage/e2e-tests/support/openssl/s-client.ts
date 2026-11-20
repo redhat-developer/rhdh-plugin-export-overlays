@@ -115,18 +115,25 @@ export function resolvedKeyExchangeGroup(
 }
 
 /**
- * Run openssl s_client inside the RHDH hub container against the httpd Service
- * (east-west TLS terminated by the pod's OpenSSL / mod_ssl).
+ * Run openssl s_client inside the RHDH hub container.
+ * Immediate TLS matches the httpd peer. SMTP peers need starttls "smtp".
  */
 export function runOpensslSClientFromRhdhPod(options: {
   namespace: string;
   host: string;
   group: TlsGroup;
   port?: number;
+  starttls?: "smtp";
 }): OpensslSClientResult {
-  const { namespace, host, group, port = PQ_HTTPD_HTTPS_PORT } = options;
+  const {
+    namespace,
+    host,
+    group,
+    port = PQ_HTTPD_HTTPS_PORT,
+    starttls,
+  } = options;
 
-  // Self-signed httpd cert: tolerate non-zero openssl exit (verify code).
+  // Self-signed peer cert: tolerate non-zero openssl exit (verify code).
   // Assertions use Protocol / Negotiated group / handshake errors.
   // Quote host/port so the sh -c trust boundary is explicit (host is
   // namespace-derived Service DNS today; Kubernetes name rules keep it safe).
@@ -135,7 +142,10 @@ export function runOpensslSClientFromRhdhPod(options: {
     `-connect "${host}:${port}"`,
     `-servername "${host}"`,
     `-groups ${group}`,
-  ].join(" ");
+    starttls ? `-starttls ${starttls}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   try {
     // Include pod lookup so oc stderr surfaces in tlsInfo.raw on failure.
