@@ -1,0 +1,90 @@
+diff --git a/plugins/rbac-backend/src/plugin.ts b/plugins/rbac-backend/src/plugin.ts
+index bc2eb1e3a..bdf81f6f8 100644
+--- a/plugins/rbac-backend/src/plugin.ts
++++ b/plugins/rbac-backend/src/plugin.ts
+@@ -16,6 +16,8 @@
+ import {
+   coreServices,
+   createBackendModule,
++  createServiceFactory,
++  createServiceRef,
+ } from '@backstage/backend-plugin-api';
+ import {
+   PluginIdProvider,
+@@ -29,6 +31,19 @@ import { policyExtensionPoint } from '@backstage/plugin-permission-node/alpha';
+ 
+ import { PolicyBuilder } from './service/policy-builder';
+ 
++const dynamicPluginsServiceRef = createServiceRef<any>({
++  id: 'core.dynamicplugins',
++  scope: 'root',
++  defaultFactory: async service =>
++    createServiceFactory({
++      service,
++      deps: {},
++      factory: () => ({
++        availablePackages: [],
++      }),
++    }),
++});
++
+ /**
+  * @public
+  * RBAC plugin
+@@ -77,6 +92,7 @@ export const rbacPlugin = createBackendModule({
+         lifecycle: coreServices.lifecycle,
+         permissionsRegistry: coreServices.permissionsRegistry,
+         policy: policyExtensionPoint,
++        dynamicPlugins: dynamicPluginsServiceRef,
+       },
+       async init({
+         http,
+@@ -91,7 +107,32 @@ export const rbacPlugin = createBackendModule({
+         lifecycle,
+         permissionsRegistry: permissionsRegistry,
+         policy,
++        dynamicPlugins,
+       }) {
++        const getDynamicPluginIds = (): string[] => {
++          try {
++            const pkgs = (dynamicPlugins as any)?.availablePackages ?? [];
++            return pkgs
++              .filter(
++                (p: any) => p.manifest?.backstage?.role === 'backend-plugin',
++              )
++              .map((p: any) => {
++                if (p.manifest?.backstage?.pluginId) {
++                  return p.manifest.backstage.pluginId;
++                }
++                const removedPrefix = p.manifest.name.replace(
++                  /(^@[^\/]*\/(?:plugin-|backstage-plugin-)|^[^@/]*-plugin-)/,
++                  '',
++                );
++                return removedPrefix
++                  .replace(/-backend-dynamic$/, '')
++                  .replace(/-backend$/, '');
++              });
++          } catch {
++            return [];
++          }
++        };
++
+         http.use(
+           await PolicyBuilder.build(
+             {
+@@ -110,11 +151,12 @@ export const rbacPlugin = createBackendModule({
+             {
+               getPluginIds: () =>
+                 Array.from(
+-                  new Set(
+-                    pluginIdProviderExtensionPointImpl.pluginIdProviders.flatMap(
++                  new Set([
++                    ...getDynamicPluginIds(),
++                    ...pluginIdProviderExtensionPointImpl.pluginIdProviders.flatMap(
+                       p => p.getPluginIds(),
+                     ),
+-                  ),
++                  ]),
+                 ),
+             },
+             rbacProviders,
