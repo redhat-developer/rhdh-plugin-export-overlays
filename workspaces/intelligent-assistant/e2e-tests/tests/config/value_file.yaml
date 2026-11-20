@@ -28,16 +28,10 @@ appConfig:
         - scaffolder-mcp-extras
     auth:
       externalAccess:
-        - type: legacy
-          options:
-            secret: ${BACKEND_SECRET}
-            subject: legacy-default-config
         - type: static
           options:
             token: ${MCP_TOKEN}
             subject: mcp-clients
-      keys:
-        - secret: ${BACKEND_SECRET}
   mcpActions:
     namespacedToolNames: false
   intelligent-assistant:

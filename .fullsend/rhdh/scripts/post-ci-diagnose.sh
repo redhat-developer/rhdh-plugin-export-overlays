@@ -405,7 +405,7 @@ fi
 # The footer is appended here rather than in the agent prompt so it stays in
 # one place and the agent can focus on diagnosis content.
 if [[ "${STALE}" != "true" ]]; then
-  CI_DIAGNOSE_FOOTER='<sub>Automated CI diagnosis · runs once after all checks settle. For PRs opened by the code agent, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR or tracking issue when one already exists. The fix agent only runs on PRs branched from this repo, not forks. Take over with `/fs-fix` [this diagnosis]({{COMMENT_LINK}}) or `/fs-fix <instructions>`, stop with `/fs-fix-stop`.</sub>'
+  CI_DIAGNOSE_FOOTER='<sub>Automated CI diagnosis · see the verdict for failing or pending checks. For PRs opened by the code agent, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR or tracking issue when one already exists. The fix agent only runs on PRs branched from this repo, not forks. Take over with `/fs-fix` [this diagnosis]({{COMMENT_LINK}}) or `/fs-fix <instructions>`, stop with `/fs-fix-stop`.</sub>'
   # Insert footer before the state marker.
   state_marker="$(grep '<!-- ci-diagnose-state:' "${BODY_FILE}")"
   sed '/<!-- ci-diagnose-state:/d' "${BODY_FILE}" > "${BODY_FILE}.tmp"

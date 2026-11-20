@@ -1,0 +1,54 @@
+# HTTPS peer — TLS terminates in the httpd pod (UBI OpenSSL / mod_ssl on 8443),
+# not on an OpenShift Route. Clients use in-cluster Service DNS (east-west).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pq-httpd
+  labels:
+    app: pq-httpd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pq-httpd
+  template:
+    metadata:
+      labels:
+        app: pq-httpd
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: httpd
+          image: registry.access.redhat.com/ubi10/httpd-24:10.3-1793879148
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: https
+              containerPort: 8443
+          readinessProbe:
+            tcpSocket:
+              port: 8443
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: 50m
+              ephemeral-storage: 32Mi
+              memory: 64Mi
+            limits:
+              ephemeral-storage: 64Mi
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pq-httpd
+  labels:
+    app: pq-httpd
+spec:
+  selector:
+    app: pq-httpd
+  ports:
+    - name: https
+      protocol: TCP
+      port: 8443
+      targetPort: 8443
