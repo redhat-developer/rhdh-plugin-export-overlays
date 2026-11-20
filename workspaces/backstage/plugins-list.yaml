@@ -76,7 +76,7 @@ plugins/notifications-backend: --embed-package @backstage/plugin-signals-node
 plugins/notifications-backend-module-email: --embed-package @backstage/plugin-notifications-node
 plugins/notifications-backend-module-slack: --embed-package @backstage/plugin-notifications-node
 plugins/org:
-#plugins/permission-backend: ==> Added as a static plugin in RHDH
+plugins/permission-backend:
 #plugins/permission-backend-module-policy-allow-all: ==> Not meaningful for RHDH
 plugins/proxy-backend:
 #plugins/scaffolder: ==> Added as a static plugin in RHDH
