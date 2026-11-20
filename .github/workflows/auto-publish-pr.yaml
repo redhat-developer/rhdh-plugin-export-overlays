@@ -585,6 +585,7 @@ jobs:
 
             if (publishSuccess) {
               const [repoOwner, repoName] = core.getInput('overlay_repo').split('/');
+              let testsExist = false;
               try {
                 await github.rest.repos.getContent({
                   owner: repoOwner,
@@ -592,10 +593,37 @@ jobs:
                   path: `${core.getInput('workspace')}/e2e-tests/package.json`,
                   ref: core.getInput('overlay_branch'),
                 });
-                body += '\n\nRunning e2e tests\n/test e2e-ocp-helm';
-              } catch {
-                body += '\n\nNo E2E tests available for this workspace.';
+                testsExist = true;
+              } catch (error) {
+                if (error.status === 404) {
+                  body += '\n\nNo E2E tests available for this workspace.';
+                } else {
+                  core.warning(`Could not check for E2E tests: ${error.message}`);
+                  body += '\n\nCould not check E2E availability; no test requested.';
+                }
               }
+
+              if (testsExist) {
+                const historyUrl = `https://prow.ci.openshift.org/pr-history?org=${encodeURIComponent(context.repo.owner)}&repo=${encodeURIComponent(context.repo.repo)}&pr=${prNumber}`;
+                try {
+                  const pr = await github.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                  });
+                  if (pr.data.labels.some(label => label.name === 'needs-ok-to-test')) {
+                    body += '\n\n#### E2E tests\nNeeds `/ok-to-test`. A trusted member can run `/test e2e-ocp-helm`.';
+                  } else {
+                    body += '\n\n#### E2E tests\nRequesting E2E tests from Prow.\n/test e2e-ocp-helm';
+                  }
+                  body += `\n\n[PR test history](${historyUrl})`;
+                } catch (error) {
+                  core.warning(`Could not check PR labels: ${error.message}`);
+                  body += `\n\nCould not check PR test approval; no test requested. A trusted member can run \`/test e2e-ocp-helm\`. [PR test history](${historyUrl})`;
+                }
+              }
+            } else {
+              body += '\n\nE2E tests not requested: publish failed or skipped.';
             }
 
             await github.rest.issues.createComment({
