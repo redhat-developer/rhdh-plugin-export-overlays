@@ -23,9 +23,13 @@ function isNightlyMode(): boolean {
 }
 
 function dynamicPluginsFile(): string {
-  return isNightlyMode()
-    ? "tests/config/dynamic-plugins-nightly.yaml"
-    : "tests/config/dynamic-plugins.yaml";
+  if (isNightlyMode()) {
+    if (process.env.INSTALLATION_METHOD === "operator") {
+      return "tests/config/dynamic-plugins-operator.yaml";
+    }
+    return "tests/config/dynamic-plugins-nightly.yaml";
+  }
+  return "tests/config/dynamic-plugins-mcp.yaml";
 }
 
 function lightspeedDeployConfig() {
@@ -42,6 +46,23 @@ function lightspeedDeployConfig() {
 type LightspeedStackConfig = {
   inference?: {
     providers?: Array<Record<string, unknown>>;
+  };
+};
+
+type BackstageCR = {
+  spec: {
+    application?: {
+      extraFiles?: {
+        configMaps?: [
+          {
+            name?: string;
+            key?: string;
+            mountPath?: string;
+            containers?: string[];
+          },
+        ];
+      };
+    };
   };
 };
 
@@ -104,7 +125,47 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
 
   const tmp = path.join(os.tmpdir(), `${ns}-lightspeed-stack.yaml`);
   fs.writeFileSync(tmp, yaml.dump(config));
-  await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, dataKey);
+
+  if (isOperator) {
+    const newConfigMap = `${cm}-test`;
+    await rhdh.k8sClient.createOrUpdateConfigMap(
+      newConfigMap,
+      ns,
+      tmp,
+      dataKey,
+    );
+
+    const extraFile = {
+      name: newConfigMap,
+      key: dataKey,
+      mountPath: "/app-root",
+      containers: ["lightspeed-core"],
+    };
+    const backstageName = "developer-hub";
+    const backstage = await $({
+      stdio: ["pipe", "pipe", "pipe"],
+    })`oc get backstage ${backstageName} -n ${ns} -o yaml`;
+    const backstageConfig = yaml.load(
+      backstage.buffer().toString(),
+    ) as BackstageCR;
+    if (!backstageConfig.spec.application) {
+      backstageConfig.spec.application = {};
+    }
+    if (!backstageConfig.spec.application.extraFiles) {
+      backstageConfig.spec.application.extraFiles = {};
+    }
+    if (!backstageConfig.spec.application.extraFiles.configMaps) {
+      backstageConfig.spec.application.extraFiles.configMaps = [extraFile];
+    } else {
+      backstageConfig.spec.application.extraFiles.configMaps.push(extraFile);
+    }
+    const tmpFile = path.join(os.tmpdir(), `${ns}-backstage.yaml`);
+    fs.writeFileSync(tmpFile, yaml.dump(backstageConfig));
+
+    await $`oc apply -f ${tmpFile}`;
+  } else {
+    await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, dataKey);
+  }
   const resource = isOperator
     ? "deployment/backstage-developer-hub"
     : "deployment/redhat-developer-hub";
