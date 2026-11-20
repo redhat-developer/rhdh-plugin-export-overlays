@@ -190,8 +190,7 @@ function registerTemplatePermissionRole(
       [PRIMARY_USER],
       [
         ...TEMPLATE_PERMISSION_BASE_POLICIES,
-        { permission: "orchestrator.workflow", policy: "read", effect },
-        { permission: "orchestrator.workflow.use", policy: "update", effect },
+        ...globalWorkflowPolicies(effect, effect),
       ],
     );
   });
@@ -494,8 +493,7 @@ export function registerOrchestratorRbacTests(): void {
           timeout: 120_000,
         });
 
-        await orchestratorPo.openOrchestratorFromSidebar();
-        await orchestratorPo.openWorkflow(/Greeting workflow/i);
+        await orchestratorPo.openGreetingWorkflowFromSidebar();
         await orchestratorPo.verifyRunButtonState("enabled");
         await expect(page).toHaveURL(/\/orchestrator/);
       });
