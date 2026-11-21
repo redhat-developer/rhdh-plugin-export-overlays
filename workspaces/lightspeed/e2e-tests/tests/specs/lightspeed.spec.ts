@@ -190,7 +190,6 @@ test.describe("Lightspeed UI", () => {
       await expect(page.locator("body")).toMatchAriaSnapshot(`
         - menu:
           - menuitem "gpt-4.1-mini"
-          - menuitem "gpt-4.1-nano"
           - menuitem "gpt-4o-mini"
           - menuitem "gpt-5.1"
           - menuitem "meta-llama-31-8b-quantizedw4a16"
