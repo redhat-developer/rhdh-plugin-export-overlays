@@ -469,23 +469,29 @@ export function registerOrchestratorRbacTests(): void {
         });
 
         test(`Validate ${scenario.id} behavior`, async ({}) => {
-          // product_bug RHIDP-11839: with scaffolder.* allowed but
-          // orchestrator.workflow + orchestrator.workflow.use denied, Self-service
-          // still renders Choose disabled on Greeting Test Picker (and Greeting
-          // workflow). RHIDP-11840 covers the same template when workflow perms
-          // are allowed.
-          test.skip(
-            scenario.id === "RHIDP-11839",
-            "RHIDP-11839: Choose stays disabled when orchestrator.workflow permissions are denied despite scaffolder template allows",
-          );
           test.setTimeout(scenario.testTimeoutMs);
           const orchestratorPo = createOrchestratorPO(page, uiHelper);
 
-          await runGreetingTemplateAndWaitForScaffolderTerminal(
-            page,
-            uiHelper,
-            scenario.terminalTimeoutsMs,
-          );
+          // eslint-disable-next-line playwright/no-conditional-in-test
+          if (scenario.id === "RHIDP-11839") {
+            await orchestratorPo.openGreetingTemplateFromCatalog();
+            await page
+              .getByRole("link", { name: "Launch Template" })
+              .or(page.getByRole("button", { name: "Launch Template" }))
+              .click();
+            await orchestratorPo.fillGreetingTemplateFormAndSubmit();
+            // eslint-disable-next-line playwright/no-conditional-expect
+            await expect(page.getByText(/unauthorized/i)).toBeVisible({
+              timeout: 120_000,
+            });
+          } else {
+            await runGreetingTemplateAndWaitForScaffolderTerminal(
+              page,
+              uiHelper,
+              scenario.terminalTimeoutsMs,
+            );
+          }
+
           await orchestratorPo.openOrchestratorFromSidebar();
           await assertTemplatePermissionScenarioOutcome(
             page,
