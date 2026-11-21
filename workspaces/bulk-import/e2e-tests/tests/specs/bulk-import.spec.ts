@@ -15,7 +15,7 @@ import {
 import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { CatalogEntityPO } from "../../support/pages/catalog-entity-po";
 import { defaultCatalogInfoYaml } from "../../support/test-data/catalog-info-yaml";
-import { signInForBulkImportTests } from "../../support/utils/auth";
+import { navigateToBulkImportPage } from "../../support/utils/auth";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
 import {
@@ -103,8 +103,8 @@ spec:
   });
 
   test.describe.serial("Bulk import plugin page", () => {
-    test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-      await signInForBulkImportTests(page, loginHelper, uiHelper);
+    test.beforeEach(async ({ loginHelper }) => {
+      await loginHelper.loginAsGithubUser();
     });
 
     test("Verify the Bulk import plugin page", async ({
@@ -112,6 +112,7 @@ spec:
       loginHelper,
       uiHelper,
     }) => {
+      await navigateToBulkImportPage(page, loginHelper, uiHelper);
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
       await loginHelper.checkAndClickOnGHloginPopup();
       await bulkImport.expectAccordionExpanded(true);
@@ -138,6 +139,7 @@ spec:
       loginHelper,
       uiHelper,
     }) => {
+      await navigateToBulkImportPage(page, loginHelper, uiHelper);
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
       await bulkImport.pollUntilRepoRowVisible(catalogRepoDetails.name, [
         REPO_STATUS_READY_TO_IMPORT,
@@ -160,6 +162,7 @@ spec:
       loginHelper,
       uiHelper,
     }) => {
+      await navigateToBulkImportPage(page, loginHelper, uiHelper);
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
       await bulkImport.pollUntilRepoRowVisible(
         newRepoDetails.repoName,

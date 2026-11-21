@@ -10,6 +10,17 @@ import {
   LOGIN_REQUIRED_LOG_IN_BUTTON,
 } from "../constants/bulk-import-selectors";
 
+/** Navigate to Bulk import page and dismiss the Login Required dialog if present. */
+export async function navigateToBulkImportPage(
+  page: Page,
+  loginHelper: LoginHelper,
+  uiHelper: UIhelper,
+): Promise<void> {
+  await uiHelper.openSidebar(BULK_IMPORT_HEADING);
+  await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
+  await uiHelper.verifyHeading(BULK_IMPORT_HEADING);
+}
+
 /** GitHub sign-in + Bulk import navigation for plugin tests. */
 export async function signInForBulkImportTests(
   page: Page,
@@ -17,9 +28,7 @@ export async function signInForBulkImportTests(
   uiHelper: UIhelper,
 ): Promise<void> {
   await loginHelper.loginAsGithubUser();
-  await uiHelper.openSidebar(BULK_IMPORT_HEADING);
-  await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
-  await uiHelper.verifyHeading(BULK_IMPORT_HEADING);
+  await navigateToBulkImportPage(page, loginHelper, uiHelper);
 }
 
 export async function signInAsGuestForPermissionTest(
