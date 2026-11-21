@@ -1,0 +1,33 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: kuadrant-backstage-plugin-backend
+  namespace: rhdh
+  title: Kuadrant Backend
+  links:
+    - url: https://kuadrant.io
+      title: Homepage
+    - url: https://github.com/Kuadrant/kuadrant-backstage-plugin/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/Kuadrant/kuadrant-backstage-plugin
+  annotations:
+    backstage.io/source-location: url:https://github.com/Kuadrant/kuadrant-backstage-plugin
+  tags:
+    - kubernetes
+    - gateway-api
+    - api-access
+spec:
+  packageName: '@kuadrant/kuadrant-backstage-plugin-backend'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/kuadrant-backstage-plugin-backend:bs_1.49.4__0.0.2-dev
+  version: 0.0.2-dev
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Kuadrant
+  support: community
+  lifecycle: active
+  partOf:
+    - kuadrant
+  appConfigNotRequired: true
+  appConfigExamples: []
