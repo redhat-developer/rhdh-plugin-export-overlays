@@ -29,6 +29,7 @@ export {
   prepareRhdhHelmRedeploy,
   runOc,
   logOrchestratorDeployFailureDiagnostics,
+  waitForWorkflowInDataIndex,
 } from "./workflow-deployment-helpers.js";
 export { patchHttpbin, cleanupAfterTest } from "./cluster-helpers.js";
 
