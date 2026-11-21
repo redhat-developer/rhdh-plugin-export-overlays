@@ -193,7 +193,9 @@ test.describe(
     ): Promise<void> {
       const config = loadAppConfigFromFile();
       const desiredResolvers = [
-        { resolver, dangerouslyAllowSignInWithoutUserInCatalog },
+        dangerouslyAllowSignInWithoutUserInCatalog
+          ? { resolver, dangerouslyAllowSignInWithoutUserInCatalog }
+          : { resolver },
       ];
       setNestedProperty(
         config,
