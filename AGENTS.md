@@ -75,6 +75,7 @@ On a PR, comment:
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
+| `close-obsolete-update-prs.yaml` | Weekly (Mon 08:00 UTC) + manual | Detects and closes obsolete plugin update PRs when newer versions exist on main or npm |
 | `publish-workspace-plugins.yaml` | Push to `main` / release branches | Publishes final OCI images, then smoke tests each workspace it just published against its new `bs_*` tag |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
 | `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
