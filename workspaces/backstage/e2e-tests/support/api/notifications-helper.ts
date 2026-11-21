@@ -26,6 +26,14 @@ function resolveCreateNotificationArgs(
   return { recipients: DEFAULT_RECIPIENTS, severity };
 }
 
+/** Maximum retries for transient connection errors (e.g. HAProxy dropping idle keep-alive). */
+const CREATE_NOTIFICATION_MAX_RETRIES = 2;
+
+function isTransientConnectionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("socket hang up") || message.includes("ECONNRESET");
+}
+
 export async function createNotification(
   notificationTitle: string,
   recipientsOrSeverity?: NotificationRecipients | string,
@@ -34,9 +42,6 @@ export async function createNotification(
   const { recipients, severity: resolvedSeverity } =
     resolveCreateNotificationArgs(recipientsOrSeverity, severity);
 
-  const notificationsApi = await RhdhNotificationsApi.build(
-    NOTIFICATIONS_API_TOKEN,
-  );
   const uniqueSuffix = crypto.randomUUID();
   const title = resolvedSeverity
     ? `${notificationTitle} ${resolvedSeverity}-${uniqueSuffix}`
@@ -55,11 +60,32 @@ export async function createNotification(
     },
   };
 
-  const response = await notificationsApi.createNotification(notification);
-  expect(
-    response.ok(),
-    `create notification failed (${response.status()}): ${await response.text()}`,
-  ).toBeTruthy();
+  for (let attempt = 0; attempt <= CREATE_NOTIFICATION_MAX_RETRIES; attempt++) {
+    const notificationsApi = await RhdhNotificationsApi.build(
+      NOTIFICATIONS_API_TOKEN,
+    );
 
-  return title;
+    try {
+      const response = await notificationsApi.createNotification(notification);
+      expect(
+        response.ok(),
+        `create notification failed (${response.status()}): ${await response.text()}`,
+      ).toBeTruthy();
+
+      return title;
+    } catch (error) {
+      if (
+        attempt < CREATE_NOTIFICATION_MAX_RETRIES &&
+        isTransientConnectionError(error)
+      ) {
+        // Stale persistent connection closed by remote (e.g. HAProxy).
+        // Rebuild the API instance to get a fresh connection.
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  // Unreachable — the loop either returns or throws.
+  throw new Error("createNotification: retry loop exited unexpectedly");
 }
