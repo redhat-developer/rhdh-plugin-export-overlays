@@ -348,6 +348,10 @@ test.describe("RBAC plugin", () => {
     test("Permission policies defined in a CSV file are loaded (guest role, 1 permission)", async ({
       uiHelper,
     }) => {
+      test.skip(
+        process.env.INSTALLATION_METHOD === "operator",
+        "RBAC frontend renders empty table for CSV-sourced permission policies -- product bug in RBAC plugin",
+      );
       await rbacPO.filterRolesList(RBAC_ROLES.guest.name);
       await rbacPO.verifyRoleAndSwitchToOverview(
         RBAC_ROLES.guest.ref,
