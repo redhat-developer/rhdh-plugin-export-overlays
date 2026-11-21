@@ -23,6 +23,11 @@ const SIGNALS_WRAPPER_DIST_NAMES: string[] = [
  * is covered by the notifications suite (useSignal('notifications')).
  */
 test.describe("Backstage Signals Plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

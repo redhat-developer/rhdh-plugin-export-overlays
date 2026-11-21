@@ -28,6 +28,11 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("RBAC plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let rbacPO: RbacPO;
   let apiToken: string;
 

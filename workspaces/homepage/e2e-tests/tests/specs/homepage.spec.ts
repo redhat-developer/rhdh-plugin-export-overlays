@@ -21,6 +21,11 @@ const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
 test.describe.serial("Dynamic home page customization", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;

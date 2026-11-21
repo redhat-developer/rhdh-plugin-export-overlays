@@ -7,6 +7,11 @@ const ENTITY_POLL_TIMEOUT_MS = 120_000;
 const ENTITY_POLL_INTERVAL_MS = 3_000;
 
 test.describe("Github Discovery Catalog", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {

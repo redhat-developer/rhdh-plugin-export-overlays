@@ -21,6 +21,11 @@ const CATALOG_TOKEN = "ldap-auth-e2e-token";
 test.describe.configure({ mode: "serial" });
 
 test.describe("LDAP auth provider", { tag: "@auth-tests" }, () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let openldap: OpenLDAPHelper;
   let baseUrl: string;
 

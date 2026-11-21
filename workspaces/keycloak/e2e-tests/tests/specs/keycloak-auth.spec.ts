@@ -33,6 +33,11 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
  * Frontend: NFS (app-next) + app-auth / app-integrations (rhdh-plugins#3183).
  */
 test.describe("Keycloak auth provider", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.describe.configure({ mode: "serial" });
   test.setTimeout(600_000);
 

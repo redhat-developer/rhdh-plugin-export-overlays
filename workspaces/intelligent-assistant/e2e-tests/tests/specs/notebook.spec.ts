@@ -33,6 +33,11 @@ function notebookFileNameParts(fileName: string): {
 }
 
 test.describe("Lightspeed notebooks", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
 
   let context: BrowserContext;

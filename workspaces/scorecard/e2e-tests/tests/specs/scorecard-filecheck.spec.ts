@@ -10,6 +10,11 @@ import {
 import { FILECHECK_METRICS } from "../utils/constants";
 
 test.describe.serial("Scorecard Filecheck Tests", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;

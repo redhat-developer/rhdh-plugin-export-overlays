@@ -23,6 +23,11 @@ const HOMEPAGE_WRAPPER_DIST_NAME =
 test.describe.configure({ mode: "serial" });
 
 test.describe("GitLab auth and org ingestion", { tag: "@auth-tests" }, () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let baseUrl: string;
   let oauthHelper: GitLabOAuthHelper;
   let oauthAppId: number | null = null;

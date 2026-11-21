@@ -11,6 +11,11 @@ import { KubernetesPage } from "../../support/pages/kubernetes";
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Kubernetes", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let kubernetesPage: KubernetesPage;
   let clusterName: string;
 

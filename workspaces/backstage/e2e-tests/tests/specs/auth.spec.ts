@@ -1,6 +1,11 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Auth plugin", { tag: "@auth-tests" }, () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

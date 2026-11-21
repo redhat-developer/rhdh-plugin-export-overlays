@@ -10,6 +10,11 @@ import { deployRhdh } from "../utils/setup";
 import { scorecardHelpers } from "../utils/scorecard";
 
 test.describe.serial("Scorecard permission", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
 

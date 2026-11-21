@@ -24,6 +24,11 @@ import {
 } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk Import plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}-${process.pid}`;
   const catalogRepoDetails = {
     name: catalogRepoName,

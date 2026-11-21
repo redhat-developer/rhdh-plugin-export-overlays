@@ -9,6 +9,11 @@ import {
 import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe.serial("GitLab Events - Discovery", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let testPrefix: string;
   let parentGroupPath: string;
   let parentGroupId: number;

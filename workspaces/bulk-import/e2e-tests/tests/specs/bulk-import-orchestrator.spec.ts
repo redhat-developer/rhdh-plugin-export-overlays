@@ -11,6 +11,11 @@ import {
 } from "../utils/workflow-deployment-helpers.js";
 
 test.describe("Bulk import tests orchestrator mode", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetailsForOrchestrator = {
     name: catalogRepoName,

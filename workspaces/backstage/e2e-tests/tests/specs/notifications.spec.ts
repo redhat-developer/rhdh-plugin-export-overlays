@@ -4,6 +4,11 @@ import * as path from "node:path";
 import { createNotification } from "../../support/api/notifications-helper";
 
 test.describe("Backstage Notifications Plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let notificationPage: NotificationPage;
 
   test.beforeAll(async ({ rhdh }) => {

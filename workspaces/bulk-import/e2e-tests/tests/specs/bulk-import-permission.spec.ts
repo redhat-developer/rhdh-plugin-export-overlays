@@ -8,6 +8,11 @@ import { setupBulkImportRhdh } from "../../support/utils/deploy";
 // deployment, not under the production-environment GitHub deployment the other
 // bulk-import tests share (rhdh-plugin-export-overlays guest-tile investigation).
 test.describe("Bulk Import permission", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce(
       `bulk-import-permission-setup-${rhdh.deploymentConfig.namespace}`,

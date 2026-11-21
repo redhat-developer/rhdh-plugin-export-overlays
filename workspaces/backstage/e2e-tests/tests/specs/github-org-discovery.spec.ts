@@ -2,6 +2,11 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("GitHub Integration Org", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   const verifyAppearanceInCatalog = async (
     uiHelper: UIhelper,
     kind: "Group" | "User",

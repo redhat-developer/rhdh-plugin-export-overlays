@@ -15,6 +15,11 @@ import type { ScorecardMetric } from "../utils/types";
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 
 test.describe.serial("Scorecard DORA Tests", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;

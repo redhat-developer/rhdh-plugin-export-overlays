@@ -22,6 +22,11 @@ async function getResourceType(page: Page): Promise<"ingress" | "route"> {
 }
 
 test.describe("Test Topology plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD === "operator",
+    "catalog-index image at registry.access.redhat.com/rhdh/plugin-catalog-index lacks required signature",
+  );
+
   const deploymentLocator = `[data-test-id="topology-test"]`;
 
   test.beforeAll(async ({ rhdh }) => {
