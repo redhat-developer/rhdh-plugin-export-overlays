@@ -15,6 +15,11 @@ import {
 } from "../utils/adoption-insights";
 
 test.describe.serial("Test Adoption Insights", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;

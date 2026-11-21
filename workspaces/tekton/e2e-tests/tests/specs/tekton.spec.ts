@@ -3,6 +3,11 @@ import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { TektonSupportHelper } from "../support/tekton-support-helper";
 
 test.describe("Test Tekton plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
 

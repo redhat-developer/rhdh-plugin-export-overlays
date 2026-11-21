@@ -15,6 +15,11 @@ import {
 import { CatalogUsersPO } from "../support/page-objects/catalog-users-obj";
 
 test.describe("Test Keycloak plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let keycloakHelper: KeycloakHelper;
   let keycloakRealm: string;
 

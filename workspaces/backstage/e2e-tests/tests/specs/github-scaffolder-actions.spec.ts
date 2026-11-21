@@ -49,6 +49,11 @@ async function issueHasLabel(
 }
 
 test.describe.serial("GitHub Scaffolder Actions", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let sharedState: GitHubScaffolderSharedState;
   let playwrightProjectName: string;
 

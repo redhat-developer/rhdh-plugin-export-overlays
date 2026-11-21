@@ -126,6 +126,11 @@ async function selectAvailableChatModel(page: Page): Promise<void> {
 }
 
 test.describe("Lightspeed UI", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
 
   let context: BrowserContext;

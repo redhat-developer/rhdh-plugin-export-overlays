@@ -10,6 +10,11 @@ import {
 import { FILECHECK_METRICS } from "../utils/constants";
 
 test.describe.serial("Scorecard Filecheck Tests", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;

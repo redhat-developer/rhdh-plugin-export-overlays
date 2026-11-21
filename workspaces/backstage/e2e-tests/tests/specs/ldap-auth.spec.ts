@@ -21,6 +21,11 @@ const CATALOG_TOKEN = "ldap-auth-e2e-token";
 test.describe.configure({ mode: "serial" });
 
 test.describe("LDAP auth provider", { tag: "@auth-tests" }, () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let openldap: OpenLDAPHelper;
   let baseUrl: string;
 

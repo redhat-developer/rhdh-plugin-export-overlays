@@ -2,6 +2,11 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("GitHub Integration Org", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   const verifyAppearanceInCatalog = async (
     uiHelper: UIhelper,
     kind: "Group" | "User",

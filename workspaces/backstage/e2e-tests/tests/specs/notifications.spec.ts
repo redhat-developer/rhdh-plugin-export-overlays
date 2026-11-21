@@ -4,6 +4,11 @@ import * as path from "node:path";
 import { createNotification } from "../../support/api/notifications-helper";
 
 test.describe("Backstage Notifications Plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let notificationPage: NotificationPage;
 
   test.beforeAll(async ({ rhdh }) => {

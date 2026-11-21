@@ -11,6 +11,11 @@ import { KubernetesPage } from "../../support/pages/kubernetes";
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Kubernetes", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let kubernetesPage: KubernetesPage;
   let clusterName: string;
 

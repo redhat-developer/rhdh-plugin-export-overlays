@@ -36,6 +36,11 @@ const SEGMENT_SETTINGS_RESPONSE = {
 /* eslint-enable @typescript-eslint/naming-convention */
 
 test.describe("Test Segment Analytics Plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "guest" });
     await rhdh.deploy();

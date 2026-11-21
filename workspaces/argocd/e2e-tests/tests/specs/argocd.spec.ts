@@ -16,6 +16,11 @@ const setupScript = path.join(
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Test ArgoCD plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
 

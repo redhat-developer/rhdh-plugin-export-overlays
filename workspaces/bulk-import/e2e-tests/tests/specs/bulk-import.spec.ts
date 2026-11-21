@@ -24,6 +24,11 @@ import {
 } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk Import plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}-${process.pid}`;
   const catalogRepoDetails = {
     name: catalogRepoName,

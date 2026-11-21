@@ -33,6 +33,11 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
  * Frontend: NFS (app-next) + app-auth / app-integrations (rhdh-plugins#3183).
  */
 test.describe("Keycloak auth provider", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.describe.configure({ mode: "serial" });
   test.setTimeout(600_000);
 

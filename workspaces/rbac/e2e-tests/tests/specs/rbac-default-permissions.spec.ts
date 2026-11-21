@@ -12,6 +12,11 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("Check default RBAC permissions", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let rbacPO: RbacPO;
   let apiToken: string;
 

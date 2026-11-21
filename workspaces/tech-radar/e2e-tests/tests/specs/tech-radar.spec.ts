@@ -8,6 +8,11 @@ const setupScript = path.join(
 );
 
 test.describe("Test tech-radar plugin", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
     // This skip can be removed once the tech-radar wrapper is removed.

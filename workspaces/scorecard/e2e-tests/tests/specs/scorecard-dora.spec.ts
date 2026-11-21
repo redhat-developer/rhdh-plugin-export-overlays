@@ -15,6 +15,11 @@ import type { ScorecardMetric } from "../utils/types";
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 
 test.describe.serial("Scorecard DORA Tests", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;

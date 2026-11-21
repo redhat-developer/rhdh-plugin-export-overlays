@@ -14,6 +14,11 @@ import {
 import { signInForScaffolderTemplateTests } from "../../support/utils/auth";
 
 test.describe.serial("Bulk Import via Scaffolder Template", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   const repositoryParametersGitHub: RepositoryParameters =
     defaultGitHubRepositoryParameters();
 

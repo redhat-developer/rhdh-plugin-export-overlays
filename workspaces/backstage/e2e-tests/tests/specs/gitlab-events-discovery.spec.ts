@@ -9,6 +9,11 @@ import {
 import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe.serial("GitLab Events - Discovery", () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   let testPrefix: string;
   let parentGroupPath: string;
   let parentGroupId: number;

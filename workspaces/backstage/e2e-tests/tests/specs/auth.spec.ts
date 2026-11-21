@@ -1,6 +1,11 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Auth plugin", { tag: "@auth-tests" }, () => {
+  test.skip(
+    process.env.INSTALLATION_METHOD !== "operator",
+    "registry.access.redhat.com OCI images fail signature verification in Helm deployments (#4707)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",
