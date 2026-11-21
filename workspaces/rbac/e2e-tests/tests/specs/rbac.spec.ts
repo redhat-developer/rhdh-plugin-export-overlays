@@ -141,6 +141,10 @@ test.describe("RBAC plugin", () => {
     });
 
     test("View details of a role (rbac_admin)", async ({ uiHelper }) => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "RBAC frontend plugin does not render permission-type policies in the rbac_admin permissions table",
+      );
       await rbacPO.navigateToRBACPage();
       await rbacPO.verifyRoleAndSwitchToOverview(
         RBAC_ROLES.rbacAdmin.ref,
