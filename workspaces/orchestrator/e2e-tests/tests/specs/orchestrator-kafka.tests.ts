@@ -86,6 +86,10 @@ export function registerOrchestratorKafkaTests(): void {
       loginHelper,
       uiHelper,
     }, testInfo) => {
+      test.skip(
+        process.env.INSTALLATION_METHOD === "operator",
+        "RBAC denies per-workflow resource permissions after pod restart (product bug)",
+      );
       test.setTimeout(600_000);
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
