@@ -3,20 +3,43 @@
 Validates the `appConfigExamples` carried by Package metadata under
 `workspaces/*/metadata/*.yaml`, and the plugin path of each `dynamicArtifact`.
 
-Four independent layers:
+Five independent layers:
 
-| Layer           | What it checks                                                                                                       | Jira        |
-| --------------- | -------------------------------------------------------------------------------------------------------------------- | ----------- |
-| Structural      | every Package has a non-empty first `appConfigExamples[].content`, or opts out via `spec.appConfigNotRequired: true` | RHIDP-12590 |
-| Semantic        | each example's content satisfies the plugin's own config schema                                                      | RHIDP-13509 |
-| Undeclared keys | within the subtrees a plugin's schema owns, every key is one it declares                                             | RHIDP-15902 |
-| Plugin paths    | each `dynamicArtifact` installs a plugin its image declares                                                          | RHIDP-17312 |
+| Layer           | What it checks                                                                                                       | Jira          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Structural      | every Package has a non-empty first `appConfigExamples[].content`, or opts out via `spec.appConfigNotRequired: true` | RHIDP-12590   |
+| Legacy Scalprum | no example wires `dynamicPlugins.frontend.*.dynamicRoutes` or `.mountPoints`, which the new frontend system ignores  | RHDHBUGS-4065 |
+| Semantic        | each example's content satisfies the plugin's own config schema                                                      | RHIDP-13509   |
+| Undeclared keys | within the subtrees a plugin's schema owns, every key is one it declares                                             | RHIDP-15902   |
+| Plugin paths    | each `dynamicArtifact` installs a plugin its image declares                                                          | RHIDP-17312   |
 
-The structural layer runs always and fails the run. The semantic layer is opt-in
+The structural layer runs always and fails the run. So does the legacy-Scalprum
+layer, which rides on it — see
+[Legacy Scalprum wiring](#legacy-scalprum-wiring). The semantic layer is opt-in
 via `--check-schemas` and fails unless `--warn-only`. The undeclared-key layer is
 opt-in via `--check-undeclared-keys` and only ever reports. The plugin-path layer
 is opt-in via `--check-plugin-paths` and fails the run; see
 [Plugin paths](#plugin-paths).
+
+## Legacy Scalprum wiring
+
+An example carrying `dynamicPlugins.frontend.<plugin>.dynamicRoutes` or
+`.mountPoints` is rejected. The new frontend system ignores both, so the example
+publishes dead wiring as the package's "Default configuration" — and
+`scripts/generateDynamicPluginsDefaultYaml.sh` copies that content into the
+generated dynamic-plugins file, so a deployer who trusts it copies configuration
+that does nothing. Replace the example with `spec.appConfigNotRequired: true` and
+`appConfigExamples: []`, or an NFS-shaped example that declares what the plugin
+actually needs.
+
+Only those two keys are rejected. `themes`, `entityTabs`,
+`translationResources`, `analyticsApiExtensions` and the other
+`dynamicPlugins.frontend` keys still carry working configuration, so rejecting
+the wrapper wholesale would fail nine correct packages.
+
+This exists because the cleanup does not stay done on its own: overlays#4359
+removed the blocks from 14 packages and automated workspace-update PRs, cut
+before it merged, re-added them (RHDHBUGS-4065).
 
 ## Usage
 

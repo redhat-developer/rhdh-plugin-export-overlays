@@ -26,18 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - notifications
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-notifications:
-              dynamicRoutes:
-                - importName: NotificationsPage
-                  menuItem:
-                    config:
-                      props:
-                        titleCounterEnabled: true
-                        webNotificationsEnabled: false
-                    importName: NotificationsSidebarItem
-                  path: /notifications
+  appConfigNotRequired: true
+  appConfigExamples: []
