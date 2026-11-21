@@ -157,15 +157,25 @@ export async function loginAsKeycloakUserWithRetry(
       lastError = error;
 
       // Fallback path: handle non-popup Keycloak auth flow directly in-page.
+      // When the popup fails to open, the browser may navigate the main page
+      // directly to the Keycloak auth URL. Check for the login form on the
+      // current page first — navigating to "/" would leave the Keycloak form
+      // and trigger a redirect loop where #username is never stable.
       try {
-        await page.goto("/");
-        await page.waitForLoadState("domcontentloaded");
         const userInput = page.locator("#username");
-        if (
-          await userInput.isVisible({
+        let formVisible = await userInput.isVisible({
+          timeout: KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS,
+        });
+
+        if (!formVisible) {
+          await page.goto("/");
+          await page.waitForLoadState("domcontentloaded");
+          formVisible = await userInput.isVisible({
             timeout: KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS,
-          })
-        ) {
+          });
+        }
+
+        if (formVisible) {
           await userInput.fill(resolvedUsername);
           await page.locator("#password").fill(resolvedPassword);
           await page.locator("#kc-login").click();
