@@ -10,6 +10,11 @@ import {
 import { FILECHECK_METRICS } from "../utils/constants";
 
 test.describe.serial("Scorecard Filecheck Tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "scorecard homepage widget not registered in NFS Add Widget dialog",
+  );
+
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;

@@ -15,6 +15,11 @@ import {
 } from "../utils/constants";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "scorecard homepage widget not registered in NFS Add Widget dialog",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;
