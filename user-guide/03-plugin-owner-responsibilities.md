@@ -138,7 +138,7 @@ Rather than following a fixed calendar cadence, watch for concrete signals that 
 2. Find a plugin release compatible with that version
 3. Update `repo-ref` and `repo-backstage-version` in `source.json`
 4. Update `supportedVersions` in metadata files
-5. Test with `/publish` and `/smoketest`, and run workspace E2E validation when available for that workspace
+5. Test with `/publish` (smoke tests and E2E validation run automatically when available for that workspace)
 
 See [01 - Getting Started: Testing Your Plugin](./01-getting-started.md#testing-your-plugin) for test workflow details.
 
@@ -173,7 +173,7 @@ When automated workflows fail on your workspace:
    - Integrity failure → Sync metadata
    - Test failure → Verify plugin loads correctly
 3. **Open a PR** with the fix
-4. **Validate** with `/publish` and `/smoketest` commands
+4. **Validate** with `/publish` (smoke tests run automatically after publish)
 
 ---
 
@@ -223,7 +223,7 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 ### Test Validation
 - [ ] PR created with updates
 - [ ] `/publish` completed successfully
-- [ ] `/smoketest` passed or manual testing completed
+- [ ] Smoke tests passed (automatic after `/publish`, or via `/smoketest`) or manual testing completed
 - [ ] Plugin still meets the quality expectations for its declared support level (see [Quality Expectations for the Level You Declare](./03-plugin-owner-responsibilities.md#quality-expectations-for-the-level-you-declare))
 - [ ] PR merged
 ```
