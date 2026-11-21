@@ -80,6 +80,7 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.clickOpenUploadDocumentModal();
     uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
 
     const overwriteModal = notebooks.notebookOverwriteConfirmModal();
     await overwriteModal.expectDialogVisible();
