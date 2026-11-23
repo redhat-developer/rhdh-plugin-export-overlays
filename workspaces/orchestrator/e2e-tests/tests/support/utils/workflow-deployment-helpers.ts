@@ -628,14 +628,15 @@ export async function deployLockFlowWorkflow(
 
   try {
     await cloneOrchestratorDemo(demoDir);
+    const lockFlowBootstrap = kafkaBootstrap.replace(":9093", ":9092");
     const props = readFileSync(propsFile, "utf-8");
     const patched = props.replace(
       /%prod\.kafka\.bootstrap\.servers=.*/g,
-      `%prod.kafka.bootstrap.servers=${kafkaBootstrap}`,
+      `%prod.kafka.bootstrap.servers=${lockFlowBootstrap}`,
     );
-    if (patched === props && !props.includes(kafkaBootstrap)) {
+    if (patched === props && !props.includes(lockFlowBootstrap)) {
       throw new Error(
-        `Failed to patch lock-flow-props bootstrap to ${kafkaBootstrap}`,
+        `Failed to patch lock-flow-props bootstrap to ${lockFlowBootstrap}`,
       );
     }
     writeFileSync(propsFile, patched, "utf-8");

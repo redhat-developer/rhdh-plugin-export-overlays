@@ -1,4 +1,10 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  resolvedKeyExchangeGroup,
+  runOpensslSClientFromRhdhPod,
+  TLS_GROUPS,
+} from "@red-hat-developer-hub/e2e-test-utils/pqc";
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   PRIMARY_USER,
   configureOrchestratorKafka,
@@ -7,7 +13,6 @@ import {
   deleteRoleAndPolicies,
   deployLockFlowWorkflow,
   globalWorkflowPolicies,
-  setupAuthenticatedPage,
   type PolicySpec,
 } from "../support/utils/test-helpers.js";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
@@ -41,16 +46,13 @@ function kafkaRbacPolicies(): PolicySpec[] {
  */
 export function registerOrchestratorKafkaTests(): void {
   test.describe("Kafka Run as Event", () => {
+    test.describe.configure({ timeout: 3_600_000 });
     test.skip(
       !kafkaE2eEnabled(),
       "Kafka Run as Event e2e runs on nightlies only (E2E_NIGHTLY_MODE)",
     );
 
-    let apiToken: string;
-
-    test.beforeAll(async ({ browser, rhdh }, testInfo) => {
-      // Kafka install + workflow deploy + RHDH restart can exceed 40 minutes.
-      test.setTimeout(60 * 60 * 1000);
+    test.beforeAll(async ({ rhdh }, testInfo) => {
       await test.runOnce(
         `orchestrator-kafka-setup-${testInfo.project.name}`,
         async () => {
@@ -62,21 +64,33 @@ export function registerOrchestratorKafkaTests(): void {
           await deployLockFlowWorkflow(namespace, bootstrap);
         },
       );
-
-      ({ apiToken } = await setupAuthenticatedPage(browser, testInfo));
-      await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
-      await createRoleWithPolicies(
-        apiToken,
-        KAFKA_RBAC_ROLE,
-        [PRIMARY_USER],
-        kafkaRbacPolicies(),
-      );
     });
 
-    test.afterAll(async () => {
-      if (apiToken) {
-        await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
-      }
+    test("Verify RHDH establishes TLS 1.3 handshake with Kafka broker", async ({
+      rhdh,
+    }) => {
+      const namespace = rhdh.deploymentConfig.namespace;
+      const host = `kafka-pq.${namespace}.svc`;
+      const port = 9093;
+
+      const tlsInfo = runOpensslSClientFromRhdhPod({
+        namespace,
+        host,
+        port,
+        group: TLS_GROUPS.classical,
+      });
+
+      console.warn(`[Kafka-TLS1.3] target=${host}:${port}`);
+      console.warn(`[Kafka-TLS1.3] Protocol: ${tlsInfo.protocol ?? "unknown"}`);
+      console.warn(
+        `[Kafka-TLS1.3] Key exchange: ${resolvedKeyExchangeGroup(tlsInfo) ?? "unknown"}`,
+      );
+
+      expect(
+        tlsInfo.hasHandshakeError,
+        `TLS 1.3 handshake to Kafka on port ${port} failed:\n${tlsInfo.raw}`,
+      ).toBe(false);
+      expect(tlsInfo.protocol).toMatch(/TLSv1\.3/iu);
     });
 
     // Assertions live in OrchestratorPO.runLockFlowAsEvent / verifyEventTriggeredOrRunVisible.
@@ -90,7 +104,20 @@ export function registerOrchestratorKafkaTests(): void {
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
-      await orchestratorPo.runLockFlowAsEvent();
+
+      const apiToken = await new AuthApiHelper(page).getToken();
+      await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
+      await createRoleWithPolicies(
+        apiToken,
+        KAFKA_RBAC_ROLE,
+        [PRIMARY_USER],
+        kafkaRbacPolicies(),
+      );
+      try {
+        await orchestratorPo.runLockFlowAsEvent();
+      } finally {
+        await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
+      }
     });
   });
 }

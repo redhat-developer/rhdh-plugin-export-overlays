@@ -289,9 +289,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:2.2.5":
-  version: 2.2.5
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.2.5"
+"@red-hat-developer-hub/e2e-test-utils@https://github.com/AndrienkoAleksandr/rhdh-e2e-test-utils.git#pqc-helper":
+  version: 2.2.8
+  resolution: "@red-hat-developer-hub/e2e-test-utils@https://github.com/AndrienkoAleksandr/rhdh-e2e-test-utils.git#commit=07185b9c24eb4b3af6bd5931dcad1866f5f7aead"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
@@ -316,7 +316,7 @@ __metadata:
     "@playwright/test": ^1.57.0
   bin:
     rhdh-e2e-secrets: ./dist/secrets/cli.js
-  checksum: 10/69d45c5b56fef99b1f732076f8fff5ea4bc1406d9616a850fc421e6d05aa9d94b1afbdd070002ca5a4a0ee941581e27495844ff3abb8c65330e99a24cfc0ebf7
+  checksum: 10/426f7cb36136c23ad0d5eaa5d9c3a9230390a4bcf6c37bd2b7b560271ee515044854f035e4302f0db43f4c5ceb3eb39d853c867f2c230b66de27e3e5594ef07e
   languageName: node
   linkType: hard
 
@@ -1773,7 +1773,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:10.0.1"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:2.2.5"
+    "@red-hat-developer-hub/e2e-test-utils": "https://github.com/AndrienkoAleksandr/rhdh-e2e-test-utils.git#pqc-helper"
     "@types/js-yaml": "npm:^4.0.9"
     "@types/node": "npm:25.5.2"
     dotenv: "npm:16.6.1"
