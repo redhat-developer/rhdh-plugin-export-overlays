@@ -220,6 +220,37 @@ describe("generate dynamic plugin tables", () => {
     }
   });
 
+  it("renders the enabled-by-default bullets in package-name order", () => {
+    const directory = temporaryIndex();
+    // The bare "alpha" name must sort before its "alpha-*" extensions even
+    // though the bullet lines end with a backtick, which byte-compares after
+    // "-"; this locks the package-name comparator, not just any sort.
+    const names = ["zeta", "alpha-module-x", "alpha", "mid", "alpha-backend"];
+    addIndex(
+      directory,
+      Object.fromEntries(
+        names.map((name) => [`org-${name}`, indexEntry(`org-${name}`, "generally-available")]),
+      ),
+    );
+    for (const name of names) {
+      addPackage(directory, `org-${name}`, { support: "generally-available" });
+    }
+    addDefaults(directory, names, []);
+
+    const page = renderTables("supported", directory)["con-preinstalled-dynamic-plugins.adoc"]!;
+    const bullets = page
+      .split("\n")
+      .filter((line) => line.startsWith("* `"))
+      .map((line) => line.slice(3, -1));
+    expect(bullets).toEqual([
+      "@org/alpha",
+      "@org/alpha-backend",
+      "@org/alpha-module-x",
+      "@org/mid",
+      "@org/zeta",
+    ]);
+  });
+
   it("rejects an index and entity with different OCI references", () => {
     const directory = temporaryIndex();
     addIndex(directory, { "org-foo": indexEntry("org-foo", "community") });
