@@ -1,9 +1,11 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   cleanupGreetingComponentEntity,
   clickCreateAndWaitForScaffolderTerminalState,
   createOrchestratorPO,
+  setupAuthenticatedPage,
 } from "../support/utils/test-helpers.js";
 
 type EnsureDataIndexOrSkip = (
@@ -43,8 +45,16 @@ export function registerEntityWorkflowIntegrationTests(
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
-    test.afterAll(async () => {
-      await cleanupGreetingComponentEntity();
+    test.afterAll(async ({ browser }, testInfo) => {
+      const { page, apiToken } = await setupAuthenticatedPage(
+        browser,
+        testInfo,
+      );
+      try {
+        await cleanupGreetingComponentEntity(apiToken);
+      } finally {
+        await page.context().close();
+      }
     });
 
     test("RHIDP-11833: Run workflow using EntityPicker selection", async ({
@@ -52,6 +62,9 @@ export function registerEntityWorkflowIntegrationTests(
       uiHelper,
     }) => {
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
+      await cleanupGreetingComponentEntity(
+        await new AuthApiHelper(page).getToken(),
+      );
       await orchestratorPo.openGreetingTemplateFromSelfService();
       await orchestratorPo.fillGreetingTemplateFormAndSubmit({
         selectLanguage: true,
@@ -130,6 +143,9 @@ export function registerEntityWorkflowIntegrationTests(
       uiHelper,
     }) => {
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
+      await cleanupGreetingComponentEntity(
+        await new AuthApiHelper(page).getToken(),
+      );
       await orchestratorPo.openGreetingTemplateFromSelfService();
       await orchestratorPo.fillGreetingTemplateFormAndSubmit({
         submitCreate: false,
