@@ -632,6 +632,24 @@ function renderSupported(
     "%%ENABLED_PLUGINS%%": bullets,
     "%%DISABLED_PLUGIN_REF%%": exampleRef,
   });
+  // Invariant: the rendered page lists every enabled plugin exactly once, in
+  // package-name order. The emission sorts, but a refactor that bypasses it
+  // must fail the generation run instead of publishing reorder churn to the
+  // weekly documentation updates (RHIDP-18681).
+  const renderedBullets = outputs["con-preinstalled-dynamic-plugins.adoc"]
+    .split("\n")
+    .filter((line) => line.startsWith("* `"))
+    .map((line) => line.slice(3, -1));
+  const sortedBullets = renderedBullets.toSorted(compareStrings);
+  if (
+    renderedBullets.length !== enabled.size ||
+    renderedBullets.some((name, index) => name !== sortedBullets[index])
+  ) {
+    throw new TableGenerationError(
+      `con-preinstalled-dynamic-plugins.adoc must list the ${enabled.size} enabled plugins ` +
+        `in package-name order; got: ${renderedBullets.join(", ")}`,
+    );
+  }
   // Each group already has the table order; the CSV only needs section order.
   outputs["rhdh-supported-plugins.csv"] = csvContent([
     ...csvRows.ga,
