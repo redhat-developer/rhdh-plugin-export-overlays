@@ -17,6 +17,8 @@ export async function catalogQuery(
     }
     const body = (await response.json()) as { items?: unknown[] };
     return body.items ?? [];
+  } catch {
+    return [];
   } finally {
     await context.dispose();
   }
