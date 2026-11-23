@@ -237,8 +237,11 @@ test.describe("Admin > Extensions", () => {
       uiHelper,
     }) => {
       const plugin = "Adoption Insights for Red Hat Developer Hub";
-      const packageName =
-        "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
+      // The editor shows each package's dynamicArtifact from the catalog
+      // index; its registry and tag/digest vary by RHDH build, so match only
+      // the image name.
+      const packageLine =
+        /- package: oci:\/\/\S+\/red-hat-developer-hub-backstage-plugin-adoption-insights[@:]/;
 
       await extensions.searchExtensions(plugin);
       await extensions.waitForSearchResults(plugin);
@@ -250,7 +253,7 @@ test.describe("Admin > Extensions", () => {
       await uiHelper.clickButton("Actions");
       await page.getByText("Edit").click();
       await uiHelper.verifyHeading(plugin);
-      await uiHelper.verifyText(`- package: ${packageName}`, false);
+      await uiHelper.verifyText(packageLine);
 
       await uiHelper.verifyText(/^\s+(disabled:\sfalse|enabled:\strue)/);
       await uiHelper.verifyText("Apply");
