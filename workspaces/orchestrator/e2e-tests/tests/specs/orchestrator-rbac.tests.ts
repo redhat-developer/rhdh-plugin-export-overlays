@@ -212,10 +212,15 @@ function registerTemplatePermissionRole(
   });
 
   test.afterAll(async () => {
+    if (!page) return;
     try {
-      await cleanupGreetingComponentEntity(apiToken);
+      try {
+        await cleanupGreetingComponentEntity(apiToken);
+      } finally {
+        await deleteRoleAndPolicies(apiToken, roleName);
+      }
     } finally {
-      await deleteRoleAndPolicies(apiToken, roleName);
+      await page.context().close();
     }
   });
 
@@ -344,7 +349,12 @@ export function registerOrchestratorRbacTests(): void {
         });
 
         test.afterAll(async () => {
-          await deleteRoleAndPolicies(apiToken, scenario.roleName);
+          if (!page) return;
+          try {
+            await deleteRoleAndPolicies(apiToken, scenario.roleName);
+          } finally {
+            await page.context().close();
+          }
         });
 
         test(`Validate ${scenario.name} workflow behavior`, async ({}) => {
@@ -383,8 +393,13 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test.afterAll(async () => {
-        await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
-        await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
+        if (!page) return;
+        try {
+          await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
+          await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
+        } finally {
+          await page.context().close();
+        }
       });
 
       test("Primary user runs greeting workflow and captures instance ID", async ({}) => {
