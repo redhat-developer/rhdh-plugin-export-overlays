@@ -14,41 +14,41 @@ include::{docdir}/artifacts/snip-technology-preview.adoc[]
 |===
 |*Name* |*Plugin* |*Plugin Version* |*Path and required variables* |*Artifact Tag*
 |Events Backend Module GitHub |`https://npmjs.com/package/@backstage/plugin-events-backend-module-github/v/0.4.15[@backstage/plugin-events-backend-module-github]` |0.4.15
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:97181d6c1e1d7b7b374e8e28c0363b47d08dd5e9c3e8d1f74c8f6f745ade12f3`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:ee61733de4f9eb52b51d233ca27bb276bfe7ea5dfae0dc9989c3da266c7c4a8c`
 
 `GITHUB_WEBHOOK_SECRET`
 
 |bs_1.54.9__0.4.15
 |Extensions |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-extensions/v/1.0.2[@red-hat-developer-hub/backstage-plugin-extensions]` |1.0.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions@sha256:8532d0d3e0006c5f54d9480e332cd9d60d05e7338820140ebd5137d9420b8d3e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions@sha256:54d61e20dcb0d6e21c1be573f9c2f4b52cf6961399a950cb98b8c07882b383cf`
 
 |bs_1.54.9__1.0.2
 |Extensions |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-extensions-backend/v/1.0.2[@red-hat-developer-hub/backstage-plugin-extensions-backend]` |1.0.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend@sha256:e1c64afd2f2acf45c10891585af999560335594479d35e05fa3e315e069edda9`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend@sha256:309d8f1ded77d152683fbb430650ae0043babc67af6f27a1dedd0a6809766a0d`
 
 `RHDH_EXTENSIONS_INSTALL_EXPORT_PATH`
 
 |bs_1.54.9__1.0.2
 |Extensions |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions/v/1.0.2[@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions]` |1.0.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions@sha256:14b1340b28e798edc4957b6ba9e482eab11d470c6c58fd6c04efdeabb378c652`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions@sha256:ac63c85e41ea14205f760a05615d250a8e9a56c464afd46dc7c6ffe48692c17a`
 
 `RHDH_EXTENSIONS_DIRECTORY`
 
 |bs_1.54.9__1.0.2
 |GitLab |`https://npmjs.com/package/@backstage/plugin-scaffolder-backend-module-gitlab/v/0.11.10[@backstage/plugin-scaffolder-backend-module-gitlab]` |0.11.10
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:4efa685f3791e3314f804e3067d1cfed5bd75cbb330d438ee6dfa068fa51d5d5`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:37666be013b26bcf3a5b72c32e1e284557d2d1d1f18fd2d7cc0a02a9aef481aa`
 
 |bs_1.54.9__0.11.10
 |Notifications |`https://npmjs.com/package/@backstage/plugin-notifications/v/0.5.20[@backstage/plugin-notifications]` |0.5.20
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:70f2387e37091a2d2be8ff67a737fc9bfe5207311e28424dcf7f9b2f02f6ecb4`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:1bcd2cf51279fb7ea17c3ac0ce1b2e2d9fe91f2b882cbc6357cd0fab5f21ff88`
 
 |bs_1.54.9__0.5.20
 |Notifications |`https://npmjs.com/package/@backstage/plugin-notifications-backend/v/0.6.8[@backstage/plugin-notifications-backend]` |0.6.8
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:e4259451f31f4a9ecd7d8de84e91709993962a9e4e366eb86be1526c1e493512`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:15efcf67252b9165193d86acd2fc9d4eba8bf89bf3e97eada7e8194228a0a691`
 
 |bs_1.54.9__0.6.8
 |Notifications |`https://npmjs.com/package/@backstage/plugin-notifications-backend-module-email/v/0.3.24[@backstage/plugin-notifications-backend-module-email]` |0.3.24
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:a9c6efe0a1a0e7e2c7c4b0a8e009cbb727dad14f374b6cd4d8e0f5a1d50f1cbc`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:4ad7f87bd153ff8a2d61a3fbc2e5f5a23a4803b0389c817c942c77dbb9a6173a`
 
 `EMAIL_HOSTNAME`
 
@@ -60,35 +60,35 @@ include::{docdir}/artifacts/snip-technology-preview.adoc[]
 
 |bs_1.54.9__0.3.24
 |Scaffolder Relation Processor |`https://npmjs.com/package/@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor/v/2.17.1[@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor]` |2.17.1
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor@sha256:3e8d6f61fc0cf325948e7b72d5e0e6e2f6783aefa92e7086169bd35fbd94584d`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor@sha256:0b1de52de7291dafe209646cb737b1eba35be39177551105ff2ac67470bb97ac`
 
 |bs_1.54.9__2.17.1
 |Scorecard |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard/v/4.5.2[@red-hat-developer-hub/backstage-plugin-scorecard]` |4.5.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard@sha256:057a7e54a57eb6d51d5d5f5c60f334fda1d10707527de4621c7bc46e90e965cb`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard@sha256:5cc6d7d0d5bc47a33962077554ce8354a529444d9d5ed0721b38d385c51f8cfd`
 
 |bs_1.54.9__4.5.2
 |Scorecard |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend/v/4.5.2[@red-hat-developer-hub/backstage-plugin-scorecard-backend]` |4.5.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend@sha256:559e6373ed89c511346eb0418964de74a34f03a651d7b3eb3817307f1ea8274c`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend@sha256:a1e6d7c6d16a0a1f9c18c6cbbebf96314d3deeaeb121f149963d9bf287ea126b`
 
 |bs_1.54.9__4.5.2
 |Scorecard Backend Module Dependabot |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot/v/1.1.7[@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot]` |1.1.7
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot@sha256:0a047b1bb3bbe03acbc842e0faf0b7b2d052d49974bbe0c5cc554e0520cdc3e2`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot@sha256:39c7d34d6721818e3479b9e7fb8af09615489b2d365b84343d9c088836a10478`
 
 |bs_1.54.9__1.1.7
 |Scorecard Backend Module Dora |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora/v/0.2.6[@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora]` |0.2.6
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora@sha256:4e8941c6fcd3b4f1ad6babe91a67b6919fa0306e747c4969161e3be3b3aaf72e`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora@sha256:faa726f09fb465d9e44639fb868975cde84a1a86cd0262744b3c66f970dcbd20`
 
 |bs_1.54.9__0.2.6
 |Scorecard Backend Module Filecheck |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck/v/1.1.7[@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck]` |1.1.7
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck@sha256:05472c2b69282aa2a4dbef407ea04f9e6d525666ff05dc089d5ea863602bfa39`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck@sha256:d2062a0186ebee490d0c87c6c6aa104258ce3613623cf50b8fcca3c58ca1d58a`
 
 |bs_1.54.9__1.1.7
 |Scorecard Backend Module GitHub |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github/v/4.5.2[@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github]` |4.5.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github@sha256:0bc667671f144f4d305baff38f827f8db0b52062e28037e249d0f961a4c9c9a2`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github@sha256:7e9e69b795106c757953395b5a1a0af084c801e63ce9de7d263a49ed8d358e2c`
 
 |bs_1.54.9__4.5.2
 |Scorecard Backend Module Jira |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-jira/v/4.5.2[@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-jira]` |4.5.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira@sha256:edac9bb1a6f69d57ebfb7760bd6e020def2ffc14439c7db89d4d31a1cc1b09a7`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira@sha256:a784c331af13bd0c99955765d27d2e20ad672bc6bf91a7c4caddc59d3daafd88`
 
 `JIRA_TOKEN`
 
@@ -96,11 +96,11 @@ include::{docdir}/artifacts/snip-technology-preview.adoc[]
 
 |bs_1.54.9__4.5.2
 |Scorecard Backend Module Openssf |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf/v/2.0.4[@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf]` |2.0.4
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf@sha256:1b9155e11ca120d370aca3633f2f6efd7be3315e5bfd114170512801a35fb797`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf@sha256:ec5df19c10101c358ca978602ec96a4d4336859fccb1950269709f90001da190`
 
 |bs_1.54.9__2.0.4
 |Scorecard Backend Module SonarQube |`https://npmjs.com/package/@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-sonarqube/v/4.5.2[@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-sonarqube]` |4.5.2
-|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube@sha256:0bf2f839afea96f9b2e43a72c397966d8e7c5ef2fbf072eb2a03c8c5ffd42fbe`
+|`oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube@sha256:bf00f8fa536329d273903dbbe0276ac9d250912660dff2beb399ddc820cbc917`
 
 `SONARQUBE_API_KEY`
 
