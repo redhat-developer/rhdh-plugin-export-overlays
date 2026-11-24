@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   LoginHelper,
@@ -287,6 +288,33 @@ export function registerOrchestratorRbacTests(): void {
   test.describe("Orchestrator RBAC", () => {
     test.beforeAll(async ({ browser }, testInfo) => {
       await removeBaselineRole(browser, testInfo);
+    });
+
+    // Runs before the automatic coverage fixture reads every open page.
+    test.afterEach(async ({ browser }, testInfo) => {
+      const contexts = browser.contexts();
+      // shortcut: cgroup v2 only; add v1 paths if this Prow lane uses v1.
+      const memory = Object.fromEntries(
+        ["current", "peak", "max", "events"].map((field) => {
+          try {
+            return [
+              field,
+              readFileSync(`/sys/fs/cgroup/memory.${field}`, "utf8").trim(),
+            ];
+          } catch {
+            return [field, "unavailable"];
+          }
+        }),
+      );
+      process.stdout.write(
+        `[rbac-memory] ${JSON.stringify({
+          test: testInfo.title,
+          worker: testInfo.workerIndex,
+          pagesPerContext: contexts.map((context) => context.pages().length),
+          workerRss: process.memoryUsage.rss(),
+          cgroupMemory: memory,
+        })}\n`,
+      );
     });
 
     for (const scenario of RBAC_SCENARIOS) {
