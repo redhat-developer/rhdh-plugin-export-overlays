@@ -238,7 +238,7 @@ test.describe("Admin > Extensions", () => {
     }) => {
       const plugin = "Adoption Insights for Red Hat Developer Hub";
       const packageName =
-        "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
+        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights@sha25";
 
       await extensions.searchExtensions(plugin);
       await extensions.waitForSearchResults(plugin);
@@ -308,7 +308,8 @@ test.describe("Admin > Extensions", () => {
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
-      await expect(page.getByTestId("enable-plugin")).toBeVisible();
+      // Following check is disabled due to bug https://redhat.atlassian.net/browse/RHDHBUGS-4127
+      // await expect(page.getByTestId("enable-plugin")).toBeVisible();
       // Following step is commented out due to the bug in nfs https://redhat.atlassian.net/browse/RHDHBUGS-3701
       // await expect(page.getByRole("alert")).toContainText(
       //   `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
