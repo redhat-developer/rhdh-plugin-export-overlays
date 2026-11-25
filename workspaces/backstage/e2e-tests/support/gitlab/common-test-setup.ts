@@ -1,4 +1,38 @@
+import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
+
 import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
+
+/**
+ * Connection to the self-hosted GitLab instance shared by every GitLab suite
+ * except gitlab-auth. The VAULT_ prefix is retained for compatibility with
+ * existing CI secret exports.
+ */
+export function requireSelfHostedGitLabEnv(): {
+  host: string;
+  token: string;
+  parentGroupPath: string;
+} {
+  requireEnv(
+    "VAULT_EVENTS_GITLAB_HOST",
+    "VAULT_EVENTS_GITLAB_TOKEN",
+    "VAULT_EVENTS_GITLAB_PARENT_ORG",
+  );
+  return {
+    host: process.env.VAULT_EVENTS_GITLAB_HOST!,
+    token: process.env.VAULT_EVENTS_GITLAB_TOKEN!,
+    parentGroupPath: process.env.VAULT_EVENTS_GITLAB_PARENT_ORG!,
+  };
+}
+
+/**
+ * Initializes {@link GitLabApiHelper} against the self-hosted instance and
+ * returns a unique resource prefix for this run.
+ */
+export function bootstrapSelfHostedGitLabApiClient(): string {
+  const { host, token } = requireSelfHostedGitLabEnv();
+  GitLabApiHelper.init(`https://${host}`, token);
+  return GitLabApiHelper.generateTestPrefix();
+}
 
 export async function prepareGitLabParentGroup(
   parentGroupPath: string | undefined,

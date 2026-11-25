@@ -1,7 +1,10 @@
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
-import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
-import { prepareGitLabParentGroup } from "./common-test-setup.js";
+import {
+  bootstrapSelfHostedGitLabApiClient,
+  prepareGitLabParentGroup,
+  requireSelfHostedGitLabEnv,
+} from "./common-test-setup.js";
 import { DeploymentOptions } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 
 export const GITLAB_EVENTS_CATALOG_TOKEN = "test-token";
@@ -22,9 +25,7 @@ export type GitLabEventsRhdhWorker = {
 
 // The VAULT_ prefix is retained for compatibility with existing CI secret exports.
 export function requireGitLabEventsSecretEnv(): void {
-  requireEnv("VAULT_EVENTS_GITLAB_TOKEN");
-  requireEnv("VAULT_EVENTS_GITLAB_HOST");
-  requireEnv("VAULT_EVENTS_GITLAB_PARENT_ORG");
+  requireSelfHostedGitLabEnv();
   requireEnv("VAULT_GITLAB_WEBHOOK_SECRET");
 }
 
@@ -34,16 +35,7 @@ export function requireGitLabEventsSecretEnv(): void {
  */
 export function bootstrapGitLabEventsApiClient(): string {
   requireGitLabEventsSecretEnv();
-  const host = process.env.VAULT_EVENTS_GITLAB_HOST;
-  const token = process.env.VAULT_EVENTS_GITLAB_TOKEN;
-  if (typeof host !== "string" || host.length === 0) {
-    throw new TypeError("VAULT_EVENTS_GITLAB_HOST must be set");
-  }
-  if (typeof token !== "string" || token.length === 0) {
-    throw new TypeError("VAULT_EVENTS_GITLAB_TOKEN must be set");
-  }
-  GitLabApiHelper.init(`https://${host}`, token);
-  return GitLabApiHelper.generateTestPrefix();
+  return bootstrapSelfHostedGitLabApiClient();
 }
 
 export async function deployGitLabEventsHub(
@@ -58,5 +50,5 @@ export async function prepareGitLabEventsParentGroup(): Promise<{
   parentGroupId: number;
   parentGroupPath: string;
 }> {
-  return prepareGitLabParentGroup(process.env.VAULT_EVENTS_GITLAB_PARENT_ORG);
+  return prepareGitLabParentGroup(requireSelfHostedGitLabEnv().parentGroupPath);
 }
