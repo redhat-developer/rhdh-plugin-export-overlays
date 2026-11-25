@@ -182,9 +182,10 @@ jobs:
       - name: Install Chromium for the frontend render check
         working-directory: smoke-tests-native
         # A release branch whose harness predates the browser check has no playwright-core.
+        # The CLI runs through node, not the package manager, so no lifecycle script runs.
         run: |
           if grep -q '"playwright-core"' package.json; then
-            yarn playwright-core install --with-deps chromium
+            node node_modules/playwright-core/cli.js install --with-deps chromium
           fi
 
       - name: Run the release plugin sanity check
