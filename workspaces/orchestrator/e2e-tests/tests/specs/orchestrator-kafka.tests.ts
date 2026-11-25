@@ -67,31 +67,32 @@ export function registerOrchestratorKafkaTests(): void {
       );
     });
 
-    test("Verify RHDH establishes TLS 1.3 handshake with Kafka broker", async ({
+    test("Verify RHDH establishes Post-Quantum (PQC) TLS 1.3 handshake with Kafka broker", async ({
       rhdh,
     }) => {
       const namespace = rhdh.deploymentConfig.namespace;
       const host = `kafka-pq.${namespace}.svc`;
       const port = 9093;
+      const group = TLS_GROUPS.hybrid;
 
       const tlsInfo = runOpensslSClientFromRhdhPod({
         namespace,
         host,
         port,
-        group: TLS_GROUPS.classical,
+        group,
       });
+      const negotiated = resolvedKeyExchangeGroup(tlsInfo);
 
-      console.warn(`[Kafka-TLS1.3] target=${host}:${port}`);
-      console.warn(`[Kafka-TLS1.3] Protocol: ${tlsInfo.protocol ?? "unknown"}`);
-      console.warn(
-        `[Kafka-TLS1.3] Key exchange: ${resolvedKeyExchangeGroup(tlsInfo) ?? "unknown"}`,
-      );
+      console.warn(`[Kafka-PQC] target=${host}:${port} group=${group}`);
+      console.warn(`[Kafka-PQC] Protocol: ${tlsInfo.protocol ?? "unknown"}`);
+      console.warn(`[Kafka-PQC] Key exchange: ${negotiated ?? "unknown"}`);
 
       expect(
         tlsInfo.hasHandshakeError,
-        `TLS 1.3 handshake to Kafka on port ${port} failed:\n${tlsInfo.raw}`,
+        `PQC TLS 1.3 handshake to Kafka on port ${port} failed for group ${group}:\n${tlsInfo.raw}`,
       ).toBe(false);
       expect(tlsInfo.protocol).toMatch(/TLSv1\.3/iu);
+      expect(negotiated?.toLowerCase()).toBe(group.toLowerCase());
     });
 
     // Assertions live in OrchestratorPO.runLockFlowAsEvent / verifyEventTriggeredOrRunVisible.

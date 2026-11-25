@@ -302,6 +302,7 @@ GENERATED_FILES+=("package.json" ".yarnrc.yml")
 # Clean all node_modules and yarn.lock to ensure fresh resolution
 # (prevents stale cached resolutions when switching between npm and local file: builds)
 rm -rf "$SCRIPT_DIR/node_modules" "$SCRIPT_DIR/yarn.lock" 2>/dev/null
+touch "$SCRIPT_DIR/yarn.lock"
 for ws in "${E2E_WORKSPACES[@]}"; do
     rm -rf "$SCRIPT_DIR/workspaces/$ws/e2e-tests/node_modules" 2>/dev/null
 done
