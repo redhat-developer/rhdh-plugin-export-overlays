@@ -21,12 +21,13 @@ const ensureDataIndexOrSkip = createDataIndexGuard();
 
 const KAFKA_RBAC_ROLE = "role:default/kafkaRunAsEventTest";
 
-function kafkaE2eEnabled(): boolean {
-  return (
-    process.env.E2E_NIGHTLY_MODE === "true" ||
-    process.env.E2E_NIGHTLY_MODE === "1"
-  );
-}
+// Nightly-only gate disabled so the Kafka/PQC lane also runs in PR checks.
+// function kafkaE2eEnabled(): boolean {
+//   return (
+//     process.env.E2E_NIGHTLY_MODE === "true" ||
+//     process.env.E2E_NIGHTLY_MODE === "1"
+//   );
+// }
 
 function kafkaRbacPolicies(): PolicySpec[] {
   return [
@@ -42,15 +43,15 @@ function kafkaRbacPolicies(): PolicySpec[] {
 
 /**
  * L4b: Kafka + lock-flow Run as Event.
- * Runs on nightlies only (`E2E_NIGHTLY_MODE`); skipped in default PR e2e.
+ * Runs in both the PR e2e check and the nightly lanes.
  */
 export function registerOrchestratorKafkaTests(): void {
   test.describe("Kafka Run as Event", () => {
     test.describe.configure({ timeout: 3_600_000 });
-    test.skip(
-      !kafkaE2eEnabled(),
-      "Kafka Run as Event e2e runs on nightlies only (E2E_NIGHTLY_MODE)",
-    );
+    // test.skip(
+    //   !kafkaE2eEnabled(),
+    //   "Kafka Run as Event e2e runs on nightlies only (E2E_NIGHTLY_MODE)",
+    // );
 
     test.beforeAll(async ({ rhdh }, testInfo) => {
       await test.runOnce(
