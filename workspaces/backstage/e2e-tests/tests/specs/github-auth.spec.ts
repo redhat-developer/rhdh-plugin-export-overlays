@@ -515,6 +515,10 @@ test.describe("GitHub auth and org ingestion", { tag: "@auth-tests" }, () => {
     loginHelper,
     uiHelper,
   }) => {
+    test.skip(
+      process.env.INSTALLATION_METHOD === "operator",
+      "Operator ConfigMap reconciliation races the restarted pod's dynamic-plugins mount; rollout exceeds the 300s timeout",
+    );
     test.setTimeout(600_000);
 
     await clearGithubSignInResolvers();
