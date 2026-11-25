@@ -1,12 +1,4 @@
-# Static external-access token for catalog API calls (Helm-injected appConfig).
+# Disable Lightspeed/IA sidecar on Helm. Catalog externalAccess token lives in
+# app-config-rhdh.yaml so operator deployments receive it too.
 intelligentAssistant:
   enabled: false
-
-appConfig:
-  backend:
-    auth:
-      externalAccess:
-        - type: static
-          options:
-            token: github-auth-e2e-token
-            subject: github-auth-e2e

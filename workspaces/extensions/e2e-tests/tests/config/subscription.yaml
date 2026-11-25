@@ -3,6 +3,35 @@ kind: Backstage
 metadata:
   name: developer-hub
 spec:
+  deployment:
+    patch:
+      spec:
+        template:
+          spec:
+            initContainers:
+              - name: seed-extensions-installation-storage
+                image: registry.access.redhat.com/ubi10/ubi-minimal:10.2
+                command: ["/bin/sh", "-c"]
+                args:
+                  - "test -f /dynamic-plugins-root/extensions-install-state.yaml || echo 'plugins: []' > /dynamic-plugins-root/extensions-install-state.yaml"
+                securityContext:
+                  readOnlyRootFilesystem: false
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop: ["ALL"]
+                  runAsNonRoot: true
+                  seccompProfile:
+                    type: "RuntimeDefault"
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    cpu: 100m
+                    memory: 64Mi
+                volumeMounts:
+                  - mountPath: /dynamic-plugins-root
+                    name: dynamic-plugins-root
   application:
     extraEnvs:
       envs:

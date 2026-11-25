@@ -6,6 +6,13 @@ backend:
   baseUrl: ${RHDH_BASE_URL}
   cors:
     origin: ${RHDH_BASE_URL}
+  # Catalog API token for e2e (shared by helm + operator; was helm-only in value-file).
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: github-auth-e2e-token
+          subject: github-auth-e2e
 
 permission:
   enabled: false
