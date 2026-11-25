@@ -24,6 +24,9 @@ export default playwrightDefineConfig({
     {
       name: "backstage-gitlab-discovery",
       testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
+      // Like github-discovery, depends on a scheduled provider refresh and an
+      // external GitLab instance; allow one retry before failing the PR check.
+      retries: process.env.CI ? 1 : 0,
     },
     {
       name: "backstage-gitlab-events-discovery",

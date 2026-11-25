@@ -36,13 +36,17 @@ export function bootstrapSelfHostedGitLabApiClient(): string {
   return GitLabApiHelper.generateTestPrefix();
 }
 
-export async function prepareGitLabParentGroup(
-  parentGroupPath: string | undefined,
-): Promise<{
+/**
+ * Resolves the self-hosted parent group and removes `e2e-` resources older than
+ * an hour that earlier runs left behind.
+ */
+export async function prepareSelfHostedGitLabParentGroup(): Promise<{
   parentGroupId: number;
   parentGroupPath: string;
 }> {
-  const parentGroup = await GitLabApiHelper.getGroupByPath(parentGroupPath);
+  const parentGroup = await GitLabApiHelper.getGroupByPath(
+    requireSelfHostedGitLabEnv().parentGroupPath,
+  );
   await GitLabApiHelper.cleanupStaleResources(parentGroup.id, "e2e-", 1);
   return {
     parentGroupId: parentGroup.id,

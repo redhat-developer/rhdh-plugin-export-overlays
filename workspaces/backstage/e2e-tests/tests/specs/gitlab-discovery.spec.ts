@@ -4,13 +4,12 @@ import { CatalogApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers"
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
   bootstrapSelfHostedGitLabApiClient,
-  prepareGitLabParentGroup,
-  requireSelfHostedGitLabEnv,
+  prepareSelfHostedGitLabParentGroup,
   runGitLabCleanupSafely,
 } from "../../support/gitlab/common-test-setup.js";
 
 /** Static token from tests/config/gitlab-discovery/app-config-rhdh.yaml */
-const CATALOG_TOKEN = "test-token";
+const CATALOG_TOKEN = "gitlab-discovery-e2e-token";
 
 test.describe("gitlab discovery UI tests", () => {
   let entityName: string;
@@ -21,9 +20,10 @@ test.describe("gitlab discovery UI tests", () => {
     // A restarted worker runs this again: it creates a fresh project, which the
     // provider's one-minute schedule discovers on the already deployed hub.
     const testPrefix = bootstrapSelfHostedGitLabApiClient();
-    const parent = await prepareGitLabParentGroup(
-      requireSelfHostedGitLabEnv().parentGroupPath,
-    );
+    // Stale-resource cleanup and project creation run before deploy() raises
+    // the timeout, so give them room of their own.
+    test.setTimeout(600_000);
+    const parent = await prepareSelfHostedGitLabParentGroup();
 
     entityName = `${testPrefix}-discovery`;
     projectId = await GitLabApiHelper.createProject(

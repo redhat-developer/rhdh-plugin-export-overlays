@@ -6,7 +6,7 @@ backend:
     externalAccess:
       - type: static
         options:
-          token: test-token
+          token: gitlab-discovery-e2e-token
           subject: gitlab-discovery-e2e
 
 integrations:
