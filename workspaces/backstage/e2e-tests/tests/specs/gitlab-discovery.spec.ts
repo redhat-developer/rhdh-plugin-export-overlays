@@ -1,4 +1,5 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { CatalogApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
@@ -8,9 +9,13 @@ import {
   runGitLabCleanupSafely,
 } from "../../support/gitlab/common-test-setup.js";
 
+/** Static token from tests/config/gitlab-discovery/app-config-rhdh.yaml */
+const CATALOG_TOKEN = "test-token";
+
 test.describe("gitlab discovery UI tests", () => {
   let entityName: string;
   let projectId: number | undefined;
+  let rhdhUrl: string;
 
   test.beforeAll(async ({ rhdh }) => {
     // A restarted worker runs this again: it creates a fresh project, which the
@@ -48,6 +53,7 @@ spec:
     });
 
     await rhdh.deploy();
+    rhdhUrl = rhdh.rhdhUrl;
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper }) => {
@@ -62,6 +68,7 @@ spec:
       }
     });
     await GitLabApiHelper.dispose();
+    await CatalogApiHelper.dispose();
   });
 
   test("GitLab integration for discovering catalog entities from GitLab", async ({
@@ -69,18 +76,33 @@ spec:
     uiHelper,
   }) => {
     test.setTimeout(240_000);
-    await uiHelper.dismissQuickstartIfVisible();
 
     // Discovery runs on a schedule, so the entity can take up to a minute.
-    await expect(async () => {
-      await page.reload();
-      await page
-        .getByRole("textbox", { name: "Search" })
-        .waitFor({ state: "visible" });
-      await uiHelper.searchInputPlaceholder(entityName);
-      await uiHelper.verifyTextVisible(entityName, true, 10_000);
-    }).toPass({ intervals: [5_000, 10_000], timeout: 150_000 });
+    await expect
+      .poll(
+        () =>
+          CatalogApiHelper.entityExists(
+            rhdhUrl,
+            CATALOG_TOKEN,
+            "Component",
+            entityName,
+          ),
+        {
+          message: `Component ${entityName} should be discovered from GitLab`,
+          timeout: 150_000,
+          intervals: [5_000],
+        },
+      )
+      .toBe(true);
 
+    // Reopen the catalog so the table includes the newly discovered entity.
+    await uiHelper.openSidebar("Catalog");
+    await uiHelper.dismissQuickstartIfVisible();
+    await page
+      .getByRole("textbox", { name: "Search" })
+      .waitFor({ state: "visible" });
+    await uiHelper.searchInputPlaceholder(entityName);
+    await uiHelper.verifyTextVisible(entityName, true, 10_000);
     await uiHelper.clickLink(entityName);
     await uiHelper.verifyHeading(entityName);
     await uiHelper.verifyText("My Description");

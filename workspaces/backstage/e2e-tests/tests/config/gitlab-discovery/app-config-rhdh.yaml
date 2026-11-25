@@ -1,6 +1,14 @@
 app:
   title: RHDH GitLab plugin e2e
 
+backend:
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: test-token
+          subject: gitlab-discovery-e2e
+
 integrations:
   gitlab:
     - host: ${GITLAB_HOST}
