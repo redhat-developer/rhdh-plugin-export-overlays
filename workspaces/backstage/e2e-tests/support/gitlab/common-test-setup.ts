@@ -2,25 +2,27 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
 
+type SelfHostedGitLabEnv = {
+  host: string;
+  token: string;
+  parentGroupPath: string;
+};
+
+function readRequiredEnv(name: string): string {
+  requireEnv(name);
+  return process.env[name] ?? "";
+}
+
 /**
  * Connection to the self-hosted GitLab instance shared by every GitLab suite
  * except gitlab-auth. The VAULT_ prefix is retained for compatibility with
  * existing CI secret exports.
  */
-export function requireSelfHostedGitLabEnv(): {
-  host: string;
-  token: string;
-  parentGroupPath: string;
-} {
-  requireEnv(
-    "VAULT_EVENTS_GITLAB_HOST",
-    "VAULT_EVENTS_GITLAB_TOKEN",
-    "VAULT_EVENTS_GITLAB_PARENT_ORG",
-  );
+export function requireSelfHostedGitLabEnv(): SelfHostedGitLabEnv {
   return {
-    host: process.env.VAULT_EVENTS_GITLAB_HOST!,
-    token: process.env.VAULT_EVENTS_GITLAB_TOKEN!,
-    parentGroupPath: process.env.VAULT_EVENTS_GITLAB_PARENT_ORG!,
+    host: readRequiredEnv("VAULT_EVENTS_GITLAB_HOST"),
+    token: readRequiredEnv("VAULT_EVENTS_GITLAB_TOKEN"),
+    parentGroupPath: readRequiredEnv("VAULT_EVENTS_GITLAB_PARENT_ORG"),
   };
 }
 
