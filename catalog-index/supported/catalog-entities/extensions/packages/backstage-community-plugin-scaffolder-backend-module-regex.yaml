@@ -17,8 +17,8 @@ metadata:
     - software-templates
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-regex"
-  # Tag: bs_1.54.9__2.18.0, Build date: 2026-05-26T12:36:49Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:0b63542c1cd4cf448b89c09b4cce636e7187ad61ede2d3df9f4bc6b1d374b4a8!backstage-community-plugin-scaffolder-backend-module-regex"
+  # Tag: bs_1.54.5__2.18.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.54.5__2.18.0!backstage-community-plugin-scaffolder-backend-module-regex"
   version: 2.18.0
   backstage:
     role: backend-plugin-module

@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-github-pull-requests"
-  # Tag: bs_1.54.9__3.9.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests@sha256:91eba8bfa6cf8d8155d14a12179922fe99748d69cfe695b9b79a7cf66443be29"
+  # Tag: bs_1.54.6__3.9.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests@sha256:9e11cb8682ec7a01f28cee8bd90ba36237aede29da6353f9e66e57ec1e4b575b"
   version: 3.9.0
   backstage:
     role: frontend-plugin

@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-analytics-provider-segment"
-  # Tag: bs_1.54.9__2.0.0, Build date: 2026-06-03T21:17:18Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:0021f1a56e97994368cafcf1106fdbfa1e3d51ff5522df2be13297b216df3f02"
+  # Tag: bs_1.54.5__2.0.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment:bs_1.54.5__2.0.0"
   version: 2.0.0
   backstage:
     role: frontend-plugin-module
