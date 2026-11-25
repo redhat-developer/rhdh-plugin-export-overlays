@@ -14,11 +14,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-adr-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-adr-backend:bs_1.54.9__0.25.1
-  version: 0.25.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-adr-backend:bs_1.57.1__0.27.0
+  version: 0.27.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.54.9
+    supportedVersions: 1.57.1
   author: Backstage Community
   support: community
   lifecycle: active
