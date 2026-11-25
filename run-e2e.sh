@@ -277,11 +277,25 @@ cat > package.json <<EOF
 }
 EOF
 
-cat > .yarnrc.yml <<EOF
-nodeLinker: node-modules
+# Yarn 4 refuses git-sourced dependencies unless their repository is listed in
+# approvedGitRepositories, so approve exactly the git refs the workspaces use.
+APPROVED_GIT_REPOS=""
+for ws in "${E2E_WORKSPACES[@]}"; do
+    while IFS= read -r repo; do
+        if [[ -n "$repo" && "$APPROVED_GIT_REPOS" != *"\"$repo\""* ]]; then
+            APPROVED_GIT_REPOS+=$'\n  - '"\"$repo\""
+        fi
+    done < <(grep -oE 'https?://[A-Za-z0-9._/-]+\.git' "$SCRIPT_DIR/workspaces/$ws/e2e-tests/package.json" 2>/dev/null)
+done
+
+YARNRC="nodeLinker: node-modules
 npmPreapprovedPackages:
-  - "@red-hat-developer-hub/e2e-test-utils"
-EOF
+  - \"@red-hat-developer-hub/e2e-test-utils\""
+if [[ -n "$APPROVED_GIT_REPOS" ]]; then
+    YARNRC+=$'\napprovedGitRepositories:'"$APPROVED_GIT_REPOS"
+    echo "[INFO] Approved git repositories: $(printf '%s' "$APPROVED_GIT_REPOS" | tr '\n' ' ')"
+fi
+printf '%s\n' "$YARNRC" > .yarnrc.yml
 
 GENERATED_FILES+=("package.json" ".yarnrc.yml")
 
