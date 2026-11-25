@@ -1,7 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.2-bs_1.57.1-8cf804c"
-  },
+  "metadata": {},
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -752,28 +750,20 @@
           "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.57.1__0.14.0"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.57.1__0.14.0"
+          "status": "pass",
+          "digest": "sha256:cd95bdf2e73bba4fc2fa702960ffd4f4e2dd2e8d320a7a7182deb1acb16b4938"
         },
         "dpdy": {
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.57.1__0.14.0"
-        },
-        "validate": {
-          "status": "fail",
-          "errors": [
-            "[unresolved-image] 'pagerduty-backstage-plugin-backend' was never resolved in the registry (plugin_builds/ has no digest)"
-          ],
-          "reason": "[unresolved-image] 'pagerduty-backstage-plugin-backend' was never resolved in the registry (plugin_builds/ has no digest)"
+          "status": "pass"
         }
       },
       "package": "@pagerduty/backstage-plugin-backend",
       "version": "0.14.0",
       "workspace": "pagerduty",
-      "overall": "fail"
+      "overall": "pass"
     },
     "pagerduty-backstage-plugin": {
       "stages": {
@@ -782,28 +772,20 @@
           "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.57.1__0.21.1"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.57.1__0.21.1"
+          "status": "pass",
+          "digest": "sha256:59a32f333206e8a8a571e06f8b9c423298ca7b1ee95378682f38e470daa43e6b"
         },
         "dpdy": {
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.57.1__0.21.1"
-        },
-        "validate": {
-          "status": "fail",
-          "errors": [
-            "[unresolved-image] 'pagerduty-backstage-plugin' was never resolved in the registry (plugin_builds/ has no digest)"
-          ],
-          "reason": "[unresolved-image] 'pagerduty-backstage-plugin' was never resolved in the registry (plugin_builds/ has no digest)"
+          "status": "pass"
         }
       },
       "package": "@pagerduty/backstage-plugin",
       "version": "0.21.1",
       "workspace": "pagerduty",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-quay-backend": {
       "stages": {
@@ -1296,8 +1278,8 @@
   },
   "summary": {
     "total": 37,
-    "succeeded": 13,
-    "failed": 24
+    "succeeded": 15,
+    "failed": 22
   },
   "status": "partial"
 }
