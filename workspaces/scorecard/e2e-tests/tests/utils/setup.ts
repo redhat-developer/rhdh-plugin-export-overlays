@@ -1,4 +1,9 @@
-import { type Browser, type BrowserContext, type Page } from "@playwright/test";
+import {
+  expect,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 import {
   LoginHelper,
   UIhelper,
@@ -40,9 +45,34 @@ export async function deployRhdh(
   await rhdh.deploy();
 }
 
+const RHDH_READY_TIMEOUT_MS = 180_000;
+const RHDH_READY_POLL_INTERVAL_MS = 5_000;
+
+/**
+ * Waits until the RHDH route serves the app's Sign In page. The OpenShift router
+ * can transiently answer 503 ("Application is not available") even after the
+ * deployment is ready; logging in at that point times out waiting for the
+ * Keycloak popup because the Sign In button never renders.
+ */
+async function waitForRhdhReady(page: Page, rhdhUrl: string): Promise<void> {
+  await expect(async () => {
+    const response = await page.goto(rhdhUrl, {
+      waitUntil: "domcontentloaded",
+    });
+    expect(response?.status(), "RHDH route HTTP status").toBeLessThan(500);
+    await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible({
+      timeout: 30_000,
+    });
+  }).toPass({
+    timeout: RHDH_READY_TIMEOUT_MS,
+    intervals: [RHDH_READY_POLL_INTERVAL_MS],
+  });
+}
+
 /**
  * Creates a browser context pointed at `rhdhUrl`, initialises all scorecard helpers,
- * and logs in as a Keycloak user. Returns the context and all helper instances.
+ * waits for the RHDH route to be ready, and logs in as a Keycloak user.
+ * Returns the context and all helper instances.
  */
 export async function createScorecardContext(
   browser: Browser,
@@ -54,6 +84,7 @@ export async function createScorecardContext(
   const catalog = new CatalogPage(page);
   const scorecard = scorecardHelpers(page, uiHelper);
   const aggregated = aggregatedScorecardHelpers(page);
+  await waitForRhdhReady(page, rhdhUrl);
   await new LoginHelper(page).loginAsKeycloakUser();
   await uiHelper.goToPageUrl("/", "Welcome back!");
   return { context, page, catalog, scorecard, aggregated };
