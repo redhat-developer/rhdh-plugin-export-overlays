@@ -7,13 +7,16 @@
 /**
  * Release plugin sanity check: boot the real RHDH image of a release in a container
  * with every catalog index plugin and every community plugin enabled, and fail when
- * one does not load. No plugin version is written anywhere: the image and index come
+ * one does not load. Community frontend packages are then loaded in the app itself, in
+ * headless Chromium, and fail the run when they throw (frontend-render.ts). No plugin version is written anywhere: the image and index come
  * from a CI chart, community builds from each package's spec.dynamicArtifact.
  *
  *   yarn release-sanity                              # newest CI chart of the newest stream
  *   yarn release-sanity --chart-version 2.1-158-CI   # one RC
  *
- * Needs docker (or podman as docker), helm, skopeo, jq and tar on PATH.
+ * Needs docker (or podman as docker), helm, skopeo, jq and tar on PATH, and a
+ * Chromium for playwright-core (`yarn playwright-core install chromium`) unless
+ * --skip-frontend is passed.
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
@@ -36,6 +39,8 @@ import { parseArgs } from "node:util";
 import { parse, stringify } from "yaml";
 import { partitionResolvable, readIndexEntries } from "./catalog-index";
 import { excluderFor, loadExclusions } from "./exclusions";
+import { checkFrontendRender } from "./frontend-render";
+import { isFrontendRole } from "./frontend-render-logic";
 import { requireContained, resolveContained } from "./paths";
 import { probeRegistry } from "./registry-probe";
 import { buildDummyConfig } from "./plugin-config";
@@ -91,6 +96,8 @@ const { values: args } = parseArgs({
     out: { type: "string", default: "release-sanity-out" },
     "run-url": { type: "string" },
     keep: { type: "boolean", default: false },
+    // Skips the browser check of community frontend packages, e.g. without a Chromium.
+    "skip-frontend": { type: "boolean", default: false },
     // The community metadata here is main's, which builds the newest stream; checking
     // another stream's chart against it would mix versions.
     "only-newest-stream": { type: "boolean", default: false },
@@ -280,6 +287,11 @@ type PluginPlan = {
   skipped: string[];
   unresolved: UnresolvedRef[];
   communityEntries: PackageEntry[];
+  /** Installed community frontend packages for the browser check, and those excluded from it. */
+  frontend: {
+    expected: string[];
+    excluded: { packageName: string; ticket: string }[];
+  };
 };
 
 /** Every index and community package, probed, with the ones that cannot run left off. */
@@ -336,6 +348,17 @@ async function planPlugins(
     community.map((c) => c.artifact),
   );
   writeFileSync(join(out, "dynamic-plugins.yaml"), stringify(dynamicPlugins));
+
+  const renderExcluder = excluderFor(exclusions, "render");
+  const enabledRefs = new Set(requestedPlugins.map((p) => p.package));
+  const frontendEntries = communityEntries.filter(
+    (p) => enabledRefs.has(p.artifact) && isFrontendRole(p.role),
+  );
+  const excluded = frontendEntries
+    .map((p) => renderExcluder(p.packageName))
+    .filter((hit) => hit !== undefined)
+    .map((hit) => ({ packageName: hit.packageName, ticket: hit.ticket }));
+  const excludedNames = new Set(excluded.map((e) => e.packageName));
   return {
     indexFile,
     dynamicPlugins,
@@ -343,6 +366,12 @@ async function planPlugins(
     skipped,
     unresolved,
     communityEntries,
+    frontend: {
+      expected: frontendEntries
+        .map((p) => p.packageName)
+        .filter((name) => !excludedNames.has(name)),
+      excluded,
+    },
   };
 }
 
@@ -353,7 +382,8 @@ function writeConfigAndEnv(
 ): string[] {
   // Config layers, merged by the backend in this order: the shared smoke base, every
   // installed community plugin's first appConfigExample, the harness dummies, each
-  // workspace's own smoke config, then guest sign-in for the loaded-plugins call.
+  // workspace's own smoke config, then guest sign-in for the loaded-plugins call and
+  // the browser check.
   // Env: each workspace's test.env, then dummies for the rest.
   const configDir = join(out, "config");
   mkdirSync(configDir, { recursive: true });
@@ -400,6 +430,8 @@ function writeConfigAndEnv(
         environment: "development",
         providers: { guest: { dangerouslyAllowOutsideDevelopment: true } },
       },
+      // The app offers no sign-in method unless told to; the browser check needs guest.
+      signInPage: "guest",
     }),
   );
   const configTexts = layers.map((l) =>
@@ -467,6 +499,30 @@ function startContainer(
   ]);
 }
 
+/** Runs the browser check; a run that could not happen is reported, not thrown. */
+async function renderFrontend(
+  out: string,
+  frontend: PluginPlan["frontend"],
+): Promise<Pick<SanityReport, "frontend" | "frontendError">> {
+  if (frontend.expected.length === 0 && frontend.excluded.length === 0) {
+    return {};
+  }
+  try {
+    return {
+      frontend: await checkFrontendRender({
+        baseUrl: `http://localhost:${PORT}`,
+        expected: frontend.expected,
+        excluded: frontend.excluded,
+        screenshotPath: join(out, "frontend-shell.png"),
+      }),
+    };
+  } catch (err) {
+    return {
+      frontendError: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 async function main(): Promise<number> {
   const out = requireContained("--out", args.out);
   const pluginsRoot = join(out, "dynamic-plugins-root");
@@ -498,6 +554,10 @@ async function main(): Promise<number> {
       checkError = err instanceof Error ? err.message : String(err);
     }
   }
+  const frontendResult =
+    startupError || checkError || args["skip-frontend"]
+      ? {}
+      : await renderFrontend(out, plan.frontend);
   const fullLog = containerLog();
   writeFileSync(join(out, "container.log"), fullLog);
 
@@ -522,6 +582,7 @@ async function main(): Promise<number> {
     failedPlugins: failedPluginIds(fullLog),
     startupError,
     checkError,
+    ...frontendResult,
   };
   writeFileSync(join(out, "report.json"), JSON.stringify(report, null, 2));
   const summary = renderSummary(report, args["run-url"]);

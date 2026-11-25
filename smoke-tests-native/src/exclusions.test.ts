@@ -291,3 +291,16 @@ test("every committed exclusion still matches a package in the repo", () => {
     .map((e) => `${e.patternSource} (${e.ticket}, line ${e.line})`);
   assert.deepEqual(stale, [], "exclusions matching no package in the repo");
 });
+
+test("the render scope parses and matches only render lookups", () => {
+  const parsed = parseExclusions(
+    "# TODO(RHIDP-16009): throws on mount\nrender ^@scope/plugin-a$\n",
+    "test",
+  );
+  assert.equal(parsed[0].scope, "render");
+  assert.equal(
+    excluderFor(parsed, "render")("@scope/plugin-a-dynamic")?.ticket,
+    "RHIDP-16009",
+  );
+  assert.equal(excluderFor(parsed, "install")("@scope/plugin-a"), undefined);
+});

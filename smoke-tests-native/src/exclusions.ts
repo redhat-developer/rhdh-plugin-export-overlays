@@ -16,8 +16,8 @@
  *   # TODO(RHIDP-1234): why this package cannot be validated, and what unblocks it.
  *   <scope> <javascript-regex>
  *
- * `scope` says how much validation the package loses, because the two failure modes
- * are genuinely different and conflating them would throw away real coverage:
+ * `scope` says how much validation the package loses, because the failure modes are
+ * genuinely different and conflating them would throw away real coverage:
  *
  *   install — the artifact is not pulled at all (cannot be pulled anonymously, or
  *             installing it breaks the whole run). Loses everything.
@@ -25,6 +25,9 @@
  *             loaded into `startTestBackend`. Loses only the boot signal. This is
  *             what the catalog-extending modules need: the catalog core does not boot
  *             standalone, but their published artifacts are still worth validating.
+ *   render  — release sanity only: the frontend package IS installed and its backend
+ *             load checked, but the browser check does not judge it. Loses only the
+ *             render signal.
  *
  * The regex is matched against the npm PACKAGE NAME (`spec.packageName` in metadata,
  * `name` in the installed package.json) — one identifier space for both scopes.
@@ -36,11 +39,15 @@ import { readFileSync } from "node:fs";
 import { requireContained } from "./paths";
 import { errorMessage } from "./util";
 
-export type ExclusionScope = "install" | "boot";
+export type ExclusionScope = "install" | "boot" | "render";
 
 // Module-private: the scope vocabulary is enforced through parseExclusions' errors,
 // not consumed directly by callers.
-const EXCLUSION_SCOPES: readonly ExclusionScope[] = ["install", "boot"];
+const EXCLUSION_SCOPES: readonly ExclusionScope[] = [
+  "install",
+  "boot",
+  "render",
+];
 
 export type Exclusion = {
   scope: ExclusionScope;
