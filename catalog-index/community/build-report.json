@@ -1,5 +1,7 @@
 {
-  "metadata": {},
+  "metadata": {
+    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.1-bs_1.54.9-bff14af"
+  },
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -507,7 +509,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'pagerduty-backstage-plugin' resolved to bs_1.54.9__0.21.0 after bs_1.54.9__0.21.1 was not found \u2014 the index ships an older build"
+            "[fallback-tag] 'pagerduty-backstage-plugin' resolved to bs_1.54.9__0.21.0 after bs_1.54.9__0.21.1 was not found — the index ships an older build"
           ]
         }
       },
