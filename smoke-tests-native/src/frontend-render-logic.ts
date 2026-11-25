@@ -145,6 +145,40 @@ function bump(map: Map<string, number>, key: string): void {
   map.set(key, (map.get(key) ?? 0) + 1);
 }
 
+/** Records one console line in `events`; lines the loader did not write are ignored. */
+function recordLoaderMessage(
+  events: LoaderEvents,
+  text: string,
+  packageOf: (module: string) => string | undefined,
+): void {
+  const loaded = LOADED_RE.exec(text);
+  if (loaded) {
+    bump(events.loaded, loaded[2]);
+    return;
+  }
+  const failed = FAILED_RE.exec(text);
+  if (failed) {
+    const errors = events.failed.get(failed[2]) ?? [];
+    errors.push(`${failed[1]}: ${failed[3].trim()}`);
+    events.failed.set(failed[2], errors);
+    return;
+  }
+  // A skip line names only the module, so it is counted against its package.
+  const skips: [RegExp, Map<string, number>][] = [
+    [NOT_A_FEATURE_RE, events.notAFeature],
+    [EMPTY_RE, events.empty],
+  ];
+  for (const [pattern, counts] of skips) {
+    const skip = pattern.exec(text);
+    if (skip) {
+      const pkg = packageOf(skip[1]);
+      if (pkg) bump(counts, pkg);
+      return;
+    }
+  }
+  if (GLOBAL_ERROR_RE.test(text)) events.globalErrors.push(text);
+}
+
 /** Groups the loader's console lines by package. */
 function readLoaderMessages(
   messages: BrowserMessage[],
@@ -157,38 +191,11 @@ function readLoaderMessages(
     failed: new Map(),
     globalErrors: [],
   };
-  // A skip line names only the module (`<container>` or `<container>/<expose>`); the
-  // container name leads to the package.
+  // A module is `<container>` or `<container>/<expose>`; the container leads to the package.
   const byRemoteName = new Map(remotes.map((r) => [r.remoteName, r]));
   const packageOf = (module: string) =>
     byRemoteName.get(module.split("/")[0])?.packageName;
-  for (const { text } of messages) {
-    const loaded = LOADED_RE.exec(text);
-    if (loaded) {
-      bump(events.loaded, loaded[2]);
-      continue;
-    }
-    const failed = FAILED_RE.exec(text);
-    if (failed) {
-      const errors = events.failed.get(failed[2]) ?? [];
-      errors.push(`${failed[1]}: ${failed[3].trim()}`);
-      events.failed.set(failed[2], errors);
-      continue;
-    }
-    const notAFeature = NOT_A_FEATURE_RE.exec(text);
-    if (notAFeature) {
-      const pkg = packageOf(notAFeature[1]);
-      if (pkg) bump(events.notAFeature, pkg);
-      continue;
-    }
-    const empty = EMPTY_RE.exec(text);
-    if (empty) {
-      const pkg = packageOf(empty[1]);
-      if (pkg) bump(events.empty, pkg);
-      continue;
-    }
-    if (GLOBAL_ERROR_RE.test(text)) events.globalErrors.push(text);
-  }
+  for (const { text } of messages) recordLoaderMessage(events, text, packageOf);
   return events;
 }
 
