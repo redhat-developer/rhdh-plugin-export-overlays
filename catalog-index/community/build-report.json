@@ -1,7 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:2.2-bs_1.57.1-181a598"
-  },
+  "metadata": {},
   "plugins": {
     "backstage-community-plugin-3scale-backend": {
       "stages": {
@@ -269,7 +267,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3dc04e8afe8cb6619157d81a010e5e8281fe602645c3f78169d10d74c755c538"
+          "digest": "sha256:d7d6addbc5dc7071ba882042c3252f5194333cb5682831a73e64269610d44c95"
         },
         "dpdy": {
           "status": "skip"
@@ -301,7 +299,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c5e7ae07b9dec395424753b484bcc0536623949cad9eccfcf0c53b5c28dbe813"
+          "digest": "sha256:28f568a44eb249572575f3d3a58f5686f0c4aabfc9a8a89b8cc326e624abb484"
         },
         "dpdy": {
           "status": "skip"
@@ -333,7 +331,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3a15af21403be79ec830fa60551bd55e0bfff9e6a3998124c31969bd396e3e27"
+          "digest": "sha256:d57c3b1819adc72efac46ac1cbfb867a8d760a8f76daa9ebff0e8c9ab3d9dcaa"
         },
         "dpdy": {
           "status": "skip"
@@ -365,7 +363,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:413f09b22047ccdbf7294dfdb963a513de8276644e263e5f0a41b5499e28a67f"
+          "digest": "sha256:f3510ff30dbb5d9137c7e7e3def48c2ad631d0a1ead06c19a3da366b508ea2c3"
         },
         "dpdy": {
           "status": "skip"
@@ -397,7 +395,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:17f373d14d54ddff92e3731248fda040b7c0b0e99429be1b63f6831005e177fb"
+          "digest": "sha256:fe9adc8320c7d0ca824ba103982dc43df39795361476a3a41f8fe7c6e61b7103"
         },
         "dpdy": {
           "status": "skip"
@@ -429,7 +427,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:532bf143c260c14bf799910479b2ba8c4073d9edad7b18ea9413a62c1d8c2e1a"
+          "digest": "sha256:7f1588c6f445868354abae064388ee26b18dfe472944fe378160da495cbecc37"
         },
         "dpdy": {
           "status": "skip"
@@ -453,38 +451,23 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.54.5__10.23.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.57.1",
-          "found_version": "1.54.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.57.1__10.26.0"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.54.5__10.23.0"
+          "status": "pass",
+          "digest": "sha256:cb4529e84d74a35553be3ab9e4833d7c63e40878abdfbb2e659fc2856742f86b"
         },
         "dpdy": {
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.54.5__10.23.0"
-        },
-        "validate": {
-          "status": "fail",
-          "errors": [
-            "[unresolved-image] 'backstage-community-plugin-dynatrace' was never resolved in the registry (plugin_builds/ has no digest)"
-          ],
-          "reason": "[unresolved-image] 'backstage-community-plugin-dynatrace' was never resolved in the registry (plugin_builds/ has no digest)",
-          "warnings": [
-            "[backstage-version-mismatch] 'backstage-community-plugin-dynatrace': Backstage version mismatch (workspace 1.54.5, expected 1.57.1)"
-          ]
+          "status": "pass"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
-      "version": "10.23.0",
+      "version": "10.26.0",
       "workspace": "dynatrace",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-github-actions": {
       "stages": {
@@ -564,36 +547,29 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.54.5__0.31.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.57.1",
-          "found_version": "1.54.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.57.1__0.34.0"
         },
         "image-metadata-fetch": {
           "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.54.5__0.31.0"
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.57.1__0.34.0"
         },
         "dpdy": {
           "status": "skip"
         },
         "catalog-index": {
           "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.54.5__0.31.0"
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.57.1__0.34.0"
         },
         "validate": {
           "status": "fail",
           "errors": [
             "[unresolved-image] 'backstage-community-plugin-jenkins-backend' was never resolved in the registry (plugin_builds/ has no digest)"
           ],
-          "reason": "[unresolved-image] 'backstage-community-plugin-jenkins-backend' was never resolved in the registry (plugin_builds/ has no digest)",
-          "warnings": [
-            "[backstage-version-mismatch] 'backstage-community-plugin-jenkins-backend': Backstage version mismatch (workspace 1.54.5, expected 1.57.1)"
-          ]
+          "reason": "[unresolved-image] 'backstage-community-plugin-jenkins-backend' was never resolved in the registry (plugin_builds/ has no digest)"
         }
       },
       "package": "@backstage-community/plugin-jenkins-backend",
-      "version": "0.31.0",
+      "version": "0.34.0",
       "workspace": "jenkins",
       "overall": "fail"
     },
@@ -601,36 +577,29 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.54.5__0.34.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.57.1",
-          "found_version": "1.54.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.57.1__0.37.0"
         },
         "image-metadata-fetch": {
           "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.54.5__0.34.0"
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.57.1__0.37.0"
         },
         "dpdy": {
           "status": "skip"
         },
         "catalog-index": {
           "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.54.5__0.34.0"
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.57.1__0.37.0"
         },
         "validate": {
           "status": "fail",
           "errors": [
             "[unresolved-image] 'backstage-community-plugin-jenkins' was never resolved in the registry (plugin_builds/ has no digest)"
           ],
-          "reason": "[unresolved-image] 'backstage-community-plugin-jenkins' was never resolved in the registry (plugin_builds/ has no digest)",
-          "warnings": [
-            "[backstage-version-mismatch] 'backstage-community-plugin-jenkins': Backstage version mismatch (workspace 1.54.5, expected 1.57.1)"
-          ]
+          "reason": "[unresolved-image] 'backstage-community-plugin-jenkins' was never resolved in the registry (plugin_builds/ has no digest)"
         }
       },
       "package": "@backstage-community/plugin-jenkins",
-      "version": "0.34.0",
+      "version": "0.37.0",
       "workspace": "jenkins",
       "overall": "fail"
     },
@@ -675,36 +644,29 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.54.5__0.26.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.57.1",
-          "found_version": "1.54.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.57.1__0.29.0"
         },
         "image-metadata-fetch": {
           "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.54.5__0.26.0"
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.57.1__0.29.0"
         },
         "dpdy": {
           "status": "skip"
         },
         "catalog-index": {
           "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.54.5__0.26.0"
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.57.1__0.29.0"
         },
         "validate": {
           "status": "fail",
           "errors": [
             "[unresolved-image] 'backstage-community-plugin-lighthouse' was never resolved in the registry (plugin_builds/ has no digest)"
           ],
-          "reason": "[unresolved-image] 'backstage-community-plugin-lighthouse' was never resolved in the registry (plugin_builds/ has no digest)",
-          "warnings": [
-            "[backstage-version-mismatch] 'backstage-community-plugin-lighthouse': Backstage version mismatch (workspace 1.54.5, expected 1.57.1)"
-          ]
+          "reason": "[unresolved-image] 'backstage-community-plugin-lighthouse' was never resolved in the registry (plugin_builds/ has no digest)"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
-      "version": "0.26.0",
+      "version": "0.29.0",
       "workspace": "lighthouse",
       "overall": "fail"
     },
@@ -753,7 +715,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cd95bdf2e73bba4fc2fa702960ffd4f4e2dd2e8d320a7a7182deb1acb16b4938"
+          "digest": "sha256:5b250f364b08e08920233c784a5d639b3fc8f9389ad8656a695ebddb34f06369"
         },
         "dpdy": {
           "status": "skip"
@@ -775,7 +737,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:59a32f333206e8a8a571e06f8b9c423298ca7b1ee95378682f38e470daa43e6b"
+          "digest": "sha256:6572c0bfba81fa90a4333ee9f6321cbfeb72151eda93fc628acff85edcd30857"
         },
         "dpdy": {
           "status": "skip"
@@ -1280,8 +1242,8 @@
   },
   "summary": {
     "total": 37,
-    "succeeded": 15,
-    "failed": 22
+    "succeeded": 16,
+    "failed": 21
   },
   "status": "partial"
 }

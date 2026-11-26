@@ -6,58 +6,65 @@
     "io.backstage.dynamic-packages": "W3siYXBpYy1iYWNrc3RhZ2UiOnsibmFtZSI6ImFwaWMtYmFja3N0YWdlLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMS4wLjQiLCJkZXNjcmlwdGlvbiI6IlRoZSBBUElDIGJhY2tlbmQgbW9kdWxlIGZvciB0aGUgY2F0YWxvZyBwbHVnaW4uIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbi1tb2R1bGUiLCJwbHVnaW5JZCI6ImFwaWMtYmFja3N0YWdlIiwicGx1Z2luUGFja2FnZSI6ImFwaWMtYmFja3N0YWdlIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
     "imageTag": "bs_1.54.6__1.0.4"
   },
+  "backstage-community-plugin-dynatrace": {
+    "workspacePath": "dynatrace/plugins/dynatrace",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:cb4529e84d74a35553be3ab9e4833d7c63e40878abdfbb2e659fc2856742f86b",
+    "support": "community",
+    "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLWNvbW11bml0eS1wbHVnaW4tZHluYXRyYWNlIjp7Im5hbWUiOiJAYmFja3N0YWdlLWNvbW11bml0eS9wbHVnaW4tZHluYXRyYWNlLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMTAuMjYuMCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiZnJvbnRlbmQtcGx1Z2luIiwicGx1Z2luSWQiOiJkeW5hdHJhY2UiLCJwbHVnaW5QYWNrYWdlcyI6WyJAYmFja3N0YWdlLWNvbW11bml0eS9wbHVnaW4tZHluYXRyYWNlIl0sImZlYXR1cmVzIjp7Ii4vYWxwaGEiOiJAYmFja3N0YWdlL0Zyb250ZW5kUGx1Z2luIn0sInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNTcuMSJ9LCJob21lcGFnZSI6Imh0dHBzOi8vYmFja3N0YWdlLmlvIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9jb21tdW5pdHktcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvZHluYXRyYWNlL3BsdWdpbnMvZHluYXRyYWNlIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
+    "imageTag": "bs_1.57.1__10.26.0"
+  },
   "backstage-plugin-catalog-backend-module-bitbucket-cloud": {
     "workspacePath": "backstage/plugins/catalog-backend-module-bitbucket-cloud",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud@sha256:3dc04e8afe8cb6619157d81a010e5e8281fe602645c3f78169d10d74c755c538",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud@sha256:d7d6addbc5dc7071ba882042c3252f5194333cb5682831a73e64269610d44c95",
     "support": "community",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1jYXRhbG9nLWJhY2tlbmQtbW9kdWxlLWJpdGJ1Y2tldC1jbG91ZCI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tY2F0YWxvZy1iYWNrZW5kLW1vZHVsZS1iaXRidWNrZXQtY2xvdWQtZHluYW1pYyIsInZlcnNpb24iOiIwLjUuMTQiLCJkZXNjcmlwdGlvbiI6IkEgQmFja3N0YWdlIGNhdGFsb2cgYmFja2VuZCBtb2R1bGUgdGhhdCBoZWxwcyBpbnRlZ3JhdGUgdG93YXJkcyBCaXRidWNrZXQgQ2xvdWQiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoiY2F0YWxvZyIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1jYXRhbG9nLWJhY2tlbmQifSwiaG9tZXBhZ2UiOiJodHRwczovL2JhY2tzdGFnZS5pbyIsInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9iYWNrc3RhZ2UvYmFja3N0YWdlIiwiZGlyZWN0b3J5IjoicGx1Z2lucy9jYXRhbG9nLWJhY2tlbmQtbW9kdWxlLWJpdGJ1Y2tldC1jbG91ZCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImtleXdvcmRzIjpbImJhY2tzdGFnZSJdfX1d",
     "imageTag": "bs_1.54.9__0.5.14"
   },
   "backstage-plugin-catalog-backend-module-bitbucket-server": {
     "workspacePath": "backstage/plugins/catalog-backend-module-bitbucket-server",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server@sha256:c5e7ae07b9dec395424753b484bcc0536623949cad9eccfcf0c53b5c28dbe813",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server@sha256:28f568a44eb249572575f3d3a58f5686f0c4aabfc9a8a89b8cc326e624abb484",
     "support": "community",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1jYXRhbG9nLWJhY2tlbmQtbW9kdWxlLWJpdGJ1Y2tldC1zZXJ2ZXIiOnsibmFtZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLWNhdGFsb2ctYmFja2VuZC1tb2R1bGUtYml0YnVja2V0LXNlcnZlci1keW5hbWljIiwidmVyc2lvbiI6IjAuNS4xNCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4tbW9kdWxlIiwicGx1Z2luSWQiOiJjYXRhbG9nIiwicGx1Z2luUGFja2FnZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLWNhdGFsb2ctYmFja2VuZCJ9LCJob21lcGFnZSI6Imh0dHBzOi8vYmFja3N0YWdlLmlvIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL2NhdGFsb2ctYmFja2VuZC1tb2R1bGUtYml0YnVja2V0LXNlcnZlciJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImtleXdvcmRzIjpbImJhY2tzdGFnZSJdfX1d",
     "imageTag": "bs_1.54.9__0.5.14"
   },
   "backstage-plugin-scaffolder-backend-module-azure": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-azure",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure@sha256:3a15af21403be79ec830fa60551bd55e0bfff9e6a3998124c31969bd396e3e27",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure@sha256:d57c3b1819adc72efac46ac1cbfb867a8d760a8f76daa9ebff0e8c9ab3d9dcaa",
     "support": "community",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWF6dXJlIjp7Im5hbWUiOiJAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWF6dXJlLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMC4yLjI1IiwiZGVzY3JpcHRpb24iOiJUaGUgYXp1cmUgbW9kdWxlIGZvciBAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoic2NhZmZvbGRlciIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3NjYWZmb2xkZXItYmFja2VuZC1tb2R1bGUtYXp1cmUifSwibGljZW5zZSI6IkFwYWNoZS0yLjAifX1d",
     "imageTag": "bs_1.54.9__0.2.25"
   },
   "backstage-plugin-scaffolder-backend-module-bitbucket-cloud": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-bitbucket-cloud",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud@sha256:413f09b22047ccdbf7294dfdb963a513de8276644e263e5f0a41b5499e28a67f",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud@sha256:f3510ff30dbb5d9137c7e7e3def48c2ad631d0a1ead06c19a3da366b508ea2c3",
     "support": "community",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWJpdGJ1Y2tldC1jbG91ZCI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1iaXRidWNrZXQtY2xvdWQtZHluYW1pYyIsInZlcnNpb24iOiIwLjMuMTAiLCJkZXNjcmlwdGlvbiI6IlRoZSBCaXRidWNrZXQgQ2xvdWQgbW9kdWxlIGZvciBAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoic2NhZmZvbGRlciIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3NjYWZmb2xkZXItYmFja2VuZC1tb2R1bGUtYml0YnVja2V0LWNsb3VkIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
     "imageTag": "bs_1.54.9__0.3.10"
   },
   "backstage-plugin-scaffolder-backend-module-bitbucket-server": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-bitbucket-server",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server@sha256:17f373d14d54ddff92e3731248fda040b7c0b0e99429be1b63f6831005e177fb",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server@sha256:fe9adc8320c7d0ca824ba103982dc43df39795361476a3a41f8fe7c6e61b7103",
     "support": "community",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWJpdGJ1Y2tldC1zZXJ2ZXIiOnsibmFtZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLXNjYWZmb2xkZXItYmFja2VuZC1tb2R1bGUtYml0YnVja2V0LXNlcnZlci1keW5hbWljIiwidmVyc2lvbiI6IjAuMi4yNSIsImRlc2NyaXB0aW9uIjoiVGhlIEJpdGJ1Y2tldCBTZXJ2ZXIgbW9kdWxlIGZvciBAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoic2NhZmZvbGRlciIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3NjYWZmb2xkZXItYmFja2VuZC1tb2R1bGUtYml0YnVja2V0LXNlcnZlciJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCJ9fV0=",
     "imageTag": "bs_1.54.9__0.2.25"
   },
   "backstage-plugin-scaffolder-backend-module-gerrit": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-gerrit",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit@sha256:532bf143c260c14bf799910479b2ba8c4073d9edad7b18ea9413a62c1d8c2e1a",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit@sha256:7f1588c6f445868354abae064388ee26b18dfe472944fe378160da495cbecc37",
     "support": "community",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWdlcnJpdCI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1nZXJyaXQtZHluYW1pYyIsInZlcnNpb24iOiIwLjIuMjQiLCJkZXNjcmlwdGlvbiI6IlRoZSBnZXJyaXQgbW9kdWxlIGZvciBAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoic2NhZmZvbGRlciIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3NjYWZmb2xkZXItYmFja2VuZC1tb2R1bGUtZ2Vycml0In0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
     "imageTag": "bs_1.54.9__0.2.24"
   },
   "pagerduty-backstage-plugin": {
     "workspacePath": "pagerduty/plugins/backstage-plugin",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:59a32f333206e8a8a571e06f8b9c423298ca7b1ee95378682f38e470daa43e6b",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:6572c0bfba81fa90a4333ee9f6321cbfeb72151eda93fc628acff85edcd30857",
     "support": "community",
     "io.backstage.dynamic-packages": "W3sicGFnZXJkdXR5LWJhY2tzdGFnZS1wbHVnaW4iOnsibmFtZSI6IkBwYWdlcmR1dHkvYmFja3N0YWdlLXBsdWdpbi1keW5hbWljIiwidmVyc2lvbiI6IjAuMjEuMSIsImRlc2NyaXB0aW9uIjoiQSBCYWNrc3RhZ2UgcGx1Z2luIHRoYXQgaW50ZWdyYXRlcyB0b3dhcmRzIFBhZ2VyRHV0eSIsImJhY2tzdGFnZSI6eyJwbHVnaW5JZCI6InBhZ2VyZHV0eSIsInJvbGUiOiJmcm9udGVuZC1wbHVnaW4iLCJwbHVnaW5QYWNrYWdlcyI6WyJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4iLCJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4tY29tbW9uIiwiQHBhZ2VyZHV0eS9iYWNrc3RhZ2UtcGx1Z2luLWJhY2tlbmQiXSwiZmVhdHVyZXMiOnsiLi9hbHBoYSI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRQbHVnaW4ifSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41Ny4xIn0sImhvbWVwYWdlIjoiaHR0cHM6Ly9wYWdlcmR1dHkuZ2l0aHViLmlvL2JhY2tzdGFnZS1wbHVnaW4tZG9jcy9pbmRleC5odG1sIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL1BhZ2VyRHV0eS9iYWNrc3RhZ2UtcGx1Z2lucyIsImRpcmVjdG9yeSI6InBsdWdpbnMvYmFja3N0YWdlLXBsdWdpbiJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiIsInBhZ2VyZHV0eSJdfX1d",
     "imageTag": "bs_1.57.1__0.21.1"
   },
   "pagerduty-backstage-plugin-backend": {
     "workspacePath": "pagerduty/plugins/backstage-plugin-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend@sha256:cd95bdf2e73bba4fc2fa702960ffd4f4e2dd2e8d320a7a7182deb1acb16b4938",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend@sha256:5b250f364b08e08920233c784a5d639b3fc8f9389ad8656a695ebddb34f06369",
     "support": "community",
     "io.backstage.dynamic-packages": "W3sicGFnZXJkdXR5LWJhY2tzdGFnZS1wbHVnaW4tYmFja2VuZCI6eyJuYW1lIjoiQHBhZ2VyZHV0eS9iYWNrc3RhZ2UtcGx1Z2luLWJhY2tlbmQtZHluYW1pYyIsInZlcnNpb24iOiIwLjE0LjAiLCJiYWNrc3RhZ2UiOnsicGx1Z2luSWQiOiJwYWdlcmR1dHkiLCJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5QYWNrYWdlcyI6WyJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4iLCJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4tY29tbW9uIiwiQHBhZ2VyZHV0eS9iYWNrc3RhZ2UtcGx1Z2luLWJhY2tlbmQiXSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41Ny4xIn0sImhvbWVwYWdlIjoiaHR0cHM6Ly9wYWdlcmR1dHkuZ2l0aHViLmlvL2JhY2tzdGFnZS1wbHVnaW4tZG9jcy9pbmRleC5odG1sIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL1BhZ2VyRHV0eS9iYWNrc3RhZ2UtcGx1Z2lucyIsImRpcmVjdG9yeSI6InBsdWdpbnMvYmFja3N0YWdlLXBsdWdpbi1iYWNrZW5kIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
     "imageTag": "bs_1.57.1__0.14.0"

@@ -1,7 +1,5 @@
 {
-  "metadata": {
-    "catalog-index-image": "quay.io/rhdh-community/plugin-catalog-index:2.2-bs_1.57.1-181a598"
-  },
+  "metadata": {},
   "plugins": {
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
       "stages": {
@@ -163,7 +161,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-auth' resolved to bs_1.54.6__1.2.0 after bs_1.54.6__1.3.0 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-auth' resolved to bs_1.54.6__1.2.0 after bs_1.54.6__1.3.0 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-app-auth': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -199,7 +197,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.6__1.10.0 after bs_1.54.6__1.13.0 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.6__1.10.0 after bs_1.54.6__1.13.0 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-app-defaults': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -235,7 +233,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-integrations' resolved to bs_1.54.6__1.1.1 after bs_1.54.6__1.2.0 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-integrations' resolved to bs_1.54.6__1.1.1 after bs_1.54.6__1.2.0 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-app-integrations': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -257,7 +255,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:900467dbcdae153f510bd66708de6280c8b46d6d589d03841a7e2af0a06b4ecd"
+          "digest": "sha256:2ebb02551e8f18c38f8dd797daf128eb3d02df54b8f129dfaf6dced85e01effe"
         },
         "dpdy": {
           "status": "pass"
@@ -289,7 +287,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:fe5b5930188c724403e1da1438fa44ce2f36d16c3147c00458fe3e4cf5b9162c"
+          "digest": "sha256:c0e285239425fd0de4e93c8bd0dc846b20f1f8265c8e6de0391ec166605ea89f"
         },
         "dpdy": {
           "status": "pass"
@@ -321,7 +319,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:db7b00b0b54ff45ce2ecaf97a38c8d9132c350c3e9580f07239367da313080ea"
+          "digest": "sha256:f193485efd1dfd8f7741fd1ae98aea8e713fca538dd22b2205e578a76d4bc46b"
         },
         "dpdy": {
           "status": "pass"
@@ -353,7 +351,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:32be30675e204e87ee50e2281b5c3498a6cd114c48a0fe92e2cefedaf1acc5e8"
+          "digest": "sha256:2f9ca45882b59a74e5f55f6122ac791b6597604f3dd736f4a56c894751d3ea43"
         },
         "dpdy": {
           "status": "pass"
@@ -385,7 +383,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f9896e4bf19cc4c1d098531e36c0e65d8a54d38ecb6f932270b917508e55f281"
+          "digest": "sha256:cf5c3c4bb3a2777fc5fa0b092468f13098e1c346c7e94e9588eb32c1b8571824"
         },
         "dpdy": {
           "status": "pass"
@@ -417,7 +415,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:53397f49635fee86d9be29d35790314fb5df8cd6c6b84409ee6834a2d625908d"
+          "digest": "sha256:0f03a5a67d402a6e5eea6ecc94b00b0802a68fb6d935a72f0a9f5eb78ee6d760"
         },
         "dpdy": {
           "status": "pass"
@@ -449,7 +447,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:68d126e2223bccb085e59cb54f865b6abf6b73874ace463140a8dde7d5f38138"
+          "digest": "sha256:e960a87cdfaad74d1ecf7e13a6552f1f2c7c8866178895667427e8db2a1068c7"
         },
         "dpdy": {
           "status": "pass"
@@ -481,7 +479,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:42ac5a412440c427c8b937ed5310d5485de2238f0222ee387d1e093e08e25d50"
+          "digest": "sha256:1db5d4fc459d05b9910122f1262d3d79444dcb82148767b2b2777dca09bc4003"
         },
         "dpdy": {
           "status": "pass"
@@ -513,7 +511,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1fff5ea29c82642bf4345c7a58dbea66e15c1a2df65aa41d5e20cd8e2c6b9d9e"
+          "digest": "sha256:1cc351978cc854a088dd04afd1eac14bbe6e8df3be2c30cd7f4d1d211a03c0cd"
         },
         "dpdy": {
           "status": "pass"
@@ -545,7 +543,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d1b2ed553f1f2a3fecbd5fde57bf73b560da45d983398709e1993ccb4d2bc873"
+          "digest": "sha256:9e86d359ef4a359055815071d56fadfb8aafc5126b3c56264ea1401dc436adad"
         },
         "dpdy": {
           "status": "pass"
@@ -577,7 +575,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a66b03b500908f8ccc614018f24abc58c42a5f54ad6593891e3f1399be1b0843"
+          "digest": "sha256:05c60ceb50dbc18370df50504a3aba7477e615b5b4a7cc7bc248fef566c3670e"
         },
         "dpdy": {
           "status": "pass"
@@ -609,7 +607,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9b9b6fd2751f253357b663ca752e438474774da18f8116e559c7599caa29932a"
+          "digest": "sha256:bb7831702c0e2bc3bc5ac6a174efb075d6339316b657e29d25d628bd95fba8f9"
         },
         "dpdy": {
           "status": "pass"
@@ -641,7 +639,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:16b6a27ec4becb222f5cdcda2ff23d055084604441578da0eb8718fa39a54bb4"
+          "digest": "sha256:c2a27436a1e9453ec7df790036813c4adb7593469e52ef080c2f23cdaa43e4c1"
         },
         "dpdy": {
           "status": "pass"
@@ -673,7 +671,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a74016412d5a854934adb23ba63c01082fd0cb6bf9d4264bb469060ba405b312"
+          "digest": "sha256:d0d47d69eb714f67b6a1abc77cec763de7993fef8f556027de484633359e1a74"
         },
         "dpdy": {
           "status": "pass"
@@ -705,7 +703,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1452290bd1749a318aeb2b92b68d876971d1c921a18c604564d47215f230e47c"
+          "digest": "sha256:9cb9132426a2c9baba7d0c60f5901cb6933527b252789013600668fb39447e0f"
         },
         "dpdy": {
           "status": "pass"
@@ -737,7 +735,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9e53abb19d2a8fdb7e0436edaf296ef93bfee9c2586308c9d7f6ff08f5b72568"
+          "digest": "sha256:6265ca4c00a2d6af80af23b00760004d55a390a925de3e61c11d3de2384306b3"
         },
         "dpdy": {
           "status": "pass"
@@ -769,7 +767,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1a2d8bce4c81eac0d57a69509f32e922fe37e522d4c45295c62e08970044212e"
+          "digest": "sha256:b58bc195a924e03137f28c85f7c209dbdb1c22771bea5015dee41b7ebc46d467"
         },
         "dpdy": {
           "status": "pass"
@@ -801,7 +799,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:088630e2ae78ec102e4ab35357d4f0f8cfcd615f96448ec7f649c6792c3645d9"
+          "digest": "sha256:6c9f6ad0900b776dfc3e8a402dfec33d3b9b3bdc56023cd51f295eb589f476bd"
         },
         "dpdy": {
           "status": "pass"
@@ -833,7 +831,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2550af44fd70721d7727d44e24fd2c9f2e3f2933af6bc0436940eb0120e09eec"
+          "digest": "sha256:4daf36397cd7225a4baf05054f36f6e0a10c127eae49e5212632a57fc4c676ba"
         },
         "dpdy": {
           "status": "pass"
@@ -865,7 +863,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:af4e4ab40215930cfa5cc0d7491a75bb129caaf10dea8cc2e406b5913aff5d56"
+          "digest": "sha256:d88279000296b26c6f43c45e74c0919d72a2f31565de81910ebbbd6e80eca3a6"
         },
         "dpdy": {
           "status": "pass"
@@ -897,7 +895,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a7bd13f9b310c2d8181cbc38c312a90b9295ddb11978a6c4a063078216f698dc"
+          "digest": "sha256:1e5dbc6d36a5d59c4e5561effe4676771b498263b10f317d66aa7ca6ccc069dc"
         },
         "dpdy": {
           "status": "pass"
@@ -929,7 +927,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a62c3a512e0ad48b0e731afc323e99a68d9f7bc0269336afeea825d2ac9afac1"
+          "digest": "sha256:9f3a4bcca42c570b6a16f0f28497da6637f7a5f06d6d8dea1b6b0a26df90ef77"
         },
         "dpdy": {
           "status": "pass"
@@ -961,7 +959,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c7bb830e12ab4f787e24b8e075d5a4c88947f051c9233e1ad99275e2d9d27e56"
+          "digest": "sha256:67b106a7bea660a0ceddbb6f8f6c71edb80c0314b6f1b82de72dee2ed5341f0b"
         },
         "dpdy": {
           "status": "pass"
@@ -993,7 +991,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:295859e21a3d6680c1356c396821cb558d6d58022681b5579a4518f1e591344e"
+          "digest": "sha256:50a61ff253951b4c94f5f6b2c7c9643067fc26bb566cc8d94ad976b2fb673cea"
         },
         "dpdy": {
           "status": "pass"
@@ -1025,7 +1023,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:316e113707277aecbd7d603134d861153c87894862808b907115f8cec2d2b1ff"
+          "digest": "sha256:28689daaccf47139f8a82caa7866c38f2344d98e5c81ba2727a023fc0ebd6294"
         },
         "dpdy": {
           "status": "pass"
@@ -1057,7 +1055,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:299985bacfc6328f39ae6c17c692908ce4ce53e8a3bcb5d87b3099bb5567dc2d"
+          "digest": "sha256:37f269817059c78faa705e9d021acab6e0c6cf93e9021c40bbc697d4f0af0299"
         },
         "dpdy": {
           "status": "pass"
@@ -1103,7 +1101,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import-backend' resolved to bs_1.54.6__9.1.1 after bs_1.54.6__9.2.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import-backend' resolved to bs_1.54.6__9.1.1 after bs_1.54.6__9.2.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-bulk-import-backend': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1139,7 +1137,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import' resolved to bs_1.54.6__9.1.1 after bs_1.54.6__9.2.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import' resolved to bs_1.54.6__9.1.1 after bs_1.54.6__9.2.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-bulk-import': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1175,7 +1173,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' resolved to bs_1.54.6__1.0.1 after bs_1.54.6__1.0.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' resolved to bs_1.54.6__1.0.1 after bs_1.54.6__1.0.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1211,7 +1209,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions-backend' resolved to bs_1.54.6__1.0.1 after bs_1.54.6__1.0.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions-backend' resolved to bs_1.54.6__1.0.1 after bs_1.54.6__1.0.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-extensions-backend': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1247,7 +1245,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions' resolved to bs_1.54.6__1.0.1 after bs_1.54.6__1.0.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions' resolved to bs_1.54.6__1.0.1 after bs_1.54.6__1.0.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-extensions': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1283,7 +1281,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-global-header' resolved to bs_1.54.6__3.1.0 after bs_1.54.6__3.2.1 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-global-header' resolved to bs_1.54.6__3.1.0 after bs_1.54.6__3.2.1 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-global-header': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1351,7 +1349,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage' resolved to bs_1.54.6__3.0.0 after bs_1.54.6__3.1.0 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-homepage' resolved to bs_1.54.6__3.0.0 after bs_1.54.6__3.1.0 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-homepage': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1387,7 +1385,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__5.3.6 after bs_1.54.6__5.3.10 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__5.3.6 after bs_1.54.6__5.3.10 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1423,7 +1421,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__5.3.6 after bs_1.54.6__5.3.10 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__5.3.6 after bs_1.54.6__5.3.10 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1535,7 +1533,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.6__1.5.1 after bs_1.54.6__1.5.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.6__1.5.1 after bs_1.54.6__1.5.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1571,7 +1569,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.6__8.13.1 after bs_1.54.6__8.13.3 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.6__8.13.1 after bs_1.54.6__8.13.3 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1607,7 +1605,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.6__2.2.0 after bs_1.54.6__2.2.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.6__2.2.0 after bs_1.54.6__2.2.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1643,7 +1641,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.6__6.2.1 after bs_1.54.6__6.2.5 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.6__6.2.1 after bs_1.54.6__6.2.5 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-orchestrator': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1679,7 +1677,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.6__1.8.1 after bs_1.54.6__1.8.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.6__1.8.1 after bs_1.54.6__1.8.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -1969,7 +1967,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot' resolved to bs_1.54.6__1.1.3 after bs_1.54.6__1.1.7 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot' resolved to bs_1.54.6__1.1.3 after bs_1.54.6__1.1.7 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2005,7 +2003,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora' resolved to bs_1.54.6__0.2.2 after bs_1.54.6__0.2.6 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora' resolved to bs_1.54.6__0.2.2 after bs_1.54.6__0.2.6 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2041,7 +2039,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck' resolved to bs_1.54.6__1.1.3 after bs_1.54.6__1.1.7 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck' resolved to bs_1.54.6__1.1.3 after bs_1.54.6__1.1.7 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2077,7 +2075,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2113,7 +2111,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2149,7 +2147,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf' resolved to bs_1.54.6__2.0.0 after bs_1.54.6__2.0.4 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf' resolved to bs_1.54.6__2.0.0 after bs_1.54.6__2.0.4 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2185,7 +2183,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2221,7 +2219,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard-backend': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2257,7 +2255,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found — the index ships an older build",
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard' resolved to bs_1.54.6__4.4.1 after bs_1.54.6__4.5.2 was not found \u2014 the index ships an older build",
             "[backstage-version-mismatch] 'red-hat-developer-hub-backstage-plugin-scorecard': Backstage version mismatch (workspace 1.54.6, expected 1.57.1)"
           ]
         }
@@ -2355,7 +2353,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:85afade6086b9249119bf0de7fff744545870bb41eb5e8a5653e67b3e71f6d16"
+          "digest": "sha256:b245b1bf357de3f79ada895ca0daae233e286e0de517b983350a96c297019796"
         },
         "dpdy": {
           "status": "pass"
