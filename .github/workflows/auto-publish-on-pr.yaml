@@ -1,0 +1,61 @@
+name: Auto-publish on PR
+# General automation (RHIDP-18915): same-repo PRs publish automatically and
+# enable auto-merge, so a PR whose publish check passes merges itself without
+# a human typing /publish. Fork PRs keep the manual /publish comment gate.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  publish:
+    name: Auto-publish (same-repo PRs)
+    # Non-fork PRs only: a same-repo branch requires write access, so the
+    # author is already trusted to push code here. Fork PRs, and PRs from
+    # branches that lack this workflow file, stay on the manual /publish path.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    concurrency:
+      group: auto-publish-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/auto-publish-pr.yaml
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
+      pull-requests: write
+
+  automerge:
+    name: Enable auto-merge
+    needs: publish
+    if: needs.publish.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Enable auto-merge (squash) once checks pass
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.labels.some(l => l.name === 'do-not-automerge')) {
+              core.notice(`PR #${pr.number} is labeled do-not-automerge; not enabling auto-merge`);
+              return;
+            }
+            // The publish status was written by the publish job above; GitHub
+            // merges automatically once every required check is green. A failed
+            // publish (e.g. multi-workspace PRs) leaves the PR blocked.
+            await github.graphql(
+              `mutation($input: EnablePullRequestAutoMergeInput!) {
+                 enablePullRequestAutoMerge(input: $input) {
+                   pullRequest { number }
+                 }
+               }`,
+              { input: { pullRequestId: pr.node_id, mergeMethod: 'SQUASH' } }
+            );
+            core.notice(`Auto-merge (squash) enabled for PR #${pr.number}`);
