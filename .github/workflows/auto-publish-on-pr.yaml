@@ -2,16 +2,19 @@ name: Auto-publish on PR
 # General automation (RHIDP-18915): same-repo PRs publish automatically and
 # enable auto-merge, so a PR whose publish check passes merges itself without
 # a human typing /publish. Fork PRs keep the manual /publish comment gate.
+# pull_request (not the sunsetting pull_request_target): forks run this with a
+# read-only token and are skipped by the guard below; same-repo branches get
+# the declared write permissions.
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   publish:
     name: Auto-publish (same-repo PRs)
     # Non-fork PRs only: a same-repo branch requires write access, so the
-    # author is already trusted to push code here. Fork PRs, and PRs from
-    # branches that lack this workflow file, stay on the manual /publish path.
+    # author is already trusted to push code here. Fork PRs (read-only token
+    # under pull_request) and drafts stay on the manual /publish path.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       !github.event.pull_request.draft
