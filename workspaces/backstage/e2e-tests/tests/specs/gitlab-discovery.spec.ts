@@ -7,43 +7,62 @@ import {
   prepareSelfHostedGitLabParentGroup,
   runGitLabCleanupSafely,
 } from "../../support/gitlab/common-test-setup.js";
+import {
+  deleteGitLabDiscoverySharedState,
+  readGitLabDiscoverySharedState,
+  requireGitLabDiscoverySharedState,
+  writeGitLabDiscoverySharedState,
+} from "../../support/gitlab/discovery-test-setup.js";
 
 /** Static token from tests/config/gitlab-discovery/app-config-rhdh.yaml */
 const CATALOG_TOKEN = "gitlab-discovery-e2e-token";
 
 test.describe("gitlab discovery UI tests", () => {
   let entityName: string;
-  let projectId: number | undefined;
+  let playwrightProjectName: string;
   let rhdhUrl: string;
 
-  test.beforeAll(async ({ rhdh }) => {
-    // A restarted worker runs this again: it creates a fresh project, which the
-    // provider's one-minute schedule discovers on the already deployed hub.
+  test.beforeAll(async ({ rhdh }, testInfo) => {
+    playwrightProjectName = testInfo.project.name;
     const testPrefix = bootstrapSelfHostedGitLabApiClient();
     // Stale-resource cleanup and project creation run before deploy() raises
     // the timeout, so give them room of their own.
     test.setTimeout(600_000);
-    const parent = await prepareSelfHostedGitLabParentGroup();
 
-    entityName = `${testPrefix}-discovery`;
-    projectId = await GitLabApiHelper.createProject(
-      parent.parentGroupId,
-      entityName,
-    );
-    await GitLabApiHelper.createFile(
-      projectId,
-      "catalog-info.yaml",
-      `apiVersion: backstage.io/v1alpha1
+    // runOnce + shared state: a restarted worker (e.g. on a retry) reuses the
+    // project the first worker created instead of creating a second one.
+    await test.runOnce(
+      `gitlab-discovery-setup-${playwrightProjectName}`,
+      async () => {
+        const parent = await prepareSelfHostedGitLabParentGroup();
+        const name = `${testPrefix}-discovery`;
+        const createdProjectId = await GitLabApiHelper.createProject(
+          parent.parentGroupId,
+          name,
+        );
+        await GitLabApiHelper.createFile(
+          createdProjectId,
+          "catalog-info.yaml",
+          `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ${entityName}
+  name: ${name}
   description: My Description
 spec:
   type: website
   lifecycle: experimental
   owner: guests`,
-      `Add catalog-info.yaml for ${entityName}`,
+          `Add catalog-info.yaml for ${name}`,
+        );
+        writeGitLabDiscoverySharedState(playwrightProjectName, {
+          entityName: name,
+          projectId: createdProjectId,
+        });
+      },
     );
+    entityName = requireGitLabDiscoverySharedState(
+      playwrightProjectName,
+    ).entityName;
 
     await rhdh.configure({
       auth: "guest",
@@ -62,11 +81,13 @@ spec:
   });
 
   test.afterAll(async () => {
+    const state = readGitLabDiscoverySharedState(playwrightProjectName);
     await runGitLabCleanupSafely(async () => {
-      if (projectId) {
-        await GitLabApiHelper.deleteProject(projectId, true);
+      if (state?.projectId) {
+        await GitLabApiHelper.deleteProject(state.projectId, true);
       }
     });
+    deleteGitLabDiscoverySharedState(playwrightProjectName);
     await GitLabApiHelper.dispose();
     await CatalogApiHelper.dispose();
   });
