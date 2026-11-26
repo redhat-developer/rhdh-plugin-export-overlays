@@ -1,5 +1,7 @@
 # Fullsend AI Pilot
 
+Last verified with fullsend v0.57.1.
+
 ## What is fullsend?
 
 [Fullsend](https://github.com/fullsend-ai/fullsend) is an agentic SDLC platform that provides AI-powered agents for triage, code review, code generation, and retrospectives. It runs as a GitHub Actions pipeline, triggered by GitHub events, and uses Vertex AI (Anthropic Claude) for inference.
