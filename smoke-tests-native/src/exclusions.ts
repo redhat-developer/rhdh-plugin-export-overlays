@@ -30,7 +30,7 @@
  *             render signal.
  *
  * The regex is matched against the npm PACKAGE NAME (`spec.packageName` in metadata,
- * `name` in the installed package.json) — one identifier space for both scopes.
+ * `name` in the installed package.json) — one identifier space for every scope.
  * RHDH's file matches OCI refs because the catalog index is all it has; here the
  * metadata carries the package name, which is stable across tag and digest refs.
  */

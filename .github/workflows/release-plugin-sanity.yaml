@@ -245,6 +245,7 @@ jobs:
             smoke-tests-native/release-sanity-out/*.md
             smoke-tests-native/release-sanity-out/*.log
             smoke-tests-native/release-sanity-out/*.yaml
+            smoke-tests-native/release-sanity-out/*.png
             smoke-tests-native/release-sanity-out/config/
           if-no-files-found: ignore
           retention-days: 14

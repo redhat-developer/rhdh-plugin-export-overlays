@@ -139,6 +139,34 @@ test("an expected package the backend does not serve is reported, not failed", (
   assert.equal(frontendRenderFailed(report), false);
 });
 
+test("a package that ships a manifest the backend does not serve fails the run", () => {
+  const report = evaluate({
+    remotes: [],
+    withManifest: [`${QUAY.packageName}-dynamic`],
+  });
+  assert.deepEqual(outcomes(report), [[QUAY.packageName, "failed"]]);
+  assert.match(report.results[0].errors[0], /ships dist\/mf-manifest\.json/);
+  assert.equal(frontendRenderFailed(report), true);
+});
+
+test("a remote the loader reported on only in part fails the run", () => {
+  const remote = { ...QUAY, exposedModules: [".", "alpha"] };
+  const report = evaluate({ remotes: [remote], messages: [loaded(remote)] });
+  assert.deepEqual(outcomes(report), [[QUAY.packageName, "not-reported"]]);
+  assert.equal(frontendRenderFailed(report), true);
+});
+
+test("load errors of packages outside the check are listed, not judged", () => {
+  const report = evaluate({
+    remotes: [QUAY, QUAY_ALPHA],
+    messages: [loaded(QUAY), failed(QUAY_ALPHA, "TypeError: boom")],
+  });
+  assert.deepEqual(report.unjudgedErrors, [
+    `${QUAY_ALPHA.packageName}: ${QUAY_ALPHA.remoteName}: TypeError: boom`,
+  ]);
+  assert.equal(frontendRenderFailed(report), false);
+});
+
 test("a served remote the loader never reported on fails the run", () => {
   const report = evaluate({ messages: [] });
   assert.deepEqual(outcomes(report), [[QUAY.packageName, "not-reported"]]);

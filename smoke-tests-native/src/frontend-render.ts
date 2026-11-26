@@ -33,6 +33,8 @@ export type FrontendRenderOptions = {
   /** Installed community frontend package names, after render exclusions. */
   expected: string[];
   excluded: { packageName: string; ticket: string }[];
+  /** Installed packages that ship dist/mf-manifest.json. */
+  withManifest: string[];
   /** Where to save a screenshot when the shell does not render. */
   screenshotPath: string;
 };
@@ -118,6 +120,7 @@ export async function checkFrontendRender(
     remotes,
     messages: observed.messages,
     failedRequests: observed.failedRequests,
+    withManifest: options.withManifest,
     shellError,
   });
 }

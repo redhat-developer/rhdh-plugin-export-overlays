@@ -38,11 +38,14 @@ export type FailedRequest = { url: string; failure: string };
 export type RenderOutcome =
   /** Every exposed module was evaluated, at least one loaded. */
   | "rendered"
-  /** A module threw while loading, or one of its assets could not be fetched. */
+  /**
+   * A module threw while loading, one of its assets could not be fetched, or the
+   * package ships `dist/mf-manifest.json` that the backend refused to serve.
+   */
   | "failed"
-  /** Installed, but the backend does not serve it as a remote (no module federation build, or a malformed manifest). */
+  /** Installed without a module federation build, so the backend has nothing to serve. */
   | "not-served"
-  /** Served, but the loader never reported on it (the app did not get as far as loading it). */
+  /** Served, but the loader did not report on every exposed module (the app did not get as far as loading them). */
   | "not-reported"
   /** Loaded, but no module exports a frontend feature, so it contributes nothing. */
   | "no-feature";
@@ -63,6 +66,11 @@ export type FrontendRenderReport = {
   shellError?: string;
   /** Loader errors not tied to one package: the remotes list or the federation runtime. */
   globalErrors: string[];
+  /**
+   * Load errors of packages this check does not judge (catalog index, render-excluded):
+   * listed for whoever reads the report, never failing the run.
+   */
+  unjudgedErrors: string[];
   results: FrontendRenderResult[];
 };
 
@@ -199,28 +207,56 @@ function readLoaderMessages(
   return events;
 }
 
+/** The router logs why it skipped a manifest and answers without it; the log names the cause. */
+const UNSERVED_MANIFEST_ERROR =
+  "ships dist/mf-manifest.json, but the backend does not serve it as a remote; the container log says why";
+
 function outcomeFor(
-  remote: FrontendRemote | undefined,
+  remote: FrontendRemote,
   events: LoaderEvents,
   assetErrors: string[],
 ): FrontendRenderResult["outcome"] {
-  if (!remote) return "not-served";
   const name = remote.packageName;
   if (events.failed.has(name) || assetErrors.length) return "failed";
   const loaded = events.loaded.get(name) ?? 0;
-  const empty = events.empty.get(name) ?? 0;
-  if (loaded + empty === 0) {
-    // A remote exposing nothing gives the loader nothing to log.
-    return remote.exposedModules.length === 0 ? "no-feature" : "not-reported";
+  // The loader logs one line per exposed module, so a shortfall means it stopped early.
+  // A remote exposing nothing gives it nothing to log, and contributes nothing.
+  if (loaded + (events.empty.get(name) ?? 0) < remote.exposedModules.length) {
+    return "not-reported";
   }
   const features = loaded - (events.notAFeature.get(name) ?? 0);
   return features > 0 ? "rendered" : "no-feature";
 }
 
+/** The verdict for one expected package. */
+function resultFor(
+  packageName: string,
+  remote: FrontendRemote | undefined,
+  hasManifest: boolean,
+  events: LoaderEvents,
+  assetErrors: Map<string, string[]>,
+): FrontendRenderResult {
+  if (!remote) {
+    return hasManifest
+      ? { packageName, outcome: "failed", errors: [UNSERVED_MANIFEST_ERROR] }
+      : { packageName, outcome: "not-served", errors: [] };
+  }
+  const assets = assetErrors.get(remote.packageName) ?? [];
+  const outcome = outcomeFor(remote, events, assets);
+  const loadErrors = events.failed.get(remote.packageName) ?? [];
+  return {
+    packageName,
+    outcome,
+    errors: outcome === "failed" ? [...loadErrors, ...assets] : [],
+  };
+}
+
 /**
  * The verdict for every expected package. `expected` holds the installed community
  * frontend package names that are not render-excluded; they are matched to remotes
- * with and without the `-dynamic` suffix, the way the exclusions match.
+ * with and without the `-dynamic` suffix, the way the exclusions match. `withManifest`
+ * holds the installed packages that ship `dist/mf-manifest.json`, which tells a
+ * package with no federation build apart from one the backend refused to serve.
  */
 export function evaluateFrontendRender(input: {
   expected: string[];
@@ -228,6 +264,7 @@ export function evaluateFrontendRender(input: {
   remotes: FrontendRemote[];
   messages: BrowserMessage[];
   failedRequests: FailedRequest[];
+  withManifest?: string[];
   shellError?: string;
 }): FrontendRenderReport {
   const events = readLoaderMessages(input.messages, input.remotes);
@@ -242,37 +279,41 @@ export function evaluateFrontendRender(input: {
     list.push(`${new URL(req.url).pathname}: ${req.failure}`);
     assetErrors.set(pkg, list);
   }
-  const results = [...new Set(input.expected)]
-    .sort(compareStrings)
-    .map((packageName): FrontendRenderResult => {
-      const remote = remoteByBase.get(baseName(packageName));
-      const assets = remote ? (assetErrors.get(remote.packageName) ?? []) : [];
-      const outcome = outcomeFor(remote, events, assets);
-      const loadErrors = remote
-        ? (events.failed.get(remote.packageName) ?? [])
-        : [];
-      return {
-        packageName,
-        outcome,
-        errors: outcome === "failed" ? [...loadErrors, ...assets] : [],
-      };
-    });
+  const withManifest = new Set((input.withManifest ?? []).map(baseName));
+  const expected = [...new Set(input.expected)].sort(compareStrings);
+  const results = expected.map((packageName) =>
+    resultFor(
+      packageName,
+      remoteByBase.get(baseName(packageName)),
+      withManifest.has(baseName(packageName)),
+      events,
+      assetErrors,
+    ),
+  );
+  const judged = new Set(expected.map(baseName));
+  const unjudgedErrors = [...events.failed]
+    .filter(([pkg]) => !judged.has(baseName(pkg)))
+    .sort(([a], [b]) => compareStrings(a, b))
+    .map(([pkg, errors]) => `${pkg}: ${errors.join("; ")}`);
   return {
     checked: results.length,
     excluded: input.excluded,
     shellError: input.shellError,
     globalErrors: events.globalErrors,
+    unjudgedErrors,
     results,
   };
 }
 
 /**
  * What fails the run: the shell never rendered, the loader could not start, or a
- * package's module threw or its assets were not served. "not-served" and "no-feature"
+ * package's module threw, its assets were not served, or its manifest was refused.
+ * "not-served" and "no-feature"
  * are reported but do not fail it: a community package still on the legacy frontend
  * system, or one that ships only translations, is a migration state the community
  * sweep's bundle check already tracks, not a crash. "not-reported" fails, because a
- * served remote the loader never mentioned means the app did not finish loading.
+ * served remote the loader did not finish reporting on means the app did not finish
+ * loading.
  */
 export function frontendRenderFailed(report: FrontendRenderReport): boolean {
   return (

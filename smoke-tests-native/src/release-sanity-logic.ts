@@ -435,6 +435,8 @@ export type SanityReport = {
   frontend?: FrontendRenderReport;
   /** Set when the browser check was due but could not run. */
   frontendError?: string;
+  /** Why the browser check did not run, so a green run says what it left out. */
+  frontendSkipped?: string;
 };
 
 export function passed(report: SanityReport): boolean {
@@ -492,7 +494,6 @@ function quoteLogLine(line: string): string {
   return safe.length > LOG_LINE_MAX ? `${safe.slice(0, LOG_LINE_MAX)}…` : safe;
 }
 
-/** The markdown block posted to the job summary and the issue. */
 /** The frontend render check's part of the summary. */
 function renderFrontendSection(report: SanityReport): string[] {
   if (report.frontendError) {
@@ -502,11 +503,15 @@ function renderFrontendSection(report: SanityReport): string[] {
     ];
   }
   const fe = report.frontend;
-  if (!fe) return [];
+  if (!fe) {
+    return report.frontendSkipped
+      ? ["", `- Community frontend: skipped (${report.frontendSkipped})`]
+      : [];
+  }
   const count = (outcome: RenderOutcome) => withOutcome(fe, outcome).length;
   const lines = [
     "",
-    `- Community frontend: ${fe.checked} checked, ${count("rendered")} rendered, ${count("failed")} failed, ${count("not-served")} not served, ${count("no-feature")} without a feature`,
+    `- Community frontend: ${fe.checked} checked, ${count("rendered")} rendered, ${count("failed")} failed, ${count("not-reported")} not reported, ${count("not-served")} not served, ${count("no-feature")} without a feature`,
   ];
   if (fe.excluded.length) {
     lines.push(
@@ -547,6 +552,15 @@ function renderFrontendSection(report: SanityReport): string[] {
       ...cappedList(notReported.map((r) => code(r.packageName))),
     );
   }
+  if (fe.unjudgedErrors.length) {
+    lines.push(
+      "",
+      "<details><summary>Load errors of frontend packages this check does not judge (not a failure)</summary>",
+      "",
+      ...cappedList(fe.unjudgedErrors.map(code)),
+      "</details>",
+    );
+  }
   const notServed = withOutcome(fe, "not-served");
   if (notServed.length) {
     lines.push(
@@ -560,6 +574,7 @@ function renderFrontendSection(report: SanityReport): string[] {
   return lines;
 }
 
+/** The markdown block posted to the job summary and the issue. */
 export function renderSummary(report: SanityReport, runUrl?: string): string {
   const lines = [
     `### Release plugin sanity: ${passed(report) ? "passed" : "failed"}`,

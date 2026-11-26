@@ -549,11 +549,16 @@ test("a check error is not reported as a backend that did not start", () => {
 
 const frontendReport = (
   outcome: "rendered" | "failed" | "not-served" | "not-reported",
-  extra: { shellError?: string; globalErrors?: string[] } = {},
+  extra: {
+    shellError?: string;
+    globalErrors?: string[];
+    unjudgedErrors?: string[];
+  } = {},
 ) => ({
   checked: 1,
   excluded: [{ packageName: "@x/plugin-skipped", ticket: "RHIDP-1" }],
   globalErrors: extra.globalErrors ?? [],
+  unjudgedErrors: extra.unjudgedErrors ?? [],
   shellError: extra.shellError,
   results: [
     {
@@ -591,7 +596,10 @@ test("passed fails on a frontend package that throws, but not on one still unser
 
 test("renderSummary reports the frontend check", () => {
   const md = renderSummary(report({ frontend: frontendReport("failed") }));
-  assert.match(md, /Community frontend: 1 checked, 0 rendered, 1 failed/);
+  assert.match(
+    md,
+    /Community frontend: 1 checked, 0 rendered, 1 failed, 0 not reported, 0 not served, 0 without a feature/,
+  );
   assert.match(md, /Render excluded: `@x\/plugin-skipped` \(RHIDP-1\)/);
   assert.match(
     md,
@@ -605,4 +613,25 @@ test("renderSummary reports the frontend check", () => {
     renderSummary(report({ frontend: frontendReport("not-served") })),
     /not served as a module federation remote \(not a failure\)/,
   );
+  assert.match(
+    renderSummary(
+      report({
+        frontend: frontendReport("rendered", {
+          unjudgedErrors: ["@x/index-plugin: x_index: TypeError: boom"],
+        }),
+      }),
+    ),
+    /does not judge \(not a failure\)<\/summary>\n\n- `@x\/index-plugin: x_index: TypeError: boom`/,
+  );
+});
+
+test("renderSummary says when the frontend check was skipped", () => {
+  const md = renderSummary(
+    report({ frontendSkipped: "--skip-frontend was passed" }),
+  );
+  assert.match(
+    md,
+    /- Community frontend: skipped \(--skip-frontend was passed\)/,
+  );
+  assert.equal(passed(report({ frontendSkipped: "x" })), passed(report({})));
 });

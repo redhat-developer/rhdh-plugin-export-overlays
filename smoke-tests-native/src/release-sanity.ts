@@ -499,13 +499,25 @@ function startContainer(
   ]);
 }
 
+/** Installed packages with a module federation build the backend should serve. */
+function packagesWithManifest(pluginsRoot: string): string[] {
+  return scanInstalled(pluginsRoot)
+    .filter((p) =>
+      existsSync(join(pluginsRoot, p.dirName, "dist", "mf-manifest.json")),
+    )
+    .map((p) => p.name);
+}
+
 /** Runs the browser check; a run that could not happen is reported, not thrown. */
 async function renderFrontend(
   out: string,
+  pluginsRoot: string,
   frontend: PluginPlan["frontend"],
-): Promise<Pick<SanityReport, "frontend" | "frontendError">> {
+): Promise<
+  Pick<SanityReport, "frontend" | "frontendError" | "frontendSkipped">
+> {
   if (frontend.expected.length === 0 && frontend.excluded.length === 0) {
-    return {};
+    return { frontendSkipped: "no community frontend package is installed" };
   }
   try {
     return {
@@ -513,6 +525,7 @@ async function renderFrontend(
         baseUrl: `http://localhost:${PORT}`,
         expected: frontend.expected,
         excluded: frontend.excluded,
+        withManifest: packagesWithManifest(pluginsRoot),
         screenshotPath: join(out, "frontend-shell.png"),
       }),
     };
@@ -554,10 +567,14 @@ async function main(): Promise<number> {
       checkError = err instanceof Error ? err.message : String(err);
     }
   }
-  const frontendResult =
-    startupError || checkError || args["skip-frontend"]
-      ? {}
-      : await renderFrontend(out, plan.frontend);
+  let frontendResult: Awaited<ReturnType<typeof renderFrontend>>;
+  if (startupError || checkError) {
+    frontendResult = { frontendSkipped: "the backend check did not finish" };
+  } else if (args["skip-frontend"]) {
+    frontendResult = { frontendSkipped: "--skip-frontend was passed" };
+  } else {
+    frontendResult = await renderFrontend(out, pluginsRoot, plan.frontend);
+  }
   const fullLog = containerLog();
   writeFileSync(join(out, "container.log"), fullLog);
 
