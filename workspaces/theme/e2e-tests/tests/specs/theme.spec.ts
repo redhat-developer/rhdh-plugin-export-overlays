@@ -4,6 +4,10 @@ import { ThemeVerifier } from "../../utils/theme-verifier";
 import { CUSTOM_FAVICON, CUSTOM_SIDEBAR_LOGO } from "../../utils/custom-theme";
 
 test.describe("Theme Plugin tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

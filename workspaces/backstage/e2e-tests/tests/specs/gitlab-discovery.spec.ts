@@ -2,6 +2,10 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("gitlab discovery UI tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.beforeAll(async ({ rhdh }) => {
     requireEnv("VAULT_GITLAB_TOKEN_DECODED");
 

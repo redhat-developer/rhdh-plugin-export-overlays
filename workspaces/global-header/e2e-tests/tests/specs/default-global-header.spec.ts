@@ -6,6 +6,10 @@ import {
 import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 
 test.describe("Default Global Header", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",

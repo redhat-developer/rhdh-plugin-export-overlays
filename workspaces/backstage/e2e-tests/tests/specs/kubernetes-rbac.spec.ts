@@ -12,6 +12,10 @@ import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Kubernetes", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let kubernetesPage: KubernetesPage;
   let clusterName: string;
 

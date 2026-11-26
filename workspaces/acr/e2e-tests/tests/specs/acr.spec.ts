@@ -1,6 +1,10 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test ACR plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   const dateRegex =
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2},\s\d{4}/gm;
 

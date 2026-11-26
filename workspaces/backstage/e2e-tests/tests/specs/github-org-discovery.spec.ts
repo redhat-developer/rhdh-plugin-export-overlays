@@ -2,6 +2,10 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("GitHub Integration Org", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   const verifyAppearanceInCatalog = async (
     uiHelper: UIhelper,
     kind: "Group" | "User",

@@ -34,6 +34,10 @@ async function createNotification(
 }
 
 test.describe("Backstage Notifications Plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let notificationPage: NotificationPage;
 
   test.beforeAll(async ({ rhdh }) => {

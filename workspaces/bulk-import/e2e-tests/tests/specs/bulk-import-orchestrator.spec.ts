@@ -11,6 +11,10 @@ import {
 } from "../utils/workflow-deployment-helpers.js";
 
 test.describe("Bulk import tests orchestrator mode", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetailsForOrchestrator = {
     name: catalogRepoName,

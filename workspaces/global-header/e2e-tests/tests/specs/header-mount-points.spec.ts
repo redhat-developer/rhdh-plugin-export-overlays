@@ -1,6 +1,10 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Header mount points", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",

@@ -5,6 +5,10 @@ import { searchGitHubPRs } from "../../support/api/github-pull-requests";
 import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.describe.configure({ timeout: 600_000 });
 
   test.beforeAll(async ({ rhdh }) => {

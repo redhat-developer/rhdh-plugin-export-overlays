@@ -22,6 +22,10 @@ import { ensureLightspeedDeployment } from "../support/test-helper";
 const RENAMED_NOTEBOOK_TITLE = "E2E Notebook Renamed";
 
 test.describe("Lightspeed notebooks", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
 
   let context: BrowserContext;

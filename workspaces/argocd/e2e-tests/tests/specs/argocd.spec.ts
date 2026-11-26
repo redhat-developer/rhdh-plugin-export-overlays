@@ -16,6 +16,10 @@ const setupScript = path.join(
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Test ArgoCD plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
 

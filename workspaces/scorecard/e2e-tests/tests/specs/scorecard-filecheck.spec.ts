@@ -10,6 +10,10 @@ import {
 import { FILECHECK_METRICS } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Filecheck Tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;

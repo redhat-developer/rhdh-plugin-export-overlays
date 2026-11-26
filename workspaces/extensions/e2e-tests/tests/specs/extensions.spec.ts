@@ -3,6 +3,10 @@ import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ExtensionsPage } from "../support/extensions";
 
 test.describe("Admin > Extensions", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let extensions: ExtensionsPage;
   let uiHelper: UIhelper;
   const isMac = process.platform === "darwin";

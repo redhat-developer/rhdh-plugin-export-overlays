@@ -11,6 +11,10 @@ import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
 import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
 
 test.describe("Orchestrator", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.beforeAll(async ({ rhdh }, testInfo) => {
     // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.
     test.setTimeout(60 * 60 * 1000);

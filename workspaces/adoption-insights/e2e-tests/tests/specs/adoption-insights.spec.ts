@@ -20,6 +20,10 @@ const ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES: string[] = [
 ];
 
 test.describe.serial("Test Adoption Insights", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;

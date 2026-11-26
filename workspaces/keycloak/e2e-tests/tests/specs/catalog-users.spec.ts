@@ -15,6 +15,10 @@ import {
 import { CatalogUsersPO } from "../support/page-objects/catalog-users-obj";
 
 test.describe("Test Keycloak plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let keycloakHelper: KeycloakHelper;
   let keycloakRealm: string;
 
@@ -111,6 +115,10 @@ async function checkUserDetails(
 }
 
 test.describe("Test Keycloak plugin metrics", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let portForward: ChildProcessWithoutNullStreams;
 
   test.beforeAll(() => {

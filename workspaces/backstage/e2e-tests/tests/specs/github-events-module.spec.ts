@@ -11,6 +11,10 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
 
 test.describe("GitHub Events Module", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let githubEventsHelper: GitHubEventsHelper;
   let staticToken: string;
   let rhdhBaseUrl: string;

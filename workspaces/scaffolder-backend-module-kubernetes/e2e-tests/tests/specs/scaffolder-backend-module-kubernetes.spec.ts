@@ -2,6 +2,10 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { KubeClient } from "../../support/utils/kube-client";
 
 test.describe("Test Kubernetes Actions plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let kubeClient: KubeClient;
   let namespace: string;
 

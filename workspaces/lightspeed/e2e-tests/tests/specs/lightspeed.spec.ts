@@ -94,6 +94,10 @@ const DEFAULT_BOT_QUERY =
   "Reply with exactly one short sentence confirming you received this message.";
 
 test.describe("Lightspeed UI", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
 
   let context: BrowserContext;

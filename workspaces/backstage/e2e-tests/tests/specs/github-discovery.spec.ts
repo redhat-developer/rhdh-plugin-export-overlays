@@ -4,6 +4,10 @@ import { GitHubApiHelper } from "../../support/api/github-api-helper";
 import { RHDH_GITHUB_TEST_ORGANIZATION } from "../../support/constants/github/organization";
 
 test.describe("Github Discovery Catalog", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 image missing python binary — install-dynamic-plugins.sh crashes with exit 127",
+  );
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {
