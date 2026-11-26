@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@pagerduty/backstage-plugin-entity-processor"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-entity-processor:bs_1.49.4__0.3.10!pagerduty-backstage-plugin-entity-processor
-  version: 0.3.10
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-entity-processor:bs_1.49.4__0.3.11!pagerduty-backstage-plugin-entity-processor
+  version: 0.3.11
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.49.4
