@@ -14,12 +14,16 @@
 #     ├─ dedup against the latest diagnosis comment's state marker
 #     └─ if state changed: cycle the `ci-diagnose` label (remove → add)
 #                                          ↓
-#              fullsend.yaml (pull_request_target: [labeled]) → dispatch
+#              fullsend.yaml (pull_request: [labeled]) → dispatch
 #                                          ↓
 #              CEL trigger matches → ci-diagnose agent runs (read-only)
 #                                          ↓
 #              post-ci-diagnose.sh posts a fresh diagnosis comment
 #              and may request-changes (review App) so the fix agent runs
+#
+# Fork PRs: since fullsend v0.57 the shim runs on pull_request and skips
+# dispatch for fork heads, so a label cycled on a fork PR starts nothing.
+# A maintainer comments /fs-diagnose on the PR instead.
 #
 # Why cycle (remove → add) instead of just add: re-adding an already-present
 # label is a no-op — fires no webhook — so re-firing as more checks go red
