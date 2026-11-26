@@ -7,7 +7,7 @@
 #
 # Flow:
 #   check_suite/status completes → this workflow
-#     ├─ resolve the PR for the event's commit (including fork heads)
+#     ├─ resolve the PR for the event's commit; fork PRs exit here
 #     ├─ settle-gate: if any curated check is still pending/running, exit —
 #     │  diagnose once, when the LAST curated check settles, with the full set
 #     ├─ compute the RED curated checks from the PR's live rollup
@@ -22,8 +22,10 @@
 #              and may request-changes (review App) so the fix agent runs
 #
 # Fork PRs: since fullsend v0.57 the shim runs on pull_request and skips
-# dispatch for fork heads, so a label cycled on a fork PR starts nothing.
-# A maintainer comments /fs-diagnose on the PR instead.
+# dispatch for fork heads, so this workflow does not cycle the label on a
+# fork PR. A maintainer comments /fs-diagnose on the PR instead.
+# PRs with a merge conflict: GitHub does not run pull_request workflows for
+# them, so the cycled label starts nothing until the conflict is resolved.
 #
 # Why cycle (remove → add) instead of just add: re-adding an already-present
 # label is a no-op — fires no webhook — so re-firing as more checks go red
@@ -155,23 +157,15 @@ jobs:
             --json headRefOid,statusCheckRollup,isCrossRepository)
           HEAD_SHA=$(echo "${ROLLUP}" | jq -r '.headRefOid')
 
-          # Fork PRs run without repo secrets, so curated checks fail for
-          # unrelated reasons — skip, unless the author is a trusted org
-          # member (OWNER/MEMBER/COLLABORATOR), the same trust tiers
-          # fullsend.yaml's own slash-command auth gate uses. A member's own
-          # fork isn't the free/unauthenticated case this guard is for.
+          # Fork PRs: skip, whoever the author is. Since fullsend v0.57 the
+          # shim runs on pull_request and does not dispatch for fork heads, so
+          # a cycled label would start nothing — and with no diagnosis comment
+          # to dedup against, every settled check would cycle it again.
+          # A maintainer comments /fs-diagnose on the PR instead.
           if [[ "$(echo "${ROLLUP}" | jq -r '.isCrossRepository')" == "true" ]]; then
-            AUTHOR_ASSOC=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.author_association' 2>/dev/null || echo "NONE")
-            case "${AUTHOR_ASSOC}" in
-              OWNER|MEMBER|COLLABORATOR)
-                echo "::notice::PR #${PR_NUMBER} is a fork PR by a trusted author (${AUTHOR_ASSOC}) — proceeding"
-                ;;
-              *)
-                echo "::notice::PR #${PR_NUMBER} is a fork PR by an untrusted author (${AUTHOR_ASSOC}) — skipping"
-                echo "fire=false" >> "${GITHUB_OUTPUT}"
-                exit 0
-                ;;
-            esac
+            echo "::notice::PR #${PR_NUMBER} is a fork PR — fullsend does not dispatch label events for forks; comment /fs-diagnose to diagnose it"
+            echo "fire=false" >> "${GITHUB_OUTPUT}"
+            exit 0
           fi
 
           # Stale: this check belongs to a commit that's no longer the PR

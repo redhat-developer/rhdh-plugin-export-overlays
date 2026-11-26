@@ -23,18 +23,25 @@
 |-------|----------------------|------------------------|
 | Triage | **Does not auto-trigger on issue open.** The workflow only listens for `issues/labeled` to prevent external users from burning inference tokens on a public repo. | `/fs-triage` on an issue (auth-gated) |
 | Coder | Does not auto-trigger from triage. Triage labels `triaged`, not `ready-to-code`. | `/fs-code` on a triaged issue, or manually add `ready-to-code` label |
-| Review | **Auto-triggers on `workspaces/backstage-plugins-for-aws/` PRs.** Scoped via `paths` filter. | `/fs-review` on any PR (auth-gated) |
+| Review | **Does not auto-trigger on PR open or push.** Runs when the `ready-for-review` label is added to a same-repo PR. | `/fs-review` on any PR, including fork PRs (auth-gated) |
 | Fix | Only auto-fires from bot reviews, not from human reviews. Includes the ci-diagnose `CHANGES_REQUESTED` hand-off on bot-authored PRs. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
 | E2E Triage | **Auto-triggers nightly.** `e2e-triage-agent.yaml` discovers failed nightly runs, creates a labeled issue → fullsend dispatch routes to `e2e-triage` agent → agent classifies and groups failures by root cause → post-script creates one issue per cause with `ready-to-code` → code agent picks up each issue. | Manually run `e2e-triage-agent.yaml` workflow |
-| CI Diagnose | **Auto-triggers on PR CI completion.** `ci-diagnose-agent.yaml` reacts to `check_suite`/`status` events, recomputes the live red curated-check set, and cycles the `ci-diagnose` label → fullsend dispatch routes to `ci-diagnose` agent → agent diagnoses each red check → post-script posts a fresh diagnosis comment on the PR. Once all curated checks for a commit settle, one diagnosis comment is posted; another appears only if the diagnosed red-check set changes or `/fs-diagnose` is run manually. On **bot-authored** PRs with `pr_regression` failures, the post-script then requests changes as `fullsend-ai-review[bot]` so the existing fix on-ramp runs (see [Automated ci-diagnose → fix hand-off](#automated-ci-diagnose--fix-hand-off)). `pre_existing` failures are linked to an open PR when one already addresses them. | `/fs-diagnose` on a PR (auth-gated), or manually run `ci-diagnose-agent.yaml` workflow with a `pr_number` input |
+| CI Diagnose | **Auto-triggers on PR CI completion.** `ci-diagnose-agent.yaml` reacts to `check_suite`/`status` events, recomputes the live red curated-check set, and cycles the `ci-diagnose` label → fullsend dispatch routes to `ci-diagnose` agent → agent diagnoses each red check → post-script posts a fresh diagnosis comment on the PR. Once all curated checks for a commit settle, one diagnosis comment is posted; another appears only if the diagnosed red-check set changes or `/fs-diagnose` is run manually. On **bot-authored** PRs with `pr_regression` failures, the post-script then requests changes as `fullsend-ai-review[bot]` so the existing fix on-ramp runs (see [Automated ci-diagnose → fix hand-off](#automated-ci-diagnose--fix-hand-off)). `pre_existing` failures are linked to an open PR when one already addresses them. Fork PRs are skipped (see [Fork PRs and merge conflicts](#fork-prs-and-merge-conflicts)). | `/fs-diagnose` on a PR (auth-gated), or manually run `ci-diagnose-agent.yaml` workflow with a `pr_number` input |
 
 ### Scope details
 
-The `paths` filter (`workspaces/backstage-plugins-for-aws/**`) only applies to the `pull_request_target` event. Other triggers are repo-wide:
+The shim (`.github/workflows/fullsend.yaml`) listens to:
 
-- **`issues`** — fires only on `labeled` events (not `opened/edited`, to prevent external token burning)
-- **`issue_comment`** — fires for all comments (auth-gated to OWNER/MEMBER/COLLABORATOR)
-- **`pull_request_review`** — fires for all PR reviews. Fix is transitively scoped: it only auto-fires from bot reviews, and the review bot only auto-reviews backstage-plugins-for-aws PRs.
+- **`issues`** — `labeled` only (not `opened/edited`, to prevent external token burning), and dispatches only for `e2e-triage`, or `ready-to-code` on an issue that also carries `e2e-failure`
+- **`issue_comment`** — `/fs-*` comments from non-bot users (authorization is checked in the reusable dispatch workflow)
+- **`pull_request`** — `labeled`/`unlabeled` only (for example `ready-for-review`, `ci-diagnose`). Since fullsend v0.57 this replaces `pull_request_target`, which GitHub blocks by default in public repositories from 2026-12-02.
+
+### Fork PRs and merge conflicts
+
+`pull_request` has two limits that `pull_request_target` did not:
+
+- **Fork PRs:** the shim runs from the PR's own copy, so it does not dispatch for fork heads. Label triggers do nothing on a fork PR, and `ci-diagnose-agent.yaml` skips fork PRs. A maintainer comments `/fs-review` or `/fs-diagnose` instead.
+- **Merge conflicts:** GitHub does not run `pull_request` workflows for a PR with a merge conflict, so label triggers (including the cycled `ci-diagnose` label) do nothing until the conflict is resolved. `/fs-*` comments still work.
 
 ### What does NOT run
 
@@ -109,20 +116,19 @@ Slash commands are **restricted to org members and collaborators** via an `autho
 | `/fs-fix-stop` | Disable fix agent for a PR (adds `fullsend-no-fix` label) |
 | `/fs-diagnose` | Diagnose failing CI checks on a PR |
 
-## How to expand review to more workspaces
+## How to turn on automatic review
 
-Add paths to the `paths` filter in `.github/workflows/fullsend.yaml`:
+The shim only listens to PR `labeled`/`unlabeled` events, so review runs on the `ready-for-review` label or `/fs-review`. To review PRs automatically, add the PR events to the `pull_request` trigger in `.github/workflows/fullsend.yaml`, optionally scoped with `paths`:
 
 ```yaml
 on:
-  pull_request_target:
-    types: [opened, synchronize, ready_for_review, closed]
+  pull_request:
+    types: [opened, synchronize, ready_for_review, labeled, unlabeled]
     paths:
-      - "workspaces/backstage-plugins-for-aws/**"
-      - "workspaces/your-new-workspace/**"  # add here
+      - "workspaces/your-workspace/**"
 ```
 
-To enable review for ALL workspaces, remove the `paths` filter entirely.
+Note that `paths` filters every `pull_request` event, including the label ones, so a label on a PR outside those paths would no longer dispatch. Automatic review still skips fork PRs and conflicted PRs (see [Fork PRs and merge conflicts](#fork-prs-and-merge-conflicts)). `fullsend repos install` regenerates the shim, so re-apply the change after every upgrade.
 
 ## Customization
 
