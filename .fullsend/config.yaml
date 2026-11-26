@@ -7,6 +7,7 @@ version: "1"
 # The reusable workflow overlays upstream defaults onto the standard layered
 # directories before every run. Keep repo-owned agents under rhdh/ so their
 # harnesses and resources remain intact.
+runtime: claude
 agents:
     - name: code
       source: rhdh/harness/code.yaml
@@ -28,8 +29,9 @@ roles:
 allowed_remote_resources:
     - https://raw.githubusercontent.com/fullsend-ai/fullsend/
     - https://raw.githubusercontent.com/fullsend-ai/agents/
-create_issues:
-    allow_targets:
-        repos:
-            - redhat-developer/rhdh-plugin-export-overlays
-            - fullsend-ai/fullsend
+tracker:
+    github:
+        allowed_targets:
+            repos:
+                - redhat-developer/rhdh-plugin-export-overlays
+                - fullsend-ai/fullsend
