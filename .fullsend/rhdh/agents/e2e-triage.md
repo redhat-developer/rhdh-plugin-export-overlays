@@ -440,7 +440,7 @@ no per-workspace nesting needed.
   "In `workspaces/argocd/e2e-tests/tests/specs/argocd.spec.ts` line 42,
   increase the route wait timeout from 30s to 60s."
 - **For `product_bug`** — do not fix the test. Prescribe the lane-scoped skip
-  documented in `AGENTS.md` under "Skipping tests (product_bug classification)":
+  documented in `docs/agents/knowledge/e2e-fix-workflow.md#when-to-skip-a-test`:
   gate on `INSTALLATION_METHOD` for an operator-only or Helm-only defect, and
   use the nightly-wide skip only when both lanes are affected. Never prescribe a
   bare `E2E_NIGHTLY_MODE` skip for a lane-specific bug — the CI step sets that

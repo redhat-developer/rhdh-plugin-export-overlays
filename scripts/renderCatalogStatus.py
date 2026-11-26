@@ -37,7 +37,7 @@ REASON_ANCHORS = {
     "Image not found in registry": "image-not-found-in-registry",
     # Step 5 (validateCatalogIndex.py) writes its reason as "[rule-id] <message>", so
     # the prefix IS the rule id. Anchor slugs must stay in sync with the headings in
-    # user-guide/troubleshooting-catalog-index.md — see AGENTS.md.
+    # user-guide/troubleshooting-catalog-index.md — see CONTEXT.md.
     "[unresolved-image]": "validation-unresolved-image",
     "[unknown-image]": "validation-unknown-image",
     "[digest-mismatch]": "validation-digest-mismatch",

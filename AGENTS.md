@@ -1,569 +1,63 @@
-# AGENTS.md
+# Agents
 
-If `FULLSEND_OUTPUT_DIR` is set, read and follow `.fullsend/AGENTS.md`
-before doing any work.
+If `FULLSEND_OUTPUT_DIR` is set, read and follow `.fullsend/AGENTS.md` before doing any work.
 
-This file provides guidance to Agentic AI coding tools when working with code in this repository.
+## Agent-facing material
 
-## Repository Purpose
+All agent-facing material lives in four places: this file (pointers and prohibitions), `CONTEXT.md` (orientation), `docs/agents/` (knowledge and tracker config), `.agents/skills/` (symlinks into `.fullsend/skills/`). `AGENTS.md` is the single entry point: do not commit a second copy under a harness-specific name. A harness that reads only a different filename should import this one locally (`@AGENTS.md`) and keep that shim uncommitted. Bring a new harness in by pointing it at these files.
 
-This is the **rhdh-plugin-export-overlays** repository — a metadata and automation hub for managing dynamic plugins for Red Hat Developer Hub (RHDH). It does NOT contain plugin source code. Instead, it references upstream plugin repositories and defines how to package them as OCI container images for RHDH.
+Knowledge is delivered by following pointers, not by static inclusion. A harness reading `AGENTS.md` gets the prohibitions and the index, then reads `CONTEXT.md` and the knowledge doc for whatever it touches. Duplicating those docs here is not a goal — it would let identical rules drift apart. A harness that cannot follow pointers should be given `CONTEXT.md` as well.
 
-Key versions are tracked in `versions.json` ( Backstage version, Node version, redhat-developer-hub CLI version).
+## Repository knowledge
 
-## Architecture
+`CONTEXT.md` holds high-level orientation — what this repo is, its two metadata layers, branching, support tiers — and an index into `docs/agents/knowledge/`. Read the knowledge doc for each area a change touches.
 
-### Two-Layer Structure
+## Issue tracker
 
-The repo has two distinct metadata systems that serve different purposes:
+Work is tracked in GitHub Issues on this repository; fullsend triage and nightly jobs file issues here. Read `docs/agents/issue-tracker.md` before creating, searching, or updating one.
 
-1. **Workspaces** (`workspaces/*/`) — Define *how to build* dynamic plugin OCI images. Each workspace maps to an upstream source repo (monorepo or standalone). Key files:
-   - `source.json` — Source repo URL, git ref, and Backstage version
-   - `plugins-list.yaml` — Which plugins to export, with optional CLI args
-   - `metadata/*.yaml` — `kind: Package` entities describing each built artifact (version, OCI reference, `appConfigExamples`)
-   - `plugins/<plugin>/overlay/` — Files that replace/add source files during packaging
-   - `patches/*.patch` — Unified diffs applied to the workspace source before build
+## Triage labels
 
-2. **Catalog entities** (`catalog-entities/extensions/`) — Define *how plugins appear* in the RHDH Extensions UI. These are separate from workspace metadata:
-   - `plugins/*.yaml` — `kind: Plugin` entities with descriptions, icons, categories, highlights (user-facing display)
-   - `collections/*.yaml` — Groupings (featured, recommended, cicd, openshift, redhat)
-   - `plugins/all.yaml` — Index file; every plugin YAML must be listed here
+Triage and the fix agents speak in terms of a fixed label and `fix_category` vocabulary. Read `docs/agents/triage-labels.md` before applying a label or acting on one.
 
-**Package entities live in `workspaces/*/metadata/`**, not in `catalog-entities/extensions/`. They are merged at build time into the plugin catalog index image.
+## Reviewing
 
-### Branching Strategy
+`REVIEW.md` is the reviewer contract: what failure looks like in this repo, what evidence a finding needs, and what always needs a human.
 
-- **`main`** — Development branch for next RHDH release. All new workspaces go here.
-- **`release-x.y`** — Long-running release branches. Only receive updates to existing workspaces, never new workspaces.
-
-### Support Tiers
-
-Plugins fall into three support levels, tracked in text files at the repo root:
-- `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
-- `rhdh-community-packages.txt` — Community supported
-
-Note: the plugin sweep (`community-plugin-sweep.yaml`) selects packages from
-`spec.support` in `workspaces/*/metadata/*.yaml`, not from these files — the metadata is
-what the build publishes from. It sweeps one tier per nightly cron, not community
-alone. The two currently disagree (41 workspaces carry a
-community package; the txt file names 20), so do not treat either as authoritative for
-the other's purpose.
-
-### Plugin Scopes
-
-Auto-discovery covers three npm scopes (defined in `plugins-regexps`):
-- `@backstage-community/` (github.com/backstage/community-plugins)
-- `@red-hat-developer-hub/` (github.com/redhat-developer/rhdh-plugins)
-- `@roadiehq/` (github.com/RoadieHQ/roadie-backstage-plugins)
-
-## Key Workflows
-
-Dynamic plugin OCI packaging and publishing run through GitHub Actions. Workspace E2E tests can run locally against an OpenShift cluster or through OpenShift CI (Prow).
-
-### PR Commands
-
-On a PR, comment:
-- `/publish` — Build and publish test OCI images (tagged `pr_<number>__<version>`)
-- `/smoketest` — Run smoke tests against last published artifacts (requires prior `/publish`)
-- `/override-backstage` — Override workspace Backstage compatibility version (creates `backstage.json` and rewrites metadata OCI tags)
-- `/update-versions` — Copy `versions.json` from the PR base branch onto the PR branch (release-line alignment)
-- `/update-commit` — Re-run automatic plugin repo ref discovery for the single touched workspace and update the PR
-- `/test` or `/test e2e-tests` — Run e2e tests. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
-
-### Important Workflows (`.github/workflows/`)
-
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
-| `publish-workspace-plugins.yaml` | Push to `main` / release branches | Publishes final OCI images, then smoke tests each workspace it just published against its new `bs_*` tag |
-| `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
-| `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
-| `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
-| `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
-| `release-plugin-sanity.yaml` | Daily (main + `RELEASE_BRANCHES`) + `/sanity <chart>` on the `release-sanity` issue | Boots the real RHDH image of a CI chart with every catalog index and community plugin, and fails when one does not load, or when two share an install directory even with every plugin loaded (`yarn release-sanity`) |
-| `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
-| `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
-
-### Triggering Workflows Manually
-
-```bash
-# Update plugin refs (e.g., for RBAC plugins on main)
-gh workflow run update-plugins-repo-refs.yaml -f regexps="@backstage-community/plugin-rbac" -f single-branch=main
-
-# Sync docs to wiki (dry run)
-gh workflow run sync-user-guide-to-wiki.yaml -f dry_run=true
-```
-
-## Developer Setup
-
-After cloning, enable the pre-commit hook to run E2E code quality checks (ESLint, Prettier, TypeScript) locally before pushing:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zero overhead otherwise. It uses the same shared script (`scripts/e2e-code-quality.sh`) as the CI workflow, so checks are always in sync. See `.githooks/README.md` for details on combining with existing hooks.
-
-### Local E2E quick start
-
-Read the [local-run documentation](#local-e2e-documentation) for prerequisites, cluster login, and Bitwarden setup. Use the Node.js version in `versions.json`; this checkout's runner rejects lower versions and warns on newer ones.
-
-From the **repository root**:
-
-```bash
-# List tests without cluster setup or test execution
-./run-e2e.sh -w tech-radar --list
-
-# Run one workspace with the repository secret profile; retain namespaces
-CI=false ./run-e2e.sh --secrets -w tech-radar
-```
-
-Omit `--secrets` when the required environment variables are already supplied. With `--secrets`, use `-w` to narrow secret selection; `--project` filters tests only. Selection rules live in the Repository E2E secrets guide below.
-
-`--list` still installs dependencies and generates configuration. Before executing tests, choose the [CI behavior](#ci-behavior-for-local-runs): the root runner defaults to `CI=true` and automatic namespace cleanup.
-
-### Local E2E documentation
-
-Read the relevant document before setting up or changing a local run. Local links are relative to this repository; upstream links point directly to Markdown source. These sources cover dependency/browser installation, workspace commands, reporting, and cleanup. Use `versions.json`, `run-e2e.sh`, and the selected workspace's configuration as the authority for checkout-specific versions and defaults.
-
-| Read when… | Documentation |
-|------------|---------------|
-| Setting up and running workspace tests locally | [Local-running guide](https://raw.githubusercontent.com/redhat-developer/rhdh-e2e-test-utils/main/docs/overlay/tutorials/running-locally.md) |
-| Selecting workspaces, forwarding test options, or using local test-utils builds | [Unified runner reference](https://raw.githubusercontent.com/redhat-developer/rhdh-e2e-test-utils/main/docs/overlay/reference/run-e2e.md) |
-| Running tests with this repository's secret profile | [Repository E2E secrets guide](./user-guide/09-managing-e2e-secrets.md#running-tests-with-secrets) |
-| Setting up Bitwarden authentication or understanding local secret execution | [Secrets API](https://raw.githubusercontent.com/redhat-developer/rhdh-e2e-test-utils/main/docs/api/secrets.md#local-command) |
-
-## Working with Workspaces
-
-### Adding a New Workspace
-
-1. Create `workspaces/<name>/source.json`:
-   ```json
-   {"repo":"https://github.com/org/repo","repo-ref":"<tag-or-sha>","repo-flat":false,"repo-backstage-version":"1.45.1"}
-   ```
-   - `repo-flat`: `true` if plugins are at repo root, `false` if inside a workspace subdirectory
-2. Create `workspaces/<name>/plugins-list.yaml` listing plugin paths
-3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
-4. Add a CODEOWNERS entry in `.github/CODEOWNERS` for the new workspace (alphabetically ordered)
-
-### Overlay vs Patch
-
-- **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
-- **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
-
-### Major Version Bumps in Patches
-
-When a patch in `patches/*.patch` bumps a dependency across a major version (e.g., 2.x to 3.x), the change carries higher risk than a minor or patch-level bump — even when the bump comes through an intermediate dependency. Major versions introduce documented breaking API changes that can cause runtime failures in exported plugins.
-
-**Why this matters for this repo:** Patches modify `yarn.lock` to force dependency versions across the upstream workspace. A major version bump in a patched dependency could break any exported plugin whose code (or transitive dependencies) relies on the old API. Unlike upstream repos where CI catches breakage, this repo's patches bypass the upstream test suite — so compatibility must be verified during review.
-
-**Review criteria for major version bumps:**
-
-When reviewing a PR where a patch bumps a dependency across a major version:
-
-1. **Detect the major version change.** Compare the old and new version numbers in the patch. A change where the first numeric component increases (e.g., `2.2.1` to `3.0.8`) is a major bump with potential breaking changes.
-2. **Check the dependency's changelog or migration guide** for breaking API changes. Common breakages include: removed or renamed functions, changed return types, removed configuration options, and altered default behavior.
-3. **Assess whether exported plugins use the affected APIs.** Check `plugins-list.yaml` to identify which plugins are exported. Since this repo does not contain plugin source code, use the `repo` URL and `repo-ref` from the workspace's `source.json` to browse or clone the upstream repository at the pinned ref. Search the upstream plugin source for imports and usage of the bumped dependency's changed APIs. If the dependency is only in the scaffold/dev tree (see "Reviewing CVE / Dependency Patches" if present), the risk is lower — but still flag it if the patch forces the version across the entire `yarn.lock`.
-4. **Flag the risk for human verification** when breaking changes exist and the dependency is in the shipped tree. Do not approve major version bump patches with only generic version-consistency checks. Explicitly acknowledge the major version change and either assess breaking API risk or request human review.
-5. **Check wrapper and type packages.** When a dependency crosses a major version, related packages often need compatible bumps — for example, `@types/*` type definition packages (e.g., `@types/js-cookie` 2.x to 3.x) and wrapper libraries (e.g., `react-use` updating its peer dependency range). Verify that all related packages in the patch are version-compatible with each other.
-
-**Do not approve major version bump patches without explicit risk assessment.** A patch that passes build does not guarantee runtime compatibility — the old API may still be called at runtime by plugin code that was not exercised during the build.
-
-**Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
-
-## Working with Catalog Entities
-
-### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
-
-Uses `kind: Plugin` with schema: `https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json`
-
-Key fields: `spec.categories`, `spec.highlights`, `spec.icon` (base64 SVG), `spec.packages` (links to Package entities), `spec.description` (markdown, no images).
-
-After creating/editing, add the file to `plugins/all.yaml`.
-
-### Package YAML (`workspaces/*/metadata/*.yaml`)
-
-Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
-
-## E2E Testing
-
-E2E tests live in `workspaces/<name>/e2e-tests/` and use `@red-hat-developer-hub/e2e-test-utils` — a shared package that handles RHDH deployment, Playwright fixtures, helpers, and plugin configuration. For the latest and most complete documentation, see: https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs
-
-### Workspace E2E Structure
-
-```
-workspaces/<plugin>/
-├── metadata/                    # Plugin metadata (Package CRD) — consumed by deploy()
-│   └── backstage-*.yaml         # spec.dynamicArtifact, spec.appConfigExamples
-└── e2e-tests/
-    ├── package.json             # Dependencies (e2e-test-utils, @playwright/test)
-    ├── playwright.config.ts     # Extends base config, defines project(s)
-    ├── .env                     # Local env vars (optional)
-    └── tests/
-        ├── config/              # All files optional — auto-generated from metadata
-        │   ├── app-config-rhdh.yaml
-        │   ├── rhdh-secrets.yaml
-        │   └── dynamic-plugins.yaml
-        └── specs/
-            └── <plugin>.spec.ts # Test specification
-```
-
-### How Tests Work
-
-Each Playwright project creates a **separate Kubernetes namespace** (project name = namespace name). The test framework:
-
-1. **Global setup** (once per run) — checks binaries (`oc`, `kubectl`, `helm`), detects cluster domain, deploys Keycloak
-2. **Worker fixture** (once per worker) — creates `RHDHDeployment(projectName)`, sets CWD to the workspace's `e2e-tests/` directory
-3. **Test execution** — `beforeAll` configures + deploys RHDH, `beforeEach` handles login, tests use `uiHelper`/`page` for assertions
-4. **Reporting and teardown** — collects failure diagnostics in both local and automated runs; deletes each project's namespaces only with `CI=true`, after its tests and retries finish
-
-### Standard Test Pattern
-
-```typescript
-import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-
-test.describe("My Plugin", () => {
-  test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "keycloak" });
-    // Optional: deploy external services before RHDH
-    await $`bash scripts/setup.sh ${rhdh.deploymentConfig.namespace}`;
-    await rhdh.deploy();
-  });
-
-  test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsKeycloakUser();
-  });
-
-  test("verify feature", async ({ uiHelper }) => {
-    await uiHelper.openSidebar("My Plugin");
-    await uiHelper.verifyHeading("Expected Title");
-  });
-});
-```
-
-### test.runOnce — Protecting Expensive Setup from Worker Restarts
-
-Playwright's `beforeAll` runs once **per worker**, not once per test run. When a test fails, Playwright kills the worker and creates a new one for remaining tests — causing `beforeAll` to run again. `rhdh.deploy()` has built-in protection (it skips if the deployment already exists), but other expensive operations in your `beforeAll` do not.
-
-**When to use:** Wrap `beforeAll` in `test.runOnce()` when you have pre-deployment setup (external services, scripts, env var extraction) that shouldn't repeat on worker restart.
-
-**When NOT needed:** If your `beforeAll` only calls `rhdh.configure()` + `rhdh.deploy()`, you don't need `runOnce` — `deploy()` is already protected internally.
-
-```typescript
-test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
-    await rhdh.configure({ auth: "keycloak" });
-
-    // Expensive: deploys an external service to the cluster
-    await $`bash ${setupScript} ${rhdh.deploymentConfig.namespace}`;
-
-    // Extract a route URL and set as env var for RHDH config
-    process.env.DATA_URL = await rhdh.k8sClient.getRouteLocation(
-      rhdh.deploymentConfig.namespace, "data-provider"
-    );
-
-    await rhdh.deploy(); // safe to nest — has its own internal runOnce
-  });
-});
-```
-
-**How env vars survive worker restarts:** Environment variables set inside `runOnce` (like `process.env.DATA_URL` above) are set in the worker process. When the worker restarts, `runOnce` skips the callback entirely — so the env var is never set in the new worker. This is fine because:
-- `rhdh.deploy()` already ran and set `RHDH_BASE_URL` (which the fixture re-reads from the route)
-- Secrets were already applied to the cluster as ConfigMaps/Secrets during the first run
-- The env vars were only needed during the deployment phase, not during test execution
-
-If a test **does** need an env var that was set inside `runOnce`, extract it from the cluster in a separate step outside `runOnce`:
-
-```typescript
-test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce(`my-setup-${rhdh.deploymentConfig.namespace}`, async () => {
-    await rhdh.configure({ auth: "keycloak" });
-    await $`bash deploy-service.sh ${rhdh.deploymentConfig.namespace}`;
-    await rhdh.deploy();
-  });
-
-  // Always runs — even after worker restart. Re-derives the value from cluster state.
-  process.env.MY_SERVICE_URL = await rhdh.k8sClient.getRouteLocation(
-    rhdh.deploymentConfig.namespace, "my-service"
-  );
-});
-```
-
-**Key rules:**
-- The `key` (first argument) must be **globally unique** across all spec files **and projects**. A workspace prefix covers the first half; the second half is what bit us. The flag file is keyed by the key string alone, in a directory keyed only on the Playwright runner PID:
-
-  ```ts
-  const flagDir = path.join(os.tmpdir(), `playwright-once-${process.ppid}`);
-  const flagFile = path.join(flagDir, `${key}.done`);
-  ```
-
-  Nothing in that path comes from the project. So when one spec runs in two projects — which is what adding an `-app-next` lane does — the first project's setup satisfies the second, and the second skips its own. For a block that deploys, that means no deployment at all, then a failure much later on a missing element with nothing pointing at the cause (#3318).
-
-- **End the key with the namespace whenever the setup belongs to one project**, which is what `deploy()` does internally (`deploy-${namespace}`) and why `deploy()` was never affected:
-
-  ```typescript
-  await test.runOnce(`my-plugin-setup-${rhdh.deploymentConfig.namespace}`, async () => { ... });
-  ```
-
-  A literal key is right when the setup really is shared — an operator installed once into a fixed namespace every project then uses. `bulk-import` has one of each, deliberately. The key is where you say which you mean.
-- Nesting is safe — `deploy()` uses `runOnce` internally, wrapping it in an outer `runOnce` is harmless. It does **not** rescue a project-shared outer key, though: that skips before `deploy()` is reached, so its own protection never gets a say.
-- Uses file-based flags in `/tmp/` scoped to the Playwright runner process. Flags reset automatically between test runs.
-
-### RHDH Deployment Flow
-
-`rhdh.deploy()` performs these steps:
-
-1. **Merges config files** — package defaults + auth config (keycloak/guest) + your `tests/config/` overrides (deep merge, later wins)
-2. **Processes dynamic plugins** — auto-generates from `metadata/*.yaml` if no `dynamic-plugins.yaml` exists; injects metadata configs; resolves OCI URLs based on mode
-3. **Applies to cluster** — creates ConfigMaps (app-config, dynamic-plugins) and Secrets (with `envsubst` for env var substitution)
-4. **Installs RHDH** — via Helm chart or Operator based on `INSTALLATION_METHOD`
-5. **Waits for readiness** — two-phase: pod `Ready=True` (with early failure detection for CrashLoopBackOff, ImagePullBackOff) + HTTP health check against the route
-6. **Sets `RHDH_BASE_URL`** — so Playwright navigates to the correct URL
-
-Helm upgrades perform a scale-down-and-restart to avoid `MigrationLocked` errors; fresh installs skip this.
-
-### Plugin Metadata Resolution
-
-Plugin metadata at `workspaces/*/metadata/*.yaml` is actively consumed during deployment. The system operates in three modes:
-
-| Mode | Detection | Plugin Packages | Config Injection |
-|------|-----------|----------------|-----------------|
-| **PR check** | `GIT_PR_NUMBER` set | PR-built OCI images (`pr_{number}__{version}`) | Yes — metadata `appConfigExamples` injected |
-| **Nightly** | `E2E_NIGHTLY_MODE=true` | Released OCI refs from `spec.dynamicArtifact` | No — uses whatever config is in the file |
-| **Local dev** | Neither set | Local paths as-is (bundled in container) | Yes — metadata `appConfigExamples` injected |
-
-Priority: `GIT_PR_NUMBER` (forces PR mode) > `E2E_NIGHTLY_MODE` > `JOB_NAME` containing `periodic-`
-
-**PR mode** requires:
-- `GIT_PR_NUMBER` set (CI exports it automatically; locally: `export GIT_PR_NUMBER=1845`)
-- OCI images published via `/publish` PR comment before running tests
-- `source.json` and `plugins-list.yaml` in the workspace root (used to fetch plugin versions from the source repo and build OCI URLs like `oci://ghcr.io/.../plugin-name:pr_1845__1.2.3`)
-
-**Without `GIT_PR_NUMBER` (local dev):** Plugins use local paths (`./dynamic-plugins/dist/...`) bundled inside the RHDH container image. Metadata configs are still injected from `spec.appConfigExamples`. This is the default mode for `yarn test` from a workspace.
-
-**Nightly mode** uses released OCI refs directly from each plugin's `spec.dynamicArtifact` in metadata (e.g., `oci://ghcr.io/.../plugin:bs_1.45.3__1.13.0`). No config injection — plugins use their baked-in defaults. Enabled via `E2E_NIGHTLY_MODE=true` or when `JOB_NAME` contains `periodic-`.
-
-When no `dynamic-plugins.yaml` exists, ALL metadata files are read to auto-generate the complete plugin configuration. This is the recommended approach — most workspaces don't need a `dynamic-plugins.yaml`.
-
-### Configuration Files
-
-All files in `tests/config/` are **optional** — only create them when you need to override defaults:
-
-- `app-config-rhdh.yaml` — RHDH app configuration (plugin settings, backend config)
-- `rhdh-secrets.yaml` — Kubernetes Secret manifest for injecting env vars into RHDH
-- `dynamic-plugins.yaml` — Plugin overrides (usually NOT needed — auto-generated from metadata)
-- `value_file.yaml` — Helm chart value overrides
-- `subscription.yaml` — Operator `Backstage` CR overrides (not an OLM Subscription)
-
-Helm reads `value_file.yaml`; the operator reads `subscription.yaml` (a `Backstage` CR, not an OLM Subscription). Put shared application settings in `app-config-rhdh.yaml`. The failure-analysis skill's [Installation Methods](.fullsend/skills/e2e-failure-analysis/reference/workspace-analysis.md#installation-methods) section covers operator-specific diagnosis: which diagnostics are captured, flavour/workload/ConfigMap checks, and config-array merging.
-
-**Environment variables in RHDH config:** To use an env var in `app-config-rhdh.yaml`, it must first be defined in `rhdh-secrets.yaml`. The flow is:
-
-```
-Environment (CI secrets / .env)  rhdh-secrets.yaml              app-config-rhdh.yaml
-MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY_TOKEN}
-                                  (envsubst replaces $VAR)       (references the K8s Secret)
-```
-
-`envsubst` runs **only** on `rhdh-secrets.yaml`. Other config files reference the Secret values with `${VAR}` syntax — they are not substituted directly.
-
-### WorkspacePaths
-
-Config file paths are resolved from `test.info().project.testDir` (Playwright-provided absolute path), NOT from `process.cwd()`. This enables the same test code to work from both:
-- **Workspace level**: `cd workspaces/tech-radar/e2e-tests && yarn test`
-- **Repo root**: `./run-e2e.sh -w tech-radar`
-
-The worker fixture also does `process.chdir(e2eRoot)` as a complementary safety net for shell scripts and `fs` calls.
-
-### Namespace Teardown
-
-The default custom Playwright **reporter** runs in both local and automated test runs and collects diagnostics for failed projects. It deletes namespaces only when `CI` is exactly `"true"`. Namespace deletion uses the reporter rather than `afterAll` hooks or worker fixture cleanup. This design is intentional:
-
-- **`afterAll` hook**: Fires when a worker dies. When a test fails and Playwright restarts the worker for retries, the old worker's `afterAll` deletes the namespace before the retry can use it.
-- **Worker fixture teardown**: Same problem — runs on worker exit, not on suite completion.
-- **`globalTeardown`**: Runs after all tests but has no visibility into which projects ran or which namespaces were created.
-
-The reporter runs in the main Playwright process (survives worker restarts) and tracks per-project test completion including retries. With `CI=true`, it deletes each project's namespaces as soon as its last test finishes, including failed projects after collecting their diagnostics. It also attempts cleanup of unfinished projects when the run ends.
-
-### Playwright Fixtures
-
-| Fixture | Scope | Purpose |
-|---------|-------|---------|
-| `rhdh` | worker | `RHDHDeployment` instance — `configure()`, `deploy()`, `k8sClient`, `deploymentConfig` |
-| `uiHelper` | test | UI interactions — `verifyHeading()`, `openSidebar()`, `clickButton()`, `verifyRowsInTable()` |
-| `loginHelper` | test | Authentication — `loginAsKeycloakUser()`, `loginAsGuest()` |
-| `baseURL` | test | Auto-set to the deployed RHDH URL |
-
-### Best Practices
-
-**One project per spec file.** Each Playwright project creates a separate RHDH deployment in its own namespace. A workspace should have one project targeting one spec file. This keeps deployments isolated and avoids namespace conflicts. If a workspace needs multiple test configurations (different auth, different plugins), use multiple projects with `testMatch`:
-
-```typescript
-// playwright.config.ts
-export default defineConfig({
-  projects: [
-    { name: "my-plugin", testMatch: "my-plugin.spec.ts" },
-    { name: "my-plugin-guest", testMatch: "my-plugin-guest.spec.ts" },
-  ],
-});
-```
-
-**Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
-
-### Unified Test Runner (run-e2e.sh)
-
-`run-e2e.sh` runs E2E tests from ALL workspaces (or a subset) in a single Playwright process from the repo root. Used by CI nightly jobs and for cross-workspace validation.
-
-```bash
-./run-e2e.sh                          # All workspaces
-./run-e2e.sh -w tech-radar            # Single workspace
-./run-e2e.sh -w backstage -w keycloak # Multiple workspaces
-./run-e2e.sh --list                   # Dry run — list discovered projects
-./run-e2e.sh --workers=4              # Control parallelism
-```
-
-**Why a single root Playwright instead of per-workspace parallel?**
-- Workers auto-balance across all projects (no idle resources when workspaces differ in size)
-- Keycloak `globalSetup` runs once (no race conditions)
-- Single HTML report with traces/screenshots/videos (no merge step)
-- Standard Playwright CLI works (`--project`, `--grep`, `--shard`)
-- Yarn resolutions validates dependency upgrades across all workspaces in one run
-
-**Why yarn workspaces is required (not optional):** Playwright errors out if `@playwright/test` is loaded from more than one file path in a process. With separate `node_modules` per workspace, each resolves from a different path. Yarn workspaces hoists to a single root `node_modules`.
-
-Nothing is committed — `package.json`, `playwright.config.ts`, `.yarnrc.yml` are generated at runtime.
-
-### Running Tests
-
-Start with the [Local E2E quick start](#local-e2e-quick-start). For detailed setup or local test-utils builds, follow the [local-run documentation](#local-e2e-documentation).
-
-**From a workspace (local development):**
-
-```bash
-cd workspaces/tech-radar/e2e-tests
-unset CI                     # clear inherited CI mode for this shell
-yarn install
-npx playwright install chromium
-
-# Choose a test command:
-yarn test                    # required secrets already supplied
-yarn test:secrets            # load secrets from the repository profile
-yarn test --headed           # watch in browser
-yarn test --ui               # Playwright UI mode
-yarn report                  # open last HTML report
-```
-
-Use `test:secrets` instead of `test` when secrets need to be loaded; it accepts the same Playwright options, such as `yarn test:secrets --headed`. Follow the linked local-running guide for optional, non-secret `.env` configuration.
-
-**Test locally with PR-built OCI images:**
-
-Publish the PR's OCI images with `/publish` before running. From the repository root:
-
-```bash
-CI=false GIT_PR_NUMBER=1845 ./run-e2e.sh --secrets -w tech-radar
-```
-
-`GIT_PR_NUMBER` selects PR-built images.
-
-### CI behavior for local runs
-
-The current checkout has these local-run caveats:
-
-- The root runner sets an unset or empty `CI` to `"true"`. Use `CI=true` for automatic namespace cleanup or `CI=false` to retain deployments for debugging.
-- `CI=false` is a nonempty string. It still enables `forbidOnly` and ignores `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true`; it does not fully disable CI behavior.
-- In `backstage`, GitHub-discovery and TechDocs projects use one retry with either string and zero with `CI` unset. GitLab scaffolder resource cleanup defaults to enabled only for `CI=true`; override it independently with `GITLAB_SCAFFOLDER_CLEANUP=true` or `false`.
-- For local nightly reproduction, set `E2E_NIGHTLY_MODE=true`. The root runner defaults `RELEASE_BRANCH_NAME` to `main` and `RHDH_VERSION` to `next`; when reproducing another release, set both explicitly (for example `RELEASE_BRANCH_NAME=release-2.1 RHDH_VERSION=2.1`). Set the branch explicitly for direct workspace runs with a nonempty `CI`, or when reproducing a Prow job locally.
-- Set `CI` in the launching shell, not workspace `.env` files: those load after Playwright configuration evaluation and can make configuration and cleanup use different values.
-
-Direct workspace runs normally need no `CI` setting. The workspace example uses `unset CI` once to clear any inherited value for subsequent commands in that shell. For a single command without changing the shell's environment, use `env -u CI yarn test:secrets --headed` from the workspace directory instead.
-
-Both forms allow focused tests and retain namespaces for direct workspace runs. The root runner restores `CI=true` when `CI` is unset, so clearing it does not enable local-mode behavior through `run-e2e.sh`.
-
-### Local Development Gotchas
-
-**Retained namespaces need manual cleanup.** With `CI=false`, inspect the retained deployments, then delete their namespaces when debugging is complete:
-```bash
-oc delete project <namespace>
-```
-
-**Keycloak is reused automatically.** If Keycloak is already deployed from a previous run, global setup detects it and skips re-deployment. Use `SKIP_KEYCLOAK_DEPLOYMENT=true` only if you don't want Keycloak at all (e.g., guest-auth tests).
-
-### Key Environment Variables
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `RHDH_VERSION` | RHDH version to deploy; workspace configuration may override it | `next` in root runner |
-| `INSTALLATION_METHOD` | `"helm"` or `"operator"` | `"helm"` |
-| `GIT_PR_NUMBER` | PR number — enables PR mode with PR-built OCI images | - |
-| `E2E_NIGHTLY_MODE` | `"true"` or `"1"` — enables nightly mode with released OCI refs | - |
-| `RELEASE_BRANCH_NAME` | Branch for nightly default-package resolution | `main` in local root runs; supplied by Prow jobs |
-| `JOB_NAME` | CI job name; `periodic-` prefix triggers nightly mode | - |
-| `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak in global setup | - |
-| `SKIP_OPERATOR_INSTALLATION` | Reuse an installed operator when `INSTALLATION_METHOD=operator` | Unset (install operator) |
-| `CI` | See [CI behavior for local runs](#ci-behavior-for-local-runs) for cleanup and focused-test behavior | `true` in root runner |
-| `E2E_TEST_UTILS_PATH` | Local e2e-test-utils build path (takes precedence over version) | - |
-| `E2E_TEST_UTILS_VERSION` | Pin e2e-test-utils npm version | `latest` (nightly) |
-| `CATALOG_INDEX_IMAGE` | Override the catalog index image in the RHDH chart | - |
-
-### CI Jobs
-
-| Job | When | Workspaces | OCI Images |
-|-----|------|-----------|------------|
-| PR check (`e2e-ocp-helm`) | PR with e2e changes | Changed workspace only | PR-built (`pr_` tags) |
-| PR check (`e2e-ocp-operator`) | PR with e2e changes (operator lane) | Changed workspace only | PR-built (`pr_` tags) |
-| Nightly (`e2e-ocp-helm-nightly`) | Mon/Wed/Fri on `main`; weekdays on release branches; manual | All workspaces | Released (metadata refs) |
-| Nightly (`e2e-ocp-operator-nightly`) | Tue/Thu on `main`; weekdays on release branches where enabled; manual | All workspaces | Released (metadata refs) |
-
-Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` (or `/test e2e-ocp-operator-nightly`) on a PR.
-
-Operator jobs are enabled in OpenShift CI on `main` and `release-2.1`. Diagnose the installation method from the build log, not the job name alone.
-
-### Failure Analysis
-
-A Claude Code skill is available at `.claude/skills/` for investigating E2E failures:
-
-- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison. Its architecture reference covers Helm and operator configuration differences.
-
-## E2E Nightly Fix Conventions
+## Rules for E2E fixes
 
 When fixing E2E test failures from `[fullsend] E2E:` issues:
 
-### Allowed modifications
-- `workspaces/<workspace>/e2e-tests/` — any file under the e2e-tests directory
+**Allowed modifications**
 
-### Prohibited modifications
+- `workspaces/<workspace>/e2e-tests/` — any file under the e2e-tests directory
+- `workspaces/<workspace>/metadata/` — only for `metadata_config` fixes
+
+**Prohibited modifications**
+
 - Plugin source code (`workspaces/*/plugins/`)
 - CI configuration (`.github/`)
-- Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
+- Repository config (`AGENTS.md`, `CODEOWNERS`, `.fullsend/`)
 
-### Skipping tests (product_bug classification)
-When the issue says `fix_category: product_bug`, add a skip scoped to the lane
-where the bug occurs instead of fixing the test. The CI step sets
-`E2E_NIGHTLY_MODE=true` for both Helm and operator nightlies, so a bare nightly
-skip silently drops the other lane's coverage:
+The triage agent sets `fix_category` in the issue body, and it decides what you may change:
 
-    # Operator-only defect
-    test.skip(process.env.INSTALLATION_METHOD === "operator", "<root cause summary>");
+| Category | Root cause | Action |
+|----------|-----------|--------|
+| `test_fix` | Bug in the test code itself | Fix the test code |
+| `metadata_config` | Incorrect workspace metadata or repo-local config | Fix the metadata/config, or flag for human review |
+| `product_bug` | Upstream plugin code defect you cannot fix | Add `test.skip` |
 
-    # Helm-only defect
-    test.skip(process.env.INSTALLATION_METHOD !== "operator", "<root cause summary>");
+For `product_bug`, skip with the condition that matches the failure scope. CI sets `E2E_NIGHTLY_MODE=true` for both Helm and operator nightlies, so a bare nightly skip drops the other lane's coverage:
 
-    # Affects both lanes
-    test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
+```typescript
+test.skip(process.env.INSTALLATION_METHOD === "operator", "<root cause summary>");  // operator only
+test.skip(process.env.INSTALLATION_METHOD !== "operator", "<root cause summary>");  // Helm only
+test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");                 // both lanes, nightly
+test.skip(true, "<root cause summary> (release-X.Y)");                             // branch-wide
+```
 
-### Verification
-After changes, run from the workspace's e2e-tests directory:
+Do not add `test.skip` for `metadata_config`. The full procedure — systemic workspace failures, out-of-scope causes, mode-dependent `configure()` options, skip-scope review, and verification commands — is in `docs/agents/knowledge/e2e-fix-workflow.md`.
 
-    npx tsc --noEmit
-    npx eslint <changed-files>
-    npx prettier --check <changed-files>
+## Adding guidance
 
-## Documentation
-
-- `README.md` — Repo overview, PR workflow, testing procedures
-- `user-guide/` — 6-part contributor guide (getting started, export tools, ownership, metadata sync, versions, patches) plus catalog index pipeline docs
-- `user-guide/troubleshooting-catalog-index.md` — Troubleshooting content embedded by `renderCatalogStatus.py` into each generated status page. Anchor slugs must stay in sync with `REASON_ANCHORS` in the renderer
-- `catalog-entities/extensions/README.md` — Extensions catalog metadata format
-- GitHub Wiki — Auto-synced from `user-guide/` with dynamic content injection (`{{AUTO:*}}` placeholders replaced from `versions.json`)
-- **E2E test utils docs** — https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs — latest API docs, changelogs, tutorials, and configuration reference for `@red-hat-developer-hub/e2e-test-utils`
+New detailed knowledge goes in its own file under `docs/agents/knowledge/`, indexed from `CONTEXT.md`. `AGENTS.md` holds pointers and prohibitions only; do not add topic sections here.

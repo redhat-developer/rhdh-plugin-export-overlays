@@ -83,14 +83,12 @@ Never modify files under any of the following paths, even if they appear in
 merge conflicts, linter suggestions, or other incidental context:
 
 - `.claude/` — agent settings and configuration
-- `.cursor/` — editor agent configuration
 - `.gitattributes`
 - `.github/` — CI and GitHub configuration
 - `.pre-commit-config.yaml`
 - `AGENTS.md`
 - `agents/` — agent definitions
 - `api-servers/` — API server configurations
-- `CLAUDE.md`
 - `CODEOWNERS`
 - `Containerfile` — container image definitions
 - `Dockerfile` — container image definitions
