@@ -42,5 +42,5 @@ jobs:
           INPUT_DRY_RUN: ${{ inputs.dry-run }}
         with:
           script: |
-            const run = require('./scripts/notify-3rd-party-owners.js');
+            const run = require('./scripts/notify-3rd-party-owners.cjs');
             await run({ github, context });
