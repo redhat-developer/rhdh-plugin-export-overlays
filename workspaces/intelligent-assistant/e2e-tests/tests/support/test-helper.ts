@@ -66,6 +66,39 @@ type BackstageCR = {
   };
 };
 
+async function deploymentGeneration(
+  resource: string,
+  ns: string,
+): Promise<number> {
+  const result = await $({
+    stdio: ["pipe", "pipe", "pipe"],
+  })`oc get ${resource} -n ${ns} -o ${"jsonpath={.metadata.generation}"}`;
+  return Number(result.stdout.trim());
+}
+
+/**
+ * Wait until the Deployment spec changes after a Backstage CR update, so that
+ * `oc rollout status` tracks the operator's rollout instead of returning on
+ * the old, already-complete one.
+ */
+async function waitForDeploymentUpdate(
+  resource: string,
+  ns: string,
+  generationBefore: number,
+  timeoutMs = 120_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await deploymentGeneration(resource, ns)) > generationBefore) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
+  console.warn(
+    `${resource} generation did not change within ${timeoutMs}ms of the Backstage CR update`,
+  );
+}
+
 /**
  * RHDH chart 2.1+ (intelligentAssistant) creates
  * `{release}-ia-stack` with data key `lightspeed-stack.yaml`.
@@ -126,6 +159,13 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const tmp = path.join(os.tmpdir(), `${ns}-lightspeed-stack.yaml`);
   fs.writeFileSync(tmp, yaml.dump(config));
 
+  const resource = isOperator
+    ? "deployment/backstage-developer-hub"
+    : "deployment/redhat-developer-hub";
+  const podSelector = isOperator
+    ? "rhdh.redhat.com/app=backstage-developer-hub"
+    : "app.kubernetes.io/component=backstage";
+
   if (isOperator) {
     const newConfigMap = `${cm}-test`;
     await rhdh.k8sClient.createOrUpdateConfigMap(
@@ -162,17 +202,16 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
     const tmpFile = path.join(os.tmpdir(), `${ns}-backstage.yaml`);
     fs.writeFileSync(tmpFile, yaml.dump(backstageConfig));
 
+    const generationBefore = await deploymentGeneration(resource, ns);
     await $`oc apply -f ${tmpFile}`;
+    // The operator reconciles the CR change into its own hub rollout. A manual
+    // `oc rollout restart` on top races it (subPath mount failures), so only
+    // wait for the operator to update the Deployment before tracking rollout.
+    await waitForDeploymentUpdate(resource, ns, generationBefore);
   } else {
     await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, dataKey);
+    await $`oc rollout restart ${resource} -n ${ns}`;
   }
-  const resource = isOperator
-    ? "deployment/backstage-developer-hub"
-    : "deployment/redhat-developer-hub";
-  const podSelector = isOperator
-    ? "rhdh.redhat.com/app=backstage-developer-hub"
-    : "app.kubernetes.io/component=backstage";
-  await $`oc rollout restart ${resource} -n ${ns}`;
   // waitUntilReady() is true while old+new hub pods are both Ready (plus Postgres),
   // which races Keycloak sessions across pods (in-memory session store). Gate on
   // rollout completion and Ready backstage pods before login/tests.
