@@ -2,13 +2,14 @@
 # are auto-loaded from metadata, and most require provider config (github, gitlab,
 # kubernetes, ldap, etc.) that this test doesn't supply, crashing RHDH on startup.
 # Guest auth is loaded by the e2e-test-utils `auth: "guest"` profile.
+#
+# The tag below is documentation, not control: the harness resolves this entry by
+# image name to the `backstage-plugin-auth` Package metadata artifact, so a stale
+# tag deploys the same build and does not need a PR to refresh.
+#
+# No `dynamicPlugins.frontend` wiring: the plugin registers /oauth2 itself through
+# its PageBlueprint, and the new frontend system ignores that key anyway. Keeping
+# it would hide whether the plugin still self-registers.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          backstage.plugin-auth:
-            dynamicRoutes:
-              - path: /oauth2/*
-                importName: Router

@@ -12,6 +12,8 @@
 //   1. structural — every Package must carry a non-empty first
 //      appConfigExamples[].content, or opt out via spec.appConfigNotRequired.
 //      Ported unchanged from the previous Python script (RHIDP-12590).
+//      An example that still wires legacy Scalprum dynamicRoutes/mountPoints
+//      fails here too (RHDHBUGS-4065).
 //   2. semantic — each example's content must satisfy the plugin's own config
 //      schema, read from the published package (RHIDP-13509). Off by default;
 //      enable with --check-schemas.

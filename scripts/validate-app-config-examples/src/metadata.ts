@@ -45,6 +45,49 @@ export function isEmptyContent(content: unknown): boolean {
   return false;
 }
 
+/**
+ * The legacy Scalprum route/mount-point wiring an example still carries, as
+ * `<pluginId>.<key>`, or undefined when it carries none.
+ *
+ * The new frontend system ignores `dynamicPlugins.frontend.dynamicRoutes` and
+ * `dynamicPlugins.frontend.*.mountPoints`, so an example holding them publishes
+ * dead wiring as the package's "Default configuration". It is not decorative:
+ * `scripts/generateDynamicPluginsDefaultYaml.sh` copies
+ * `spec.appConfigExamples[0].content` into the generated dynamic-plugins file,
+ * so a deployer who trusts that example copies wiring that does nothing.
+ *
+ * RHDHBUGS-4065 is why this is a verdict and not a review note. overlays#4359
+ * cleaned 14 packages, then automated workspace-update PRs merged branches cut
+ * before it and re-added the blocks, because nothing rejected them.
+ *
+ * Only these two keys are rejected. The rest of `dynamicPlugins.frontend`
+ * still carries working configuration — `themes`, `entityTabs`,
+ * `translationResources`, `analyticsApiExtensions` — and a blanket rejection of
+ * the wrapper would fail nine packages that are correct.
+ */
+export function legacyScalprumWiring(content: unknown): string | undefined {
+  if (!isPlainObject(content)) {
+    return undefined;
+  }
+  const frontend = isPlainObject(content.dynamicPlugins)
+    ? content.dynamicPlugins.frontend
+    : undefined;
+  if (!isPlainObject(frontend)) {
+    return undefined;
+  }
+  for (const [pluginId, config] of Object.entries(frontend)) {
+    if (!isPlainObject(config)) {
+      continue;
+    }
+    for (const key of ["dynamicRoutes", "mountPoints"]) {
+      if (key in config) {
+        return `${pluginId}.${key}`;
+      }
+    }
+  }
+  return undefined;
+}
+
 /** Evaluates one metadata document. Pure — takes text, so it is easy to test. */
 export function evaluateDocument(text: string): StructuralResult {
   let doc: unknown;
@@ -75,6 +118,24 @@ export function evaluateDocument(text: string): StructuralResult {
 
   if (!Array.isArray(examples)) {
     return { status: "FAIL", detail: "appConfigExamples must be a list", doc };
+  }
+
+  // Checked on every example rather than the first one only: the wiring is
+  // equally invalid in a second "Alternative configuration" entry, and this
+  // verdict is about what the package publishes, not about which entry the
+  // catalog shows by default.
+  for (const [index, example] of examples.entries()) {
+    if (!isPlainObject(example)) {
+      continue;
+    }
+    const wiring = legacyScalprumWiring(example.content);
+    if (wiring) {
+      return {
+        status: "FAIL",
+        detail: `appConfigExamples[${index}] still wires legacy Scalprum ${wiring}; the new frontend system ignores it — drop it and opt out with spec.appConfigNotRequired: true, or declare what the plugin needs in an NFS-shaped example`,
+        doc,
+      };
+    }
   }
 
   if (examples.length === 0) {
