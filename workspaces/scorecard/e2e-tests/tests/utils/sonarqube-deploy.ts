@@ -8,6 +8,8 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 const TOKEN_SECRET = "sonarqube-e2e-token";
+/** Project keys that scan-job.yaml submits. */
+const SCANNED_PROJECTS = ["demo", "demo-low"] as const;
 const sonarqubeDir = path.join(import.meta.dirname, "../config/sonarqube");
 
 /**
@@ -53,6 +55,29 @@ export async function deploySonarQube(
     await provisionToken(k8s, namespace, baseUrl);
   }
 
+  await runScanJob(k8s, namespace);
+
+  // A finished scan Job only means the reports were uploaded. The compute
+  // engine processes them afterwards, and a SonarQube restart mid-task drops
+  // the task, leaving the project without measures. Resubmit once if so.
+  const authorization = basicAuthorization(readSonarQubeToken(namespace), "");
+  let unprocessed = await waitForAnalysesProcessed(baseUrl, authorization);
+  if (unprocessed.length > 0) {
+    await waitForSonarUp(baseUrl);
+    await runScanJob(k8s, namespace);
+    unprocessed = await waitForAnalysesProcessed(baseUrl, authorization);
+  }
+  if (unprocessed.length > 0) {
+    throw new Error(
+      `SonarQube did not process a coverage analysis for project(s) ${unprocessed.join(", ")} after resubmitting the scan`,
+    );
+  }
+}
+
+async function runScanJob(
+  k8s: KubernetesClientHelper,
+  namespace: string,
+): Promise<void> {
   deleteJobIfPresent(namespace);
   await applyManifest(k8s, path.join(sonarqubeDir, "scan-job.yaml"), namespace);
   await waitForScanJob(namespace);
@@ -303,6 +328,112 @@ async function waitForScanJob(namespace: string): Promise<void> {
     },
     `Timed out waiting for job sonarqube-scan in namespace ${namespace}`,
   );
+}
+
+type AnalysisState = "processed" | "pending" | "lost";
+
+/**
+ * Waits for the compute engine to process each scanned project and returns
+ * the keys that are not usable: no successful task, no coverage measure, or
+ * still queued when the shared deadline passes.
+ */
+async function waitForAnalysesProcessed(
+  baseUrl: string,
+  authorization: string,
+): Promise<string[]> {
+  const deadline = Date.now() + 300_000;
+  const unprocessed: string[] = [];
+  for (const projectKey of SCANNED_PROJECTS) {
+    const state = await pollForValue<AnalysisState>(
+      deadline,
+      5_000,
+      async () => {
+        const current = await readAnalysisState(
+          baseUrl,
+          authorization,
+          projectKey,
+        );
+        return current === "pending" ? undefined : current;
+      },
+      `Timed out waiting for SonarQube to process project ${projectKey}`,
+    ).catch((): AnalysisState => "pending");
+    if (state !== "processed") {
+      unprocessed.push(projectKey);
+    }
+  }
+  return unprocessed;
+}
+
+async function readAnalysisState(
+  baseUrl: string,
+  authorization: string,
+  projectKey: string,
+): Promise<AnalysisState> {
+  const ce = await getSonarJson(
+    baseUrl,
+    "/api/ce/component",
+    { component: projectKey },
+    authorization,
+  );
+  if (!isRecord(ce)) {
+    // Unreachable or restarting; keep polling.
+    return "pending";
+  }
+  if (Array.isArray(ce.queue) && ce.queue.length > 0) {
+    return "pending";
+  }
+  if (!isRecord(ce.current) || ce.current.status !== "SUCCESS") {
+    return "lost";
+  }
+  const measures = await getSonarJson(
+    baseUrl,
+    "/api/measures/component",
+    { component: projectKey, metricKeys: "coverage" },
+    authorization,
+  );
+  if (!isRecord(measures)) {
+    return "pending";
+  }
+  return hasCoverageMeasure(measures) ? "processed" : "lost";
+}
+
+async function getSonarJson(
+  baseUrl: string,
+  pathname: string,
+  params: Record<string, string>,
+  authorization: string,
+): Promise<unknown> {
+  const target = new URL(pathname, baseUrl);
+  target.search = new URLSearchParams(params).toString();
+  try {
+    const response = await requestSonar(target, "GET", {
+      Authorization: authorization,
+    });
+    if (response.statusCode !== 200) {
+      return undefined;
+    }
+    const parsed: unknown = JSON.parse(response.body);
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function hasCoverageMeasure(body: Record<string, unknown>): boolean {
+  const component = body.component;
+  if (!isRecord(component) || !Array.isArray(component.measures)) {
+    return false;
+  }
+  return component.measures.some(
+    (measure: unknown) =>
+      isRecord(measure) &&
+      measure.metric === "coverage" &&
+      typeof measure.value === "string",
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 async function pollForValue<T>(
