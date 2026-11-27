@@ -34,7 +34,12 @@ on:
         required: false
   
 concurrency:
-  group: ${{ github.workflow_ref }}-${{ github.ref }}
+  # Per-PR group: /update-versions must run on several PRs in parallel.
+  # github.ref is the caller's ref (the default branch for issue_comment
+  # triggers), so without inputs.pr every PR shares one group and the second
+  # call cancels the first. Empty pr (bulk scheduled/dispatch runs) keeps the
+  # previous single 'all' group.
+  group: ${{ github.workflow_ref }}-${{ inputs.pr || 'all' }}
   cancel-in-progress: true
 
 jobs:

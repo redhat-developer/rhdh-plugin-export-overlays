@@ -1,0 +1,38 @@
+name: Auto-Publish Workspace PRs
+description: Publish the changed workspace automatically when a PR is authored by a trusted bot or someone with write access.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main, 'release-*']
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish PR
+    # Auto-publish only for trusted authors: the repo's own bots (whose PRs
+    # can't run unapproved pull_request workflows until the repo's fork-PR
+    # approval policy exempts prior contributors) and PR authors with write
+    # access. Everyone else keeps the manual `/publish` comment. No paths
+    # filter: the called workflow resolves the workspace from the PR files
+    # and reports the required `publish` status for zero workspaces (success,
+    # nothing to publish) and for several workspaces (failure, split the PR).
+    # Zero-workspace PRs would otherwise never get the required status.
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (contains(fromJSON('["github-actions[bot]", "fullsend-ai-coder[bot]"]'), github.event.pull_request.user.login) ||
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
+    concurrency:
+      group: auto-publish-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/auto-publish-pr.yaml
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
+      pull-requests: write
