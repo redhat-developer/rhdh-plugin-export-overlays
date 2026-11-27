@@ -1,6 +1,10 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test ACR plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   const dateRegex =
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2},\s\d{4}/gm;
 

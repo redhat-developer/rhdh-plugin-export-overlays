@@ -4,6 +4,10 @@ import { GitHubApiHelper } from "../../support/api/github-api-helper";
 import { RHDH_GITHUB_TEST_ORGANIZATION } from "../../support/constants/github/organization";
 
 test.describe("Github Discovery Catalog", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {

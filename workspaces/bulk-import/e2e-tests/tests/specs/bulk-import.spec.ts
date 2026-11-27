@@ -24,6 +24,10 @@ import {
 } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk Import plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetails = {
     name: catalogRepoName,

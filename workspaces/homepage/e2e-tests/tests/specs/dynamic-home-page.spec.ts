@@ -19,6 +19,10 @@ const DYNAMIC_HOME_PAGE_WRAPPER_DIST_NAMES: string[] = [
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
 test.describe.serial("Dynamic home page customization", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;
