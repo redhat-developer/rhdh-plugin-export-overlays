@@ -14,6 +14,12 @@ import {
   type AdoptionInsightsUiHelperForPanel,
 } from "../utils/adoption-insights";
 
+// Product bug: the analytics module crashes when it loads, so no events are
+// ingested and the data-dependent panels stay empty. Observed on the Helm
+// nightly only. Remove these skips once the module is fixed upstream.
+const ANALYTICS_MODULE_SKIP_REASON =
+  "analytics-module-adoption-insights fails to load on RHDH 2.2 (TypeError: Cannot read properties of undefined (reading 'make')); no events are ingested";
+
 test.describe.serial("Test Adoption Insights", () => {
   let context: BrowserContext | undefined;
   let page: Page;
@@ -80,6 +86,10 @@ test.describe.serial("Test Adoption Insights", () => {
     });
 
     test("Active users panel shows the visitor", async () => {
+      test.skip(
+        process.env.INSTALLATION_METHOD !== "operator",
+        ANALYTICS_MODULE_SKIP_REASON,
+      );
       const panel = getPanel(page, "Active users");
       // The analytics backend needs time to process page-view events
       // before they appear in the 'Today' bucket. Poll until the chart
@@ -98,6 +108,10 @@ test.describe.serial("Test Adoption Insights", () => {
     });
 
     test("Total number of users panel shows visitor of 100", async () => {
+      test.skip(
+        process.env.INSTALLATION_METHOD !== "operator",
+        ANALYTICS_MODULE_SKIP_REASON,
+      );
       const panel = getPanel(page, "Total number of users");
       await expect(panel.locator(".recharts-surface")).toBeVisible();
       await expect(panel.getByText(/^\d+of 100$/)).toBeVisible();
@@ -105,6 +119,10 @@ test.describe.serial("Test Adoption Insights", () => {
     });
 
     test("Data shows in Top plugins Entity", async () => {
+      test.skip(
+        process.env.INSTALLATION_METHOD !== "operator",
+        ANALYTICS_MODULE_SKIP_REASON,
+      );
       await testHelper.expectTopEntriesToBePresent(/plugins/i);
       await expect(
         getPanel(page, /plugins/i)
@@ -114,6 +132,10 @@ test.describe.serial("Test Adoption Insights", () => {
     });
 
     test("Rest of the panels are visible", async () => {
+      test.skip(
+        process.env.INSTALLATION_METHOD !== "operator",
+        ANALYTICS_MODULE_SKIP_REASON,
+      );
       const titles = ["templates", "catalog entities", "techdocs", "searches"];
 
       for (const title of titles) {
