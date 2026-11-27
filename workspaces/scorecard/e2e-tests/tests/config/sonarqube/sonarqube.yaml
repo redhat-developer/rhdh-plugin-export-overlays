@@ -75,12 +75,14 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           resources:
+            # Three JVMs at up to 512m heap each plus off-heap memory; 2Gi was
+            # OOMKilled while the compute engine processed a report.
             requests:
-              memory: 1Gi
+              memory: 2Gi
               cpu: 200m
               ephemeral-storage: 1Gi
             limits:
-              memory: 2Gi
+              memory: 3Gi
               cpu: "1"
               ephemeral-storage: 2Gi
       volumes:

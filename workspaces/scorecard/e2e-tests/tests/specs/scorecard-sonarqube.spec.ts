@@ -72,10 +72,10 @@ test.describe.serial("Scorecard SonarQube Tests", () => {
     await catalog.goToByName("sonarqube-low");
     await scorecard.openTab();
 
-    // Wait for SonarQube metric data to become available. After a pod
-    // restart, SonarQube may need extra time to complete its analysis
-    // scan — the metric shows "Metric data unavailable" with no status
-    // icon until the data is ready.
+    // deploySonarQube waits until SonarQube has processed both analyses and
+    // reports a coverage measure, so the data exists before RHDH starts.
+    // This wait only covers the scorecard backend fetching and rendering it;
+    // until then the card shows "Metric data unavailable" with no status icon.
     const coverageCard = scorecard.getScorecardCard(
       SONARQUBE_METRICS.codeCoverage,
     );
