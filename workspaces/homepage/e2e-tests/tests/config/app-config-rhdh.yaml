@@ -14,6 +14,23 @@ app:
         config:
           customizable: true
 
+# Nightly runs keep the catalog-index homepage-backend (disablePlugins is PR-only
+# in e2e-test-utils). The backend treats defaultWidgets as the NFS widget
+# allowlist, so list every widget this suite adds. In PR runs the backend is
+# disabled and this block has no effect.
+homepage:
+  defaultWidgets:
+    - id: rhdh-onboarding-section
+      ref: rhdh-onboarding-section
+    - id: rhdh-entity-section
+      ref: rhdh-entity-section
+    - id: rhdh-template-section
+      ref: rhdh-template-section
+    - id: recently-visited-card
+      ref: recently-visited-card
+    - id: top-visited-card
+      ref: top-visited-card
+
 permission:
   enabled: true
   rbac:

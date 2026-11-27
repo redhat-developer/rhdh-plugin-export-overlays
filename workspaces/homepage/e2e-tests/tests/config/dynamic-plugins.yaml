@@ -9,8 +9,12 @@
 # installer, the two defaultWidgets values conflict, and the init container
 # exits. homepage.spec.ts disablePlugins appends the quay disable after that
 # rewrite, which only happens when this file does not already contain the
-# backend. With no homepage backend, 3.1.0 does not filter widgets and the
-# customizable grid (Edit) mounts.
+# backend. e2e-test-utils applies disablePlugins only in PR runs
+# (GIT_PR_NUMBER set): there the backend is absent, 3.1.0 does not filter
+# widgets, and the customizable grid (Edit) mounts. Nightly runs keep the
+# catalog-index backend, which filters the Add-widget dialog to
+# homepage.defaultWidgets; app-config-rhdh.yaml lists every widget the suite
+# adds for that case.
 plugins:
   # Version from workspaces/backstage export: backstage-plugin-home
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.6__0.9.9
