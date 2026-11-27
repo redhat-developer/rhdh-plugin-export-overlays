@@ -79,6 +79,7 @@ test.describe("Check default RBAC permissions", () => {
 
   // Ensure we clean up in the event that a test fails so that we do not impact other tests
   test.afterAll(async () => {
-    await cleanupRoles(RBAC_ROLES, apiToken);
+    // No token means beforeAll failed before RHDH was deployed — nothing to clean up.
+    if (apiToken) await cleanupRoles(RBAC_ROLES, apiToken);
   });
 });
