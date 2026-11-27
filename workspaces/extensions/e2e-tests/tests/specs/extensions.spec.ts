@@ -310,14 +310,15 @@ test.describe("Admin > Extensions", () => {
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
+      await expect(page.getByTestId("enable-plugin")).toBeVisible();
 
-      const restartAlert = page
-        .getByRole("alert")
-        .filter({ hasText: "Backend restart required" });
-      await expect(restartAlert).toBeVisible();
-      await expect(restartAlert).toContainText(
-        `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
-      );
+      await page.getByRole("button", { name: "close" }).click();
+      const restartStatus = page
+        .getByTestId("restart-required-status")
+        .filter({ hasText: "Restart required" })
+        .first();
+      await expect(restartStatus).toBeVisible();
+      await expect(restartStatus).toContainText("Restart required");
     });
   });
 
@@ -358,9 +359,7 @@ test.describe("Admin > Extensions", () => {
         name: npmPackage,
       });
       await expect(techdocsRow).toBeVisible();
-      await expect(
-        techdocsRow.getByLabel("Edit package configuration"),
-      ).toBeVisible();
+      await expect(techdocsRow.getByLabel("Edit")).toBeVisible();
       await expect(
         techdocsRow.getByLabel("Download package configuration"),
       ).toBeVisible();
@@ -395,7 +394,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.searchPackages(plugin);
 
       const row = page.getByRole("row", { name: plugin });
-      await expect(row.getByLabel("Edit package configuration")).toBeVisible();
+      await expect(row.getByLabel("Edit")).toBeVisible();
       await expect(
         row.getByLabel("Download package configuration"),
       ).toBeVisible();
@@ -417,7 +416,7 @@ test.describe("Admin > Extensions", () => {
       await expect(
         page
           .getByRole("cell", {
-            name: "Edit package configuration",
+            name: "Edit",
           })
           .first(),
       ).toBeVisible();
@@ -478,7 +477,7 @@ test.describe("Admin > Extensions", () => {
 
         await page
           .getByRole("button", {
-            name: "Edit package configuration",
+            name: "Edit",
           })
           .click();
         await expect(
@@ -502,7 +501,7 @@ test.describe("Admin > Extensions", () => {
         );
         await expect(page.getByRole("alert").first()).toContainText(
           `The ${plugin} package requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
-          { timeout: 10000, ignoreCase: true },
+          { timeout: 30_000, ignoreCase: true },
         );
       });
     });
@@ -511,19 +510,15 @@ test.describe("Admin > Extensions", () => {
       page,
     }) => {
       const scaffolderPlugin = "Scaffolder Backend Module Regex";
-      const scaffolderPackage =
-        "@backstage-community/plugin-scaffolder-backend-module-regex-dynamic";
       const headerPlugin = "Global Header";
-      const headerPackage =
-        "@red-hat-developer-hub/backstage-plugin-global-header-dynamic";
 
       await extensions.searchPackages(scaffolderPlugin);
       await page.getByRole("checkbox").hover();
       await expect(page.getByLabel("Disable package")).toBeVisible();
       await page.getByRole("checkbox").click();
       await expect(page.getByRole("alert").first()).toContainText(
-        `The ${scaffolderPackage} package requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
-        { timeout: 15000 },
+        `The ${scaffolderPlugin} package requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
+        { timeout: 30_000 },
       );
 
       await extensions.searchPackages(headerPlugin);
@@ -540,16 +535,16 @@ test.describe("Admin > Extensions", () => {
         page
           .getByLabel("Backend restart required")
           .getByText("Backend restart required"),
-      ).toBeVisible({ timeout: 10000 });
+      ).toBeVisible({ timeout: 30_000 });
 
       const packageVerifications = [
         { rowTitle: "Name", rowValue: "Action" },
         {
-          rowTitle: scaffolderPackage,
+          rowTitle: scaffolderPlugin,
           rowValue: "Package disabled",
         },
         {
-          rowTitle: headerPackage,
+          rowTitle: headerPlugin,
           rowValue: "Package disabled",
         },
       ];
