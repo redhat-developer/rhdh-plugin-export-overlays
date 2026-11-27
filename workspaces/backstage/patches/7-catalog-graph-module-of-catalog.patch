@@ -1,0 +1,108 @@
+# Patch: Convert catalog-graph from standalone plugin to FrontendModule of catalog
+# Reason: Ties catalog-graph extensions lifecycle directly to catalog so they are naturally dropped when catalog is disabled
+diff --git a/plugins/catalog-graph/package.json b/plugins/catalog-graph/package.json
+index 6c129e1042f62..8ae218ca80751 100644
+--- a/plugins/catalog-graph/package.json
++++ b/plugins/catalog-graph/package.json
+@@ -2,8 +2,8 @@
+   "name": "@backstage/plugin-catalog-graph",
+   "version": "0.6.7",
+   "backstage": {
+-    "role": "frontend-plugin",
+-    "pluginId": "catalog-graph",
++    "role": "frontend-plugin-module",
++    "pluginId": "catalog",
+     "pluginPackages": [
+       "@backstage/plugin-catalog-graph"
+     ]
+diff --git a/plugins/catalog-graph/src/alpha.tsx b/plugins/catalog-graph/src/alpha.tsx
+index 282798829c11b..e0d747c785143 100644
+--- a/plugins/catalog-graph/src/alpha.tsx
++++ b/plugins/catalog-graph/src/alpha.tsx
+@@ -16,17 +16,18 @@
+ 
+ import {
+   ApiBlueprint,
+-  createFrontendPlugin,
++  createFrontendModule,
+   PageBlueprint,
+ } from '@backstage/frontend-plugin-api';
+ import { z } from 'zod/v4';
+-import { RiMindMap } from '@remixicon/react';
+ import { EntityCardBlueprint } from '@backstage/plugin-catalog-react/alpha';
+-import { catalogGraphRouteRef, catalogEntityRouteRef } from './routes';
++import { catalogGraphRouteRef } from './routes';
+ import {
+   catalogGraphApiRef,
+   DefaultCatalogGraphApi,
+   Direction,
++  ALL_RELATION_PAIRS,
++  ALL_RELATIONS,
+ } from '@backstage/plugin-catalog-graph';
+ 
+ const CatalogGraphEntityCard = EntityCardBlueprint.makeWithOverrides({
+@@ -58,6 +59,7 @@ const CatalogGraphEntityCard = EntityCardBlueprint.makeWithOverrides({
+ });
+ 
+ const CatalogGraphPage = PageBlueprint.makeWithOverrides({
++  name: 'catalog-graph',
+   configSchema: {
+     selectedKinds: z.array(z.string()).optional(),
+     selectedRelations: z.array(z.string()).optional(),
+@@ -87,28 +89,44 @@ const CatalogGraphPage = PageBlueprint.makeWithOverrides({
+ });
+ 
+ const CatalogGraphApi = ApiBlueprint.make({
++  name: 'catalog-graph',
+   params: defineParams =>
+     defineParams({
+       api: catalogGraphApiRef,
+       deps: {},
+-      factory: () => new DefaultCatalogGraphApi(),
++      factory: () =>
++        new DefaultCatalogGraphApi({
++          knownRelations: [
++            ...ALL_RELATIONS,
++            'scaffoldedFrom',
++            'scaffolderOf',
++          ],
++          knownRelationPairs: [
++            ...ALL_RELATION_PAIRS,
++            ['scaffolderOf', 'scaffoldedFrom'],
++          ],
++          defaultRelationTypes: { exclude: [] },
++        }),
+     }),
+ });
+ 
+-export default createFrontendPlugin({
+-  pluginId: 'catalog-graph',
+-  title: 'Catalog Graph',
+-  icon: <RiMindMap />,
+-  info: { packageJson: () => import('../package.json') },
+-  routes: {
+-    catalogGraph: catalogGraphRouteRef,
+-  },
+-  externalRoutes: {
+-    catalogEntity: catalogEntityRouteRef,
+-  },
++const catalogGraphModule = createFrontendModule({
++  pluginId: 'catalog',
+   extensions: [CatalogGraphPage, CatalogGraphEntityCard, CatalogGraphApi],
+ });
+ 
++export default Object.assign(catalogGraphModule, {
++  getExtension(id: string) {
++    const extensionsById: Record<string, any> = {
++      'entity-card:catalog-graph/relations': CatalogGraphEntityCard,
++      'api:catalog/catalog-graph': CatalogGraphApi,
++      'api:catalog-graph': CatalogGraphApi,
++      'page:catalog-graph': CatalogGraphPage,
++    };
++    return extensionsById[id];
++  },
++});
++
+ import { catalogGraphTranslationRef as _catalogGraphTranslationRef } from './translation';
+ 
+ /**

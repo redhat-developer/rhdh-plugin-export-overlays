@@ -509,6 +509,7 @@ test.describe(
       await page.goto("/settings");
       await uiHelper.verifyHeading("TEST Zeus");
 
+      // Check cookie duration after confirming session is live:
       const cookies = await page.context().cookies();
       const authCookie = cookies.find(
         (cookie) => cookie.name === "microsoft-refresh-token",
