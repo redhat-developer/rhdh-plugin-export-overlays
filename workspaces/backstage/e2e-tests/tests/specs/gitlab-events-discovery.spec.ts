@@ -4,9 +4,11 @@ import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
   bootstrapGitLabEventsApiClient,
   deployGitLabEventsHub,
-  prepareGitLabEventsParentGroup,
 } from "../../support/gitlab/events-test-setup.js";
-import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
+import {
+  prepareSelfHostedGitLabParentGroup,
+  runGitLabCleanupSafely,
+} from "../../support/gitlab/common-test-setup.js";
 
 test.describe.serial("GitLab Events - Discovery", () => {
   let testPrefix: string;
@@ -22,7 +24,7 @@ test.describe.serial("GitLab Events - Discovery", () => {
     testPrefix = bootstrapGitLabEventsApiClient();
     ({ rhdhUrl, catalogToken } = await deployGitLabEventsHub(rhdh));
 
-    const parent = await prepareGitLabEventsParentGroup();
+    const parent = await prepareSelfHostedGitLabParentGroup();
     parentGroupPath = parent.parentGroupPath;
     parentGroupId = parent.parentGroupId;
 

@@ -4,9 +4,11 @@ import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
   bootstrapGitLabEventsApiClient,
   deployGitLabEventsHub,
-  prepareGitLabEventsParentGroup,
 } from "../../support/gitlab/events-test-setup.js";
-import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
+import {
+  prepareSelfHostedGitLabParentGroup,
+  runGitLabCleanupSafely,
+} from "../../support/gitlab/common-test-setup.js";
 
 test.describe("GitLab Events - Org Data", () => {
   let testPrefix: string;
@@ -21,7 +23,7 @@ test.describe("GitLab Events - Org Data", () => {
     testPrefix = bootstrapGitLabEventsApiClient();
     ({ rhdhUrl, catalogToken } = await deployGitLabEventsHub(rhdh));
 
-    parentGroupId = (await prepareGitLabEventsParentGroup()).parentGroupId;
+    parentGroupId = (await prepareSelfHostedGitLabParentGroup()).parentGroupId;
 
     const webhookUrl = `${rhdhUrl}/api/events/http/gitlab`;
     systemHookId = await GitLabApiHelper.createSystemHook(

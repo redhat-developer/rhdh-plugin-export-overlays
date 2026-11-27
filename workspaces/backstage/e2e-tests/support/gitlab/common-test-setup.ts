@@ -1,12 +1,52 @@
+import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
+
 import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
 
-export async function prepareGitLabParentGroup(
-  parentGroupPath: string | undefined,
-): Promise<{
+type SelfHostedGitLabEnv = {
+  host: string;
+  token: string;
+  parentGroupPath: string;
+};
+
+function readRequiredEnv(name: string): string {
+  requireEnv(name);
+  return process.env[name] ?? "";
+}
+
+/**
+ * Connection to the self-hosted GitLab instance shared by every GitLab suite
+ * except gitlab-auth. The VAULT_ prefix is retained for compatibility with
+ * existing CI secret exports.
+ */
+export function requireSelfHostedGitLabEnv(): SelfHostedGitLabEnv {
+  return {
+    host: readRequiredEnv("VAULT_EVENTS_GITLAB_HOST"),
+    token: readRequiredEnv("VAULT_EVENTS_GITLAB_TOKEN"),
+    parentGroupPath: readRequiredEnv("VAULT_EVENTS_GITLAB_PARENT_ORG"),
+  };
+}
+
+/**
+ * Initializes {@link GitLabApiHelper} against the self-hosted instance and
+ * returns a unique resource prefix for this run.
+ */
+export function bootstrapSelfHostedGitLabApiClient(): string {
+  const { host, token } = requireSelfHostedGitLabEnv();
+  GitLabApiHelper.init(`https://${host}`, token);
+  return GitLabApiHelper.generateTestPrefix();
+}
+
+/**
+ * Resolves the self-hosted parent group and removes `e2e-` resources older than
+ * an hour that earlier runs left behind.
+ */
+export async function prepareSelfHostedGitLabParentGroup(): Promise<{
   parentGroupId: number;
   parentGroupPath: string;
 }> {
-  const parentGroup = await GitLabApiHelper.getGroupByPath(parentGroupPath);
+  const parentGroup = await GitLabApiHelper.getGroupByPath(
+    requireSelfHostedGitLabEnv().parentGroupPath,
+  );
   await GitLabApiHelper.cleanupStaleResources(parentGroup.id, "e2e-", 1);
   return {
     parentGroupId: parentGroup.id,

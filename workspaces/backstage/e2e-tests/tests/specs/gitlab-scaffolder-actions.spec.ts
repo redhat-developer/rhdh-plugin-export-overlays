@@ -2,9 +2,11 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import { GitLabScaffolderApi } from "../../support/api/gitlab-scaffolder-api.js";
-import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 import {
-  bootstrapGitLabDiscoveryApiClient,
+  bootstrapSelfHostedGitLabApiClient,
+  runGitLabCleanupSafely,
+} from "../../support/gitlab/common-test-setup.js";
+import {
   bootstrapGitLabScaffolderPreflight,
   buildGitLabScaffolderNames,
   deleteGitLabScaffolderSharedState,
@@ -47,7 +49,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
   });
 
   test.afterAll(async () => {
-    bootstrapGitLabDiscoveryApiClient();
+    bootstrapSelfHostedGitLabApiClient();
 
     const state = initOrRestoreGitLabScaffolderSharedState(
       playwrightProjectName,

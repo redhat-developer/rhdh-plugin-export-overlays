@@ -2,13 +2,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
-
 import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
 import { GitLabScaffolderApi } from "../api/gitlab-scaffolder-api.js";
 import { DeploymentOptions } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
-
-export const GITLAB_SCAFFOLDER_PARENT_GROUP = "rhdh-qe-test";
+import {
+  bootstrapSelfHostedGitLabApiClient,
+  requireSelfHostedGitLabEnv,
+} from "./common-test-setup.js";
 
 const GITLAB_SCAFFOLDER_RHDH_CONFIG: DeploymentOptions = {
   auth: "guest" as const,
@@ -33,24 +33,6 @@ export interface GitLabScaffolderSharedState {
   publishCompleted: boolean;
 }
 
-// The VAULT_ prefix is retained for compatibility with existing CI secret exports.
-export function requireGitLabDiscoverySecretEnv(): void {
-  requireEnv("VAULT_GITLAB_TOKEN_DECODED");
-}
-
-/**
- * Initializes {@link GitLabApiHelper} with gitlab.com credentials used by
- * gitlab-discovery and gitlab-scaffolder suites.
- */
-export function bootstrapGitLabDiscoveryApiClient(): string {
-  requireGitLabDiscoverySecretEnv();
-  GitLabApiHelper.init(
-    "https://gitlab.com",
-    process.env.VAULT_GITLAB_TOKEN_DECODED!,
-  );
-  return GitLabApiHelper.generateTestPrefix();
-}
-
 export function isGitLabScaffolderCleanupEnabled(): boolean {
   const { GITLAB_SCAFFOLDER_CLEANUP: cleanup, CI } = process.env;
   return cleanup !== "false" && (cleanup === "true" || CI === "true");
@@ -61,13 +43,13 @@ export function isGitLabScaffolderCleanupEnabled(): boolean {
  * the token can access the scaffolder parent group before RHDH deploy.
  */
 export async function bootstrapGitLabScaffolderPreflight(): Promise<void> {
-  bootstrapGitLabDiscoveryApiClient();
+  bootstrapSelfHostedGitLabApiClient();
   const currentUser = await GitLabScaffolderApi.getCurrentUser();
   console.log(
     `GitLab scaffolder preflight: authenticated as ${currentUser.username} (id=${currentUser.id})`,
   );
   const parentGroup = await GitLabApiHelper.getGroupByPath(
-    GITLAB_SCAFFOLDER_PARENT_GROUP,
+    requireSelfHostedGitLabEnv().parentGroupPath,
   );
   console.log(
     `GitLab scaffolder preflight: parent group "${parentGroup.full_path}" accessible (id=${parentGroup.id})`,
@@ -80,10 +62,11 @@ export function buildGitLabScaffolderNames(testPrefix: string): {
   projectName: string;
   repoUrl: string;
 } {
+  const { host, parentGroupPath } = requireSelfHostedGitLabEnv();
   const subgroupSlug = `${testPrefix}-subgroup`;
-  const subgroupPath = `${GITLAB_SCAFFOLDER_PARENT_GROUP}/${subgroupSlug}`;
+  const subgroupPath = `${parentGroupPath}/${subgroupSlug}`;
   const projectName = `${testPrefix}-app`;
-  const repoUrl = `gitlab.com?repo=${projectName}&owner=${encodeURIComponent(subgroupPath)}`;
+  const repoUrl = `${host}?repo=${projectName}&owner=${encodeURIComponent(subgroupPath)}`;
 
   return { subgroupSlug, subgroupPath, projectName, repoUrl };
 }
