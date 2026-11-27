@@ -179,6 +179,15 @@ jobs:
         working-directory: smoke-tests-native
         run: yarn install --immutable --mode=skip-build
 
+      - name: Install Chromium for the frontend render check
+        working-directory: smoke-tests-native
+        # A release branch whose harness predates the browser check has no playwright-core.
+        # The CLI runs through node, not the package manager, so no lifecycle script runs.
+        run: |
+          if grep -q '"playwright-core"' package.json; then
+            node node_modules/playwright-core/cli.js install --with-deps chromium
+          fi
+
       - name: Run the release plugin sanity check
         id: sanity
         working-directory: smoke-tests-native
@@ -236,6 +245,7 @@ jobs:
             smoke-tests-native/release-sanity-out/*.md
             smoke-tests-native/release-sanity-out/*.log
             smoke-tests-native/release-sanity-out/*.yaml
+            smoke-tests-native/release-sanity-out/*.png
             smoke-tests-native/release-sanity-out/config/
           if-no-files-found: ignore
           retention-days: 14

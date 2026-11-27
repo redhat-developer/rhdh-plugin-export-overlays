@@ -11,6 +11,12 @@
  */
 
 import { parse } from "yaml";
+import {
+  frontendRenderFailed,
+  withOutcome,
+  type FrontendRenderReport,
+  type RenderOutcome,
+} from "./frontend-render-logic";
 import type { UnresolvedRef } from "./report";
 import { compareStrings, isRecord } from "./util";
 
@@ -425,6 +431,12 @@ export type SanityReport = {
   startupError?: string;
   /** Set when the backend was up but the check could not read its plugins. */
   checkError?: string;
+  /** The browser check of community frontend packages; absent when it did not run. */
+  frontend?: FrontendRenderReport;
+  /** Set when the browser check was due but could not run. */
+  frontendError?: string;
+  /** Why the browser check did not run, so a green run says what it left out. */
+  frontendSkipped?: string;
 };
 
 export function passed(report: SanityReport): boolean {
@@ -437,7 +449,9 @@ export function passed(report: SanityReport): boolean {
     report.notLoaded.length === 0 &&
     // One directory per request; catches a shared directory of any ref shape.
     report.installed === report.requested &&
-    report.installed > 0
+    report.installed > 0 &&
+    report.frontendError === undefined &&
+    !(report.frontend && frontendRenderFailed(report.frontend))
   );
 }
 
@@ -478,6 +492,86 @@ function code(value: string): string {
 function quoteLogLine(line: string): string {
   const safe = line.replaceAll("```", "'''").replaceAll("@", "@\u200b");
   return safe.length > LOG_LINE_MAX ? `${safe.slice(0, LOG_LINE_MAX)}…` : safe;
+}
+
+/** The frontend render check's part of the summary. */
+function renderFrontendSection(report: SanityReport): string[] {
+  if (report.frontendError) {
+    return [
+      "",
+      `**The frontend check could not run:** ${report.frontendError}`,
+    ];
+  }
+  const fe = report.frontend;
+  if (!fe) {
+    return report.frontendSkipped
+      ? ["", `- Community frontend: skipped (${report.frontendSkipped})`]
+      : [];
+  }
+  const count = (outcome: RenderOutcome) => withOutcome(fe, outcome).length;
+  const lines = [
+    "",
+    `- Community frontend: ${fe.checked} checked, ${count("rendered")} rendered, ${count("failed")} failed, ${count("not-reported")} not reported, ${count("not-served")} not served, ${count("no-feature")} without a feature`,
+  ];
+  if (fe.excluded.length) {
+    lines.push(
+      "- Render excluded: " +
+        fe.excluded
+          .map((e) => `${code(e.packageName)} (${e.ticket})`)
+          .join(", "),
+    );
+  }
+  if (fe.shellError) {
+    lines.push("", `**The app did not render:** ${fe.shellError}`);
+  }
+  if (fe.globalErrors.length) {
+    lines.push(
+      "",
+      "**The dynamic frontend loader failed:**",
+      ...cappedList(fe.globalErrors.map(code)),
+    );
+  }
+  const failed = withOutcome(fe, "failed");
+  if (failed.length) {
+    lines.push(
+      "",
+      "**Community frontend packages that failed to load in the browser:**",
+      ...cappedList(
+        failed.map(
+          (r) => `${code(r.packageName)}: ${r.errors.map(code).join("; ")}`,
+        ),
+      ),
+    );
+  }
+  const notReported = withOutcome(fe, "not-reported");
+  // With no shell, every package is unreported; the shell error already says why.
+  if (notReported.length && !fe.shellError) {
+    lines.push(
+      "",
+      "**Served but never loaded by the app:**",
+      ...cappedList(notReported.map((r) => code(r.packageName))),
+    );
+  }
+  if (fe.unjudgedErrors.length) {
+    lines.push(
+      "",
+      "<details><summary>Load errors of frontend packages this check does not judge (not a failure)</summary>",
+      "",
+      ...cappedList(fe.unjudgedErrors.map(code)),
+      "</details>",
+    );
+  }
+  const notServed = withOutcome(fe, "not-served");
+  if (notServed.length) {
+    lines.push(
+      "",
+      "<details><summary>Installed but not served as a module federation remote (not a failure)</summary>",
+      "",
+      ...notServed.map((r) => `- ${code(r.packageName)}`),
+      "</details>",
+    );
+  }
+  return lines;
 }
 
 /** The markdown block posted to the job summary and the issue. */
@@ -546,6 +640,7 @@ export function renderSummary(report: SanityReport, runUrl?: string): string {
       ),
     );
   }
+  lines.push(...renderFrontendSection(report));
   if (report.failures.length) {
     lines.push(
       "",

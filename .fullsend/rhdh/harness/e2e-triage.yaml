@@ -10,8 +10,8 @@
 # It only reads artifacts, analyzes failures, and writes directives.
 # The code agent handles code changes after triage creates issues.
 agent: rhdh/agents/e2e-triage.md
-model: claude-opus-4-6
-image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
+model: opus
+image: ghcr.io/redhat-developer/rhdh-fullsend-code:0.57.1
 policy: rhdh/policies/e2e-triage.yaml
 
 # The SSRF pre-tool hook resolves DNS itself before allowing an outbound

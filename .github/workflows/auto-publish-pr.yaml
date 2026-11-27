@@ -83,16 +83,56 @@ jobs:
               }
             }
             core.setOutput('workspace', workspace);
-            if (workspace === '') {
-              core.warning(`PR #${prNumber} does not touch exactly 1 workspace — skipping publish`);
-              return;
-            }
-
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
               run_id: '${{ github.run_id }}',
             });
+            if (workspace === '') {
+              const prFilesForScope = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                per_page: 100,
+              });
+              const workspaceCount = new Set(prFilesForScope
+                .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
+                .filter(match => match)
+                .map(match => match[1])
+              ).size;
+              if (workspaceCount > 0) {
+                // There is publishable content but the workflow acts on exactly
+                // one workspace: fail-closed with an explicit reason instead of
+                // leaving the required status silently absent (RHIDP-18915).
+                await github.rest.repos.createCommitStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  sha: prCommit,
+                  description: `publish skipped: touches ${workspaceCount} workspaces; publish each separately`,
+                  state: 'failure',
+                  target_url: workflowRun.data.html_url,
+                  context: 'publish',
+                });
+                core.warning(`PR #${prNumber} touches ${workspaceCount} workspaces — publish status set to failure`);
+                return;
+              }
+              // No workspace files at all (e.g. a versions.json node bump):
+              // there is nothing to publish, and the required `publish` status
+              // would otherwise never be created, blocking the PR forever
+              // (RHIDP-18915). Report success instead.
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: prCommit,
+                description: 'no workspaces changed; nothing to publish',
+                state: 'success',
+                target_url: workflowRun.data.html_url,
+                context: 'publish',
+              });
+              core.notice(`PR #${prNumber} touches no workspaces; publish status set to success`);
+              return;
+            }
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,

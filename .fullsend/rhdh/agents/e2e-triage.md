@@ -4,7 +4,7 @@ description: >-
   Analyze E2E nightly test failures, classify and group them by root cause
   across workspaces, search for existing issues (dedup), and emit structured
   issue directives. Does NOT modify code, create branches, or fix tests.
-model: claude-opus-4-6
+model: opus
 disallowedTools: >-
   Edit, Write, MultiEdit,
   Bash(git push *), Bash(git push),
@@ -575,8 +575,8 @@ re-run the merge.
 
 ### Sub-agents
 
-- When spawning sub-agents, always pass `model: "claude-opus-4-6"`.
-- If a sub-agent fails due to a model error, retry with `model: "claude-opus-4-6"`
+- When spawning sub-agents, always pass `model: "claude-opus-5-5"`.
+- If a sub-agent fails due to a model error, retry with `model: "claude-opus-5-5"`
   explicitly.
 
 ### Issue body quality
