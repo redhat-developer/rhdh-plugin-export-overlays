@@ -452,9 +452,34 @@ means one of these:
   disk, so this fails **with every plugin loaded**;
 - the number of plugin directories differs from the number of requested packages, the
   backstop for the same defect when a package logs no path;
-- the backend did not start, or a plugin failed startup.
+- the backend did not start, or a plugin failed startup;
+- a community frontend package fails in the app itself (below).
 
 It replaces the manual sanity plugin check done on each RC.
+
+**Frontend render check.** Once the backend has loaded every plugin, the harness opens the
+app the container serves in headless Chromium, signs in as guest, and waits for the sidebar:
+the positive DOM fact that the signed-in shell rendered. The RHDH app loads every dynamic
+frontend plugin through `@backstage/frontend-dynamic-feature-loader`, which logs one line per
+exposed module, `Remote module '…' of dynamic plugin '<package>' loaded` or `Failed loading
+remote module '…' of dynamic plugin '<package>': <error>`. Those lines, and failed requests
+under `/.backstage/dynamic-features/remotes`, give each installed community frontend package
+(`spec.backstage.role` `frontend-plugin` or `frontend-plugin-module`) one outcome:
+
+| Outcome      | Meaning                                                                                                       | Fails the run |
+| ------------ | ------------------------------------------------------------------------------------------------------------- | ------------- |
+| rendered     | every module evaluated, at least one exports a frontend feature                                               | no            |
+| failed       | a module threw while loading, or one of its assets was not served                                             | yes           |
+| not reported | served as a remote, but the loader never mentioned it                                                         | yes           |
+| not served   | installed, but the backend does not serve it as a remote: no module federation build, or a malformed manifest | no, listed    |
+| no feature   | loaded, but no module exports a frontend feature (translations only, for example)                             | no            |
+
+The shell not rendering, or the loader failing to fetch the remotes or start module
+federation, also fails the run, with a screenshot in `frontend-shell.png`. "Not served" is a
+migration state the community sweep's bundle check already tracks, not a crash, so it is
+listed rather than failed. This is a load/render sanity check, the community tier's ceiling:
+it does not navigate to each plugin's pages. `--skip-frontend` skips it; otherwise it needs a
+Chromium for playwright-core (`yarn playwright-core install chromium`).
 
 No plugin version is written anywhere. The image and the catalog index come from a CI chart
 (`helm show values oci://quay.io/rhdh/chart --version <X.Y-N-CI>`), which pins both by
@@ -466,17 +491,20 @@ yarn release-sanity                               # newest CI chart of the newes
 yarn release-sanity --chart-version 2.2-79-CI     # one RC
 yarn release-sanity --stream 2.1                  # newest CI chart of the 2.1 stream
 yarn release-sanity --keep                        # leave the container running to inspect it
+yarn release-sanity --skip-frontend               # backend checks only, no browser
 ```
 
-Needs docker, helm, skopeo, jq and tar. The report, summary and container log land in
+Needs docker, helm, skopeo, jq and tar, plus Chromium for the frontend render check. The report, summary and container log land in
 `release-sanity-out/` (`--out`, which must stay inside the working directory).
 
 Config layers, in merge order: `smoke-tests/app-config.yaml`,
 every installed community plugin's first `appConfigExamples` entry (as app-config, not
 pluginConfig: the install CLI rejects two plugins setting one key differently), the dummies
 from `src/plugin-config.ts`, each workspace's `smoke-tests/app-config.test.yaml`,
-and guest sign-in. Each workspace's `test.env` applies, and every `${VAR}` still unset gets
-an `.invalid` URL. Exclusions live in `release-sanity-excludes.txt` (install scope only).
+and guest sign-in (with `signInPage: guest` for the browser). Each workspace's `test.env`
+applies, and every `${VAR}` still unset gets an `.invalid` URL. Exclusions live in
+`release-sanity-excludes.txt`: `install` scope leaves a package out entirely, `render`
+scope installs it but leaves it out of the frontend render check.
 
 In CI, `.github/workflows/release-plugin-sanity.yaml` runs it daily and when an org member
 or collaborator comments `/sanity <CI chart version>` on the issue labelled

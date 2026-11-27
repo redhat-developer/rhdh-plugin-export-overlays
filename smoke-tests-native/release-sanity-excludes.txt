@@ -1,8 +1,10 @@
 # Packages the release plugin sanity check (`yarn release-sanity`) does not install.
 #
-# Same grammar as catalog-index-sanity-excludes.txt (see src/exclusions.ts). Only the
-# `install` scope applies here: the check boots the real RHDH image, so a package is
-# either installed and expected to load, or not installed at all. Write patterns
+# Same grammar as catalog-index-sanity-excludes.txt (see src/exclusions.ts). Two scopes
+# apply here. `install`: the check boots the real RHDH image, so a package is either
+# installed and expected to load, or not installed at all. `render`: a community frontend
+# package is installed and its backend load checked, but the browser check does not judge
+# it (src/frontend-render-logic.ts). Write patterns
 # against the OCI image name; community packages are also matched by npm name, which
 # candidateNames() normalizes to the same form. Every entry needs a `TODO(TICKET)`.
 #
