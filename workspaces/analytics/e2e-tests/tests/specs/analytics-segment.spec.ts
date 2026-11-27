@@ -36,6 +36,10 @@ const SEGMENT_SETTINGS_RESPONSE = {
 /* eslint-enable @typescript-eslint/naming-convention */
 
 test.describe("Test Segment Analytics Plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "guest" });
     await rhdh.deploy();

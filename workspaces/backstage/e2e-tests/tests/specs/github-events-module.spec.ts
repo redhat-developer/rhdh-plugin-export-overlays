@@ -11,6 +11,10 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
 
 test.describe("GitHub Events Module", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   let githubEventsHelper: GitHubEventsHelper;
   let staticToken: string;
   let rhdhBaseUrl: string;

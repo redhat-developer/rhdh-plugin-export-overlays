@@ -10,6 +10,10 @@ import {
 import { FILECHECK_METRICS } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Filecheck Tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;

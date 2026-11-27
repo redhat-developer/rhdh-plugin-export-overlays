@@ -16,6 +16,10 @@ const setupScript = path.join(
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Test ArgoCD plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
 

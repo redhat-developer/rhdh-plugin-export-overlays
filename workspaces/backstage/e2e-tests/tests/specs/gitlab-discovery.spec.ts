@@ -2,6 +2,10 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("gitlab discovery UI tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   test.beforeAll(async ({ rhdh }) => {
     requireEnv("VAULT_GITLAB_TOKEN_DECODED");
 

@@ -22,6 +22,10 @@ import { ensureLightspeedDeployment } from "../support/test-helper";
 const RENAMED_NOTEBOOK_TITLE = "E2E Notebook Renamed";
 
 test.describe("Lightspeed notebooks", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
 
   let context: BrowserContext;

@@ -3,6 +3,10 @@ import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ExtensionsPage } from "../support/extensions";
 
 test.describe("Admin > Extensions", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   let extensions: ExtensionsPage;
   let uiHelper: UIhelper;
   const isMac = process.platform === "darwin";

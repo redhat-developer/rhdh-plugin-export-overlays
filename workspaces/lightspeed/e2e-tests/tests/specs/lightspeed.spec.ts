@@ -94,6 +94,10 @@ const DEFAULT_BOT_QUERY =
   "Reply with exactly one short sentence confirming you received this message.";
 
 test.describe("Lightspeed UI", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH 1.10 CI image lacks python: install-dynamic-plugins.sh exits 127 (RHDHBUGS-4136, redhat-developer/rhdh#5899). Remove once a fixed 1.10 CI chart is published.",
+  );
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
 
   let context: BrowserContext;
