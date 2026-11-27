@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-argo-cd"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd:bs_1.54.9__2.13.0
-  version: 2.13.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd:bs_1.57.1__2.13.1
+  version: 2.13.1
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.54.9
+    supportedVersions: 1.57.1
   author: Roadie
   support: community
   lifecycle: active
