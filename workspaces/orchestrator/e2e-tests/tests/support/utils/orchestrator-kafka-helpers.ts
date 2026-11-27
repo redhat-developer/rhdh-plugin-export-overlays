@@ -1,18 +1,12 @@
-import { spawnSync } from "node:child_process";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import yaml from "js-yaml";
 import { Agent } from "undici";
+import { KafkaDeployment } from "@red-hat-developer-hub/e2e-test-utils/kafka";
 import type { DeploymentMethod } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 import { describeFetchError } from "./fetch-error-description.js";
 import { runOc } from "./oc-helpers.js";
-
-const kafkaHelpersDir = import.meta.dirname;
-const KAFKA_INSTALL_SCRIPT = join(
-  kafkaHelpersDir,
-  "../scripts/install-orchestrator-kafka.sh",
-);
 
 const APP_CONFIG_CM = "app-config-rhdh";
 const APP_CONFIG_KEY = "app-config-rhdh.yaml";
@@ -24,42 +18,6 @@ const rhdhHttpsDispatcher = new Agent({
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function runKafkaInstallScript(
-  namespace: string,
-): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  process.env.KAFKA_NAMESPACE = namespace;
-  const result = spawnSync("bash", [KAFKA_INSTALL_SCRIPT], {
-    encoding: "utf-8",
-    timeout: 1_800_000,
-    maxBuffer: 32 * 1024 * 1024,
-    env: process.env,
-  });
-  if (result.error) {
-    throw new Error(
-      `install-orchestrator-kafka.sh failed: ${result.error.message}`,
-    );
-  }
-  return {
-    exitCode: result.status ?? 1,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
-  };
-}
-
-function parseBootstrapFromStdout(stdout: string): string {
-  const lines = stdout
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const bootstrap = lines[lines.length - 1];
-  if (!bootstrap?.includes(":")) {
-    throw new Error(
-      `install-orchestrator-kafka.sh did not print bootstrap (stdout=${JSON.stringify(stdout)})`,
-    );
-  }
-  return bootstrap;
 }
 
 /**
@@ -125,9 +83,11 @@ export async function patchAppConfigKafka(
     return;
   }
 
+  const isTls = bootstrap.includes(":9093");
   orch.kafka = {
     clientId: "orchestratorKafka",
     brokers: [bootstrap],
+    ...(isTls ? { ssl: { rejectUnauthorized: false } } : {}),
   };
   data.orchestrator = orch;
 
@@ -274,16 +234,9 @@ export async function configureOrchestratorKafka(
   namespace: string,
   method: DeploymentMethod,
 ): Promise<string> {
-  const result = await runKafkaInstallScript(namespace);
-  if (result.stderr.trim()) {
-    console.warn(result.stderr.trimEnd());
-  }
-  if (result.exitCode !== 0) {
-    throw new Error(
-      `install-orchestrator-kafka.sh exited with ${result.exitCode}: ${result.stderr || result.stdout}`,
-    );
-  }
-  const bootstrap = parseBootstrapFromStdout(result.stdout);
+  const kafka = new KafkaDeployment();
+  await kafka.deploy(namespace);
+  const bootstrap = kafka.getTlsServiceUrl();
   console.warn(
     `[configureOrchestratorKafka] Using Kafka bootstrap: ${bootstrap}`,
   );

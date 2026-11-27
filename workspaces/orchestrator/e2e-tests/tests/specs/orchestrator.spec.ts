@@ -16,9 +16,9 @@ function skipOrchestratorDeploy(): boolean {
 
 // Layer 4b: SonataFlow / OSL + published OCI artifact.
 test.describe("Orchestrator", () => {
+  test.describe.configure({ timeout: 3_600_000 });
+
   test.beforeAll(async ({ rhdh }, testInfo) => {
-    // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.
-    test.setTimeout(60 * 60 * 1000);
     await test.runOnce(
       `orchestrator-setup-${testInfo.project.name}`,
       async () => {

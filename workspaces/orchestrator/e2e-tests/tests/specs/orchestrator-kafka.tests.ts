@@ -1,4 +1,10 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  resolvedKeyExchangeGroup,
+  runOpensslSClientFromRhdhPod,
+  TLS_GROUPS,
+} from "@red-hat-developer-hub/e2e-test-utils/pqc";
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   PRIMARY_USER,
   configureOrchestratorKafka,
@@ -7,7 +13,6 @@ import {
   deleteRoleAndPolicies,
   deployLockFlowWorkflow,
   globalWorkflowPolicies,
-  setupAuthenticatedPage,
   type PolicySpec,
 } from "../support/utils/test-helpers.js";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
@@ -16,12 +21,13 @@ const ensureDataIndexOrSkip = createDataIndexGuard();
 
 const KAFKA_RBAC_ROLE = "role:default/kafkaRunAsEventTest";
 
-function kafkaE2eEnabled(): boolean {
-  return (
-    process.env.E2E_NIGHTLY_MODE === "true" ||
-    process.env.E2E_NIGHTLY_MODE === "1"
-  );
-}
+// Nightly-only gate disabled so the Kafka/PQC lane also runs in PR checks.
+// function kafkaE2eEnabled(): boolean {
+//   return (
+//     process.env.E2E_NIGHTLY_MODE === "true" ||
+//     process.env.E2E_NIGHTLY_MODE === "1"
+//   );
+// }
 
 function kafkaRbacPolicies(): PolicySpec[] {
   return [
@@ -37,20 +43,17 @@ function kafkaRbacPolicies(): PolicySpec[] {
 
 /**
  * L4b: Kafka + lock-flow Run as Event.
- * Runs on nightlies only (`E2E_NIGHTLY_MODE`); skipped in default PR e2e.
+ * Runs in both the PR e2e check and the nightly lanes.
  */
 export function registerOrchestratorKafkaTests(): void {
   test.describe("Kafka Run as Event", () => {
-    test.skip(
-      !kafkaE2eEnabled(),
-      "Kafka Run as Event e2e runs on nightlies only (E2E_NIGHTLY_MODE)",
-    );
+    test.describe.configure({ timeout: 3_600_000 });
+    // test.skip(
+    //   !kafkaE2eEnabled(),
+    //   "Kafka Run as Event e2e runs on nightlies only (E2E_NIGHTLY_MODE)",
+    // );
 
-    let apiToken: string;
-
-    test.beforeAll(async ({ browser, rhdh }, testInfo) => {
-      // Kafka install + workflow deploy + RHDH restart can exceed 40 minutes.
-      test.setTimeout(60 * 60 * 1000);
+    test.beforeAll(async ({ rhdh }, testInfo) => {
       await test.runOnce(
         `orchestrator-kafka-setup-${testInfo.project.name}`,
         async () => {
@@ -62,21 +65,34 @@ export function registerOrchestratorKafkaTests(): void {
           await deployLockFlowWorkflow(namespace, bootstrap);
         },
       );
-
-      ({ apiToken } = await setupAuthenticatedPage(browser, testInfo));
-      await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
-      await createRoleWithPolicies(
-        apiToken,
-        KAFKA_RBAC_ROLE,
-        [PRIMARY_USER],
-        kafkaRbacPolicies(),
-      );
     });
 
-    test.afterAll(async () => {
-      if (apiToken) {
-        await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
-      }
+    test("Verify RHDH establishes Post-Quantum (PQC) TLS 1.3 handshake with Kafka broker", async ({
+      rhdh,
+    }) => {
+      const namespace = rhdh.deploymentConfig.namespace;
+      const host = `kafka-pq.${namespace}.svc`;
+      const port = 9093;
+      const group = TLS_GROUPS.hybrid;
+
+      const tlsInfo = runOpensslSClientFromRhdhPod({
+        namespace,
+        host,
+        port,
+        group,
+      });
+      const negotiated = resolvedKeyExchangeGroup(tlsInfo);
+
+      console.warn(`[Kafka-PQC] target=${host}:${port} group=${group}`);
+      console.warn(`[Kafka-PQC] Protocol: ${tlsInfo.protocol ?? "unknown"}`);
+      console.warn(`[Kafka-PQC] Key exchange: ${negotiated ?? "unknown"}`);
+
+      expect(
+        tlsInfo.hasHandshakeError,
+        `PQC TLS 1.3 handshake to Kafka on port ${port} failed for group ${group}:\n${tlsInfo.raw}`,
+      ).toBe(false);
+      expect(tlsInfo.protocol).toMatch(/TLSv1\.3/iu);
+      expect(negotiated?.toLowerCase()).toBe(group.toLowerCase());
     });
 
     // Assertions live in OrchestratorPO.runLockFlowAsEvent / verifyEventTriggeredOrRunVisible.
@@ -90,7 +106,20 @@ export function registerOrchestratorKafkaTests(): void {
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
-      await orchestratorPo.runLockFlowAsEvent();
+
+      const apiToken = await new AuthApiHelper(page).getToken();
+      await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
+      await createRoleWithPolicies(
+        apiToken,
+        KAFKA_RBAC_ROLE,
+        [PRIMARY_USER],
+        kafkaRbacPolicies(),
+      );
+      try {
+        await orchestratorPo.runLockFlowAsEvent();
+      } finally {
+        await deleteRoleAndPolicies(apiToken, KAFKA_RBAC_ROLE);
+      }
     });
   });
 }
