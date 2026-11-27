@@ -100,6 +100,9 @@ export function createDataIndexGuard(): EnsureDataIndexOrSkip {
     const recovered = await recoverDataIndex(ns);
     if (!recovered) {
       dataIndexRecoveryFailed = true;
+      if (process.env.ORCHESTRATOR_STRICT_DATA_INDEX === "true") {
+        throw new Error("Data Index is unhealthy and could not be recovered");
+      }
     }
     testObj.skip(
       !recovered,
