@@ -14,6 +14,9 @@ import {
 // appends oci://quay.io/rhdh/<name>:{{inherit}} disabled: true only when that
 // name is not already in the plugin list. A {{inherit}} line in the yaml is
 // merged into the PR package and never disables the catalog-index backend.
+// disablePlugins only takes effect in PR runs (GIT_PR_NUMBER set). Nightly runs
+// keep the catalog-index backend and rely on the homepage.defaultWidgets
+// allowlist in tests/config/app-config-rhdh.yaml.
 const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
   "red-hat-developer-hub-backstage-plugin-homepage",
   "red-hat-developer-hub-backstage-plugin-homepage-backend",
